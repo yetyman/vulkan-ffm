@@ -10,6 +10,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>glfw-bindings</module>
         <module>vulkan-core</module>
         <module>sample-app</module>
     </modules>
@@ -19,6 +20,7 @@
             <id>with-bindings</id>
             <modules>
                 <module>vulkan-bindings</module>
+                <module>glfw-bindings</module>
                 <module>vulkan-core</module>
                 <module>sample-app</module>
             </modules>

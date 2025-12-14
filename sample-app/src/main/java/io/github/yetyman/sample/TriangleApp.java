@@ -6,13 +6,9 @@ import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
 import io.github.yetyman.vulkan.generated.VkDeviceQueueCreateInfo;
 import io.github.yetyman.vulkan.generated.VkDeviceCreateInfo;
 import io.github.yetyman.vulkan.generated.win32.VkWin32SurfaceCreateInfoKHR;
-import org.lwjgl.PointerBuffer;
+import io.github.yetyman.glfw.GLFW;
 
 import java.lang.foreign.*;
-
-import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.glfw.GLFWVulkan.*;
-import static org.lwjgl.system.MemoryUtil.*;
 
 public class TriangleApp {
     static { VulkanLibrary.load(); }
@@ -20,7 +16,7 @@ public class TriangleApp {
     private static final int WIDTH = 800;
     private static final int HEIGHT = 600;
     
-    private long window;
+    private MemorySegment window;
     private Arena arena;
     private MemorySegment instance;
     private MemorySegment physicalDevice;
@@ -37,15 +33,15 @@ public class TriangleApp {
     }
     
     private void initWindow() {
-        if (!glfwInit()) {
+        if (!GLFW.glfwInit()) {
             throw new RuntimeException("Failed to initialize GLFW");
         }
         
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        GLFW.glfwWindowHint(GLFW.GLFW_CLIENT_API, GLFW.GLFW_NO_API);
+        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_FALSE);
         
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Triangle", NULL, NULL);
-        if (window == NULL) {
+        window = GLFW.glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Triangle");
+        if (window.equals(MemorySegment.NULL)) {
             throw new RuntimeException("Failed to create window");
         }
         
@@ -66,14 +62,9 @@ public class TriangleApp {
         VkApplicationInfo.engineVersion(appInfo, 0);
         VkApplicationInfo.apiVersion(appInfo, Vulkan.VK_API_VERSION_1_0);
         
-        PointerBuffer glfwExtensions = glfwGetRequiredInstanceExtensions();
-        if (glfwExtensions == null) {
+        String[] extensions = GLFW.glfwGetRequiredInstanceExtensions(arena);
+        if (extensions == null) {
             throw new RuntimeException("Failed to get GLFW extensions");
-        }
-        
-        String[] extensions = new String[glfwExtensions.remaining()];
-        for (int i = 0; i < extensions.length; i++) {
-            extensions[i] = glfwExtensions.getStringUTF8(i);
         }
         
         System.out.println("Extensions: " + String.join(", ", extensions));
@@ -165,7 +156,7 @@ public class TriangleApp {
         queue = queuePtr.get(ValueLayout.ADDRESS, 0);
         System.out.println("[OK] Queue retrieved");
         
-        long hwnd = org.lwjgl.glfw.GLFWNativeWin32.glfwGetWin32Window(window);
+        long hwnd = GLFW.glfwGetWin32Window(window);
         
         MemorySegment surfaceCreateInfo = VkWin32SurfaceCreateInfoKHR.allocate(arena);
         VkWin32SurfaceCreateInfoKHR.sType(surfaceCreateInfo, 1000009000);
@@ -188,8 +179,8 @@ public class TriangleApp {
         
         System.out.println("[OK] Rendering enabled with per-frame Arena");
         
-        while (!glfwWindowShouldClose(window)) {
-            glfwPollEvents();
+        while (!GLFW.glfwWindowShouldClose(window)) {
+            GLFW.glfwPollEvents();
             renderer.drawFrame();
         }
     }
@@ -219,12 +210,12 @@ public class TriangleApp {
             arena.close();
         }
         
-        if (window != NULL) {
-            glfwDestroyWindow(window);
+        if (window != null && !window.equals(MemorySegment.NULL)) {
+            GLFW.glfwDestroyWindow(window);
             System.out.println("[OK] Window destroyed");
         }
         
-        glfwTerminate();
+        GLFW.glfwTerminate();
     }
     
     public static void main(String[] args) {
