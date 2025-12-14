@@ -1,4 +1,4 @@
-package io.github.yetyman.sample;
+package io.github.yetyman.vulkan.highlevel;
 
 import java.io.*;
 import java.nio.file.*;

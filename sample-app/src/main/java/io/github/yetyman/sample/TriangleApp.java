@@ -2,7 +2,6 @@ package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.highlevel.VulkanContext;
-import io.github.yetyman.vulkan.win32.VkWin32Surface;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.glfw.GLFW;
 import io.github.yetyman.glfw.GLFWCallbacks;
@@ -172,7 +171,7 @@ public class TriangleApp {
         }
     }
     
-    public static void main(String[] args) {
+    static void main(String[] args) {
         try {
             new TriangleApp().run();
         } catch (Exception e) {

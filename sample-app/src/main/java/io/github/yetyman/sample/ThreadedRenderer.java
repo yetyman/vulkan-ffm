@@ -26,21 +26,17 @@ public class ThreadedRenderer {
     private int width, height;
     
     private VulkanSwapchainManager swapchainManager;
-    private MemorySegment depthImage;
-    private VkImageView depthImageView;
     private VkRenderPass renderPass;
     private VkRenderPass directRenderPass; // For non-AA rendering
     private VkPipeline pipeline;
-    private VkCommandPool mainCommandPool;
     private MemorySegment[] commandBuffers;
-    private VkSemaphore[] imageAvailableSemaphores;
-    private VkSemaphore[] renderFinishedSemaphores;
-    private VkFence[] inFlightFences;
+    private VulkanSyncManager syncManager;
+    private VulkanCommandManager commandManager;
+    private VulkanRenderTarget depthTarget;
+    private VulkanShaderManager shaderManager;
     
     // Threading
     private ThreadPoolExecutor executor;
-    private final ConcurrentHashMap<Thread, VkCommandPool> threadPools = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Thread, Arena> threadArenas = new ConcurrentHashMap<>();
     private Mode mode = Mode.ADAPTIVE;
     private final AtomicInteger currentThreadCount = new AtomicInteger(1);
     
@@ -71,16 +67,15 @@ public class ThreadedRenderer {
     public void init(MemorySegment physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
         createSwapchainManager();
-        createDepthResources();
+        createManagers(queueFamilyIndex);
+        createDepthTarget();
         createRenderPasses();
         if (adaptiveAAEnabled) {
             adaptiveAA = new AdaptiveAA(arena, device, width, height);
         }
         createGraphicsPipeline();
         createFramebuffers();
-        createMainCommandPool(queueFamilyIndex);
         createCommandBuffers();
-        createSyncObjects();
         System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
@@ -95,64 +90,41 @@ public class ThreadedRenderer {
         System.out.println("[OK] Swapchain manager created with " + swapchainManager.imageCount() + " images");
     }
     
-    private MemorySegment physicalDevice; // Need this for memory type queries
+    private MemorySegment physicalDevice;
     
-    private void createDepthResources() {
-        System.out.println("[DEBUG] Creating depth image...");
-        // Create depth image
-        MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
-        VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
-        VkImageCreateInfo.imageType(imageInfo, VkImageType.VK_IMAGE_TYPE_2D);
-        VkImageCreateInfo.format(imageInfo, VkFormat.VK_FORMAT_D24_UNORM_S8_UINT);
-        MemorySegment extent = VkImageCreateInfo.extent(imageInfo);
-        VkExtent3D.width(extent, width);
-        VkExtent3D.height(extent, height);
-        VkExtent3D.depth(extent, 1);
-        VkImageCreateInfo.mipLevels(imageInfo, 1);
-        VkImageCreateInfo.arrayLayers(imageInfo, 1);
-        VkImageCreateInfo.samples(imageInfo, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT);
-        VkImageCreateInfo.tiling(imageInfo, VkImageTiling.VK_IMAGE_TILING_OPTIMAL);
-        VkImageCreateInfo.usage(imageInfo, VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-        VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE);
-        VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED);
-        
-        MemorySegment imagePtr = arena.allocate(ValueLayout.ADDRESS);
-        System.out.println("[DEBUG] Calling vkCreateImage...");
-        VulkanExtensions.createImage(device, imageInfo, imagePtr).check();
-        depthImage = imagePtr.get(ValueLayout.ADDRESS, 0);
-        System.out.println("[DEBUG] Image created, getting memory requirements...");
-        
-        // Allocate and bind memory
-        MemorySegment memReqs = VkMemoryRequirements.allocate(arena);
-        VulkanExtensions.getImageMemoryRequirements(device, depthImage, memReqs);
-        System.out.println("[DEBUG] Memory requirements obtained, allocating memory...");
-        
-        MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
-        VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
-        VkMemoryAllocateInfo.allocationSize(allocInfo, VkMemoryRequirements.size(memReqs));
-        // Use first available memory type
-        int typeFilter = VkMemoryRequirements.memoryTypeBits(memReqs);
-        int memoryTypeIndex = Integer.numberOfTrailingZeros(typeFilter);
-        VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
-        
-        MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
-        System.out.println("[DEBUG] Calling vkAllocateMemory...");
-        VulkanExtensions.allocateMemory(device, allocInfo, memoryPtr).check();
-        MemorySegment depthMemory = memoryPtr.get(ValueLayout.ADDRESS, 0);
-        System.out.println("[DEBUG] Memory allocated, binding to image...");
-        
-        VulkanExtensions.bindImageMemory(device, depthImage, depthMemory, 0).check();
-        System.out.println("[DEBUG] Memory bound, creating image view...");
-        
-        // Create depth image view
-        depthImageView = VkImageView.builder()
+    private void createManagers(int queueFamilyIndex) {
+        syncManager = VulkanSyncManager.builder()
+            .arena(arena)
             .device(device)
-            .image(depthImage)
-            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
+            .framesInFlight(MAX_FRAMES_IN_FLIGHT)
+            .build();
+        
+        commandManager = VulkanCommandManager.builder()
+            .arena(arena)
+            .device(device)
+            .queueFamilyIndex(queueFamilyIndex)
+            .threaded(true)
+            .build();
+        
+        shaderManager = VulkanShaderManager.builder()
+            .arena(arena)
+            .device(device)
+            .build();
+        
+        System.out.println("[OK] Managers created");
+    }
+    
+    private void createDepthTarget() {
+        depthTarget = VulkanRenderTarget.builder()
+            .arena(arena)
+            .device(device)
+            .physicalDevice(physicalDevice)
             .format(VkFormat.VK_FORMAT_D24_UNORM_S8_UINT)
+            .extent(width, height)
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT)
-            .build(arena);
-        System.out.println("[OK] Depth resources created");
+            .build();
+        System.out.println("[OK] Depth target created");
     }
     
     private void createRenderPasses() {
@@ -173,8 +145,10 @@ public class ThreadedRenderer {
     }
     
     private void createGraphicsPipeline() {
-        byte[] vertShaderCode = ShaderLoader.compileShader("/shaders/triangle.vert");
-        byte[] fragShaderCode = ShaderLoader.compileShader("/shaders/triangle.frag");
+        VulkanShaderManager.ShaderSet shaders = shaderManager.createShaderSet()
+            .vertex("/shaders/triangle.vert")
+            .fragment("/shaders/triangle.frag")
+            .build();
         
         // Use appropriate render pass based on AA setting
         MemorySegment targetRenderPass = adaptiveAAEnabled ? 
@@ -184,8 +158,8 @@ public class ThreadedRenderer {
             .device(device)
             .renderPass(targetRenderPass)
             .viewport(0, 0, width, height)
-            .vertexShader(vertShaderCode)
-            .fragmentShader(fragShaderCode)
+            .vertexShader(shaders.vertex())
+            .fragmentShader(shaders.fragment())
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
@@ -194,46 +168,13 @@ public class ThreadedRenderer {
     }
     
     private void createFramebuffers() {
-        swapchainManager.createFramebuffers(directRenderPass.handle(), depthImageView.handle());
+        swapchainManager.createFramebuffers(directRenderPass.handle(), depthTarget.imageView().handle());
         System.out.println("[OK] Framebuffers created");
     }
     
-    private void createMainCommandPool(int queueFamilyIndex) {
-        mainCommandPool = VkCommandPool.builder()
-            .device(device)
-            .queueFamilyIndex(queueFamilyIndex)
-            .build(arena);
-        System.out.println("[OK] Main command pool created");
-    }
-    
     private void createCommandBuffers() {
-        commandBuffers = VkCommandBufferAlloc.builder()
-            .device(device)
-            .commandPool(mainCommandPool.handle())
-            .primary()
-            .count(MAX_FRAMES_IN_FLIGHT)
-            .allocate(arena);
+        commandBuffers = commandManager.allocateBuffers(MAX_FRAMES_IN_FLIGHT, arena);
         System.out.println("[OK] Command buffers allocated");
-    }
-    
-    private void createSyncObjects() {
-        imageAvailableSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
-        renderFinishedSemaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
-        inFlightFences = new VkFence[MAX_FRAMES_IN_FLIGHT];
-        
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores[i] = VkSemaphore.builder()
-                .device(device)
-                .build(arena);
-            renderFinishedSemaphores[i] = VkSemaphore.builder()
-                .device(device)
-                .build(arena);
-            inFlightFences[i] = VkFence.builder()
-                .device(device)
-                .signaled(true)
-                .build(arena);
-        }
-        System.out.println("[OK] Sync objects created");
     }
     
     private int findMemoryType(int typeFilter, int properties, MemorySegment memProps) {
@@ -256,43 +197,36 @@ public class ThreadedRenderer {
         throw new RuntimeException("Failed to find suitable memory type");
     }
     
-    private int currentFrame = 0;
-    
     public void drawFrame() {
         long frameStart = System.nanoTime();
         
         try (Arena frameArena = Arena.ofConfined()) {
-            VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .execute(frameArena).check();
-            VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .reset(frameArena).check();
+            VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame(frameArena);
             
             int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
-                .semaphore(imageAvailableSemaphores[currentFrame].handle())
+                .semaphore(frameSync.imageAvailable.handle())
                 .execute(frameArena);
             
             if (currentThreadCount.get() == 1) {
                 // Single-threaded: use normal submission
-                recordCommandBufferThreaded(commandBuffers[currentFrame], imgIdx, frameArena);
+                recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
                 
                 VkSubmit.builder()
-                    .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-                    .commandBuffer(commandBuffers[currentFrame])
-                    .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
-                    .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();
+                    .waitSemaphore(frameSync.imageAvailable.handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                    .commandBuffer(commandBuffers[frameSync.frameIndex])
+                    .signalSemaphore(frameSync.renderFinished.handle())
+                    .submit(queue, frameSync.inFlight.handle(), frameArena).check();
             } else {
                 // Multi-threaded: command buffers are submitted inside recordCommandBufferThreaded
-                recordCommandBufferThreaded(commandBuffers[currentFrame], imgIdx, frameArena);
+                recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
             }
             
             VkPresent.builder()
-                .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
+                .waitSemaphore(frameSync.renderFinished.handle())
                 .swapchain(swapchainManager.swapchain().handle(), imgIdx)
                 .present(queue, frameArena);
             
-            currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+            syncManager.nextFrame();
         }
         
         // Track performance and adjust threads
@@ -322,19 +256,8 @@ public class ThreadedRenderer {
             
             executor.submit(() -> {
                 try {
-                    Thread currentThread = Thread.currentThread();
-                    Arena threadArena = getThreadArena(currentThread);
-                    VkCommandPool threadPool = getThreadCommandPool(currentThread);
-                    
-                    // Allocate command buffer from thread's pool
-                    MemorySegment[] cmdBuffers = VkCommandBufferAlloc.builder()
-                        .device(device)
-                        .commandPool(threadPool.handle())
-                        .primary()
-                        .count(1)
-                        .allocate(threadArena);
-                    
-                    MemorySegment threadCmd = cmdBuffers[0];
+                    Arena threadArena = Arena.ofShared();
+                    MemorySegment threadCmd = commandManager.allocateBuffer(threadArena);
                     threadCommandBuffers[threadIndex] = threadCmd;
                     
                     // Record commands for this thread's triangles
@@ -438,19 +361,7 @@ public class ThreadedRenderer {
         VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
     }
     
-    private VkCommandPool getThreadCommandPool(Thread thread) {
-        return threadPools.computeIfAbsent(thread, k -> {
-            // Each thread gets its own command pool for thread safety
-            return VkCommandPool.builder()
-                .device(device)
-                .queueFamilyIndex(0) // Assuming graphics queue family 0
-                .build(getThreadArena(k));
-        });
-    }
-    
-    private Arena getThreadArena(Thread thread) {
-        return threadArenas.computeIfAbsent(thread, k -> Arena.ofShared());
-    }
+
     
     private void trackPerformance(long frameStart) {
         long frameTime = System.nanoTime() - frameStart;
@@ -533,9 +444,9 @@ public class ThreadedRenderer {
     }
     
     public void resize(int newWidth, int newHeight) {
-        // Clean up depth resources
-        if (depthImageView != null) {
-            depthImageView.close();
+        // Clean up depth target
+        if (depthTarget != null) {
+            depthTarget.close();
         }
         
         // Update dimensions
@@ -545,8 +456,8 @@ public class ThreadedRenderer {
         // Recreate swapchain manager
         swapchainManager.recreate(width, height);
         
-        // Recreate depth resources
-        createDepthResources();
+        // Recreate depth target
+        createDepthTarget();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
             adaptiveAA = new AdaptiveAA(arena, device, width, height);
@@ -569,18 +480,13 @@ public class ThreadedRenderer {
             executor.shutdownNow();
         }
         
-        // Clean up thread-local resources
-        threadPools.values().forEach(VkCommandPool::close);
-        threadArenas.values().forEach(Arena::close);
+        // Clean up managers
+        if (syncManager != null) syncManager.close();
+        if (commandManager != null) commandManager.close();
+        if (shaderManager != null) shaderManager.close();
+        if (depthTarget != null) depthTarget.close();
         
         // Clean up main resources
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores[i].close();
-            renderFinishedSemaphores[i].close();
-            inFlightFences[i].close();
-        }
-        mainCommandPool.close();
-        // Framebuffers are now managed by swapchainManager
         pipeline.close();
         renderPass.close();
         if (directRenderPass != null) {
@@ -588,9 +494,6 @@ public class ThreadedRenderer {
         }
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
-        }
-        if (depthImageView != null) {
-            depthImageView.close();
         }
         swapchainManager.close();
     }
