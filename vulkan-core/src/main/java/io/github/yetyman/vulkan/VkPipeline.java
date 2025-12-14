@@ -412,6 +412,21 @@ public class VkPipeline implements AutoCloseable {
             return this;
         }
         
+        /** Configures pipeline for fullscreen rendering with no vertex input */
+        public Builder fullscreenTriangle() {
+            // Clear any existing vertex input configuration
+            vertexBindings.clear();
+            vertexAttributes.clear();
+            // Ensure we have dynamic viewport/scissor for fullscreen
+            if (!dynamicStates.contains(VkDynamicState.VK_DYNAMIC_STATE_VIEWPORT)) {
+                dynamicViewport();
+            }
+            if (!dynamicStates.contains(VkDynamicState.VK_DYNAMIC_STATE_SCISSOR)) {
+                dynamicScissor();
+            }
+            return this;
+        }
+        
         // Pipeline layout methods
         public Builder descriptorSetLayouts(MemorySegment... layouts) {
             this.descriptorSetLayouts = layouts;

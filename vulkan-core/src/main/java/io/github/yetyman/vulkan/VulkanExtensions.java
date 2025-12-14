@@ -192,4 +192,40 @@ public class VulkanExtensions {
     public static void getPhysicalDeviceMemoryProperties(MemorySegment physicalDevice, MemorySegment memoryProperties) {
         VulkanFFM.vkGetPhysicalDeviceMemoryProperties(physicalDevice, memoryProperties);
     }
+    
+    public static void destroyImage(MemorySegment device, MemorySegment image) {
+        VulkanFFM.vkDestroyImage(device, image, MemorySegment.NULL);
+    }
+    
+    public static void freeMemory(MemorySegment device, MemorySegment memory) {
+        VulkanFFM.vkFreeMemory(device, memory, MemorySegment.NULL);
+    }
+    
+    public static VkResult createDescriptorSetLayout(MemorySegment device, MemorySegment createInfo, MemorySegment descriptorSetLayout) {
+        int result = VulkanFFM.vkCreateDescriptorSetLayout(device, createInfo, MemorySegment.NULL, descriptorSetLayout);
+        return VkResult.fromInt(result);
+    }
+    
+    public static VkResult createSampler(MemorySegment device, MemorySegment createInfo, MemorySegment sampler) {
+        int result = VulkanFFM.vkCreateSampler(device, createInfo, MemorySegment.NULL, sampler);
+        return VkResult.fromInt(result);
+    }
+    
+    public static VkResult createDescriptorPool(MemorySegment device, MemorySegment createInfo, MemorySegment descriptorPool) {
+        int result = VulkanFFM.vkCreateDescriptorPool(device, createInfo, MemorySegment.NULL, descriptorPool);
+        return VkResult.fromInt(result);
+    }
+    
+    public static VkResult allocateDescriptorSets(MemorySegment device, MemorySegment allocateInfo, MemorySegment descriptorSets) {
+        int result = VulkanFFM.vkAllocateDescriptorSets(device, allocateInfo, descriptorSets);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void updateDescriptorSets(MemorySegment device, int descriptorWriteCount, MemorySegment descriptorWrites, int descriptorCopyCount, MemorySegment descriptorCopies) {
+        VulkanFFM.vkUpdateDescriptorSets(device, descriptorWriteCount, descriptorWrites, descriptorCopyCount, descriptorCopies);
+    }
+    
+    public static void cmdBindDescriptorSets(MemorySegment commandBuffer, int pipelineBindPoint, MemorySegment layout, int firstSet, int descriptorSetCount, MemorySegment descriptorSets, int dynamicOffsetCount, MemorySegment dynamicOffsets) {
+        VulkanFFM.vkCmdBindDescriptorSets(commandBuffer, pipelineBindPoint, layout, firstSet, descriptorSetCount, descriptorSets, dynamicOffsetCount, dynamicOffsets);
+    }
 }

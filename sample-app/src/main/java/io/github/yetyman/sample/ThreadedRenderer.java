@@ -14,6 +14,10 @@ public class ThreadedRenderer {
     private static final int MAX_FRAMES_IN_FLIGHT = 2;
     private static final int TRIANGLES_COUNT = 1000; // Back to 1000 triangles with depth testing
     
+    // AA toggle
+    private boolean adaptiveAAEnabled = true;
+    private AdaptiveAA adaptiveAA;
+    
     private final Arena arena;
     private final MemorySegment device;
     private final MemorySegment queue;
@@ -26,6 +30,7 @@ public class ThreadedRenderer {
     private VkImageView depthImageView;
     private VkRenderPass renderPass;
     private VkFramebuffer[] framebuffers;
+    private VkRenderPass directRenderPass; // For non-AA rendering
     private VkPipeline pipeline;
     private VkCommandPool mainCommandPool;
     private MemorySegment[] commandBuffers;
@@ -68,14 +73,17 @@ public class ThreadedRenderer {
         this.physicalDevice = physicalDevice;
         createSwapchain(physicalDevice);
         createImageViews();
-        createDepthResources(); // Create but don't use in render pass
-        createRenderPass();
+        createDepthResources();
+        createRenderPasses();
+        if (adaptiveAAEnabled) {
+            adaptiveAA = new AdaptiveAA(arena, device, width, height);
+        }
         createGraphicsPipeline();
         createFramebuffers();
         createMainCommandPool(queueFamilyIndex);
         createCommandBuffers();
         createSyncObjects();
-        System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (depth buffer created but not used)");
+        System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
     private void createSwapchain(MemorySegment physicalDevice) {
@@ -158,8 +166,9 @@ public class ThreadedRenderer {
         System.out.println("[OK] Depth resources created");
     }
     
-    private void createRenderPass() {
-        renderPass = VkRenderPass.builder()
+    private void createRenderPasses() {
+        // Direct rendering to swapchain (no AA)
+        directRenderPass = VkRenderPass.builder()
             .device(device)
             .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
             .depthAttachment(VkFormat.VK_FORMAT_D24_UNORM_S8_UINT, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
@@ -168,16 +177,23 @@ public class ThreadedRenderer {
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                 0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
             .build(arena);
-        System.out.println("[OK] Render pass created with depth buffer");
+        
+        // Set active render pass based on AA setting
+        renderPass = directRenderPass;
+        System.out.println("[OK] Render passes created");
     }
     
     private void createGraphicsPipeline() {
         byte[] vertShaderCode = ShaderLoader.compileShader("/shaders/triangle.vert");
         byte[] fragShaderCode = ShaderLoader.compileShader("/shaders/triangle.frag");
         
+        // Use appropriate render pass based on AA setting
+        MemorySegment targetRenderPass = adaptiveAAEnabled ? 
+            adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
+        
         pipeline = VkPipeline.builder()
             .device(device)
-            .renderPass(renderPass.handle())
+            .renderPass(targetRenderPass)
             .viewport(0, 0, width, height)
             .vertexShader(vertShaderCode)
             .fragmentShader(fragShaderCode)
@@ -193,13 +209,13 @@ public class ThreadedRenderer {
         for (int i = 0; i < swapchainImageViews.length; i++) {
             framebuffers[i] = VkFramebuffer.builder()
                 .device(device)
-                .renderPass(renderPass.handle())
+                .renderPass(directRenderPass.handle()) // Always use direct for swapchain framebuffers
                 .attachment(swapchainImageViews[i].handle())
                 .attachment(depthImageView.handle())
                 .dimensions(width, height)
                 .build(arena);
         }
-        System.out.println("[OK] Framebuffers created with depth buffer");
+        System.out.println("[OK] Framebuffers created");
     }
     
     private void createMainCommandPool(int queueFamilyIndex) {
@@ -387,11 +403,33 @@ public class ThreadedRenderer {
     private void recordSingleThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
-            .renderArea(0, 0, width, height)
-            .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-            .execute(frameArena);
+        if (adaptiveAAEnabled) {
+            // Render scene to AA targets
+            VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .execute(frameArena);
+            
+            renderScene(commandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            
+            // Perform adaptive AA and output to swapchain
+            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
+        } else {
+            // Direct rendering to swapchain
+            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .execute(frameArena);
+            
+            renderScene(commandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+        }
         
+        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+    }
+    
+    private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         
         MemorySegment viewport = io.github.yetyman.vulkan.VkViewport.builder()
@@ -407,11 +445,7 @@ public class ThreadedRenderer {
             .build(frameArena);
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, scissor);
         
-        // Use instanced rendering - 3 vertices per triangle, TRIANGLES_COUNT instances
         VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
-        
-        VulkanExtensions.cmdEndRenderPass(commandBuffer);
-        VulkanExtensions.endCommandBuffer(commandBuffer).check();
     }
     
     private VkCommandPool getThreadCommandPool(Thread thread) {
@@ -487,6 +521,16 @@ public class ThreadedRenderer {
         System.out.println("[MODE] Switched to " + mode);
     }
     
+    public void setAdaptiveAAEnabled(boolean enabled) {
+        this.adaptiveAAEnabled = enabled;
+        System.out.println("[AA] Adaptive AA " + (enabled ? "enabled" : "disabled"));
+        // Note: Requires renderer recreation to take effect
+    }
+    
+    public boolean isAdaptiveAAEnabled() {
+        return adaptiveAAEnabled;
+    }
+    
     public int getActiveThreads() {
         return currentThreadCount.get();
     }
@@ -516,6 +560,10 @@ public class ThreadedRenderer {
         createSwapchain(physicalDevice);
         createImageViews();
         createDepthResources();
+        if (adaptiveAA != null) {
+            adaptiveAA.cleanup();
+            adaptiveAA = new AdaptiveAA(arena, device, width, height);
+        }
         createFramebuffers();
         
         System.out.println("[OK] Swapchain and depth buffer recreated for resize");
@@ -548,6 +596,12 @@ public class ThreadedRenderer {
         }
         pipeline.close();
         renderPass.close();
+        if (directRenderPass != null) {
+            directRenderPass.close();
+        }
+        if (adaptiveAA != null) {
+            adaptiveAA.cleanup();
+        }
         for (VkImageView imageView : swapchainImageViews) {
             imageView.close();
         }
