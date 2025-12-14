@@ -1,6 +1,7 @@
 package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
@@ -24,12 +25,10 @@ public class ThreadedRenderer {
     private final MemorySegment surface;
     private int width, height;
     
-    private VkSwapchain swapchain;
-    private VkImageView[] swapchainImageViews;
+    private VulkanSwapchainManager swapchainManager;
     private MemorySegment depthImage;
     private VkImageView depthImageView;
     private VkRenderPass renderPass;
-    private VkFramebuffer[] framebuffers;
     private VkRenderPass directRenderPass; // For non-AA rendering
     private VkPipeline pipeline;
     private VkCommandPool mainCommandPool;
@@ -71,8 +70,7 @@ public class ThreadedRenderer {
     
     public void init(MemorySegment physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
-        createSwapchain(physicalDevice);
-        createImageViews();
+        createSwapchainManager();
         createDepthResources();
         createRenderPasses();
         if (adaptiveAAEnabled) {
@@ -86,29 +84,15 @@ public class ThreadedRenderer {
         System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
-    private void createSwapchain(MemorySegment physicalDevice) {
-        swapchain = VkSwapchain.builder()
+    private void createSwapchainManager() {
+        swapchainManager = VulkanSwapchainManager.builder()
+            .arena(arena)
             .device(device)
             .surface(surface)
             .extent(width, height)
             .vsync(true)
-            .build(arena);
-        System.out.println("[OK] Swapchain created with " + swapchain.getImages().length + " images");
-    }
-    
-    private void createImageViews() {
-        MemorySegment[] images = swapchain.getImages();
-        swapchainImageViews = new VkImageView[images.length];
-        for (int i = 0; i < images.length; i++) {
-            swapchainImageViews[i] = VkImageView.builder()
-                .device(device)
-                .image(images[i])
-                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
-                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
-                .build(arena);
-        }
-        System.out.println("[OK] Image views created");
+            .build();
+        System.out.println("[OK] Swapchain manager created with " + swapchainManager.imageCount() + " images");
     }
     
     private MemorySegment physicalDevice; // Need this for memory type queries
@@ -210,16 +194,7 @@ public class ThreadedRenderer {
     }
     
     private void createFramebuffers() {
-        framebuffers = new VkFramebuffer[swapchainImageViews.length];
-        for (int i = 0; i < swapchainImageViews.length; i++) {
-            framebuffers[i] = VkFramebuffer.builder()
-                .device(device)
-                .renderPass(directRenderPass.handle()) // Always use direct for swapchain framebuffers
-                .attachment(swapchainImageViews[i].handle())
-                .attachment(depthImageView.handle())
-                .dimensions(width, height)
-                .build(arena);
-        }
+        swapchainManager.createFramebuffers(directRenderPass.handle(), depthImageView.handle());
         System.out.println("[OK] Framebuffers created");
     }
     
@@ -294,7 +269,7 @@ public class ThreadedRenderer {
                 .fence(inFlightFences[currentFrame].handle())
                 .reset(frameArena).check();
             
-            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
+            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
                 .semaphore(imageAvailableSemaphores[currentFrame].handle())
                 .execute(frameArena);
             
@@ -314,7 +289,7 @@ public class ThreadedRenderer {
             
             VkPresent.builder()
                 .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
-                .swapchain(swapchain.handle(), imgIdx)
+                .swapchain(swapchainManager.swapchain().handle(), imgIdx)
                 .present(queue, frameArena);
             
             currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -365,7 +340,7 @@ public class ThreadedRenderer {
                     // Record commands for this thread's triangles
                     VkCommandBuffer.begin(threadCmd).execute(threadArena);
                     
-                    VkCommandBuffer.beginRenderPass(threadCmd, renderPass.handle(), framebuffers[imageIndex].handle())
+                    VkCommandBuffer.beginRenderPass(threadCmd, renderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
                         .renderArea(0, 0, width, height)
                         .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                         .execute(threadArena);
@@ -429,10 +404,10 @@ public class ThreadedRenderer {
             VulkanExtensions.cmdEndRenderPass(commandBuffer);
             
             // Perform adaptive AA and output to swapchain
-            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
+            adaptiveAA.performAA(commandBuffer, swapchainManager.framebuffers()[imageIndex], frameArena);
         } else {
             // Direct rendering to swapchain
-            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
+            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .execute(frameArena);
@@ -558,30 +533,26 @@ public class ThreadedRenderer {
     }
     
     public void resize(int newWidth, int newHeight) {
-        // Clean up old resources
-        for (VkFramebuffer framebuffer : framebuffers) {
-            framebuffer.close();
-        }
-        for (VkImageView imageView : swapchainImageViews) {
-            imageView.close();
-        }
+        // Clean up depth resources
         if (depthImageView != null) {
             depthImageView.close();
         }
-        swapchain.close();
         
         // Update dimensions
         width = newWidth;
         height = newHeight;
         
-        // Recreate resources with new size
-        createSwapchain(physicalDevice);
-        createImageViews();
+        // Recreate swapchain manager
+        swapchainManager.recreate(width, height);
+        
+        // Recreate depth resources
         createDepthResources();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
             adaptiveAA = new AdaptiveAA(arena, device, width, height);
         }
+        
+        // Recreate framebuffers
         createFramebuffers();
         
         System.out.println("[OK] Swapchain and depth buffer recreated for resize");
@@ -609,9 +580,7 @@ public class ThreadedRenderer {
             inFlightFences[i].close();
         }
         mainCommandPool.close();
-        for (VkFramebuffer framebuffer : framebuffers) {
-            framebuffer.close();
-        }
+        // Framebuffers are now managed by swapchainManager
         pipeline.close();
         renderPass.close();
         if (directRenderPass != null) {
@@ -620,12 +589,9 @@ public class ThreadedRenderer {
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
         }
-        for (VkImageView imageView : swapchainImageViews) {
-            imageView.close();
-        }
         if (depthImageView != null) {
             depthImageView.close();
         }
-        swapchain.close();
+        swapchainManager.close();
     }
 }
