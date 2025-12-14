@@ -19,8 +19,8 @@ public class Renderer {
     private final Arena arena;
     private final MemorySegment device;
     private final MemorySegment queue;
-    private final int width;
-    private final int height;
+    private int width;
+    private int height;
     
     private MemorySegment surface;
     private VkSwapchain swapchain;
@@ -57,7 +57,7 @@ public class Renderer {
     }
     
     private void createSwapchain(MemorySegment physicalDevice) {
-        swapchain = VkSwapchain.create(arena, device, surface, width, height);
+        swapchain = VkSwapchain.create(arena, device, surface, width, height); // VSync enabled
         System.out.println("[OK] Swapchain created with " + swapchain.getImages().length + " images");
     }
     
@@ -98,6 +98,8 @@ public class Renderer {
             .vertexShader(vertShaderCode)
             .fragmentShader(fragShaderCode)
             .triangleTopology()
+            .dynamicViewport()
+            .dynamicScissor()
             .build(arena);
         System.out.println("[OK] Graphics pipeline created");
     }
@@ -184,6 +186,20 @@ public class Renderer {
             .execute(frameArena);
         
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        
+        // Set dynamic viewport and scissor
+        MemorySegment viewport = io.github.yetyman.vulkan.VkViewport.builder()
+            .position(0, 0)
+            .size(width, height)
+            .depthRange(0.0f, 1.0f)
+            .build(frameArena);
+        VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, viewport);
+        
+        MemorySegment scissor = io.github.yetyman.vulkan.VkRect2D.builder()
+            .offset(0, 0)
+            .extent(width, height)
+            .build(frameArena);
+        VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, scissor);
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         VulkanExtensions.cmdEndRenderPass(commandBuffer);
         VulkanExtensions.endCommandBuffer(commandBuffer).check();
@@ -205,5 +221,27 @@ public class Renderer {
             imageView.close();
         }
         swapchain.close();
+    }
+    
+    public void resize(int newWidth, int newHeight) {
+        // Clean up old resources
+        for (VkFramebuffer framebuffer : framebuffers) {
+            framebuffer.close();
+        }
+        for (VkImageView imageView : swapchainImageViews) {
+            imageView.close();
+        }
+        swapchain.close();
+        
+        // Update dimensions
+        width = newWidth;
+        height = newHeight;
+        
+        // Recreate resources with new size (pipeline stays the same!)
+        createSwapchain(null);
+        createImageViews();
+        createFramebuffers();
+        
+        System.out.println("[OK] Swapchain recreated for resize");
     }
 }

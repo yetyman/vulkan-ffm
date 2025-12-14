@@ -48,7 +48,7 @@ public class VkCommandBuffer {
         private final MemorySegment renderPass;
         private final MemorySegment framebuffer;
         private int x = 0, y = 0, width = 800, height = 600;
-        private float[] clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+        private float[] clearColorValues = {0.0f, 0.0f, 0.0f, 1.0f};
         
         private RenderPassBuilder(MemorySegment commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {
             this.commandBuffer = commandBuffer;
@@ -65,29 +65,24 @@ public class VkCommandBuffer {
         }
         
         public RenderPassBuilder clearColor(float r, float g, float b, float a) {
-            this.clearColor = new float[]{r, g, b, a};
+            this.clearColorValues = new float[]{r, g, b, a};
             return this;
         }
         
         public void execute(Arena arena) {
-            MemorySegment clearValue = arena.allocate(16);
-            clearValue.set(ValueLayout.JAVA_FLOAT, 0, clearColor[0]);
-            clearValue.set(ValueLayout.JAVA_FLOAT, 4, clearColor[1]);
-            clearValue.set(ValueLayout.JAVA_FLOAT, 8, clearColor[2]);
-            clearValue.set(ValueLayout.JAVA_FLOAT, 12, clearColor[3]);
+            MemorySegment clearValue = VkClearValue.color(arena, 
+                clearColorValues[0], clearColorValues[1], clearColorValues[2], clearColorValues[3]);
             
             MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(arena);
             VkRenderPassBeginInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
             VkRenderPassBeginInfo.pNext(renderPassInfo, MemorySegment.NULL);
             VkRenderPassBeginInfo.renderPass(renderPassInfo, renderPass);
             VkRenderPassBeginInfo.framebuffer(renderPassInfo, framebuffer);
-            MemorySegment renderArea = VkRenderPassBeginInfo.renderArea(renderPassInfo);
-            MemorySegment offset = VkRect2D.offset(renderArea);
-            VkOffset2D.x(offset, x);
-            VkOffset2D.y(offset, y);
-            MemorySegment extent = VkRect2D.extent(renderArea);
-            VkExtent2D.width(extent, width);
-            VkExtent2D.height(extent, height);
+            MemorySegment renderArea = io.github.yetyman.vulkan.VkRect2D.builder()
+                .offset(x, y)
+                .extent(width, height)
+                .build(arena);
+            MemorySegment.copy(renderArea, 0, VkRenderPassBeginInfo.renderArea(renderPassInfo), 0, renderArea.byteSize());
             VkRenderPassBeginInfo.clearValueCount(renderPassInfo, 1);
             VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValue);
             

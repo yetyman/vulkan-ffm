@@ -21,7 +21,7 @@ public class VkSwapchain implements AutoCloseable {
     }
     
     /**
-     * Creates a new swapchain for the given surface and dimensions.
+     * Creates a new swapchain for the given surface and dimensions with VSync enabled.
      * @param arena memory arena for allocations
      * @param device the VkDevice handle
      * @param surface the VkSurfaceKHR handle
@@ -30,6 +30,20 @@ public class VkSwapchain implements AutoCloseable {
      * @return a new VkSwapchain instance
      */
     public static VkSwapchain create(Arena arena, MemorySegment device, MemorySegment surface, int width, int height) {
+        return create(arena, device, surface, width, height, true);
+    }
+    
+    /**
+     * Creates a new swapchain for the given surface and dimensions.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @param surface the VkSurfaceKHR handle
+     * @param width swapchain image width in pixels
+     * @param height swapchain image height in pixels
+     * @param vsync whether to enable VSync (limits to monitor refresh rate)
+     * @return a new VkSwapchain instance
+     */
+    public static VkSwapchain create(Arena arena, MemorySegment device, MemorySegment surface, int width, int height, boolean vsync) {
         MemorySegment createInfo = VkSwapchainCreateInfoKHR.allocate(arena);
         VkSwapchainCreateInfoKHR.sType(createInfo, 1000001000); // VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
         VkSwapchainCreateInfoKHR.pNext(createInfo, MemorySegment.NULL);
@@ -48,7 +62,10 @@ public class VkSwapchain implements AutoCloseable {
         VkSwapchainCreateInfoKHR.pQueueFamilyIndices(createInfo, MemorySegment.NULL);
         VkSwapchainCreateInfoKHR.preTransform(createInfo, VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR);
         VkSwapchainCreateInfoKHR.compositeAlpha(createInfo, VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
-        VkSwapchainCreateInfoKHR.presentMode(createInfo, VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR);
+        // Choose present mode based on vsync preference
+        int presentMode = vsync ? VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR : VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR;
+        VkSwapchainCreateInfoKHR.presentMode(createInfo, presentMode);
+        System.out.println("[DEBUG] Using present mode: " + (vsync ? "FIFO (VSync)" : "IMMEDIATE (No VSync)"));
         VkSwapchainCreateInfoKHR.clipped(createInfo, 1);
         VkSwapchainCreateInfoKHR.oldSwapchain(createInfo, MemorySegment.NULL);
         

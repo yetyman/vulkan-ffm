@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.win32.VkWin32Surface;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.glfw.GLFW;
+import io.github.yetyman.glfw.GLFWCallbacks;
 
 import java.lang.foreign.*;
 
@@ -20,9 +21,12 @@ public class TriangleApp {
     private MemorySegment device;
     private MemorySegment queue;
     private int queueFamilyIndex;
+    private boolean framebufferResized = false;
+    private MemorySegment callbackStub; // Keep reference to prevent GC
     
     public void run() {
         VulkanLibrary.load();
+        arena = Arena.ofConfined();
         initWindow();
         initVulkan();
         mainLoop();
@@ -35,12 +39,15 @@ public class TriangleApp {
         }
         
         GLFW.glfwWindowHint(GLFW.GLFW_CLIENT_API, GLFW.GLFW_NO_API);
-        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_FALSE);
+        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
         
         window = GLFW.glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Triangle");
         if (window.equals(MemorySegment.NULL)) {
             throw new RuntimeException("Failed to create window");
         }
+        
+        // Set resize callback - keep reference to prevent GC
+        callbackStub = GLFWCallbacks.setFramebufferSizeCallback(window, this::framebufferResizeCallback, arena);
         
         System.out.println("[OK] Window created");
     }
@@ -51,7 +58,6 @@ public class TriangleApp {
     private VkDevice vkDevice;
     
     private void initVulkan() {
-        arena = Arena.ofConfined();
         
         String[] extensions = GLFW.glfwGetRequiredInstanceExtensions(arena);
         if (extensions == null) {
@@ -100,9 +106,40 @@ public class TriangleApp {
         
         System.out.println("[OK] Rendering enabled with per-frame Arena");
         
+        long lastTime = System.nanoTime();
+        int frameCount = 0;
+        
         while (!GLFW.glfwWindowShouldClose(window)) {
             GLFW.glfwPollEvents();
-            renderer.drawFrame();
+            
+            if (framebufferResized) {
+                handleResize();
+                framebufferResized = false;
+            }
+            
+            // Skip rendering when minimized (0x0 size)
+            try (Arena tempArena = Arena.ofConfined()) {
+                MemorySegment widthPtr = tempArena.allocate(ValueLayout.JAVA_INT);
+                MemorySegment heightPtr = tempArena.allocate(ValueLayout.JAVA_INT);
+                GLFW.glfwGetFramebufferSize(window, widthPtr, heightPtr);
+                int currentWidth = widthPtr.get(ValueLayout.JAVA_INT, 0);
+                int currentHeight = heightPtr.get(ValueLayout.JAVA_INT, 0);
+                
+                if (currentWidth > 0 && currentHeight > 0) {
+                    renderer.drawFrame();
+                } else {
+                    // Window minimized, skip frame and sleep briefly
+                    try { Thread.sleep(10); } catch (InterruptedException e) {}
+                }
+            }
+            
+            frameCount++;
+            long currentTime = System.nanoTime();
+            if (currentTime - lastTime >= 1_000_000_000L) { // 1 second
+                System.out.println("FPS: " + frameCount);
+                frameCount = 0;
+                lastTime = currentTime;
+            }
         }
     }
     
@@ -137,6 +174,30 @@ public class TriangleApp {
         }
         
         GLFW.glfwTerminate();
+    }
+    
+    private void framebufferResizeCallback(MemorySegment window, int width, int height) {
+        // Only set flag - don't do any Vulkan operations in callback
+        framebufferResized = true;
+    }
+    
+    private void handleResize() {
+        try (Arena tempArena = Arena.ofConfined()) {
+            // Wait for device to be idle before recreating resources
+            Vulkan.deviceWaitIdle(device).check();
+            
+            // Get new window size
+            MemorySegment widthPtr = tempArena.allocate(ValueLayout.JAVA_INT);
+            MemorySegment heightPtr = tempArena.allocate(ValueLayout.JAVA_INT);
+            GLFW.glfwGetFramebufferSize(window, widthPtr, heightPtr);
+            int newWidth = widthPtr.get(ValueLayout.JAVA_INT, 0);
+            int newHeight = heightPtr.get(ValueLayout.JAVA_INT, 0);
+            
+            if (newWidth > 0 && newHeight > 0) {
+                renderer.resize(newWidth, newHeight);
+                System.out.println("[OK] Resized to " + newWidth + "x" + newHeight);
+            }
+        }
     }
     
     public static void main(String[] args) {

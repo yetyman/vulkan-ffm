@@ -71,4 +71,18 @@ public class GLFW {
     public static long glfwGetWin32Window(MemorySegment window) {
         return GLFWNativeWin32.glfwGetWin32Window(window);
     }
+    
+    // Callback interface for framebuffer size changes
+    public interface FramebufferSizeCallback {
+        void invoke(MemorySegment window, int width, int height);
+    }
+    
+    public static void glfwSetFramebufferSizeCallback(MemorySegment window, FramebufferSizeCallback callback) {
+        // Store callback and set native callback
+        // full implementation would need native callback handling
+    }
+    
+    public static void glfwGetFramebufferSize(MemorySegment window, MemorySegment widthPtr, MemorySegment heightPtr) {
+        GLFWFFM.glfwGetFramebufferSize(window, widthPtr, heightPtr);
+    }
 }

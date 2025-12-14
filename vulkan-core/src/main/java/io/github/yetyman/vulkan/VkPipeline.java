@@ -573,26 +573,25 @@ public class VkPipeline implements AutoCloseable {
                     scissors.add(new ScissorConfig(0, 0, (int)viewports.get(0).width(), (int)viewports.get(0).height()));
                 }
                 
-                MemorySegment viewportsArray = arena.allocate(VkViewport.layout(), viewports.size());
+                MemorySegment viewportsArray = arena.allocate(io.github.yetyman.vulkan.generated.VkViewport.layout(), viewports.size());
                 for (int i = 0; i < viewports.size(); i++) {
                     ViewportConfig vp = viewports.get(i);
-                    MemorySegment viewport = viewportsArray.asSlice(i * VkViewport.layout().byteSize(), VkViewport.layout());
-                    VkViewport.x(viewport, vp.x());
-                    VkViewport.y(viewport, vp.y());
-                    VkViewport.width(viewport, vp.width());
-                    VkViewport.height(viewport, vp.height());
-                    VkViewport.minDepth(viewport, vp.minDepth());
-                    VkViewport.maxDepth(viewport, vp.maxDepth());
+                    MemorySegment viewport = io.github.yetyman.vulkan.VkViewport.builder()
+                        .position(vp.x(), vp.y())
+                        .size(vp.width(), vp.height())
+                        .depthRange(vp.minDepth(), vp.maxDepth())
+                        .build(arena);
+                    MemorySegment.copy(viewport, 0, viewportsArray, i * io.github.yetyman.vulkan.generated.VkViewport.layout().byteSize(), viewport.byteSize());
                 }
                 
-                MemorySegment scissorsArray = arena.allocate(VkRect2D.layout(), scissors.size());
+                MemorySegment scissorsArray = arena.allocate(io.github.yetyman.vulkan.generated.VkRect2D.layout(), scissors.size());
                 for (int i = 0; i < scissors.size(); i++) {
                     ScissorConfig sc = scissors.get(i);
-                    MemorySegment scissor = scissorsArray.asSlice(i * VkRect2D.layout().byteSize(), VkRect2D.layout());
-                    VkOffset2D.x(VkRect2D.offset(scissor), sc.x());
-                    VkOffset2D.y(VkRect2D.offset(scissor), sc.y());
-                    VkExtent2D.width(VkRect2D.extent(scissor), sc.width());
-                    VkExtent2D.height(VkRect2D.extent(scissor), sc.height());
+                    MemorySegment scissor = io.github.yetyman.vulkan.VkRect2D.builder()
+                        .offset(sc.x(), sc.y())
+                        .extent(sc.width(), sc.height())
+                        .build(arena);
+                    MemorySegment.copy(scissor, 0, scissorsArray, i * io.github.yetyman.vulkan.generated.VkRect2D.layout().byteSize(), scissor.byteSize());
                 }
                 
                 VkPipelineViewportStateCreateInfo.viewportCount(viewportState, viewports.size());
