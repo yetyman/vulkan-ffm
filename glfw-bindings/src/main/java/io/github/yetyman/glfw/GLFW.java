@@ -14,6 +14,8 @@ public class GLFW {
     public static final int GLFW_CLIENT_API = GLFWFFM.GLFW_CLIENT_API();
     public static final int GLFW_NO_API = GLFWFFM.GLFW_NO_API();
     public static final int GLFW_RESIZABLE = GLFWFFM.GLFW_RESIZABLE();
+    public static final int GLFW_KEY_SPACE = GLFWFFM.GLFW_KEY_SPACE();
+    public static final int GLFW_PRESS = GLFWFFM.GLFW_PRESS();
     
     // Core functions
     public static boolean glfwInit() {
@@ -84,5 +86,9 @@ public class GLFW {
     
     public static void glfwGetFramebufferSize(MemorySegment window, MemorySegment widthPtr, MemorySegment heightPtr) {
         GLFWFFM.glfwGetFramebufferSize(window, widthPtr, heightPtr);
+    }
+    
+    public static int glfwGetKey(MemorySegment window, int key) {
+        return GLFWFFM.glfwGetKey(window, key);
     }
 }

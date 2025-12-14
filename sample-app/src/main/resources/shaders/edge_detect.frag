@@ -16,17 +16,23 @@ void main() {
     vec3 up     = texture(colorTexture, texCoord + vec2(0, -texelSize.y)).rgb;
     vec3 down   = texture(colorTexture, texCoord + vec2(0,  texelSize.y)).rgb;
     
-    // Luminance-based edge detection
+    // Combined luminance and color edge detection
     float centerLum = dot(center, vec3(0.299, 0.587, 0.114));
     float leftLum   = dot(left,   vec3(0.299, 0.587, 0.114));
     float rightLum  = dot(right,  vec3(0.299, 0.587, 0.114));
     float upLum     = dot(up,     vec3(0.299, 0.587, 0.114));
     float downLum   = dot(down,   vec3(0.299, 0.587, 0.114));
     
-    // Sobel edge detection
-    float edgeX = abs(-leftLum + rightLum);
-    float edgeY = abs(-upLum + downLum);
-    float colorEdge = sqrt(edgeX * edgeX + edgeY * edgeY);
+    float lumEdgeX = abs(-leftLum + rightLum);
+    float lumEdgeY = abs(-upLum + downLum);
+    float lumEdge = sqrt(lumEdgeX * lumEdgeX + lumEdgeY * lumEdgeY);
+    
+    vec3 colorEdgeX = abs(-left + right);
+    vec3 colorEdgeY = abs(-up + down);
+    float colorEdge = length(colorEdgeX) + length(colorEdgeY);
+    
+    // Use the stronger of the two edge signals, amplified
+    float combinedEdge = max(lumEdge, colorEdge) * 3.0;
     
     // Depth edge detection
     float centerDepth = texture(depthTexture, texCoord).r;
@@ -40,5 +46,5 @@ void main() {
     float depthEdge = sqrt(depthEdgeX * depthEdgeX + depthEdgeY * depthEdgeY) * 50.0;
     
     // Combine color and depth edges
-    edgeStrength = clamp(max(colorEdge, depthEdge), 0.0, 1.0);
+    edgeStrength = clamp(max(combinedEdge, depthEdge), 0.0, 1.0);
 }

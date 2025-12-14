@@ -167,6 +167,7 @@ public class ThreadedRenderer {
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
             .build(arena);
         System.out.println("[OK] Graphics pipeline created");
     }
@@ -349,6 +350,12 @@ public class ThreadedRenderer {
     
     private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        
+        // Push time constant for rotation
+        MemorySegment timeConstant = frameArena.allocate(4);
+        timeConstant.set(ValueLayout.JAVA_FLOAT, 0, (float)(System.nanoTime() / 1_000_000_000.0));
+        VulkanExtensions.cmdPushConstants(commandBuffer, pipeline.layout(), 
+            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4, timeConstant);
         
         VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);

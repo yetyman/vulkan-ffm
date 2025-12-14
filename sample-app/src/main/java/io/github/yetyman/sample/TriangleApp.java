@@ -97,6 +97,12 @@ public class TriangleApp {
         while (!GLFW.glfwWindowShouldClose(window)) {
             GLFW.glfwPollEvents();
             
+            // Toggle AA with SPACE key
+            if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS) {
+                renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
+                try { Thread.sleep(200); } catch (InterruptedException e) {} // Debounce
+            }
+            
             if (framebufferResized) {
                 handleResize();
                 framebufferResized = false;
@@ -121,8 +127,9 @@ public class TriangleApp {
             frameCount++;
             long currentTime = System.nanoTime();
             if (currentTime - lastTime >= 1_000_000_000L) { // 1 second
-                System.out.printf("FPS: %d | Threads: %d | Avg Frame Time: %.2fms%n", 
-                    frameCount, renderer.getActiveThreads(), renderer.getAverageFrameTime());
+                System.out.printf("FPS: %d | Threads: %d | Avg Frame Time: %.2fms | AA: %s (SPACE to toggle)%n", 
+                    frameCount, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
+                    renderer.isAdaptiveAAEnabled() ? "ON" : "OFF");
                 frameCount = 0;
                 lastTime = currentTime;
             }
