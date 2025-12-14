@@ -45,6 +45,10 @@ public class ThreadedRenderer {
     private final ArrayDeque<Long> frameTimes = new ArrayDeque<>();
     private final int FRAME_HISTORY = 60;
     
+    // Cached layouts to avoid FFM overhead
+    private MemorySegment cachedViewport;
+    private MemorySegment cachedScissor;
+    
     public ThreadedRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
         this.arena = arena;
@@ -175,6 +179,17 @@ public class ThreadedRenderer {
     private void createCommandBuffers() {
         commandBuffers = commandManager.allocateBuffers(MAX_FRAMES_IN_FLIGHT, arena);
         System.out.println("[OK] Command buffers allocated");
+        
+        // Pre-allocate cached layouts
+        cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
+            .position(0, 0)
+            .size(width, height)
+            .depthRange(0.0f, 1.0f)
+            .build(arena);
+        cachedScissor = io.github.yetyman.vulkan.VkRect2D.builder()
+            .offset(0, 0)
+            .extent(width, height)
+            .build(arena);
     }
     
     private int findMemoryType(int typeFilter, int properties, MemorySegment memProps) {
@@ -200,8 +215,9 @@ public class ThreadedRenderer {
     public void drawFrame() {
         long frameStart = System.nanoTime();
         
-        try (Arena frameArena = Arena.ofConfined()) {
-            VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame(frameArena);
+        // Use main arena instead of creating new one each frame
+        Arena frameArena = arena;
+            VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame();
             
             int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
                 .semaphore(frameSync.imageAvailable.handle())
@@ -227,7 +243,6 @@ public class ThreadedRenderer {
                 .present(queue, frameArena);
             
             syncManager.nextFrame();
-        }
         
         // Track performance and adjust threads
         trackPerformance(frameStart);
@@ -270,18 +285,8 @@ public class ThreadedRenderer {
                     
                     VulkanExtensions.cmdBindPipeline(threadCmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
                     
-                    MemorySegment viewport = io.github.yetyman.vulkan.VkViewport.builder()
-                        .position(0, 0)
-                        .size(width, height)
-                        .depthRange(0.0f, 1.0f)
-                        .build(threadArena);
-                    VulkanExtensions.cmdSetViewport(threadCmd, 0, 1, viewport);
-                    
-                    MemorySegment scissor = io.github.yetyman.vulkan.VkRect2D.builder()
-                        .offset(0, 0)
-                        .extent(width, height)
-                        .build(threadArena);
-                    VulkanExtensions.cmdSetScissor(threadCmd, 0, 1, scissor);
+                    VulkanExtensions.cmdSetViewport(threadCmd, 0, 1, cachedViewport);
+                    VulkanExtensions.cmdSetScissor(threadCmd, 0, 1, cachedScissor);
                     
                     // Use instanced rendering instead of individual draws
                     int triangleCount = endTriangle - startTriangle;
@@ -345,18 +350,8 @@ public class ThreadedRenderer {
     private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         
-        MemorySegment viewport = io.github.yetyman.vulkan.VkViewport.builder()
-            .position(0, 0)
-            .size(width, height)
-            .depthRange(0.0f, 1.0f)
-            .build(frameArena);
-        VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, viewport);
-        
-        MemorySegment scissor = io.github.yetyman.vulkan.VkRect2D.builder()
-            .offset(0, 0)
-            .extent(width, height)
-            .build(frameArena);
-        VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, scissor);
+        VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
+        VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
         VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
     }
@@ -465,6 +460,17 @@ public class ThreadedRenderer {
         
         // Recreate framebuffers
         createFramebuffers();
+        
+        // Update cached layouts with new dimensions
+        cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
+            .position(0, 0)
+            .size(width, height)
+            .depthRange(0.0f, 1.0f)
+            .build(arena);
+        cachedScissor = io.github.yetyman.vulkan.VkRect2D.builder()
+            .offset(0, 0)
+            .extent(width, height)
+            .build(arena);
         
         System.out.println("[OK] Swapchain and depth buffer recreated for resize");
     }

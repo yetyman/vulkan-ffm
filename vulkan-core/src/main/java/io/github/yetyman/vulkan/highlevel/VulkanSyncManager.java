@@ -15,6 +15,12 @@ public class VulkanSyncManager implements AutoCloseable {
     private final int maxFramesInFlight;
     private int currentFrame = 0;
     
+    // Pre-allocated fence arrays to avoid FFM overhead
+    private final MemorySegment[] waitFenceArrays;
+    private final MemorySegment[] resetFenceArrays;
+    
+
+    
     private VulkanSyncManager(Arena arena, MemorySegment device, int maxFramesInFlight) {
         this.arena = arena;
         this.device = device;
@@ -23,6 +29,8 @@ public class VulkanSyncManager implements AutoCloseable {
         imageAvailableSemaphores = new VkSemaphore[maxFramesInFlight];
         renderFinishedSemaphores = new VkSemaphore[maxFramesInFlight];
         inFlightFences = new VkFence[maxFramesInFlight];
+        waitFenceArrays = new MemorySegment[maxFramesInFlight];
+        resetFenceArrays = new MemorySegment[maxFramesInFlight];
         
         for (int i = 0; i < maxFramesInFlight; i++) {
             imageAvailableSemaphores[i] = VkSemaphore.builder()
@@ -35,6 +43,12 @@ public class VulkanSyncManager implements AutoCloseable {
                 .device(device)
                 .signaled(true)
                 .build(arena);
+            
+            // Pre-allocate fence arrays
+            waitFenceArrays[i] = arena.allocate(ValueLayout.ADDRESS, 1);
+            waitFenceArrays[i].setAtIndex(ValueLayout.ADDRESS, 0, inFlightFences[i].handle());
+            resetFenceArrays[i] = arena.allocate(ValueLayout.ADDRESS, 1);
+            resetFenceArrays[i].setAtIndex(ValueLayout.ADDRESS, 0, inFlightFences[i].handle());
         }
     }
     
@@ -42,13 +56,10 @@ public class VulkanSyncManager implements AutoCloseable {
         return new Builder();
     }
     
-    public FrameSync acquireFrame(Arena frameArena) {
-        VkFenceOps.waitFor(device)
-            .fence(inFlightFences[currentFrame].handle())
-            .execute(frameArena).check();
-        VkFenceOps.waitFor(device)
-            .fence(inFlightFences[currentFrame].handle())
-            .reset(frameArena).check();
+    public FrameSync acquireFrame() {
+        // Use pre-allocated fence arrays to avoid FFM overhead
+        VulkanExtensions.waitForFences(device, 1, waitFenceArrays[currentFrame], 1, 0xFFFFFFFFFFFFFFFFL).check();
+        VulkanExtensions.resetFences(device, 1, resetFenceArrays[currentFrame]).check();
         
         return new FrameSync(
             imageAvailableSemaphores[currentFrame],
