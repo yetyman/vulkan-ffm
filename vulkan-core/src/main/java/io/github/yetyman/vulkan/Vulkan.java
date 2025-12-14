@@ -3,18 +3,39 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.generated.VulkanFFM;
 import java.lang.foreign.*;
 
+/**
+ * Main Vulkan API wrapper providing type-safe access to core Vulkan functions.
+ * All methods use FFM MemorySegment for native pointers and return VkResult for error handling.
+ */
 public class Vulkan {
     static { VulkanLibrary.load(); }
     
+    /**
+     * Creates a Vulkan instance.
+     * @param createInfo pointer to VkInstanceCreateInfo structure
+     * @param instance pointer to store the created VkInstance handle
+     * @return VkResult indicating success or failure
+     */
     public static VkResult createInstance(MemorySegment createInfo, MemorySegment instance) {
         int result = VulkanFFM.vkCreateInstance(createInfo, MemorySegment.NULL, instance);
         return VkResult.fromInt(result);
     }
     
+    /**
+     * Destroys a Vulkan instance.
+     * @param instance the VkInstance handle to destroy
+     */
     public static void destroyInstance(MemorySegment instance) {
         VulkanFFM.vkDestroyInstance(instance, MemorySegment.NULL);
     }
     
+    /**
+     * Enumerates physical devices available on the system.
+     * @param instance the VkInstance handle
+     * @param count pointer to uint32_t for device count (input/output)
+     * @param devices pointer to array of VkPhysicalDevice handles (can be NULL to query count)
+     * @return VkResult indicating success or failure
+     */
     public static VkResult enumeratePhysicalDevices(MemorySegment instance, MemorySegment count, MemorySegment devices) {
         int result = VulkanFFM.vkEnumeratePhysicalDevices(instance, count, devices);
         return VkResult.fromInt(result);
@@ -29,15 +50,33 @@ public class Vulkan {
         VulkanFFM.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, count, properties);
     }
     
+    /**
+     * Creates a logical device from a physical device.
+     * @param physicalDevice the VkPhysicalDevice handle
+     * @param createInfo pointer to VkDeviceCreateInfo structure
+     * @param device pointer to store the created VkDevice handle
+     * @return VkResult indicating success or failure
+     */
     public static VkResult createDevice(MemorySegment physicalDevice, MemorySegment createInfo, MemorySegment device) {
         int result = VulkanFFM.vkCreateDevice(physicalDevice, createInfo, MemorySegment.NULL, device);
         return VkResult.fromInt(result);
     }
     
+    /**
+     * Destroys a logical device.
+     * @param device the VkDevice handle to destroy
+     */
     public static void destroyDevice(MemorySegment device) {
         VulkanFFM.vkDestroyDevice(device, MemorySegment.NULL);
     }
     
+    /**
+     * Retrieves a queue handle from a device.
+     * @param device the VkDevice handle
+     * @param queueFamilyIndex the queue family index
+     * @param queueIndex the queue index within the family
+     * @param queue pointer to store the VkQueue handle
+     */
     public static void getDeviceQueue(MemorySegment device, int queueFamilyIndex, int queueIndex, MemorySegment queue) {
         VulkanFFM.vkGetDeviceQueue(device, queueFamilyIndex, queueIndex, queue);
     }

@@ -4,6 +4,11 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import static io.github.yetyman.vulkan.VkConstants.*;
 
+/**
+ * Wrapper for Vulkan swapchain (VkSwapchainKHR) with automatic resource management.
+ * A swapchain manages a queue of images for presentation to a surface.
+ * Implements AutoCloseable for use with try-with-resources.
+ */
 public class VkSwapchain implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
@@ -15,6 +20,15 @@ public class VkSwapchain implements AutoCloseable {
         this.images = images;
     }
     
+    /**
+     * Creates a new swapchain for the given surface and dimensions.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @param surface the VkSurfaceKHR handle
+     * @param width swapchain image width in pixels
+     * @param height swapchain image height in pixels
+     * @return a new VkSwapchain instance
+     */
     public static VkSwapchain create(Arena arena, MemorySegment device, MemorySegment surface, int width, int height) {
         MemorySegment createInfo = VkSwapchainCreateInfoKHR.allocate(arena);
         VkSwapchainCreateInfoKHR.sType(createInfo, 1000001000); // VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
@@ -56,7 +70,10 @@ public class VkSwapchain implements AutoCloseable {
         return new VkSwapchain(swapchain, device, images);
     }
     
+    /** @return the VkSwapchainKHR handle */
     public MemorySegment handle() { return handle; }
+    
+    /** @return array of VkImage handles from the swapchain */
     public MemorySegment[] getImages() { return images; }
     
     @Override

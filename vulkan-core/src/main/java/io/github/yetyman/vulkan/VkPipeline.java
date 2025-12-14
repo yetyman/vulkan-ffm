@@ -4,6 +4,10 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import static io.github.yetyman.vulkan.VkConstants.*;
 
+/**
+ * Wrapper for Vulkan graphics pipeline (VkPipeline) with automatic resource management.
+ * A graphics pipeline defines all stages of rendering from vertex input to fragment output.
+ */
 public class VkPipeline implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment layout;
@@ -15,6 +19,17 @@ public class VkPipeline implements AutoCloseable {
         this.device = device;
     }
     
+    /**
+     * Creates a graphics pipeline configured for rendering a simple triangle.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @param renderPass the VkRenderPass handle
+     * @param width viewport width in pixels
+     * @param height viewport height in pixels
+     * @param vertShader compiled SPIR-V vertex shader bytecode
+     * @param fragShader compiled SPIR-V fragment shader bytecode
+     * @return a new VkPipeline instance
+     */
     public static VkPipeline createTrianglePipeline(Arena arena, MemorySegment device, MemorySegment renderPass, int width, int height, byte[] vertShader, byte[] fragShader) {
         VkShaderModule vertModule = VkShaderModule.create(arena, device, vertShader);
         VkShaderModule fragModule = VkShaderModule.create(arena, device, fragShader);
@@ -175,7 +190,10 @@ public class VkPipeline implements AutoCloseable {
         }
     }
     
+    /** @return the VkPipeline handle */
     public MemorySegment handle() { return handle; }
+    
+    /** @return the VkPipelineLayout handle */
     public MemorySegment layout() { return layout; }
     
     @Override

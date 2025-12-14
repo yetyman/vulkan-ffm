@@ -4,6 +4,10 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import static io.github.yetyman.vulkan.VkConstants.*;
 
+/**
+ * Wrapper for Vulkan render pass (VkRenderPass) with automatic resource management.
+ * A render pass describes the structure and format of attachments used during rendering.
+ */
 public class VkRenderPass implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
@@ -13,6 +17,12 @@ public class VkRenderPass implements AutoCloseable {
         this.device = device;
     }
     
+    /**
+     * Creates a render pass with a single color attachment.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @return a new VkRenderPass instance
+     */
     public static VkRenderPass create(Arena arena, MemorySegment device) {
         MemorySegment attachmentDesc = VkAttachmentDescription.allocate(arena);
         VkAttachmentDescription.flags(attachmentDesc, 0);
@@ -66,6 +76,7 @@ public class VkRenderPass implements AutoCloseable {
         return new VkRenderPass(renderPassPtr.get(ValueLayout.ADDRESS, 0), device);
     }
     
+    /** @return the VkRenderPass handle */
     public MemorySegment handle() { return handle; }
     
     @Override

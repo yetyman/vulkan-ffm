@@ -4,6 +4,10 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import static io.github.yetyman.vulkan.VkConstants.*;
 
+/**
+ * Wrapper for Vulkan image view (VkImageView) with automatic resource management.
+ * Image views describe how to access an image and which part of the image to access.
+ */
 public class VkImageView implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
@@ -13,6 +17,13 @@ public class VkImageView implements AutoCloseable {
         this.device = device;
     }
     
+    /**
+     * Creates an image view for the given image.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @param image the VkImage handle to create a view for
+     * @return a new VkImageView instance
+     */
     public static VkImageView create(Arena arena, MemorySegment device, MemorySegment image) {
         MemorySegment createInfo = VkImageViewCreateInfo.allocate(arena);
         VkImageViewCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
@@ -39,6 +50,7 @@ public class VkImageView implements AutoCloseable {
         return new VkImageView(imageViewPtr.get(ValueLayout.ADDRESS, 0), device);
     }
     
+    /** @return the VkImageView handle */
     public MemorySegment handle() { return handle; }
     
     @Override

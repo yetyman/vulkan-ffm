@@ -3,6 +3,10 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 
+/**
+ * Wrapper for Vulkan framebuffer (VkFramebuffer) with automatic resource management.
+ * A framebuffer represents a collection of attachments used by a render pass.
+ */
 public class VkFramebuffer implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
@@ -12,6 +16,16 @@ public class VkFramebuffer implements AutoCloseable {
         this.device = device;
     }
     
+    /**
+     * Creates a framebuffer with a single image view attachment.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @param renderPass the VkRenderPass handle this framebuffer is compatible with
+     * @param imageView the VkImageView handle to use as the color attachment
+     * @param width framebuffer width in pixels
+     * @param height framebuffer height in pixels
+     * @return a new VkFramebuffer instance
+     */
     public static VkFramebuffer create(Arena arena, MemorySegment device, MemorySegment renderPass, MemorySegment imageView, int width, int height) {
         MemorySegment attachments = arena.allocate(ValueLayout.ADDRESS);
         attachments.set(ValueLayout.ADDRESS, 0, imageView);
@@ -32,6 +46,7 @@ public class VkFramebuffer implements AutoCloseable {
         return new VkFramebuffer(framebufferPtr.get(ValueLayout.ADDRESS, 0), device);
     }
     
+    /** @return the VkFramebuffer handle */
     public MemorySegment handle() { return handle; }
     
     @Override

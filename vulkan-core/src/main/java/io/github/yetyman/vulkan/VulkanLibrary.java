@@ -3,6 +3,10 @@ package io.github.yetyman.vulkan;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 
+/**
+ * Handles loading of the native Vulkan library (vulkan-1.dll on Windows).
+ * Attempts to load from system PATH first, then falls back to VULKAN_SDK environment variable.
+ */
 public class VulkanLibrary {
     static {
         try {
@@ -17,6 +21,10 @@ public class VulkanLibrary {
         }
     }
     
+    /**
+     * Explicitly loads the Vulkan library by triggering the static initializer.
+     * Call this early in your application to ensure Vulkan is available.
+     */
     public static void load() {
         // Trigger static initializer
     }

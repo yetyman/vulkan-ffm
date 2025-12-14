@@ -1,5 +1,9 @@
 package io.github.yetyman.vulkan;
 
+/**
+ * Vulkan structure type constants used in the sType field of Vulkan structures.
+ * These identify the type of structure being passed to Vulkan functions.
+ */
 public interface VkStructureType {
     int VK_STRUCTURE_TYPE_APPLICATION_INFO = 0;
     int VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO = 1;

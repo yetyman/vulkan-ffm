@@ -10,7 +10,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>glfw-bindings</module>
         <module>vulkan-core</module>
         <module>sample-app</module>
     </modules>
@@ -32,5 +31,17 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.4</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 
 </project>

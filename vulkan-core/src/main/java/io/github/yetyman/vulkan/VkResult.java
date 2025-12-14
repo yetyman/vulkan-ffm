@@ -1,5 +1,9 @@
 package io.github.yetyman.vulkan;
 
+/**
+ * Vulkan result codes representing success or various error conditions.
+ * Positive values indicate success, negative values indicate errors.
+ */
 public enum VkResult {
     VK_SUCCESS(0),
     VK_NOT_READY(1),
@@ -23,6 +27,11 @@ public enum VkResult {
         this.value = value;
     }
     
+    /**
+     * Converts an integer result code to a VkResult enum value.
+     * @param value the integer result code from Vulkan
+     * @return the corresponding VkResult, or VK_ERROR_INITIALIZATION_FAILED if unknown
+     */
     public static VkResult fromInt(int value) {
         for (VkResult result : values()) {
             if (result.value == value) return result;
@@ -30,6 +39,10 @@ public enum VkResult {
         return VK_ERROR_INITIALIZATION_FAILED;
     }
     
+    /**
+     * Throws a RuntimeException if this result indicates an error (value < 0).
+     * @throws RuntimeException if the result is an error
+     */
     public void check() {
         if (value < 0) {
             throw new RuntimeException("Vulkan error: " + this);

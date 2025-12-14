@@ -3,6 +3,10 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 
+/**
+ * Wrapper for Vulkan semaphore (VkSemaphore) with automatic resource management.
+ * Semaphores provide GPU-GPU synchronization between queue operations.
+ */
 public class VkSemaphore implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
@@ -12,6 +16,12 @@ public class VkSemaphore implements AutoCloseable {
         this.device = device;
     }
     
+    /**
+     * Creates a new semaphore.
+     * @param arena memory arena for allocations
+     * @param device the VkDevice handle
+     * @return a new VkSemaphore instance
+     */
     public static VkSemaphore create(Arena arena, MemorySegment device) {
         MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
         VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
@@ -23,6 +33,7 @@ public class VkSemaphore implements AutoCloseable {
         return new VkSemaphore(semPtr.get(ValueLayout.ADDRESS, 0), device);
     }
     
+    /** @return the VkSemaphore handle */
     public MemorySegment handle() { return handle; }
     
     @Override
