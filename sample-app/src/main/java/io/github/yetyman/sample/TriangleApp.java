@@ -5,6 +5,7 @@ import io.github.yetyman.vulkan.generated.VkApplicationInfo;
 import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
 import io.github.yetyman.vulkan.generated.VkDeviceQueueCreateInfo;
 import io.github.yetyman.vulkan.generated.VkDeviceCreateInfo;
+import io.github.yetyman.vulkan.generated.win32.VkWin32SurfaceCreateInfoKHR;
 import org.lwjgl.PointerBuffer;
 
 import java.lang.foreign.*;
@@ -14,6 +15,8 @@ import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
 public class TriangleApp {
+    static { VulkanLibrary.load(); }
+    
     private static final int WIDTH = 800;
     private static final int HEIGHT = 600;
     
@@ -26,6 +29,7 @@ public class TriangleApp {
     private int queueFamilyIndex;
     
     public void run() {
+        VulkanLibrary.load();
         initWindow();
         initVulkan();
         mainLoop();
@@ -107,6 +111,10 @@ public class TriangleApp {
         Vulkan.enumeratePhysicalDevices(instance, deviceCount, MemorySegment.NULL).check();
         int count = deviceCount.get(ValueLayout.JAVA_INT, 0);
         
+        if (count == 0) {
+            throw new RuntimeException("No Vulkan devices found");
+        }
+        
         MemorySegment devices = arena.allocate(ValueLayout.ADDRESS, count);
         Vulkan.enumeratePhysicalDevices(instance, deviceCount, devices).check();
         physicalDevice = devices.get(ValueLayout.ADDRESS, 0);
@@ -159,26 +167,17 @@ public class TriangleApp {
         
         long hwnd = org.lwjgl.glfw.GLFWNativeWin32.glfwGetWin32Window(window);
         
-        MemorySegment surfaceCreateInfo = arena.allocate(40);
-        surfaceCreateInfo.set(ValueLayout.JAVA_INT, 0, 1000009000);
-        surfaceCreateInfo.set(ValueLayout.ADDRESS, 8, MemorySegment.NULL);
-        surfaceCreateInfo.set(ValueLayout.JAVA_INT, 16, 0);
-        surfaceCreateInfo.set(ValueLayout.ADDRESS, 24, MemorySegment.NULL);
-        surfaceCreateInfo.set(ValueLayout.ADDRESS, 32, MemorySegment.ofAddress(hwnd));
+        MemorySegment surfaceCreateInfo = VkWin32SurfaceCreateInfoKHR.allocate(arena);
+        VkWin32SurfaceCreateInfoKHR.sType(surfaceCreateInfo, 1000009000);
+        VkWin32SurfaceCreateInfoKHR.pNext(surfaceCreateInfo, MemorySegment.NULL);
+        VkWin32SurfaceCreateInfoKHR.flags(surfaceCreateInfo, 0);
+        VkWin32SurfaceCreateInfoKHR.hinstance(surfaceCreateInfo, MemorySegment.NULL);
+        VkWin32SurfaceCreateInfoKHR.hwnd(surfaceCreateInfo, MemorySegment.ofAddress(hwnd));
         
         MemorySegment surfacePtr = arena.allocate(ValueLayout.ADDRESS);
-        try {
-            var vkCreateWin32SurfaceKHR = VulkanLibrary.findFunction("vkCreateWin32SurfaceKHR",
-                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
-            int surfaceResult = (int) vkCreateWin32SurfaceKHR.invoke(instance, surfaceCreateInfo, MemorySegment.NULL, surfacePtr);
-            if (surfaceResult != 0) {
-                throw new RuntimeException("Failed to create surface: " + surfaceResult);
-            }
-            surface = surfacePtr.get(ValueLayout.ADDRESS, 0);
-            System.out.println("[OK] Surface created");
-        } catch (Throwable e) {
-            throw new RuntimeException("Failed to create Win32 surface", e);
-        }
+        VulkanWin32.createWin32Surface(instance, surfaceCreateInfo, surfacePtr).check();
+        surface = surfacePtr.get(ValueLayout.ADDRESS, 0);
+        System.out.println("[OK] Surface created");
     }
     
     private Renderer renderer;
@@ -201,6 +200,7 @@ public class TriangleApp {
         }
         
         if (device != null && !device.equals(MemorySegment.NULL)) {
+            Vulkan.deviceWaitIdle(device).check();
             Vulkan.destroyDevice(device);
             System.out.println("[OK] Device destroyed");
         }
@@ -228,6 +228,11 @@ public class TriangleApp {
     }
     
     public static void main(String[] args) {
-        new TriangleApp().run();
+        try {
+            new TriangleApp().run();
+        } catch (Exception e) {
+            System.err.println("Application error: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

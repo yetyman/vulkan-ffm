@@ -4,6 +4,8 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 
 public class VulkanExample {
+    static { VulkanLibrary.load(); }
+    
     public static void main(String[] args) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment appInfo = VkApplicationInfo.allocate(arena);
