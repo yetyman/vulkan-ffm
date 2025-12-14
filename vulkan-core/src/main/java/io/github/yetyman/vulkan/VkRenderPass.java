@@ -1,11 +1,10 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import java.util.ArrayList;
 import java.util.List;
-import static io.github.yetyman.vulkan.VkConstants.*;
-import static io.github.yetyman.vulkan.generated.vulkanffm_4.*;
 
 /**
  * Wrapper for Vulkan render pass (VkRenderPass) with automatic resource management.
@@ -29,10 +28,10 @@ public class VkRenderPass implements AutoCloseable {
     public static VkRenderPass create(Arena arena, MemorySegment device) {
         return builder()
             .device(device)
-            .colorAttachment(VK_FORMAT_B8G8R8A8_SRGB, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-            .subpassDependency(VK_SUBPASS_EXTERNAL, 0, 
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
+            .subpassDependency(~0, 0, 
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
             .build(arena);
     }
     
@@ -68,15 +67,15 @@ public class VkRenderPass implements AutoCloseable {
         
         /** Adds a color attachment */
         public Builder colorAttachment(int format, int loadOp, int storeOp) {
-            attachments.add(new AttachmentConfig(format, VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp, 
-                0, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, true));
+            attachments.add(new AttachmentConfig(format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp, 
+                0, 0, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, true));
             return this;
         }
         
         /** Adds a depth attachment */
         public Builder depthAttachment(int format, int loadOp, int storeOp) {
-            attachments.add(new AttachmentConfig(format, VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp,
-                loadOp, storeOp, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL(), false));
+            attachments.add(new AttachmentConfig(format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp,
+                loadOp, storeOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false));
             return this;
         }
         
@@ -136,20 +135,20 @@ public class VkRenderPass implements AutoCloseable {
             for (int i = 0; i < colorIndices.size(); i++) {
                 MemorySegment ref = colorRefs.asSlice(i * VkAttachmentReference.layout().byteSize(), VkAttachmentReference.layout());
                 VkAttachmentReference.attachment(ref, colorIndices.get(i));
-                VkAttachmentReference.layout(ref, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             }
             
             MemorySegment depthRef = MemorySegment.NULL;
             if (depthIndex != null) {
                 depthRef = VkAttachmentReference.allocate(arena);
                 VkAttachmentReference.attachment(depthRef, depthIndex);
-                VkAttachmentReference.layout(depthRef, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL());
+                VkAttachmentReference.layout(depthRef, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             }
             
             // Create subpass
             MemorySegment subpass = VkSubpassDescription.allocate(arena);
             VkSubpassDescription.flags(subpass, 0);
-            VkSubpassDescription.pipelineBindPoint(subpass, VK_PIPELINE_BIND_POINT_GRAPHICS);
+            VkSubpassDescription.pipelineBindPoint(subpass, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS);
             VkSubpassDescription.inputAttachmentCount(subpass, 0);
             VkSubpassDescription.pInputAttachments(subpass, MemorySegment.NULL);
             VkSubpassDescription.colorAttachmentCount(subpass, colorIndices.size());

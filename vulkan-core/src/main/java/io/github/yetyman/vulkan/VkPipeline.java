@@ -1,8 +1,8 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
-import static io.github.yetyman.vulkan.VkConstants.*;
 
 /**
  * Wrapper for Vulkan graphics pipeline (VkPipeline) with automatic resource management.
@@ -41,7 +41,7 @@ public class VkPipeline implements AutoCloseable {
             VkPipelineShaderStageCreateInfo.sType(vertStage, 18);
             VkPipelineShaderStageCreateInfo.pNext(vertStage, MemorySegment.NULL);
             VkPipelineShaderStageCreateInfo.flags(vertStage, 0);
-            VkPipelineShaderStageCreateInfo.stage(vertStage, VK_SHADER_STAGE_VERTEX_BIT);
+            VkPipelineShaderStageCreateInfo.stage(vertStage, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT);
             VkPipelineShaderStageCreateInfo.module(vertStage, vertModule.handle());
             VkPipelineShaderStageCreateInfo.pName(vertStage, mainName);
             VkPipelineShaderStageCreateInfo.pSpecializationInfo(vertStage, MemorySegment.NULL);
@@ -50,7 +50,7 @@ public class VkPipeline implements AutoCloseable {
             VkPipelineShaderStageCreateInfo.sType(fragStage, 18);
             VkPipelineShaderStageCreateInfo.pNext(fragStage, MemorySegment.NULL);
             VkPipelineShaderStageCreateInfo.flags(fragStage, 0);
-            VkPipelineShaderStageCreateInfo.stage(fragStage, VK_SHADER_STAGE_FRAGMENT_BIT);
+            VkPipelineShaderStageCreateInfo.stage(fragStage, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT);
             VkPipelineShaderStageCreateInfo.module(fragStage, fragModule.handle());
             VkPipelineShaderStageCreateInfo.pName(fragStage, mainName);
             VkPipelineShaderStageCreateInfo.pSpecializationInfo(fragStage, MemorySegment.NULL);
@@ -68,7 +68,7 @@ public class VkPipeline implements AutoCloseable {
             VkPipelineInputAssemblyStateCreateInfo.sType(inputAssembly, 20);
             VkPipelineInputAssemblyStateCreateInfo.pNext(inputAssembly, MemorySegment.NULL);
             VkPipelineInputAssemblyStateCreateInfo.flags(inputAssembly, 0);
-            VkPipelineInputAssemblyStateCreateInfo.topology(inputAssembly, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+            VkPipelineInputAssemblyStateCreateInfo.topology(inputAssembly, VkPrimitiveTopology.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
             VkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable(inputAssembly, 0);
             
             MemorySegment viewport = VkViewport.allocate(arena);
@@ -100,9 +100,9 @@ public class VkPipeline implements AutoCloseable {
             VkPipelineRasterizationStateCreateInfo.flags(rasterizer, 0);
             VkPipelineRasterizationStateCreateInfo.depthClampEnable(rasterizer, 0);
             VkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable(rasterizer, 0);
-            VkPipelineRasterizationStateCreateInfo.polygonMode(rasterizer, VK_POLYGON_MODE_FILL);
+            VkPipelineRasterizationStateCreateInfo.polygonMode(rasterizer, VkPolygonMode.VK_POLYGON_MODE_FILL);
             VkPipelineRasterizationStateCreateInfo.cullMode(rasterizer, 0);
-            VkPipelineRasterizationStateCreateInfo.frontFace(rasterizer, VK_FRONT_FACE_CLOCKWISE);
+            VkPipelineRasterizationStateCreateInfo.frontFace(rasterizer, VkFrontFace.VK_FRONT_FACE_CLOCKWISE);
             VkPipelineRasterizationStateCreateInfo.depthBiasEnable(rasterizer, 0);
             VkPipelineRasterizationStateCreateInfo.depthBiasConstantFactor(rasterizer, 0.0f);
             VkPipelineRasterizationStateCreateInfo.depthBiasClamp(rasterizer, 0.0f);
@@ -113,7 +113,7 @@ public class VkPipeline implements AutoCloseable {
             VkPipelineMultisampleStateCreateInfo.sType(multisampling, 24);
             VkPipelineMultisampleStateCreateInfo.pNext(multisampling, MemorySegment.NULL);
             VkPipelineMultisampleStateCreateInfo.flags(multisampling, 0);
-            VkPipelineMultisampleStateCreateInfo.rasterizationSamples(multisampling, VK_SAMPLE_COUNT_1_BIT);
+            VkPipelineMultisampleStateCreateInfo.rasterizationSamples(multisampling, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT);
             VkPipelineMultisampleStateCreateInfo.sampleShadingEnable(multisampling, 0);
             VkPipelineMultisampleStateCreateInfo.minSampleShading(multisampling, 1.0f);
             VkPipelineMultisampleStateCreateInfo.pSampleMask(multisampling, MemorySegment.NULL);
@@ -123,19 +123,19 @@ public class VkPipeline implements AutoCloseable {
             MemorySegment colorBlendAttachment = VkPipelineColorBlendAttachmentState.allocate(arena);
             VkPipelineColorBlendAttachmentState.colorWriteMask(colorBlendAttachment, 0xF);
             VkPipelineColorBlendAttachmentState.blendEnable(colorBlendAttachment, 0);
-            VkPipelineColorBlendAttachmentState.srcColorBlendFactor(colorBlendAttachment, VK_BLEND_FACTOR_ONE);
-            VkPipelineColorBlendAttachmentState.dstColorBlendFactor(colorBlendAttachment, VK_BLEND_FACTOR_ZERO);
-            VkPipelineColorBlendAttachmentState.colorBlendOp(colorBlendAttachment, VK_BLEND_OP_ADD);
-            VkPipelineColorBlendAttachmentState.srcAlphaBlendFactor(colorBlendAttachment, VK_BLEND_FACTOR_ONE);
-            VkPipelineColorBlendAttachmentState.dstAlphaBlendFactor(colorBlendAttachment, VK_BLEND_FACTOR_ZERO);
-            VkPipelineColorBlendAttachmentState.alphaBlendOp(colorBlendAttachment, VK_BLEND_OP_ADD);
+            VkPipelineColorBlendAttachmentState.srcColorBlendFactor(colorBlendAttachment, VkBlendFactor.VK_BLEND_FACTOR_ONE);
+            VkPipelineColorBlendAttachmentState.dstColorBlendFactor(colorBlendAttachment, VkBlendFactor.VK_BLEND_FACTOR_ZERO);
+            VkPipelineColorBlendAttachmentState.colorBlendOp(colorBlendAttachment, VkBlendOp.VK_BLEND_OP_ADD);
+            VkPipelineColorBlendAttachmentState.srcAlphaBlendFactor(colorBlendAttachment, VkBlendFactor.VK_BLEND_FACTOR_ONE);
+            VkPipelineColorBlendAttachmentState.dstAlphaBlendFactor(colorBlendAttachment, VkBlendFactor.VK_BLEND_FACTOR_ZERO);
+            VkPipelineColorBlendAttachmentState.alphaBlendOp(colorBlendAttachment, VkBlendOp.VK_BLEND_OP_ADD);
             
             MemorySegment colorBlending = VkPipelineColorBlendStateCreateInfo.allocate(arena);
             VkPipelineColorBlendStateCreateInfo.sType(colorBlending, 26);
             VkPipelineColorBlendStateCreateInfo.pNext(colorBlending, MemorySegment.NULL);
             VkPipelineColorBlendStateCreateInfo.flags(colorBlending, 0);
             VkPipelineColorBlendStateCreateInfo.logicOpEnable(colorBlending, 0);
-            VkPipelineColorBlendStateCreateInfo.logicOp(colorBlending, VK_LOGIC_OP_COPY);
+            VkPipelineColorBlendStateCreateInfo.logicOp(colorBlending, VkLogicOp.VK_LOGIC_OP_COPY);
             VkPipelineColorBlendStateCreateInfo.attachmentCount(colorBlending, 1);
             VkPipelineColorBlendStateCreateInfo.pAttachments(colorBlending, colorBlendAttachment);
             VkPipelineColorBlendStateCreateInfo.blendConstants(colorBlending, 0, 0.0f);

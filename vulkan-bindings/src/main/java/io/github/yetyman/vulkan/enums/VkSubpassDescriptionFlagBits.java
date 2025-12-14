@@ -1,0 +1,25 @@
+package io.github.yetyman.vulkan.enums;
+
+/**
+ * Constants for VkSubpassDescriptionFlagBits
+ * Generated from jextract bindings
+ */
+public final class VkSubpassDescriptionFlagBits {
+    private VkSubpassDescriptionFlagBits() {}
+
+    public static final int VK_SUBPASS_DESCRIPTION_CUSTOM_RESOLVE_BIT_EXT = 8;
+    public static final int VK_SUBPASS_DESCRIPTION_ENABLE_LEGACY_DITHERING_BIT_EXT = 128;
+    public static final int VK_SUBPASS_DESCRIPTION_FLAG_BITS_MAX_ENUM = 2147483647;
+    public static final int VK_SUBPASS_DESCRIPTION_FRAGMENT_REGION_BIT_EXT = 4;
+    public static final int VK_SUBPASS_DESCRIPTION_FRAGMENT_REGION_BIT_QCOM = 4;
+    public static final int VK_SUBPASS_DESCRIPTION_PER_VIEW_ATTRIBUTES_BIT_NVX = 1;
+    public static final int VK_SUBPASS_DESCRIPTION_PER_VIEW_POSITION_X_ONLY_BIT_NVX = 2;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_ARM = 16;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_COLOR_ACCESS_BIT_EXT = 16;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_ARM = 32;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_EXT = 32;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_ARM = 64;
+    public static final int VK_SUBPASS_DESCRIPTION_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_EXT = 64;
+    public static final int VK_SUBPASS_DESCRIPTION_SHADER_RESOLVE_BIT_QCOM = 8;
+    public static final int VK_SUBPASS_DESCRIPTION_TILE_SHADING_APRON_BIT_QCOM = 256;
+}

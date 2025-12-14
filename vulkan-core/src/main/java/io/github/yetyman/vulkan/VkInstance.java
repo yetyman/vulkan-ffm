@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 

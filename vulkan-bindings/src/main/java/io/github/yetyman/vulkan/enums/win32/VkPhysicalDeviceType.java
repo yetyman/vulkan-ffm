@@ -1,0 +1,16 @@
+package io.github.yetyman.vulkan.enums.win32;
+
+/**
+ * Constants for VkPhysicalDeviceType
+ * Generated from jextract bindings
+ */
+public final class VkPhysicalDeviceType {
+    private VkPhysicalDeviceType() {}
+
+    public static final int VK_PHYSICAL_DEVICE_TYPE_CPU = 4;
+    public static final int VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU = 2;
+    public static final int VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU = 1;
+    public static final int VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM = 2147483647;
+    public static final int VK_PHYSICAL_DEVICE_TYPE_OTHER = 0;
+    public static final int VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU = 3;
+}

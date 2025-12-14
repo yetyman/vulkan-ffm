@@ -1,8 +1,8 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
-import static io.github.yetyman.vulkan.VkConstants.*;
 
 /**
  * Wrapper for Vulkan fence (VkFence) with automatic resource management.
@@ -25,7 +25,7 @@ public class VkFence implements AutoCloseable {
      * @return a new VkFence instance
      */
     public static VkFence create(Arena arena, MemorySegment device, boolean signaled) {
-        int flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+        int flags = signaled ? VkFenceCreateFlagBits.VK_FENCE_CREATE_SIGNALED_BIT : 0;
         MemorySegment fenceInfo = VkFenceCreateInfo.allocate(arena);
         VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
         VkFenceCreateInfo.pNext(fenceInfo, MemorySegment.NULL);

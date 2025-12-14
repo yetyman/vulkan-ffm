@@ -1,6 +1,8 @@
 package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.VkResult;
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.VkApplicationInfo;
 import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
 import io.github.yetyman.vulkan.generated.VkDeviceQueueCreateInfo;

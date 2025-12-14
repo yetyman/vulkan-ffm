@@ -1,6 +1,7 @@
 package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo;
 import io.github.yetyman.vulkan.generated.VkPresentInfoKHR;
 import io.github.yetyman.vulkan.generated.VkSubmitInfo;
@@ -11,7 +12,6 @@ import io.github.yetyman.vulkan.generated.VkOffset2D;
 import io.github.yetyman.vulkan.generated.VkExtent2D;
 
 import java.lang.foreign.*;
-import static io.github.yetyman.vulkan.VkConstants.*;
 
 public class Renderer {
     private static final int MAX_FRAMES_IN_FLIGHT = 3;
@@ -101,7 +101,7 @@ public class Renderer {
         VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
         VkCommandBufferAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
         VkCommandBufferAllocateInfo.commandPool(allocInfo, commandPool.handle());
-        VkCommandBufferAllocateInfo.level(allocInfo, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+        VkCommandBufferAllocateInfo.level(allocInfo, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
         VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, MAX_FRAMES_IN_FLIGHT);
         
         commandBuffers = new MemorySegment[MAX_FRAMES_IN_FLIGHT];
@@ -145,7 +145,7 @@ public class Renderer {
             MemorySegment waitSemaphores = frameArena.allocate(ValueLayout.ADDRESS);
             waitSemaphores.set(ValueLayout.ADDRESS, 0, imageAvailableSemaphores[currentFrame].handle());
             MemorySegment waitStages = frameArena.allocate(ValueLayout.JAVA_INT);
-            waitStages.set(ValueLayout.JAVA_INT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+            waitStages.set(ValueLayout.JAVA_INT, 0, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
             MemorySegment cmdBufArray = frameArena.allocate(ValueLayout.ADDRESS);
             cmdBufArray.set(ValueLayout.ADDRESS, 0, commandBuffers[currentFrame]);
             MemorySegment signalSemaphores = frameArena.allocate(ValueLayout.ADDRESS);
@@ -215,8 +215,8 @@ public class Renderer {
         VkRenderPassBeginInfo.clearValueCount(renderPassInfo, 1);
         VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValue);
         
-        VulkanExtensions.cmdBeginRenderPass(commandBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        VulkanExtensions.cmdBeginRenderPass(commandBuffer, renderPassInfo, VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         VulkanExtensions.cmdEndRenderPass(commandBuffer);
         VulkanExtensions.endCommandBuffer(commandBuffer).check();

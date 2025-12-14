@@ -1,8 +1,8 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
-import static io.github.yetyman.vulkan.VkConstants.*;
 
 /**
  * Wrapper for Vulkan swapchain (VkSwapchainKHR) with automatic resource management.
@@ -36,19 +36,19 @@ public class VkSwapchain implements AutoCloseable {
         VkSwapchainCreateInfoKHR.flags(createInfo, 0);
         VkSwapchainCreateInfoKHR.surface(createInfo, surface);
         VkSwapchainCreateInfoKHR.minImageCount(createInfo, 3);
-        VkSwapchainCreateInfoKHR.imageFormat(createInfo, VK_FORMAT_B8G8R8A8_SRGB);
-        VkSwapchainCreateInfoKHR.imageColorSpace(createInfo, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
+        VkSwapchainCreateInfoKHR.imageFormat(createInfo, VkFormat.VK_FORMAT_B8G8R8A8_SRGB);
+        VkSwapchainCreateInfoKHR.imageColorSpace(createInfo, VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
         MemorySegment imageExtent = VkSwapchainCreateInfoKHR.imageExtent(createInfo);
         VkExtent2D.width(imageExtent, width);
         VkExtent2D.height(imageExtent, height);
         VkSwapchainCreateInfoKHR.imageArrayLayers(createInfo, 1);
-        VkSwapchainCreateInfoKHR.imageUsage(createInfo, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+        VkSwapchainCreateInfoKHR.imageUsage(createInfo, VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
         VkSwapchainCreateInfoKHR.imageSharingMode(createInfo, 0);
         VkSwapchainCreateInfoKHR.queueFamilyIndexCount(createInfo, 0);
         VkSwapchainCreateInfoKHR.pQueueFamilyIndices(createInfo, MemorySegment.NULL);
-        VkSwapchainCreateInfoKHR.preTransform(createInfo, VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR);
-        VkSwapchainCreateInfoKHR.compositeAlpha(createInfo, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
-        VkSwapchainCreateInfoKHR.presentMode(createInfo, VK_PRESENT_MODE_FIFO_KHR);
+        VkSwapchainCreateInfoKHR.preTransform(createInfo, VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR);
+        VkSwapchainCreateInfoKHR.compositeAlpha(createInfo, VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+        VkSwapchainCreateInfoKHR.presentMode(createInfo, VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR);
         VkSwapchainCreateInfoKHR.clipped(createInfo, 1);
         VkSwapchainCreateInfoKHR.oldSwapchain(createInfo, MemorySegment.NULL);
         

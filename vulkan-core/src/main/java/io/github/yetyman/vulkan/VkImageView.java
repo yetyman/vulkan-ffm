@@ -1,10 +1,8 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
-import static io.github.yetyman.vulkan.VkConstants.*;
-import static io.github.yetyman.vulkan.generated.vulkanffm_3.*;
-import static io.github.yetyman.vulkan.generated.vulkanffm_4.*;
 
 /**
  * Wrapper for Vulkan image view (VkImageView) with automatic resource management.
@@ -30,9 +28,9 @@ public class VkImageView implements AutoCloseable {
         return builder()
             .device(device)
             .image(image)
-            .viewType(VK_IMAGE_VIEW_TYPE_2D())
-            .format(VK_FORMAT_B8G8R8A8_SRGB)
-            .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT())
+            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
+            .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
+            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
             .build(arena);
     }
     
@@ -55,9 +53,9 @@ public class VkImageView implements AutoCloseable {
     public static class Builder {
         private MemorySegment device;
         private MemorySegment image;
-        private int viewType = VK_IMAGE_VIEW_TYPE_2D();
-        private int format = VK_FORMAT_B8G8R8A8_SRGB;
-        private int aspectMask = VK_IMAGE_ASPECT_COLOR_BIT();
+        private int viewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_2D;
+        private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB;
+        private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT;
         private int baseMipLevel = 0;
         private int levelCount = 1;
         private int baseArrayLayer = 0;
