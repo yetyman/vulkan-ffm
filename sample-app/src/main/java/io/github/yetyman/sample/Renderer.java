@@ -65,13 +65,25 @@ public class Renderer {
         MemorySegment[] images = swapchain.getImages();
         swapchainImageViews = new VkImageView[images.length];
         for (int i = 0; i < images.length; i++) {
-            swapchainImageViews[i] = VkImageView.create(arena, device, images[i]);
+            swapchainImageViews[i] = VkImageView.builder()
+                .device(device)
+                .image(images[i])
+                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
+                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+                .build(arena);
         }
         System.out.println("[OK] Image views created");
     }
     
     private void createRenderPass() {
-        renderPass = VkRenderPass.create(arena, device);
+        renderPass = VkRenderPass.builder()
+            .device(device)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
+            .subpassDependency(~0, 0, 
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+            .build(arena);
         System.out.println("[OK] Render pass created");
     }
     
@@ -79,14 +91,26 @@ public class Renderer {
         byte[] vertShaderCode = ShaderLoader.compileShader("/shaders/triangle.vert");
         byte[] fragShaderCode = ShaderLoader.compileShader("/shaders/triangle.frag");
         
-        pipeline = VkPipeline.createTrianglePipeline(arena, device, renderPass.handle(), width, height, vertShaderCode, fragShaderCode);
+        pipeline = VkPipeline.builder()
+            .device(device)
+            .renderPass(renderPass.handle())
+            .viewport(0, 0, width, height)
+            .vertexShader(vertShaderCode)
+            .fragmentShader(fragShaderCode)
+            .triangleTopology()
+            .build(arena);
         System.out.println("[OK] Graphics pipeline created");
     }
     
     private void createFramebuffers() {
         framebuffers = new VkFramebuffer[swapchainImageViews.length];
         for (int i = 0; i < swapchainImageViews.length; i++) {
-            framebuffers[i] = VkFramebuffer.create(arena, device, renderPass.handle(), swapchainImageViews[i].handle(), width, height);
+            framebuffers[i] = VkFramebuffer.builder()
+                .device(device)
+                .renderPass(renderPass.handle())
+                .attachment(swapchainImageViews[i].handle())
+                .dimensions(width, height)
+                .build(arena);
         }
         System.out.println("[OK] Framebuffers created");
     }

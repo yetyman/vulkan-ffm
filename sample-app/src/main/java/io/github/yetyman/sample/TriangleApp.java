@@ -55,15 +55,6 @@ public class TriangleApp {
     private void initVulkan() {
         arena = Arena.ofConfined();
         
-        MemorySegment appInfo = VkApplicationInfo.allocate(arena);
-        VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO);
-        VkApplicationInfo.pNext(appInfo, MemorySegment.NULL);
-        VkApplicationInfo.pApplicationName(appInfo, arena.allocateFrom("Triangle App"));
-        VkApplicationInfo.applicationVersion(appInfo, 1);
-        VkApplicationInfo.pEngineName(appInfo, arena.allocateFrom("NoEngine"));
-        VkApplicationInfo.engineVersion(appInfo, 0);
-        VkApplicationInfo.apiVersion(appInfo, Vulkan.VK_API_VERSION_1_0);
-        
         String[] extensions = GLFW.glfwGetRequiredInstanceExtensions(arena);
         if (extensions == null) {
             throw new RuntimeException("Failed to get GLFW extensions");
@@ -71,32 +62,8 @@ public class TriangleApp {
         
         System.out.println("Extensions: " + String.join(", ", extensions));
         
-        MemorySegment createInfo = VkInstanceCreateInfo.allocate(arena);
-        VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
-        VkInstanceCreateInfo.pNext(createInfo, MemorySegment.NULL);
-        VkInstanceCreateInfo.flags(createInfo, 0);
-        VkInstanceCreateInfo.pApplicationInfo(createInfo, appInfo);
-        
-        if (extensions != null && extensions.length > 0) {
-            MemorySegment extArray = arena.allocate(ValueLayout.ADDRESS, extensions.length);
-            for (int i = 0; i < extensions.length; i++) {
-                extArray.setAtIndex(ValueLayout.ADDRESS, i, arena.allocateFrom(extensions[i]));
-            }
-            VkInstanceCreateInfo.enabledExtensionCount(createInfo, extensions.length);
-            VkInstanceCreateInfo.ppEnabledExtensionNames(createInfo, extArray);
-        } else {
-            VkInstanceCreateInfo.enabledExtensionCount(createInfo, 0);
-            VkInstanceCreateInfo.ppEnabledExtensionNames(createInfo, MemorySegment.NULL);
-        }
-        
-        VkInstanceCreateInfo.enabledLayerCount(createInfo, 0);
-        VkInstanceCreateInfo.ppEnabledLayerNames(createInfo, MemorySegment.NULL);
-        
-        MemorySegment instancePtr = arena.allocate(ValueLayout.ADDRESS);
-        VkResult result = Vulkan.createInstance(createInfo, instancePtr);
-        System.out.println("Create instance result: " + result);
-        result.check();
-        instance = instancePtr.get(ValueLayout.ADDRESS, 0);
+        VkInstance vkInstance = VkInstance.create(arena, "Triangle App", 1, "NoEngine", 0, extensions);
+        instance = vkInstance.handle();
         System.out.println("[OK] Vulkan instance created");
 
         
@@ -114,48 +81,13 @@ public class TriangleApp {
         System.out.println("[OK] Physical device selected");
         
         queueFamilyIndex = 0;
-        
-        MemorySegment queuePriorities = arena.allocate(ValueLayout.JAVA_FLOAT);
-        queuePriorities.set(ValueLayout.JAVA_FLOAT, 0, 1.0f);
-        
-        MemorySegment queueCreateInfo = VkDeviceQueueCreateInfo.allocate(arena);
-        VkDeviceQueueCreateInfo.sType(queueCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO);
-        VkDeviceQueueCreateInfo.pNext(queueCreateInfo, MemorySegment.NULL);
-        VkDeviceQueueCreateInfo.flags(queueCreateInfo, 0);
-        VkDeviceQueueCreateInfo.queueFamilyIndex(queueCreateInfo, queueFamilyIndex);
-        VkDeviceQueueCreateInfo.queueCount(queueCreateInfo, 1);
-        VkDeviceQueueCreateInfo.pQueuePriorities(queueCreateInfo, queuePriorities);
-        
         String[] deviceExtensions = {"VK_KHR_swapchain"};
         
-        MemorySegment queueCreateInfos = arena.allocate(VkDeviceQueueCreateInfo.layout());
-        MemorySegment.copy(queueCreateInfo, 0, queueCreateInfos, 0, VkDeviceQueueCreateInfo.layout().byteSize());
-        
-        MemorySegment deviceCreateInfo = VkDeviceCreateInfo.allocate(arena);
-        VkDeviceCreateInfo.sType(deviceCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
-        VkDeviceCreateInfo.pNext(deviceCreateInfo, MemorySegment.NULL);
-        VkDeviceCreateInfo.flags(deviceCreateInfo, 0);
-        VkDeviceCreateInfo.queueCreateInfoCount(deviceCreateInfo, 1);
-        VkDeviceCreateInfo.pQueueCreateInfos(deviceCreateInfo, queueCreateInfos);
-        VkDeviceCreateInfo.enabledLayerCount(deviceCreateInfo, 0);
-        VkDeviceCreateInfo.ppEnabledLayerNames(deviceCreateInfo, MemorySegment.NULL);
-        
-        MemorySegment extArray = arena.allocate(ValueLayout.ADDRESS, deviceExtensions.length);
-        for (int i = 0; i < deviceExtensions.length; i++) {
-            extArray.setAtIndex(ValueLayout.ADDRESS, i, arena.allocateFrom(deviceExtensions[i]));
-        }
-        VkDeviceCreateInfo.enabledExtensionCount(deviceCreateInfo, deviceExtensions.length);
-        VkDeviceCreateInfo.ppEnabledExtensionNames(deviceCreateInfo, extArray);
-        VkDeviceCreateInfo.pEnabledFeatures(deviceCreateInfo, MemorySegment.NULL);
-        
-        MemorySegment devicePtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.createDevice(physicalDevice, deviceCreateInfo, devicePtr).check();
-        device = devicePtr.get(ValueLayout.ADDRESS, 0);
+        VkDevice vkDevice = VkDevice.create(arena, physicalDevice, queueFamilyIndex, deviceExtensions);
+        device = vkDevice.handle();
         System.out.println("[OK] Logical device created");
         
-        MemorySegment queuePtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.getDeviceQueue(device, queueFamilyIndex, 0, queuePtr);
-        queue = queuePtr.get(ValueLayout.ADDRESS, 0);
+        queue = vkDevice.getQueue(queueFamilyIndex, 0);
         System.out.println("[OK] Queue retrieved");
         
         long hwnd = GLFW.glfwGetWin32Window(window);
