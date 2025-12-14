@@ -121,19 +121,12 @@ public class Renderer {
     }
     
     private void createCommandBuffers() {
-        MemorySegment allocInfo = VkCommandBufferAllocateInfo.allocate(arena);
-        VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
-        VkCommandBufferAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
-        VkCommandBufferAllocateInfo.commandPool(allocInfo, commandPool.handle());
-        VkCommandBufferAllocateInfo.level(allocInfo, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-        VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, MAX_FRAMES_IN_FLIGHT);
-        
-        commandBuffers = new MemorySegment[MAX_FRAMES_IN_FLIGHT];
-        MemorySegment commandBuffersArray = arena.allocate(ValueLayout.ADDRESS, MAX_FRAMES_IN_FLIGHT);
-        VulkanExtensions.allocateCommandBuffers(device, allocInfo, commandBuffersArray).check();
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            commandBuffers[i] = commandBuffersArray.getAtIndex(ValueLayout.ADDRESS, i);
-        }
+        commandBuffers = VkCommandBufferAlloc.builder()
+            .device(device)
+            .commandPool(commandPool.handle())
+            .primary()
+            .count(MAX_FRAMES_IN_FLIGHT)
+            .allocate(arena);
         System.out.println("[OK] Command buffers allocated");
     }
     
@@ -154,92 +147,42 @@ public class Renderer {
     
     public void drawFrame() {
         try (Arena frameArena = Arena.ofConfined()) {
-            MemorySegment fenceArray = frameArena.allocate(ValueLayout.ADDRESS);
-            fenceArray.set(ValueLayout.ADDRESS, 0, inFlightFences[currentFrame].handle());
-            VulkanExtensions.waitForFences(device, 1, fenceArray, 1, 0xFFFFFFFFFFFFFFFFL).check();
-            VulkanExtensions.resetFences(device, 1, fenceArray).check();
+            VkFenceOps.waitFor(device)
+                .fence(inFlightFences[currentFrame].handle())
+                .execute(frameArena).check();
+            VkFenceOps.waitFor(device)
+                .fence(inFlightFences[currentFrame].handle())
+                .reset(frameArena).check();
             
-            MemorySegment imageIndex = frameArena.allocate(ValueLayout.JAVA_INT);
-            VulkanExtensions.acquireNextImageKHR(device, swapchain.handle(), 0xFFFFFFFFFFFFFFFFL,
-                imageAvailableSemaphores[currentFrame].handle(), MemorySegment.NULL, imageIndex).check();
-            int imgIdx = imageIndex.get(ValueLayout.JAVA_INT, 0);
+            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
+                .semaphore(imageAvailableSemaphores[currentFrame].handle())
+                .execute(frameArena);
             
             recordCommandBuffer(commandBuffers[currentFrame], imgIdx, frameArena);
             
-            MemorySegment waitSemaphores = frameArena.allocate(ValueLayout.ADDRESS);
-            waitSemaphores.set(ValueLayout.ADDRESS, 0, imageAvailableSemaphores[currentFrame].handle());
-            MemorySegment waitStages = frameArena.allocate(ValueLayout.JAVA_INT);
-            waitStages.set(ValueLayout.JAVA_INT, 0, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-            MemorySegment cmdBufArray = frameArena.allocate(ValueLayout.ADDRESS);
-            cmdBufArray.set(ValueLayout.ADDRESS, 0, commandBuffers[currentFrame]);
-            MemorySegment signalSemaphores = frameArena.allocate(ValueLayout.ADDRESS);
-            signalSemaphores.set(ValueLayout.ADDRESS, 0, renderFinishedSemaphores[currentFrame].handle());
+            VkSubmit.builder()
+                .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                .commandBuffer(commandBuffers[currentFrame])
+                .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
+                .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();
             
-            MemorySegment submitInfo = VkSubmitInfo.allocate(frameArena);
-            VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO);
-            VkSubmitInfo.pNext(submitInfo, MemorySegment.NULL);
-            VkSubmitInfo.waitSemaphoreCount(submitInfo, 1);
-            VkSubmitInfo.pWaitSemaphores(submitInfo, waitSemaphores);
-            VkSubmitInfo.pWaitDstStageMask(submitInfo, waitStages);
-            VkSubmitInfo.commandBufferCount(submitInfo, 1);
-            VkSubmitInfo.pCommandBuffers(submitInfo, cmdBufArray);
-            VkSubmitInfo.signalSemaphoreCount(submitInfo, 1);
-            VkSubmitInfo.pSignalSemaphores(submitInfo, signalSemaphores);
-            
-            VulkanExtensions.queueSubmit(queue, 1, submitInfo, inFlightFences[currentFrame].handle()).check();
-            
-            MemorySegment swapchains = frameArena.allocate(ValueLayout.ADDRESS);
-            swapchains.set(ValueLayout.ADDRESS, 0, swapchain.handle());
-            MemorySegment imageIndices = frameArena.allocate(ValueLayout.JAVA_INT);
-            imageIndices.set(ValueLayout.JAVA_INT, 0, imgIdx);
-            
-            MemorySegment presentInfo = VkPresentInfoKHR.allocate(frameArena);
-            VkPresentInfoKHR.sType(presentInfo, 1000001001); // VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
-            VkPresentInfoKHR.pNext(presentInfo, MemorySegment.NULL);
-            VkPresentInfoKHR.waitSemaphoreCount(presentInfo, 1);
-            VkPresentInfoKHR.pWaitSemaphores(presentInfo, signalSemaphores);
-            VkPresentInfoKHR.swapchainCount(presentInfo, 1);
-            VkPresentInfoKHR.pSwapchains(presentInfo, swapchains);
-            VkPresentInfoKHR.pImageIndices(presentInfo, imageIndices);
-            VkPresentInfoKHR.pResults(presentInfo, MemorySegment.NULL);
-            
-            VulkanExtensions.queuePresentKHR(queue, presentInfo);
+            VkPresent.builder()
+                .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
+                .swapchain(swapchain.handle(), imgIdx)
+                .present(queue, frameArena);
             
             currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
     }
     
     private void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
-        MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(frameArena);
-        VkCommandBufferBeginInfo.sType(beginInfo, 42); // VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
-        VkCommandBufferBeginInfo.pNext(beginInfo, MemorySegment.NULL);
-        VkCommandBufferBeginInfo.flags(beginInfo, 0);
-        VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, MemorySegment.NULL);
+        VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        VulkanExtensions.beginCommandBuffer(commandBuffer, beginInfo).check();
+        VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
+            .renderArea(0, 0, width, height)
+            .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+            .execute(frameArena);
         
-        MemorySegment clearValue = frameArena.allocate(16);
-        clearValue.set(ValueLayout.JAVA_FLOAT, 0, 0.0f);
-        clearValue.set(ValueLayout.JAVA_FLOAT, 4, 0.0f);
-        clearValue.set(ValueLayout.JAVA_FLOAT, 8, 0.0f);
-        clearValue.set(ValueLayout.JAVA_FLOAT, 12, 1.0f);
-        
-        MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(frameArena);
-        VkRenderPassBeginInfo.sType(renderPassInfo, 43); // VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
-        VkRenderPassBeginInfo.pNext(renderPassInfo, MemorySegment.NULL);
-        VkRenderPassBeginInfo.renderPass(renderPassInfo, renderPass.handle());
-        VkRenderPassBeginInfo.framebuffer(renderPassInfo, framebuffers[imageIndex].handle());
-        MemorySegment renderArea = VkRenderPassBeginInfo.renderArea(renderPassInfo);
-        MemorySegment offset = VkRect2D.offset(renderArea);
-        VkOffset2D.x(offset, 0);
-        VkOffset2D.y(offset, 0);
-        MemorySegment extent = VkRect2D.extent(renderArea);
-        VkExtent2D.width(extent, width);
-        VkExtent2D.height(extent, height);
-        VkRenderPassBeginInfo.clearValueCount(renderPassInfo, 1);
-        VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValue);
-        
-        VulkanExtensions.cmdBeginRenderPass(commandBuffer, renderPassInfo, VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         VulkanExtensions.cmdEndRenderPass(commandBuffer);

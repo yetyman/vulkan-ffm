@@ -14,6 +14,43 @@ public class VkDevice implements AutoCloseable {
     }
     
     public static VkDevice create(Arena arena, MemorySegment physicalDevice, int queueFamilyIndex, String[] extensions) {
+        return builder()
+            .physicalDevice(physicalDevice)
+            .queueFamily(queueFamilyIndex)
+            .extensions(extensions)
+            .build(arena);
+    }
+    
+    public static Builder builder() {
+        return new Builder();
+    }
+    
+    public static class Builder {
+        private MemorySegment physicalDevice;
+        private int queueFamilyIndex;
+        private String[] extensions;
+        
+        public Builder physicalDevice(MemorySegment physicalDevice) {
+            this.physicalDevice = physicalDevice;
+            return this;
+        }
+        
+        public Builder queueFamily(int queueFamilyIndex) {
+            this.queueFamilyIndex = queueFamilyIndex;
+            return this;
+        }
+        
+        public Builder extensions(String... extensions) {
+            this.extensions = extensions;
+            return this;
+        }
+        
+        public VkDevice build(Arena arena) {
+            return createDevice(arena, physicalDevice, queueFamilyIndex, extensions);
+        }
+    }
+    
+    private static VkDevice createDevice(Arena arena, MemorySegment physicalDevice, int queueFamilyIndex, String[] extensions) {
         MemorySegment queuePriorities = arena.allocate(ValueLayout.JAVA_FLOAT);
         queuePriorities.set(ValueLayout.JAVA_FLOAT, 0, 1.0f);
         
@@ -54,6 +91,7 @@ public class VkDevice implements AutoCloseable {
         MemorySegment devicePtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createDevice(physicalDevice, deviceCreateInfo, devicePtr).check();
         return new VkDevice(devicePtr.get(ValueLayout.ADDRESS, 0), arena);
+    }
     }
     
     public MemorySegment handle() {

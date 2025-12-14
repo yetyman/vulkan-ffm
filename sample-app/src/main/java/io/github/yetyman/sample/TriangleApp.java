@@ -1,13 +1,8 @@
 package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
-import io.github.yetyman.vulkan.VkResult;
+import io.github.yetyman.vulkan.win32.VkWin32Surface;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.VkApplicationInfo;
-import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
-import io.github.yetyman.vulkan.generated.VkDeviceQueueCreateInfo;
-import io.github.yetyman.vulkan.generated.VkDeviceCreateInfo;
-import io.github.yetyman.vulkan.generated.win32.VkWin32SurfaceCreateInfoKHR;
 import io.github.yetyman.glfw.GLFW;
 
 import java.lang.foreign.*;
@@ -62,46 +57,37 @@ public class TriangleApp {
         
         System.out.println("Extensions: " + String.join(", ", extensions));
         
-        VkInstance vkInstance = VkInstance.create(arena, "Triangle App", 1, "NoEngine", 0, extensions);
+        VkInstance vkInstance = VkInstance.builder()
+            .applicationName("Triangle App")
+            .applicationVersion(1)
+            .engineName("NoEngine")
+            .engineVersion(0)
+            .extensions(extensions)
+            .build(arena);
         instance = vkInstance.handle();
         System.out.println("[OK] Vulkan instance created");
 
         
-        MemorySegment deviceCount = arena.allocate(ValueLayout.JAVA_INT);
-        Vulkan.enumeratePhysicalDevices(instance, deviceCount, MemorySegment.NULL).check();
-        int count = deviceCount.get(ValueLayout.JAVA_INT, 0);
-        
-        if (count == 0) {
-            throw new RuntimeException("No Vulkan devices found");
-        }
-        
-        MemorySegment devices = arena.allocate(ValueLayout.ADDRESS, count);
-        Vulkan.enumeratePhysicalDevices(instance, deviceCount, devices).check();
-        physicalDevice = devices.get(ValueLayout.ADDRESS, 0);
+        physicalDevice = VkPhysicalDeviceOps.enumerate(instance).first(arena);
         System.out.println("[OK] Physical device selected");
         
         queueFamilyIndex = 0;
         String[] deviceExtensions = {"VK_KHR_swapchain"};
         
-        VkDevice vkDevice = VkDevice.create(arena, physicalDevice, queueFamilyIndex, deviceExtensions);
+        VkDevice vkDevice = VkDevice.builder()
+            .physicalDevice(physicalDevice)
+            .queueFamily(queueFamilyIndex)
+            .extensions(deviceExtensions)
+            .build(arena);
         device = vkDevice.handle();
         System.out.println("[OK] Logical device created");
         
         queue = vkDevice.getQueue(queueFamilyIndex, 0);
         System.out.println("[OK] Queue retrieved");
         
-        long hwnd = GLFW.glfwGetWin32Window(window);
-        
-        MemorySegment surfaceCreateInfo = VkWin32SurfaceCreateInfoKHR.allocate(arena);
-        VkWin32SurfaceCreateInfoKHR.sType(surfaceCreateInfo, 1000009000);
-        VkWin32SurfaceCreateInfoKHR.pNext(surfaceCreateInfo, MemorySegment.NULL);
-        VkWin32SurfaceCreateInfoKHR.flags(surfaceCreateInfo, 0);
-        VkWin32SurfaceCreateInfoKHR.hinstance(surfaceCreateInfo, MemorySegment.NULL);
-        VkWin32SurfaceCreateInfoKHR.hwnd(surfaceCreateInfo, MemorySegment.ofAddress(hwnd));
-        
-        MemorySegment surfacePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanWin32.createWin32Surface(instance, surfaceCreateInfo, surfacePtr).check();
-        surface = surfacePtr.get(ValueLayout.ADDRESS, 0);
+        surface = VkWin32Surface.builder(instance)
+            .hwnd(GLFW.glfwGetWin32Window(window))
+            .build(arena);
         System.out.println("[OK] Surface created");
     }
     
