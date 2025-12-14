@@ -91,4 +91,12 @@ public class GLFW {
     public static int glfwGetKey(MemorySegment window, int key) {
         return GLFWFFM.glfwGetKey(window, key);
     }
+    
+    public interface KeyCallback {
+        void invoke(MemorySegment window, int key, int scancode, int action, int mods);
+    }
+    
+    public static void glfwSetKeyCallback(MemorySegment window, KeyCallback callback) {
+        // Implementation would need native callback handling
+    }
 }
