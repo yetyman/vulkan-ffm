@@ -29,4 +29,20 @@ public class VkQueueFamily {
         
         throw new VulkanException("No graphics queue family found");
     }
+    
+    public static int findPresent(MemorySegment physicalDevice, MemorySegment surface, Arena arena) {
+        MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice, queueFamilyCount, MemorySegment.NULL);
+        int count = queueFamilyCount.get(ValueLayout.JAVA_INT, 0);
+        
+        for (int i = 0; i < count; i++) {
+            MemorySegment presentSupport = arena.allocate(ValueLayout.JAVA_INT);
+            VulkanExtensions.getPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, presentSupport).check();
+            if (presentSupport.get(ValueLayout.JAVA_INT, 0) != 0) {
+                return i;
+            }
+        }
+        
+        return findGraphics(physicalDevice, arena);
+    }
 }

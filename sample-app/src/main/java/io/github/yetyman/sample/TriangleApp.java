@@ -1,6 +1,7 @@
 package io.github.yetyman.sample;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.highlevel.VulkanContext;
 import io.github.yetyman.vulkan.win32.VkWin32Surface;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.glfw.GLFW;
@@ -15,18 +16,12 @@ public class TriangleApp {
     private static final int HEIGHT = 600;
     
     private MemorySegment window;
-    private Arena arena;
-    private MemorySegment instance;
-    private MemorySegment physicalDevice;
-    private MemorySegment device;
-    private MemorySegment queue;
-    private int queueFamilyIndex;
+    private VulkanContext vulkanContext;
     private boolean framebufferResized = false;
     private MemorySegment callbackStub; // Keep reference to prevent GC
     
     public void run() {
         VulkanLibrary.load();
-        arena = Arena.ofConfined();
         initWindow();
         initVulkan();
         mainLoop();
@@ -47,62 +42,53 @@ public class TriangleApp {
         }
         
         // Set resize callback - keep reference to prevent GC
-        callbackStub = GLFWCallbacks.setFramebufferSizeCallback(window, this::framebufferResizeCallback, arena);
+        callbackStub = GLFWCallbacks.setFramebufferSizeCallback(window, this::framebufferResizeCallback, Arena.global());
         
         System.out.println("[OK] Window created");
     }
     
     private MemorySegment surface;
     
-    private VkInstance vkInstance;
-    private VkDevice vkDevice;
-    
     private void initVulkan() {
-        
-        String[] extensions = GLFW.glfwGetRequiredInstanceExtensions(arena);
-        if (extensions == null) {
-            throw new RuntimeException("Failed to get GLFW extensions");
+        try (Arena tempArena = Arena.ofConfined()) {
+            String[] extensions = GLFW.glfwGetRequiredInstanceExtensions(tempArena);
+            if (extensions == null) {
+                throw new RuntimeException("Failed to get GLFW extensions");
+            }
+            
+            System.out.println("Extensions: " + String.join(", ", extensions));
+            
+            // Create surface first so VulkanContext can use it for queue family selection
+            VkInstance tempInstance = VkInstance.builder()
+                .applicationName("Triangle App")
+                .applicationVersion(1)
+                .extensions(extensions)
+                .build(tempArena);
+            
+            surface = VkSurface.createPlatformSurface(tempInstance.handle(), window, tempArena);
+            System.out.println("[OK] Surface created");
+            
+            // Now create VulkanContext with surface
+            vulkanContext = VulkanContext.builder()
+                .applicationName("Triangle App")
+                .applicationVersion(1)
+                .instanceExtensions(extensions)
+                .surface(surface)
+                .build();
+            
+            System.out.println("[OK] VulkanContext created");
+            
+            // Copy surface to context arena for proper lifecycle management
+            surface = VkSurface.createPlatformSurface(vulkanContext.instance().handle(), window, vulkanContext.arena());
         }
-        
-        System.out.println("Extensions: " + String.join(", ", extensions));
-        
-        vkInstance = VkInstance.builder()
-            .applicationName("Triangle App")
-            .applicationVersion(1)
-            .engineName("NoEngine")
-            .engineVersion(0)
-            .extensions(extensions)
-            .build(arena);
-        instance = vkInstance.handle();
-        System.out.println("[OK] Vulkan instance created");
-
-        
-        physicalDevice = VkPhysicalDeviceOps.enumerate(instance).first(arena);
-        System.out.println("[OK] Physical device selected");
-        
-        queueFamilyIndex = VkQueueFamily.findGraphics(physicalDevice, arena);
-        String[] deviceExtensions = {"VK_KHR_swapchain"};
-        
-        vkDevice = VkDevice.builder()
-            .physicalDevice(physicalDevice)
-            .queueFamily(queueFamilyIndex)
-            .extensions(deviceExtensions)
-            .build(arena);
-        device = vkDevice.handle();
-        System.out.println("[OK] Logical device created");
-        
-        queue = vkDevice.getQueue(queueFamilyIndex, 0);
-        System.out.println("[OK] Queue retrieved");
-        
-        surface = VkSurface.createPlatformSurface(instance, window, arena);
-        System.out.println("[OK] Surface created");
     }
     
     private ThreadedRenderer renderer;
     
     private void mainLoop() {
-        renderer = new ThreadedRenderer(arena, device, queue, surface, WIDTH, HEIGHT);
-        renderer.init(physicalDevice, queueFamilyIndex);
+        renderer = new ThreadedRenderer(vulkanContext.arena(), vulkanContext.device().handle(), 
+                                      vulkanContext.graphicsQueue(), surface, WIDTH, HEIGHT);
+        renderer.init(vulkanContext.physicalDevice(), vulkanContext.graphicsQueueFamily());
         
         System.out.println("[OK] Rendering enabled with per-frame Arena");
         
@@ -149,24 +135,9 @@ public class TriangleApp {
             renderer.cleanup();
         }
         
-        if (vkDevice != null) {
-            Vulkan.deviceWaitIdle(device).check();
-            vkDevice.close();
-            System.out.println("[OK] Device destroyed");
-        }
-        
-        if (surface != null && !surface.equals(MemorySegment.NULL)) {
-            VulkanSurface.destroySurface(instance, surface);
-            System.out.println("[OK] Surface destroyed");
-        }
-        
-        if (vkInstance != null) {
-            vkInstance.close();
-            System.out.println("[OK] Instance destroyed");
-        }
-        
-        if (arena != null) {
-            arena.close();
+        if (vulkanContext != null) {
+            vulkanContext.close();
+            System.out.println("[OK] VulkanContext destroyed");
         }
         
         if (window != null && !window.equals(MemorySegment.NULL)) {
@@ -185,7 +156,7 @@ public class TriangleApp {
     private void handleResize() {
         try (Arena tempArena = Arena.ofConfined()) {
             // Wait for device to be idle before recreating resources
-            Vulkan.deviceWaitIdle(device).check();
+            Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
             
             // Get new window size
             MemorySegment widthPtr = tempArena.allocate(ValueLayout.JAVA_INT);

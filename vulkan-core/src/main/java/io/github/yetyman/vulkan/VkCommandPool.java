@@ -19,21 +19,17 @@ public class VkCommandPool implements AutoCloseable {
     
     /**
      * Creates a command pool for the specified queue family.
-     * @param arena memory arena for allocations
-     * @param device the VkDevice handle
-     * @param queueFamilyIndex the queue family index this pool will allocate command buffers for
-     * @return a new VkCommandPool instance
      */
     public static VkCommandPool create(Arena arena, MemorySegment device, int queueFamilyIndex) {
-        MemorySegment poolInfo = VkCommandPoolCreateInfo.allocate(arena);
-        VkCommandPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
-        VkCommandPoolCreateInfo.pNext(poolInfo, MemorySegment.NULL);
-        VkCommandPoolCreateInfo.flags(poolInfo, 0);
-        VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, queueFamilyIndex);
-        
-        MemorySegment commandPoolPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createCommandPool(device, poolInfo, commandPoolPtr).check();
-        return new VkCommandPool(commandPoolPtr.get(ValueLayout.ADDRESS, 0), device);
+        return builder()
+            .device(device)
+            .queueFamilyIndex(queueFamilyIndex)
+            .build(arena);
+    }
+    
+    /** @return a new builder for configuring command pool creation */
+    public static Builder builder() {
+        return new Builder();
     }
     
     /** @return the VkCommandPool handle */
@@ -42,5 +38,61 @@ public class VkCommandPool implements AutoCloseable {
     @Override
     public void close() {
         VulkanExtensions.destroyCommandPool(device, handle);
+    }
+    
+    /**
+     * Builder for command pool creation.
+     */
+    public static class Builder {
+        private MemorySegment device;
+        private int queueFamilyIndex;
+        private int flags = 0;
+        
+        private Builder() {}
+        
+        /** Sets the logical device */
+        public Builder device(MemorySegment device) {
+            this.device = device;
+            return this;
+        }
+        
+        /** Sets the queue family index */
+        public Builder queueFamilyIndex(int index) {
+            this.queueFamilyIndex = index;
+            return this;
+        }
+        
+        /** Enables transient command buffers (short-lived, frequently reset) */
+        public Builder transientBit() {
+            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+            return this;
+        }
+        
+        /** Allows command buffers to be reset individually */
+        public Builder resetCommandBufferBit() {
+            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+            return this;
+        }
+        
+        /** Sets creation flags */
+        public Builder flags(int flags) {
+            this.flags = flags;
+            return this;
+        }
+        
+        /** Creates the command pool */
+        public VkCommandPool build(Arena arena) {
+            if (device == null) throw new IllegalStateException("device not set");
+            
+            MemorySegment poolInfo = VkCommandPoolCreateInfo.allocate(arena);
+            VkCommandPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
+            VkCommandPoolCreateInfo.pNext(poolInfo, MemorySegment.NULL);
+            VkCommandPoolCreateInfo.flags(poolInfo, flags);
+            VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, queueFamilyIndex);
+            
+            MemorySegment commandPoolPtr = arena.allocate(ValueLayout.ADDRESS);
+            VulkanExtensions.createCommandPool(device, poolInfo, commandPoolPtr).check();
+            return new VkCommandPool(commandPoolPtr.get(ValueLayout.ADDRESS, 0), device);
+        }
     }
 }

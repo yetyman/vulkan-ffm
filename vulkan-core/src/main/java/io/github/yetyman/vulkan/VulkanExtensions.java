@@ -193,6 +193,29 @@ public class VulkanExtensions {
         VulkanFFM.vkGetPhysicalDeviceMemoryProperties(physicalDevice, memoryProperties);
     }
     
+    public static VkResult getPhysicalDeviceSurfaceSupportKHR(MemorySegment physicalDevice, int queueFamilyIndex, MemorySegment surface, MemorySegment supported) {
+        int result = VulkanFFM.vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamilyIndex, surface, supported);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void getBufferMemoryRequirements(MemorySegment device, MemorySegment buffer, MemorySegment memoryRequirements) {
+        VulkanFFM.vkGetBufferMemoryRequirements(device, buffer, memoryRequirements);
+    }
+    
+    public static VkResult createBuffer(MemorySegment device, MemorySegment createInfo, MemorySegment buffer) {
+        int result = VulkanFFM.vkCreateBuffer(device, createInfo, MemorySegment.NULL, buffer);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void destroyBuffer(MemorySegment device, MemorySegment buffer) {
+        VulkanFFM.vkDestroyBuffer(device, buffer, MemorySegment.NULL);
+    }
+    
+    public static VkResult bindBufferMemory(MemorySegment device, MemorySegment buffer, MemorySegment memory, long memoryOffset) {
+        int result = VulkanFFM.vkBindBufferMemory(device, buffer, memory, memoryOffset);
+        return VkResult.fromInt(result);
+    }
+    
     public static void destroyImage(MemorySegment device, MemorySegment image) {
         VulkanFFM.vkDestroyImage(device, image, MemorySegment.NULL);
     }
@@ -206,14 +229,26 @@ public class VulkanExtensions {
         return VkResult.fromInt(result);
     }
     
+    public static void destroyDescriptorSetLayout(MemorySegment device, MemorySegment descriptorSetLayout) {
+        VulkanFFM.vkDestroyDescriptorSetLayout(device, descriptorSetLayout, MemorySegment.NULL);
+    }
+    
     public static VkResult createSampler(MemorySegment device, MemorySegment createInfo, MemorySegment sampler) {
         int result = VulkanFFM.vkCreateSampler(device, createInfo, MemorySegment.NULL, sampler);
         return VkResult.fromInt(result);
     }
     
+    public static void destroySampler(MemorySegment device, MemorySegment sampler) {
+        VulkanFFM.vkDestroySampler(device, sampler, MemorySegment.NULL);
+    }
+    
     public static VkResult createDescriptorPool(MemorySegment device, MemorySegment createInfo, MemorySegment descriptorPool) {
         int result = VulkanFFM.vkCreateDescriptorPool(device, createInfo, MemorySegment.NULL, descriptorPool);
         return VkResult.fromInt(result);
+    }
+    
+    public static void destroyDescriptorPool(MemorySegment device, MemorySegment descriptorPool) {
+        VulkanFFM.vkDestroyDescriptorPool(device, descriptorPool, MemorySegment.NULL);
     }
     
     public static VkResult allocateDescriptorSets(MemorySegment device, MemorySegment allocateInfo, MemorySegment descriptorSets) {

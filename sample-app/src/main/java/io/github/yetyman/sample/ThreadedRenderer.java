@@ -87,7 +87,12 @@ public class ThreadedRenderer {
     }
     
     private void createSwapchain(MemorySegment physicalDevice) {
-        swapchain = VkSwapchain.create(arena, device, surface, width, height);
+        swapchain = VkSwapchain.builder()
+            .device(device)
+            .surface(surface)
+            .extent(width, height)
+            .vsync(true)
+            .build(arena);
         System.out.println("[OK] Swapchain created with " + swapchain.getImages().length + " images");
     }
     
@@ -219,7 +224,10 @@ public class ThreadedRenderer {
     }
     
     private void createMainCommandPool(int queueFamilyIndex) {
-        mainCommandPool = VkCommandPool.create(arena, device, queueFamilyIndex);
+        mainCommandPool = VkCommandPool.builder()
+            .device(device)
+            .queueFamilyIndex(queueFamilyIndex)
+            .build(arena);
         System.out.println("[OK] Main command pool created");
     }
     
@@ -239,9 +247,16 @@ public class ThreadedRenderer {
         inFlightFences = new VkFence[MAX_FRAMES_IN_FLIGHT];
         
         for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores[i] = VkSemaphore.create(arena, device);
-            renderFinishedSemaphores[i] = VkSemaphore.create(arena, device);
-            inFlightFences[i] = VkFence.create(arena, device, true);
+            imageAvailableSemaphores[i] = VkSemaphore.builder()
+                .device(device)
+                .build(arena);
+            renderFinishedSemaphores[i] = VkSemaphore.builder()
+                .device(device)
+                .build(arena);
+            inFlightFences[i] = VkFence.builder()
+                .device(device)
+                .signaled(true)
+                .build(arena);
         }
         System.out.println("[OK] Sync objects created");
     }
@@ -451,7 +466,10 @@ public class ThreadedRenderer {
     private VkCommandPool getThreadCommandPool(Thread thread) {
         return threadPools.computeIfAbsent(thread, k -> {
             // Each thread gets its own command pool for thread safety
-            return VkCommandPool.create(getThreadArena(k), device, 0); // Assuming graphics queue family 0
+            return VkCommandPool.builder()
+                .device(device)
+                .queueFamilyIndex(0) // Assuming graphics queue family 0
+                .build(getThreadArena(k));
         });
     }
     
