@@ -76,8 +76,13 @@ public class VkRenderPass implements AutoCloseable {
         
         /** Adds a depth attachment */
         public Builder depthAttachment(int format, int loadOp, int storeOp) {
+            // For depth+stencil formats, use the same ops for stencil
+            int stencilLoadOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT) ? 
+                loadOp : VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            int stencilStoreOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT) ? 
+                storeOp : VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE;
             attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp,
-                loadOp, storeOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0));
+                stencilLoadOp, stencilStoreOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0));
             return this;
         }
         

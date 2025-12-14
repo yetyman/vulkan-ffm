@@ -75,9 +75,16 @@ public class VkFramebuffer implements AutoCloseable {
             return this;
         }
         
-        /** Sets a single attachment (color, depth, etc.) */
+        /** Adds an attachment (color, depth, etc.) */
         public Builder attachment(MemorySegment imageView) {
-            this.attachments = new MemorySegment[] { imageView };
+            if (this.attachments == null) {
+                this.attachments = new MemorySegment[] { imageView };
+            } else {
+                MemorySegment[] newAttachments = new MemorySegment[this.attachments.length + 1];
+                System.arraycopy(this.attachments, 0, newAttachments, 0, this.attachments.length);
+                newAttachments[this.attachments.length] = imageView;
+                this.attachments = newAttachments;
+            }
             return this;
         }
         

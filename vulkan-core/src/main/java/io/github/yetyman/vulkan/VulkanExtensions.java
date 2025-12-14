@@ -165,4 +165,31 @@ public class VulkanExtensions {
         int result = VulkanFFM.vkQueueSubmit(queue, submitCount, submits, fence);
         return VkResult.fromInt(result);
     }
+    
+    public static void cmdExecuteCommands(MemorySegment commandBuffer, int commandBufferCount, MemorySegment commandBuffers) {
+        VulkanFFM.vkCmdExecuteCommands(commandBuffer, commandBufferCount, commandBuffers);
+    }
+    
+    public static VkResult createImage(MemorySegment device, MemorySegment createInfo, MemorySegment image) {
+        int result = VulkanFFM.vkCreateImage(device, createInfo, MemorySegment.NULL, image);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void getImageMemoryRequirements(MemorySegment device, MemorySegment image, MemorySegment memoryRequirements) {
+        VulkanFFM.vkGetImageMemoryRequirements(device, image, memoryRequirements);
+    }
+    
+    public static VkResult allocateMemory(MemorySegment device, MemorySegment allocateInfo, MemorySegment memory) {
+        int result = VulkanFFM.vkAllocateMemory(device, allocateInfo, MemorySegment.NULL, memory);
+        return VkResult.fromInt(result);
+    }
+    
+    public static VkResult bindImageMemory(MemorySegment device, MemorySegment image, MemorySegment memory, long memoryOffset) {
+        int result = VulkanFFM.vkBindImageMemory(device, image, memory, memoryOffset);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void getPhysicalDeviceMemoryProperties(MemorySegment physicalDevice, MemorySegment memoryProperties) {
+        VulkanFFM.vkGetPhysicalDeviceMemoryProperties(physicalDevice, memoryProperties);
+    }
 }

@@ -98,10 +98,10 @@ public class TriangleApp {
         System.out.println("[OK] Surface created");
     }
     
-    private Renderer renderer;
+    private ThreadedRenderer renderer;
     
     private void mainLoop() {
-        renderer = new Renderer(arena, device, queue, surface, WIDTH, HEIGHT);
+        renderer = new ThreadedRenderer(arena, device, queue, surface, WIDTH, HEIGHT);
         renderer.init(physicalDevice, queueFamilyIndex);
         
         System.out.println("[OK] Rendering enabled with per-frame Arena");
@@ -136,7 +136,8 @@ public class TriangleApp {
             frameCount++;
             long currentTime = System.nanoTime();
             if (currentTime - lastTime >= 1_000_000_000L) { // 1 second
-                System.out.println("FPS: " + frameCount);
+                System.out.printf("FPS: %d | Threads: %d | Avg Frame Time: %.2fms%n", 
+                    frameCount, renderer.getActiveThreads(), renderer.getAverageFrameTime());
                 frameCount = 0;
                 lastTime = currentTime;
             }
