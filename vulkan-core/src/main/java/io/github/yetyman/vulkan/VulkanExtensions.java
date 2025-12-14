@@ -228,4 +228,8 @@ public class VulkanExtensions {
     public static void cmdBindDescriptorSets(MemorySegment commandBuffer, int pipelineBindPoint, MemorySegment layout, int firstSet, int descriptorSetCount, MemorySegment descriptorSets, int dynamicOffsetCount, MemorySegment dynamicOffsets) {
         VulkanFFM.vkCmdBindDescriptorSets(commandBuffer, pipelineBindPoint, layout, firstSet, descriptorSetCount, descriptorSets, dynamicOffsetCount, dynamicOffsets);
     }
+    
+    public static void cmdPushConstants(MemorySegment commandBuffer, MemorySegment layout, int stageFlags, int offset, int size, MemorySegment values) {
+        VulkanFFM.vkCmdPushConstants(commandBuffer, layout, stageFlags, offset, size, values);
+    }
 }
