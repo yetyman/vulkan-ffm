@@ -92,7 +92,6 @@ public class VkDevice implements AutoCloseable {
         Vulkan.createDevice(physicalDevice, deviceCreateInfo, devicePtr).check();
         return new VkDevice(devicePtr.get(ValueLayout.ADDRESS, 0), arena);
     }
-    }
     
     public MemorySegment handle() {
         return handle;

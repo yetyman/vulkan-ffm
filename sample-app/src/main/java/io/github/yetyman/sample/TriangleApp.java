@@ -47,6 +47,9 @@ public class TriangleApp {
     
     private MemorySegment surface;
     
+    private VkInstance vkInstance;
+    private VkDevice vkDevice;
+    
     private void initVulkan() {
         arena = Arena.ofConfined();
         
@@ -57,7 +60,7 @@ public class TriangleApp {
         
         System.out.println("Extensions: " + String.join(", ", extensions));
         
-        VkInstance vkInstance = VkInstance.builder()
+        vkInstance = VkInstance.builder()
             .applicationName("Triangle App")
             .applicationVersion(1)
             .engineName("NoEngine")
@@ -71,10 +74,10 @@ public class TriangleApp {
         physicalDevice = VkPhysicalDeviceOps.enumerate(instance).first(arena);
         System.out.println("[OK] Physical device selected");
         
-        queueFamilyIndex = 0;
+        queueFamilyIndex = VkQueueFamily.findGraphics(physicalDevice, arena);
         String[] deviceExtensions = {"VK_KHR_swapchain"};
         
-        VkDevice vkDevice = VkDevice.builder()
+        vkDevice = VkDevice.builder()
             .physicalDevice(physicalDevice)
             .queueFamily(queueFamilyIndex)
             .extensions(deviceExtensions)
@@ -85,9 +88,7 @@ public class TriangleApp {
         queue = vkDevice.getQueue(queueFamilyIndex, 0);
         System.out.println("[OK] Queue retrieved");
         
-        surface = VkWin32Surface.builder(instance)
-            .hwnd(GLFW.glfwGetWin32Window(window))
-            .build(arena);
+        surface = VkSurface.createPlatformSurface(instance, window, arena);
         System.out.println("[OK] Surface created");
     }
     
@@ -110,9 +111,9 @@ public class TriangleApp {
             renderer.cleanup();
         }
         
-        if (device != null && !device.equals(MemorySegment.NULL)) {
+        if (vkDevice != null) {
             Vulkan.deviceWaitIdle(device).check();
-            Vulkan.destroyDevice(device);
+            vkDevice.close();
             System.out.println("[OK] Device destroyed");
         }
         
@@ -121,8 +122,8 @@ public class TriangleApp {
             System.out.println("[OK] Surface destroyed");
         }
         
-        if (instance != null && !instance.equals(MemorySegment.NULL)) {
-            Vulkan.destroyInstance(instance);
+        if (vkInstance != null) {
+            vkInstance.close();
             System.out.println("[OK] Instance destroyed");
         }
         
