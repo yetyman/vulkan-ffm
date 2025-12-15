@@ -1,15 +1,7 @@
-package io.github.yetyman.sample;
+package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo;
-import io.github.yetyman.vulkan.generated.VkPresentInfoKHR;
-import io.github.yetyman.vulkan.generated.VkSubmitInfo;
-import io.github.yetyman.vulkan.generated.VkCommandBufferBeginInfo;
-import io.github.yetyman.vulkan.generated.VkRenderPassBeginInfo;
-import io.github.yetyman.vulkan.generated.VkRect2D;
-import io.github.yetyman.vulkan.generated.VkOffset2D;
-import io.github.yetyman.vulkan.generated.VkExtent2D;
 
 import java.lang.foreign.*;
 

@@ -1,4 +1,4 @@
-package io.github.yetyman.sample;
+package io.github.yetyman.vulkan.sample.complex.postprocessing;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;

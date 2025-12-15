@@ -1,12 +1,11 @@
-package io.github.yetyman.sample;
+package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
+
 import java.lang.foreign.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
 import java.util.*;
 
 public class ThreadedRenderer {
@@ -36,9 +35,8 @@ public class ThreadedRenderer {
     private VulkanShaderManager shaderManager;
     
     // Threading
-    private ThreadPoolExecutor executor;
+    private ThreadManager threadManager;
     private Mode mode = Mode.ADAPTIVE;
-    private final AtomicInteger currentThreadCount = new AtomicInteger(1);
     
     // Performance tracking
     private long lastFrameTime = System.nanoTime();
@@ -58,14 +56,8 @@ public class ThreadedRenderer {
         this.width = width;
         this.height = height;
         
-        // Initialize thread pool
-        int coreCount = Runtime.getRuntime().availableProcessors();
-        executor = new ThreadPoolExecutor(1, coreCount, 60L, TimeUnit.SECONDS, 
-            new LinkedBlockingQueue<>(), r -> {
-                Thread t = new Thread(r, "VulkanWorker");
-                t.setDaemon(true);
-                return t;
-            });
+        // Initialize thread manager
+        threadManager = new ThreadManager();
     }
     
     public void init(MemorySegment physicalDevice, int queueFamilyIndex) {
@@ -193,26 +185,6 @@ public class ThreadedRenderer {
             .build(arena);
     }
     
-    private int findMemoryType(int typeFilter, int properties, MemorySegment memProps) {
-        int memoryTypeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(memProps);
-        
-        for (int i = 0; i < memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) != 0) {
-                try {
-                    MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(memProps, i);
-                    int flags = VkMemoryType.propertyFlags(memType);
-                    if ((flags & properties) == properties) {
-                        return i;
-                    }
-                } catch (Exception e) {
-                    // Skip this memory type if we can't read it
-                    continue;
-                }
-            }
-        }
-        throw new RuntimeException("Failed to find suitable memory type");
-    }
-    
     public void drawFrame() {
         long frameStart = System.nanoTime();
         
@@ -224,7 +196,7 @@ public class ThreadedRenderer {
                 .semaphore(frameSync.imageAvailable.handle())
                 .execute(frameArena);
             
-            if (currentThreadCount.get() == 1) {
+            if (threadManager.getActiveThreads() == 1) {
                 // Single-threaded: use normal submission
                 recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
                 
@@ -251,7 +223,7 @@ public class ThreadedRenderer {
     }
     
     private void recordCommandBufferThreaded(MemorySegment primaryCommandBuffer, int imageIndex, Arena frameArena) {
-        int threadsToUse = currentThreadCount.get();
+        int threadsToUse = threadManager.getActiveThreads();
         
         if (threadsToUse == 1) {
             // Single-threaded path for efficiency
@@ -259,61 +231,35 @@ public class ThreadedRenderer {
             return;
         }
         
-        // Multi-threaded path: each thread records separate primary command buffers
-        int trianglesPerThread = TRIANGLES_COUNT / threadsToUse;
+        // Use VulkanThreadManager for threaded execution
         MemorySegment[] threadCommandBuffers = new MemorySegment[threadsToUse];
-        CountDownLatch latch = new CountDownLatch(threadsToUse);
         
-        // Allocate command buffers for each thread from their own pools
-        for (int t = 0; t < threadsToUse; t++) {
-            final int threadIndex = t;
-            final int startTriangle = t * trianglesPerThread;
-            final int endTriangle = (t == threadsToUse - 1) ? TRIANGLES_COUNT : (t + 1) * trianglesPerThread;
-            
-            executor.submit(() -> {
-                try {
-                    Arena threadArena = Arena.ofShared();
-                    MemorySegment threadCmd = commandManager.allocateBuffer(threadArena);
-                    threadCommandBuffers[threadIndex] = threadCmd;
-                    
-                    // Record commands for this thread's triangles
-                    VkCommandBuffer.begin(threadCmd).execute(threadArena);
-                    
-                    VkCommandBuffer.beginRenderPass(threadCmd, renderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
-                        .renderArea(0, 0, width, height)
-                        .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                        .execute(threadArena);
-                    
-                    VulkanExtensions.cmdBindPipeline(threadCmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
-                    
-                    VulkanExtensions.cmdSetViewport(threadCmd, 0, 1, cachedViewport);
-                    VulkanExtensions.cmdSetScissor(threadCmd, 0, 1, cachedScissor);
-                    
-                    // Use instanced rendering instead of individual draws
-                    int triangleCount = endTriangle - startTriangle;
-                    VulkanExtensions.cmdDraw(threadCmd, 3, triangleCount, 0, startTriangle);
-                    
-                    VulkanExtensions.cmdEndRenderPass(threadCmd);
-                    VulkanExtensions.endCommandBuffer(threadCmd).check();
-                    
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
+        threadManager.executeThreaded(TRIANGLES_COUNT, triangleIndex -> {
+            int threadId = (int) Thread.currentThread().getId() % threadsToUse;
+            if (threadCommandBuffers[threadId] == null) {
+                Arena threadArena = Arena.ofShared();
+                MemorySegment threadCmd = commandManager.allocateBuffer(threadArena);
+                threadCommandBuffers[threadId] = threadCmd;
+                
+                VkCommandBuffer.begin(threadCmd).execute(threadArena);
+                VkCommandBuffer.beginRenderPass(threadCmd, renderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                    .execute(threadArena);
+                VulkanExtensions.cmdBindPipeline(threadCmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+                VulkanExtensions.cmdSetViewport(threadCmd, 0, 1, cachedViewport);
+                VulkanExtensions.cmdSetScissor(threadCmd, 0, 1, cachedScissor);
+                VulkanExtensions.cmdDraw(threadCmd, 3, 1, 0, triangleIndex);
+                VulkanExtensions.cmdEndRenderPass(threadCmd);
+                VulkanExtensions.endCommandBuffer(threadCmd).check();
+            }
+        });
         
-        // Wait for all threads to finish
-        try {
-            latch.await(50, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
-        // Submit all command buffers to queue (this must be single-threaded)
-        for (int i = 0; i < threadsToUse; i++) {
-            if (threadCommandBuffers[i] != null) {
+        // Submit command buffers
+        for (MemorySegment cmd : threadCommandBuffers) {
+            if (cmd != null) {
                 VkSubmit.builder()
-                    .commandBuffer(threadCommandBuffers[i])
+                    .commandBuffer(cmd)
                     .submit(queue, MemorySegment.NULL, frameArena).check();
             }
         }
@@ -378,53 +324,15 @@ public class ThreadedRenderer {
         if (frameTimes.size() < 10) return; // Need some history
         
         double avgFrameTime = frameTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
-        double targetFrameTime = 16_666_667.0; // 60 FPS in nanoseconds
-        
-        int currentThreads = currentThreadCount.get();
-        int maxThreads = Runtime.getRuntime().availableProcessors();
-        
-        switch (mode) {
-            case BEST_EFFICIENCY:
-                // Minimize threads while maintaining 60fps
-                if (avgFrameTime < targetFrameTime * 0.8 && currentThreads > 1) {
-                    setThreadCount(currentThreads - 1);
-                } else if (avgFrameTime > targetFrameTime && currentThreads < maxThreads) {
-                    setThreadCount(currentThreads + 1);
-                }
-                break;
-                
-            case BEST_PERFORMANCE:
-                // Maximize threads for best performance
-                if (currentThreads < maxThreads && avgFrameTime > targetFrameTime * 0.5) {
-                    setThreadCount(currentThreads + 1);
-                }
-                break;
-                
-            case ADAPTIVE:
-                // Balance between efficiency and performance
-                if (avgFrameTime > targetFrameTime && currentThreads < maxThreads) {
-                    setThreadCount(currentThreads + 1);
-                } else if (avgFrameTime < targetFrameTime * 0.7 && currentThreads > 1) {
-                    setThreadCount(Math.max(1, currentThreads - 1));
-                }
-                break;
-        }
+        threadManager.adjustThreadCount(avgFrameTime);
     }
     
     public void setThreadCount(int count) {
-        int maxThreads = Runtime.getRuntime().availableProcessors();
-        count = Math.max(1, Math.min(count, maxThreads));
-        
-        executor.setCorePoolSize(count);
-        executor.setMaximumPoolSize(count);
-        currentThreadCount.set(count);
-        
-        System.out.println("[THREADS] Adjusted to " + count + " threads");
+        threadManager.setThreadCount(count);
     }
     
-    public void setMode(Mode mode) {
-        this.mode = mode;
-        System.out.println("[MODE] Switched to " + mode);
+    public void setMode(ThreadManager.Mode mode) {
+        threadManager.setMode(mode);
     }
     
     public void setAdaptiveAAEnabled(boolean enabled) {
@@ -438,7 +346,7 @@ public class ThreadedRenderer {
     }
     
     public int getActiveThreads() {
-        return currentThreadCount.get();
+        return threadManager.getActiveThreads();
     }
     
     public double getAverageFrameTime() {
@@ -483,15 +391,8 @@ public class ThreadedRenderer {
     }
     
     public void cleanup() {
-        // Shutdown thread pool
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-        }
+        // Clean up thread manager
+        if (threadManager != null) threadManager.close();
         
         // Clean up managers
         if (syncManager != null) syncManager.close();

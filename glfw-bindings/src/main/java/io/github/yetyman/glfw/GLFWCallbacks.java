@@ -23,10 +23,32 @@ public class GLFWCallbacks {
     }
     
     /**
+     * Sets a key callback that will be called when a key is pressed, repeated or released.
+     * @param window the GLFW window
+     * @param callback the callback function (window, key, scancode, action, mods) -> void
+     * @param arena arena for callback allocation
+     * @return the previous callback or null
+     */
+    public static MemorySegment setKeyCallback(MemorySegment window, 
+                                             KeyCallback callback, 
+                                             Arena arena) {
+        MemorySegment callbackStub = GLFWkeyfun.allocate(callback::onKey, arena);
+        return GLFWFFM.glfwSetKeyCallback(window, callbackStub);
+    }
+    
+    /**
      * Functional interface for framebuffer size callbacks.
      */
     @FunctionalInterface
     public interface FramebufferSizeCallback {
         void onResize(MemorySegment window, int width, int height);
+    }
+    
+    /**
+     * Functional interface for key callbacks.
+     */
+    @FunctionalInterface
+    public interface KeyCallback {
+        void onKey(MemorySegment window, int key, int scancode, int action, int mods);
     }
 }

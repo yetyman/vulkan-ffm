@@ -1,15 +1,13 @@
-package io.github.yetyman.sample;
+package io.github.yetyman.vulkan.sample.complex;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.highlevel.VulkanContext;
-import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.glfw.GLFW;
 import io.github.yetyman.glfw.GLFWCallbacks;
+import io.github.yetyman.vulkan.sample.complex.input.InputManager;
+import io.github.yetyman.vulkan.sample.complex.threading.ThreadedRenderer;
 
 import java.lang.foreign.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
-record InputEvent(int key, int action) {}
 
 public class TriangleApp {
     static { VulkanLibrary.load(); }
@@ -21,10 +19,7 @@ public class TriangleApp {
     private VulkanContext vulkanContext;
     private boolean framebufferResized = false;
     private MemorySegment callbackStub; // Keep reference to prevent GC
-    private final ConcurrentLinkedQueue<InputEvent> inputQueue = new ConcurrentLinkedQueue<>();
-    private long lastSpacePress = 0;
-    private Thread inputThread;
-    private volatile boolean running = true;
+    private InputManager inputManager;
     
     public void run() {
         VulkanLibrary.load();
@@ -49,8 +44,6 @@ public class TriangleApp {
         
         // Set callbacks - keep references to prevent GC
         callbackStub = GLFWCallbacks.setFramebufferSizeCallback(window, this::framebufferResizeCallback, Arena.global());
-        // TODO: Need to implement setKeyCallback in GLFWCallbacks
-        // GLFWCallbacks.setKeyCallback(window, this::keyCallback, Arena.global());
         
         System.out.println("[OK] Window created");
     }
@@ -98,10 +91,12 @@ public class TriangleApp {
                                       vulkanContext.graphicsQueue(), surface, WIDTH, HEIGHT);
         renderer.init(vulkanContext.physicalDevice(), vulkanContext.graphicsQueueFamily());
         
-        // Start input processing thread
-        inputThread = new Thread(this::inputThreadLoop, "InputThread");
-        inputThread.setDaemon(true);
-        inputThread.start();
+        // Initialize input manager
+        inputManager = new InputManager(window);
+        inputManager.registerHandler(
+            event -> event.key() == GLFW.GLFW_KEY_SPACE && event.action() == GLFW.GLFW_PRESS,
+            () -> renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled())
+        );
         
         System.out.println("[OK] Rendering enabled with per-frame Arena");
         
@@ -111,10 +106,7 @@ public class TriangleApp {
         while (!GLFW.glfwWindowShouldClose(window)) {
             GLFW.glfwPollEvents(); // Still needed - triggers callbacks
             
-            // Queue input events for processing thread
-            if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS) {
-                inputQueue.offer(new InputEvent(GLFW.GLFW_KEY_SPACE, GLFW.GLFW_PRESS));
-            }
+            // Input now handled by callbacks - no polling needed
             
             if (framebufferResized) {
                 handleResize();
@@ -150,13 +142,8 @@ public class TriangleApp {
     }
     
     private void cleanup() {
-        running = false;
-        if (inputThread != null) {
-            try {
-                inputThread.join(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+        if (inputManager != null) {
+            inputManager.close();
         }
         
         if (renderer != null) {
@@ -176,34 +163,7 @@ public class TriangleApp {
         GLFW.glfwTerminate();
     }
     
-    private void keyCallback(MemorySegment window, int key, int scancode, int action, int mods) {
-        inputQueue.offer(new InputEvent(key, action));
-    }
-    
-    private void inputThreadLoop() {
-        while (running) {
-            processInputEvents();
-            try {
-                Thread.sleep(1); // Small delay to prevent busy waiting
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-    }
-    
-    private void processInputEvents() {
-        InputEvent event;
-        while ((event = inputQueue.poll()) != null) {
-            if (event.key() == GLFW.GLFW_KEY_SPACE && event.action() == GLFW.GLFW_PRESS) {
-                long now = System.nanoTime();
-                if (now - lastSpacePress > 200_000_000L) { // 200ms debounce
-                    renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
-                    lastSpacePress = now;
-                }
-            }
-        }
-    }
+
     
     private void framebufferResizeCallback(MemorySegment window, int width, int height) {
         // Only set flag - don't do any Vulkan operations in callback
