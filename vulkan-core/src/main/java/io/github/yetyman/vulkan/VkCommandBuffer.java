@@ -28,12 +28,34 @@ public class VkCommandBuffer {
             return this;
         }
         
+        private MemorySegment inheritanceRenderPass;
+        private int inheritanceSubpass;
+        private MemorySegment inheritanceFramebuffer;
+        
+        public Builder inheritanceInfo(MemorySegment renderPass, int subpass, MemorySegment framebuffer) {
+            this.inheritanceRenderPass = renderPass;
+            this.inheritanceSubpass = subpass;
+            this.inheritanceFramebuffer = framebuffer;
+            return this;
+        }
+        
         public void execute(Arena arena) {
             MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(arena);
             VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
             VkCommandBufferBeginInfo.pNext(beginInfo, MemorySegment.NULL);
             VkCommandBufferBeginInfo.flags(beginInfo, flags);
-            VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, MemorySegment.NULL);
+            
+            MemorySegment inheritanceInfo = MemorySegment.NULL;
+            if (inheritanceRenderPass != null) {
+                inheritanceInfo = VkCommandBufferInheritanceInfo.allocate(arena);
+                VkCommandBufferInheritanceInfo.sType(inheritanceInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO);
+                VkCommandBufferInheritanceInfo.pNext(inheritanceInfo, MemorySegment.NULL);
+                VkCommandBufferInheritanceInfo.renderPass(inheritanceInfo, inheritanceRenderPass);
+                VkCommandBufferInheritanceInfo.subpass(inheritanceInfo, inheritanceSubpass);
+                VkCommandBufferInheritanceInfo.framebuffer(inheritanceInfo, inheritanceFramebuffer != null ? inheritanceFramebuffer : MemorySegment.NULL);
+            }
+            
+            VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, inheritanceInfo);
             
             VulkanExtensions.beginCommandBuffer(commandBuffer, beginInfo).check();
         }

@@ -1,10 +1,13 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import de.javagl.jgltf.model.*;
+import de.javagl.jgltf.model.io.GltfModelReader;
 import java.lang.foreign.Arena;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 
 /**
  * Async glTF model loader with promise-based API
@@ -16,13 +19,10 @@ public class GLTFLoader {
         return t;
     });
     
-    private final Arena arena;
-    private final LODConverter lodConverter;
     private final AtomicInteger nextModelId = new AtomicInteger(0);
     
     public GLTFLoader(Arena arena) {
-        this.arena = arena;
-        this.lodConverter = new LODConverter(arena);
+        // Don't store the arena - create new ones in background thread
     }
     
     /**
@@ -31,14 +31,19 @@ public class GLTFLoader {
      * @return CompletableFuture that resolves to ModelData when loaded
      */
     public CompletableFuture<ModelData> loadModel(String filePath) {
+        System.out.println("[GLTF] Queuing load for: " + filePath);
         CompletableFuture<ModelData> promise = new CompletableFuture<>();
         
         // Queue loading on background thread
         loadingThread.submit(() -> {
             try {
+                System.out.println("[GLTF] Starting load: " + filePath);
                 ModelData modelData = loadModelSync(filePath);
+                System.out.println("[GLTF] Load complete: " + filePath);
                 promise.complete(modelData);
             } catch (Exception e) {
+                System.err.println("[GLTF] Load failed: " + filePath + " - " + e.getMessage());
+                e.printStackTrace();
                 promise.completeExceptionally(e);
             }
         });
@@ -50,53 +55,95 @@ public class GLTFLoader {
         // Create ModelData with unique ID
         int modelId = nextModelId.getAndIncrement();
         ModelData modelData = new ModelData(modelId);
+        System.out.println("[GLTF] Created ModelData with ID: " + modelId);
         
-        // Parse glTF file (simplified - would use tinygltf in real implementation)
+        // Parse glTF file
+        System.out.println("[GLTF] Parsing glTF file: " + filePath);
         GLTFData gltfData = parseGLTF(filePath);
+        System.out.println("[GLTF] Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
         
-        // Convert to LOD model
-        LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
-        
-        // Create initial transform
-        TransformationMatrix transform = new TransformationMatrix();
-        
-        // Load into ModelData
-        modelData.loadModel(lodModel, transform);
+        // Convert to LOD model using background thread arena
+        System.out.println("[GLTF] Generating LOD levels...");
+        try (Arena backgroundArena = Arena.ofConfined()) {
+            LODConverter lodConverter = new LODConverter(backgroundArena);
+            LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
+            System.out.println("[GLTF] Generated " + lodModel.getLODCount() + " LOD levels");
+            
+            // Create initial transform
+            TransformationMatrix transform = new TransformationMatrix();
+            
+            // Load into ModelData
+            modelData.loadModel(lodModel, transform);
+            System.out.println("[GLTF] ModelData loaded and ready");
+        }
         
         return modelData;
     }
     
     private GLTFData parseGLTF(String filePath) throws Exception {
-        // Simplified glTF parsing - in real implementation would use tinygltf
-        // For now, generate a simple cube as placeholder
+        // Load glTF model from classpath resources
+        GltfModelReader reader = new GltfModelReader();
         
-        float[] vertices = {
-            // Front face
-            -1.0f, -1.0f,  1.0f,
-             1.0f, -1.0f,  1.0f,
-             1.0f,  1.0f,  1.0f,
-            -1.0f,  1.0f,  1.0f,
-            // Back face
-            -1.0f, -1.0f, -1.0f,
-            -1.0f,  1.0f, -1.0f,
-             1.0f,  1.0f, -1.0f,
-             1.0f, -1.0f, -1.0f
-        };
+        // Get resource URL from classpath
+        var resourceUrl = getClass().getResource(filePath);
+        if (resourceUrl == null) {
+            throw new RuntimeException("Resource not found: " + filePath);
+        }
         
-        int[] indices = {
-            // Front face
-            0, 1, 2, 2, 3, 0,
-            // Back face
-            4, 5, 6, 6, 7, 4,
-            // Top face
-            3, 2, 6, 6, 5, 3,
-            // Bottom face
-            0, 4, 7, 7, 1, 0,
-            // Right face
-            1, 7, 6, 6, 2, 1,
-            // Left face
-            0, 3, 5, 5, 4, 0
-        };
+        GltfModel gltfModel = reader.read(resourceUrl.toURI());
+        
+        // Extract first mesh data (robust parsing)
+        SceneModel scene = gltfModel.getSceneModels().get(0);
+        System.out.println("[GLTF] Scene has " + scene.getNodeModels().size() + " nodes");
+        
+        // Find first node with a mesh
+        MeshModel meshModel = null;
+        for (NodeModel node : scene.getNodeModels()) {
+            if (!node.getMeshModels().isEmpty()) {
+                meshModel = node.getMeshModels().get(0);
+                break;
+            }
+            // Check child nodes recursively
+            for (NodeModel child : node.getChildren()) {
+                if (!child.getMeshModels().isEmpty()) {
+                    meshModel = child.getMeshModels().get(0);
+                    break;
+                }
+            }
+            if (meshModel != null) break;
+        }
+        
+        if (meshModel == null) {
+            throw new RuntimeException("No mesh found in glTF file");
+        }
+        
+        System.out.println("[GLTF] Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
+        MeshPrimitiveModel primitive = meshModel.getMeshPrimitiveModels().get(0);
+        
+        // Get vertex positions
+        AccessorModel positionsAccessor = primitive.getAttributes().get("POSITION");
+        AccessorData positionsData = positionsAccessor.getAccessorData();
+        FloatBuffer positionsBuffer = positionsData.createByteBuffer().asFloatBuffer();
+        
+        float[] vertices = new float[positionsBuffer.remaining()];
+        positionsBuffer.get(vertices);
+        
+        // Get indices
+        AccessorModel indicesAccessor = primitive.getIndices();
+        AccessorData indicesData = indicesAccessor.getAccessorData();
+        
+        int[] indices;
+        if (indicesAccessor.getComponentType() == 5123) { // UNSIGNED_SHORT
+            var shortBuffer = indicesData.createByteBuffer().asShortBuffer();
+            indices = new int[shortBuffer.remaining()];
+            for (int i = 0; i < indices.length; i++) {
+                indices[i] = shortBuffer.get(i) & 0xFFFF;
+            }
+        } else { // UNSIGNED_INT
+            IntBuffer intBuffer = indicesData.createByteBuffer().asIntBuffer();
+            indices = new int[intBuffer.remaining()];
+            intBuffer.get(indices);
+        }
         
         return new GLTFData(vertices, indices);
     }

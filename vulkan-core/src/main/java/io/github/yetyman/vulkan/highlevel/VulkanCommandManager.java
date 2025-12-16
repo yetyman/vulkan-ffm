@@ -64,6 +64,11 @@ public class VulkanCommandManager implements AutoCloseable {
         return threadArenas.computeIfAbsent(thread, k -> Arena.ofShared());
     }
     
+    public MemorySegment getCommandPool() {
+        VkCommandPool pool = threaded ? getThreadPool() : mainPool;
+        return pool.handle();
+    }
+    
     @Override
     public void close() {
         threadPools.values().forEach(VkCommandPool::close);

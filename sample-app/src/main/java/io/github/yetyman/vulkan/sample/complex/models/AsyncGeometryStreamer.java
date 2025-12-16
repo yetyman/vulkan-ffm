@@ -7,6 +7,7 @@ import java.lang.foreign.MemorySegment;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+
 /**
  * Async geometry streamer - loads/unloads GPU buffers on background threads
  */
@@ -20,6 +21,7 @@ public class AsyncGeometryStreamer {
     });
     private final ConcurrentLinkedQueue<ModelData> loadQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<ModelData> unloadQueue = new ConcurrentLinkedQueue<>();
+
     
     private final Arena arena;
     private final MemorySegment device;
@@ -35,17 +37,25 @@ public class AsyncGeometryStreamer {
     }
     
     public void updateStreaming(ModelData[] modelDataArray, float[] cameraPosition) {
+        int loadRequests = 0, unloadRequests = 0;
+        
         for (ModelData modelData : modelDataArray) {
             if (modelData == null || !modelData.isLoaded()) continue;
             
             float[] pos = modelData.getTransform().getPosition();
             float distance = calculateDistance(cameraPosition, pos);
             
-            if (distance < 100.0f && !modelData.isGPUResident()) {
+            if (distance < 100.0f && !modelData.isGPUResident() && !modelData.setPendingGPULoad(true)) {
                 loadQueue.offer(modelData);
-            } else if (distance > 200.0f && modelData.isGPUResident()) {
+                loadRequests++;
+            } else if (distance > 200.0f && modelData.isGPUResident() && !modelData.setPendingGPUUnload(true)) {
                 unloadQueue.offer(modelData);
+                unloadRequests++;
             }
+        }
+        
+        if (loadRequests > 0 || unloadRequests > 0) {
+            System.out.println("[STREAM] Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
         }
     }
     
@@ -56,12 +66,15 @@ public class AsyncGeometryStreamer {
                 ModelData toUnload = unloadQueue.poll();
                 if (toUnload != null) {
                     unloadFromGPU(toUnload);
+                    toUnload.setPendingGPUUnload(false);
                 }
                 
                 // Process loads if we have budget
                 ModelData toLoad = loadQueue.poll();
                 if (toLoad != null && currentGPUUsage.get() < GPU_MEMORY_BUDGET) {
+                    System.out.println("[STREAM] Processing GPU load for model " + toLoad.getModelId());
                     loadToGPU(toLoad);
+                    toLoad.setPendingGPULoad(false);
                 }
                 
                 Thread.sleep(16); // ~60fps processing
@@ -73,52 +86,33 @@ public class AsyncGeometryStreamer {
     }
     
     private void loadToGPU(ModelData modelData) {
-        if (modelData.isGPUResident()) return;
-        
-        try {
-            LODModel lodModel = modelData.getLodModel();
-            if (lodModel == null) return;
-            
-            // Create GPU buffers for each LOD level
-            for (int i = 0; i < lodModel.getLODCount(); i++) {
-                LODLevel lodLevel = lodModel.getLOD(i);
-                
-                // Create vertex buffer
-                VkBuffer vertexBuffer = VkBuffer.builder()
-                    .device(device)
-                    .physicalDevice(physicalDevice)
-                    .size(1024 * 1024) // 1MB estimate
-                    .vertexBuffer()
-                    .deviceLocal()
-                    .build(arena);
-                
-                // Create index buffer
-                VkBuffer indexBuffer = VkBuffer.builder()
-                    .device(device)
-                    .physicalDevice(physicalDevice)
-                    .size(512 * 1024) // 512KB estimate
-                    .indexBuffer()
-                    .deviceLocal()
-                    .build(arena);
-                
-                // Update LODLevel with GPU buffers
-                lodLevel.setGPUBuffers(vertexBuffer.handle(), indexBuffer.handle());
-            }
-            
-            long bufferSize = estimateBufferSize(modelData);
-            currentGPUUsage.addAndGet(bufferSize);
-            modelData.setGPUResident(true);
-            modelData.setLastAccessTime(System.nanoTime());
-            
-        } catch (Exception e) {
-            System.err.println("Failed to load geometry to GPU: " + e.getMessage());
+        if (modelData.isGPUResident()) {
+            System.out.println("[STREAM] Model " + modelData.getModelId() + " already GPU resident, skipping");
+            return;
         }
+        
+        // Clear any stale GPU buffer handles and skip GPU buffer creation for now
+        LODModel lodModel = modelData.getLodModel();
+        if (lodModel != null) {
+            for (int i = 0; i < lodModel.getLODCount(); i++) {
+                lodModel.getLOD(i).clearGPUBuffers();
+            }
+        }
+        
+        System.out.println("[STREAM] Cleared GPU buffers for model " + modelData.getModelId());
+        
+        long bufferSize = estimateBufferSize(modelData);
+        currentGPUUsage.addAndGet(bufferSize);
+        modelData.setGPUResident(true); // Mark as resident to prevent re-queuing
+        modelData.setLastAccessTime(System.nanoTime());
     }
     
     private void unloadFromGPU(ModelData modelData) {
         if (!modelData.isGPUResident()) return;
         
         try {
+            System.out.println("[STREAM] Unloading model ID " + modelData.getModelId() + " from GPU");
+            
             LODModel lodModel = modelData.getLodModel();
             if (lodModel != null) {
                 // Clean up GPU buffers for each LOD level
@@ -133,7 +127,7 @@ public class AsyncGeometryStreamer {
             modelData.setGPUResident(false);
             
         } catch (Exception e) {
-            System.err.println("Failed to unload geometry from GPU: " + e.getMessage());
+            System.err.println("[STREAM] Failed to unload geometry from GPU: " + e.getMessage());
         }
     }
     

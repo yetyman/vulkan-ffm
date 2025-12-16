@@ -55,6 +55,7 @@ public class VkBuffer implements AutoCloseable {
         private int[] queueFamilyIndices = null;
         private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
         private int flags = 0;
+        private MemorySegment initialData = null;
         
         private Builder() {}
         
@@ -158,6 +159,12 @@ public class VkBuffer implements AutoCloseable {
             return this;
         }
         
+        /** Sets initial data to upload to buffer */
+        public Builder initialData(MemorySegment data) {
+            this.initialData = data;
+            return this;
+        }
+        
         /** Creates the buffer with allocated memory */
         public VkBuffer build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
@@ -230,6 +237,19 @@ public class VkBuffer implements AutoCloseable {
             
             // Bind buffer memory
             VulkanExtensions.bindBufferMemory(device, buffer, memory, 0).check();
+            
+            // Upload initial data if provided
+            if (initialData != null && !initialData.equals(MemorySegment.NULL) && initialData.byteSize() > 0) {
+                // Map memory, copy data, unmap
+                MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
+                VulkanExtensions.mapMemory(device, memory, 0, size, 0, mappedPtr).check();
+                MemorySegment mapped = mappedPtr.get(ValueLayout.ADDRESS, 0);
+                
+                long copySize = Math.min(size, initialData.byteSize());
+                MemorySegment.copy(initialData, 0, mapped, 0, copySize);
+                
+                VulkanExtensions.unmapMemory(device, memory);
+            }
             
             return new VkBuffer(buffer, memory, device, size);
         }

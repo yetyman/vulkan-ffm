@@ -91,6 +91,9 @@ public class TriangleApp {
                                       vulkanContext.graphicsQueue(), surface, WIDTH, HEIGHT);
         renderer.init(vulkanContext.physicalDevice(), vulkanContext.graphicsQueueFamily());
         
+        // Load sample models
+        renderer.loadSampleModels();
+        
         // Initialize input manager
         inputManager = new InputManager(window);
         inputManager.registerHandler(

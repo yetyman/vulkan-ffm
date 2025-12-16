@@ -5,9 +5,11 @@ import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
+import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
 
 import java.lang.foreign.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public class ThreadedRenderer {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
@@ -29,6 +31,7 @@ public class ThreadedRenderer {
     private VkRenderPass renderPass;
     private VkRenderPass directRenderPass; // For non-AA rendering
     private VkPipeline pipeline;
+    private VkPipeline gltfPipeline;
     private MemorySegment[] commandBuffers;
     private VulkanSyncManager syncManager;
     private VulkanCommandManager commandManager;
@@ -51,6 +54,7 @@ public class ThreadedRenderer {
     // LOD rendering
     private LODRenderer lodRenderer;
     private float[] cameraPosition = {0.0f, 0.0f, 5.0f};
+    private MainThreadWorkQueue mainThreadWork;
     
     public ThreadedRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
@@ -74,6 +78,8 @@ public class ThreadedRenderer {
         
         // Initialize LOD renderer now that we have physicalDevice
         lodRenderer = new LODRenderer(arena, device, physicalDevice, 10000, 1000);
+        mainThreadWork = new MainThreadWorkQueue(60.0); // Target 60 FPS
+        lodRenderer.setMainThreadWorkQueue(mainThreadWork);
         
         createSwapchainManager();
         createManagers(queueFamilyIndex);
@@ -82,6 +88,9 @@ public class ThreadedRenderer {
         if (adaptiveAAEnabled) {
             adaptiveAA = new AdaptiveAA(arena, device, width, height);
         }
+        
+        // Set Vulkan resources after managers are created
+        lodRenderer.setVulkanResources(commandManager.getCommandPool(), renderPass.handle());
         createGraphicsPipeline();
         createFramebuffers();
         createCommandBuffers();
@@ -154,27 +163,56 @@ public class ThreadedRenderer {
     }
     
     private void createGraphicsPipeline() {
-        VulkanShaderManager.ShaderSet shaders = shaderManager.createShaderSet()
+        // Original triangle pipeline
+        VulkanShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
             .vertex("/shaders/triangle.vert")
             .fragment("/shaders/triangle.frag")
+            .build();
+        
+        // glTF pipeline
+        VulkanShaderManager.ShaderSet gltfShaders = shaderManager.createShaderSet()
+            .vertex("/shaders/gltf.vert")
+            .fragment("/shaders/gltf.frag")
             .build();
         
         // Use appropriate render pass based on AA setting
         MemorySegment targetRenderPass = adaptiveAAEnabled ? 
             adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
         
+        // Original triangle pipeline
         pipeline = VkPipeline.builder()
             .device(device)
             .renderPass(targetRenderPass)
             .viewport(0, 0, width, height)
-            .vertexShader(shaders.vertex())
-            .fragmentShader(shaders.fragment())
+            .vertexShader(triangleShaders.vertex())
+            .fragmentShader(triangleShaders.fragment())
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
             .build(arena);
-        System.out.println("[OK] Graphics pipeline created");
+        
+        // glTF pipeline with vertex input descriptions
+        gltfPipeline = VkPipeline.builder()
+            .device(device)
+            .renderPass(targetRenderPass)
+            .viewport(0, 0, width, height)
+            .vertexShader(gltfShaders.vertex())
+            .fragmentShader(gltfShaders.fragment())
+            .triangleTopology()
+            .dynamicViewport()
+            .dynamicScissor()
+            .depthTest(true)
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
+            .vertexInput()
+                .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX) // 3*4 + 3*4 + 2*4 = 32 bytes
+                .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0)  // position
+                .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 12) // normal
+                .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, 24)    // texcoord
+                .build()
+            .build(arena);
+        
+        System.out.println("[OK] Graphics pipelines created (triangle + glTF)");
     }
     
     private void createFramebuffers() {
@@ -200,6 +238,12 @@ public class ThreadedRenderer {
     
     public void drawFrame() {
         long frameStart = System.nanoTime();
+        
+        // Process main thread work during spare time
+        int workProcessed = mainThreadWork.processWork(frameStart);
+        if (workProcessed > 0) {
+            System.out.println("[WORK] Processed " + workProcessed + " main thread tasks");
+        }
         
         // Use main arena instead of creating new one each frame
         Arena frameArena = arena;
@@ -320,8 +364,13 @@ public class ThreadedRenderer {
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
         // Render LOD models if any exist
-        if (lodRenderer.getInstanceCount() > 0) {
-            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena);
+        int instanceCount = lodRenderer.getInstanceCount();
+        if (instanceCount > 0) {
+            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
+            
+            // TEMPORARY: Also render a test triangle to verify pipeline works
+            VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+            VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         } else {
             // Fallback to original triangle rendering
             VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
@@ -408,6 +457,59 @@ public class ThreadedRenderer {
         return lodRenderer.loadGLTFModel(filePath);
     }
     
+    public MainThreadWorkQueue getMainThreadWorkQueue() {
+        return mainThreadWork;
+    }
+    
+    /**
+     * Load sample models at adjacent positions for testing
+     */
+    public void loadSampleModels() {
+        System.out.println("[LOAD] Starting to load sample models...");
+        
+        // Load Box at origin
+        loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
+            .thenAcceptAsync(modelData -> {
+                TransformationMatrix transform = modelData.getTransform();
+                transform.setPosition(-5.0f, 0.0f, 0.0f);
+                int instanceId = addLODInstance(modelData);
+                System.out.println("[OK] Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            })
+            .exceptionally(throwable -> {
+                System.err.println("[ERROR] Failed to load Box: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
+        
+        // Load Duck at center
+        loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
+            .thenAcceptAsync(modelData -> {
+                TransformationMatrix transform = modelData.getTransform();
+                transform.setPosition(0.0f, 0.0f, 0.0f);
+                int instanceId = addLODInstance(modelData);
+                System.out.println("[OK] Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            })
+            .exceptionally(throwable -> {
+                System.err.println("[ERROR] Failed to load Duck: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
+        
+        // Load Suzanne at right
+        loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
+            .thenAccept(modelData -> {
+                TransformationMatrix transform = modelData.getTransform();
+                transform.setPosition(5.0f, 0.0f, 0.0f);
+                int instanceId = addLODInstance(modelData);
+                System.out.println("[OK] Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            })
+            .exceptionally(throwable -> {
+                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
+    }
+    
     public void resize(int newWidth, int newHeight) {
         // Clean up depth target
         if (depthTarget != null) {
@@ -457,6 +559,7 @@ public class ThreadedRenderer {
         
         // Clean up main resources
         pipeline.close();
+        if (gltfPipeline != null) gltfPipeline.close();
         renderPass.close();
         if (directRenderPass != null) {
             directRenderPass.close();

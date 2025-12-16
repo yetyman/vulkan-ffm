@@ -14,13 +14,15 @@ public class ModelData {
     private final AtomicBoolean isFreed = new AtomicBoolean(false);
     private volatile boolean gpuResident = false;
     private volatile long lastAccessTime = 0;
+    private final AtomicBoolean pendingGPULoad = new AtomicBoolean(false);
+    private final AtomicBoolean pendingGPUUnload = new AtomicBoolean(false);
     
     public ModelData(int modelId) {
         this.modelId = modelId;
     }
     
     // Async loading - must be called from thread with Vulkan context
-    public void loadModel(LODModel model, TransformationMatrix initialTransform, MemorySegment device) {
+    public void loadModel(LODModel model, TransformationMatrix initialTransform) {
         // GPU resources must be created on Vulkan context thread
         // LODModel should already have GPU buffers allocated
         this.lodModel = model;
@@ -44,4 +46,9 @@ public class ModelData {
     public void setGPUResident(boolean resident) { this.gpuResident = resident; }
     public void setLastAccessTime(long time) { this.lastAccessTime = time; }
     public long getLastAccessTime() { return lastAccessTime; }
+    
+    public boolean setPendingGPULoad(boolean pending) { return pendingGPULoad.getAndSet(pending); }
+    public boolean setPendingGPUUnload(boolean pending) { return pendingGPUUnload.getAndSet(pending); }
+    public boolean isPendingGPULoad() { return pendingGPULoad.get(); }
+    public boolean isPendingGPUUnload() { return pendingGPUUnload.get(); }
 }

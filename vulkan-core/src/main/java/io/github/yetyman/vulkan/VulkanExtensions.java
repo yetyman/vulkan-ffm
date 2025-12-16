@@ -279,4 +279,13 @@ public class VulkanExtensions {
     public static void cmdDrawIndexed(MemorySegment commandBuffer, int indexCount, int instanceCount, int firstIndex, int vertexOffset, int firstInstance) {
         VulkanFFM.vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
+    
+    public static VkResult mapMemory(MemorySegment device, MemorySegment memory, long offset, long size, int flags, MemorySegment data) {
+        int result = VulkanFFM.vkMapMemory(device, memory, offset, size, flags, data);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void unmapMemory(MemorySegment device, MemorySegment memory) {
+        VulkanFFM.vkUnmapMemory(device, memory);
+    }
 }

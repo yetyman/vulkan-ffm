@@ -438,6 +438,32 @@ public class VkPipeline implements AutoCloseable {
             return this;
         }
         
+        public VertexInputBuilder vertexInput() {
+            return new VertexInputBuilder(this);
+        }
+        
+        public static class VertexInputBuilder {
+            private final Builder parent;
+            
+            private VertexInputBuilder(Builder parent) {
+                this.parent = parent;
+            }
+            
+            public VertexInputBuilder binding(int binding, int stride, int inputRate) {
+                parent.vertexBinding(binding, stride, inputRate);
+                return this;
+            }
+            
+            public VertexInputBuilder attribute(int location, int binding, int format, int offset) {
+                parent.vertexAttribute(location, binding, format, offset);
+                return this;
+            }
+            
+            public Builder build() {
+                return parent;
+            }
+        }
+        
         // Pipeline creation methods
         public Builder flags(int flags) {
             this.flags = flags;
