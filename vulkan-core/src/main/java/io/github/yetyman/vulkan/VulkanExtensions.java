@@ -267,4 +267,16 @@ public class VulkanExtensions {
     public static void cmdPushConstants(MemorySegment commandBuffer, MemorySegment layout, int stageFlags, int offset, int size, MemorySegment values) {
         VulkanFFM.vkCmdPushConstants(commandBuffer, layout, stageFlags, offset, size, values);
     }
+    
+    public static void cmdBindVertexBuffers(MemorySegment commandBuffer, int firstBinding, int bindingCount, MemorySegment buffers, MemorySegment offsets) {
+        VulkanFFM.vkCmdBindVertexBuffers(commandBuffer, firstBinding, bindingCount, buffers, offsets);
+    }
+    
+    public static void cmdBindIndexBuffer(MemorySegment commandBuffer, MemorySegment buffer, long offset, int indexType) {
+        VulkanFFM.vkCmdBindIndexBuffer(commandBuffer, buffer, offset, indexType);
+    }
+    
+    public static void cmdDrawIndexed(MemorySegment commandBuffer, int indexCount, int instanceCount, int firstIndex, int vertexOffset, int firstInstance) {
+        VulkanFFM.vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
 }

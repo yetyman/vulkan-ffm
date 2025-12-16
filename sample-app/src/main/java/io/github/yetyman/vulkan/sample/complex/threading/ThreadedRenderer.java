@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
+import io.github.yetyman.vulkan.sample.complex.models.*;
 
 import java.lang.foreign.*;
 import java.util.*;
@@ -47,6 +48,10 @@ public class ThreadedRenderer {
     private MemorySegment cachedViewport;
     private MemorySegment cachedScissor;
     
+    // LOD rendering
+    private LODRenderer lodRenderer;
+    private float[] cameraPosition = {0.0f, 0.0f, 5.0f};
+    
     public ThreadedRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
         this.arena = arena;
@@ -58,10 +63,18 @@ public class ThreadedRenderer {
         
         // Initialize thread manager
         threadManager = new ThreadManager();
+        
+        // Initialize LOD renderer with max instances
+        // Note: physicalDevice will be set in init()
+        lodRenderer = null; // Will be created in init() when physicalDevice is available
     }
     
     public void init(MemorySegment physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
+        
+        // Initialize LOD renderer now that we have physicalDevice
+        lodRenderer = new LODRenderer(arena, device, physicalDevice, 10000, 1000);
+        
         createSwapchainManager();
         createManagers(queueFamilyIndex);
         createDepthTarget();
@@ -306,7 +319,13 @@ public class ThreadedRenderer {
         VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
-        VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
+        // Render LOD models if any exist
+        if (lodRenderer.getInstanceCount() > 0) {
+            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena);
+        } else {
+            // Fallback to original triangle rendering
+            VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
+        }
     }
     
 
@@ -351,6 +370,42 @@ public class ThreadedRenderer {
     
     public double getAverageFrameTime() {
         return frameTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0; // ms
+    }
+    
+    // LOD model management
+    public int addLODModel(LODModel model) {
+        return lodRenderer.addModel(model);
+    }
+    
+    public int addLODInstance(ModelData modelData) {
+        return lodRenderer.addInstance(modelData);
+    }
+    
+    public void removeLODInstance(int instanceId) {
+        lodRenderer.removeInstance(instanceId);
+    }
+    
+    public void updateLODInstance(int instanceId, ModelData modelData) {
+        lodRenderer.updateInstance(instanceId, modelData);
+    }
+    
+    public void setCameraPosition(float x, float y, float z) {
+        cameraPosition[0] = x;
+        cameraPosition[1] = y;
+        cameraPosition[2] = z;
+    }
+    
+    public int getActiveTriangleCount() {
+        return lodRenderer.getActiveTriangleCount(cameraPosition);
+    }
+    
+    /**
+     * Load glTF model from file path - can be called from any thread
+     * @param filePath Path to .gltf or .glb file
+     * @return CompletableFuture that resolves to ModelData when loaded
+     */
+    public CompletableFuture<ModelData> loadGLTFModel(String filePath) {
+        return lodRenderer.loadGLTFModel(filePath);
     }
     
     public void resize(int newWidth, int newHeight) {
