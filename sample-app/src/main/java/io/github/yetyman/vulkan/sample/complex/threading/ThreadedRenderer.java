@@ -405,12 +405,12 @@ public class ThreadedRenderer {
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
-        // Test glTF pipeline with instance matrix only
+        // Test glTF pipeline with vertex and instance buffers
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
-        System.out.println("[DEBUG] Rendering glTF test triangle with instance matrix");
+        System.out.println("[DEBUG] Rendering glTF test triangle with vertex buffers");
         
-        // Bind just the instance buffer (binding 1)
-        lodRenderer.bindInstanceBufferOnly(commandBuffer, frameArena);
+        // Bind both vertex and instance buffers
+        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Render LOD models if any exist

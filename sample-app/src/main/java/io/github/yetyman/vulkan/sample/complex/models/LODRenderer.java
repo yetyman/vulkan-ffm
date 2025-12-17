@@ -355,10 +355,7 @@ public class LODRenderer {
      * Render a test triangle using static buffers (created once)
      */
     public void renderTestTriangle(MemorySegment commandBuffer, Arena frameArena) {
-        // Force buffer recreation
-        staticVertexBuffer = MemorySegment.NULL;
-        staticInstanceBuffer = MemorySegment.NULL;
-        
+        // Create static buffers only once
         if (staticVertexBuffer.equals(MemorySegment.NULL)) {
             System.out.println("[DEBUG] Creating new glTF test buffers");
             float[] vertices = {
