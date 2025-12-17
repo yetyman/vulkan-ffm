@@ -209,6 +209,18 @@ public class AsyncGeometryStreamer {
         }
     }
     
+    /**
+     * Create a test buffer for immediate use (for testing glTF pipeline)
+     */
+    public MemorySegment createTestBuffer(float[] data) {
+        try {
+            return stagingSystem.createImmediateBuffer(data);
+        } catch (Exception e) {
+            System.err.println("[STREAM] Failed to create test buffer: " + e.getMessage());
+            return MemorySegment.NULL;
+        }
+    }
+    
     public void shutdown() {
         loadingThread.shutdown();
         stagingSystem.cleanup();

@@ -18,6 +18,8 @@ public class BufferManager {
     
     // Standard buffer sizes (powers of 2 for good coverage)
     private static final long[] BUFFER_SIZES = {
+        1024,         // 1KB - for small test buffers
+        4 * 1024,     // 4KB
         64 * 1024,    // 64KB
         256 * 1024,   // 256KB  
         1024 * 1024,  // 1MB
@@ -36,9 +38,12 @@ public class BufferManager {
             indexPools.put(size, new BufferPool(arena, device, physicalDevice, size, false, 32));
         }
         
-        // Pre-allocate some common sizes
+        // Pre-allocate some common sizes including small test buffers
+        vertexPools.get(1024L).preallocate(20);       // More small test buffers
+        vertexPools.get(4 * 1024L).preallocate(20);   // More small test buffers
         vertexPools.get(256 * 1024L).preallocate(8);
         vertexPools.get(1024 * 1024L).preallocate(4);
+        indexPools.get(1024L).preallocate(4);         // Small test buffers
         indexPools.get(64 * 1024L).preallocate(8);
         indexPools.get(256 * 1024L).preallocate(4);
     }

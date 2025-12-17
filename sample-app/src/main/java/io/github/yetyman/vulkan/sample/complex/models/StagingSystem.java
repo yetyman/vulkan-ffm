@@ -214,6 +214,48 @@ public class StagingSystem {
         return queuePtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);
     }
     
+    /**
+     * Create an immediate buffer for testing (synchronous)
+     */
+    public MemorySegment createImmediateBuffer(float[] data) {
+        try {
+            // Create vertex data in staging buffer
+            Arena tempArena = Arena.ofConfined();
+            MemorySegment vertexData = tempArena.allocate(data.length * 4);
+            for (int i = 0; i < data.length; i++) {
+                vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, i, data[i]);
+            }
+            
+            // Stage the data and get device buffer
+            int requestId = stageVertexData(vertexData, tempArena.allocate(4)); // dummy index data
+            
+            // Process the copy immediately (synchronous for testing)
+            processPendingCopies(1);
+            
+            // Get the completed request
+            CopyRequest request = getCompletedRequest(requestId);
+            if (request != null && request.deviceVertexBuffer != null) {
+                return request.deviceVertexBuffer.handle();
+            }
+        } catch (Exception e) {
+            System.err.println("[STAGING] Failed to create immediate buffer: " + e.getMessage());
+        }
+        return MemorySegment.NULL;
+    }
+    
+    /**
+     * Release a buffer back to the pool
+     */
+    public void releaseBuffer(MemorySegment bufferHandle, boolean isVertex) {
+        // Find the VkBuffer from handle and release it
+        // This is a simplified approach - in practice we'd need better tracking
+        if (isVertex) {
+            // bufferManager.releaseVertexBuffer(buffer);
+        } else {
+            // bufferManager.releaseIndexBuffer(buffer);
+        }
+    }
+    
     public void cleanup() {
         bufferManager.cleanup();
         StagingBuffer buffer;

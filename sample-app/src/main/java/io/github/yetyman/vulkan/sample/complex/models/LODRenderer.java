@@ -346,6 +346,89 @@ public class LODRenderer {
         return gltfLoader.loadModel(filePath);
     }
     
+    private static MemorySegment staticVertexBuffer = MemorySegment.NULL;
+    private static MemorySegment staticInstanceBuffer = MemorySegment.NULL;
+    private static boolean buffersNeedReset = true;
+    private static int resetCounter = 0;
+    
+    /**
+     * Render a test triangle using static buffers (created once)
+     */
+    public void renderTestTriangle(MemorySegment commandBuffer, Arena frameArena) {
+        // Force buffer recreation
+        staticVertexBuffer = MemorySegment.NULL;
+        staticInstanceBuffer = MemorySegment.NULL;
+        
+        if (staticVertexBuffer.equals(MemorySegment.NULL)) {
+            System.out.println("[DEBUG] Creating new glTF test buffers");
+            float[] vertices = {
+                -0.8f, -0.8f, 0.2f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // vertex 0
+                 0.8f, -0.8f, 0.2f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f, // vertex 1
+                 0.0f,  0.8f, 0.2f,  0.0f, 0.0f, 1.0f,  0.5f, 1.0f  // vertex 2
+            };
+            
+            float[] matrix = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f
+            };
+            
+            staticVertexBuffer = geometryStreamer.createTestBuffer(vertices);
+            staticInstanceBuffer = geometryStreamer.createTestBuffer(matrix);
+        }
+        
+        if (!staticVertexBuffer.equals(MemorySegment.NULL) && !staticInstanceBuffer.equals(MemorySegment.NULL)) {
+            // Bind static buffers
+            MemorySegment buffers = frameArena.allocate(ValueLayout.ADDRESS, 2);
+            buffers.setAtIndex(ValueLayout.ADDRESS, 0, staticVertexBuffer);
+            buffers.setAtIndex(ValueLayout.ADDRESS, 1, staticInstanceBuffer);
+            
+            MemorySegment offsets = frameArena.allocate(ValueLayout.JAVA_LONG, 2);
+            offsets.setAtIndex(ValueLayout.JAVA_LONG, 0, 0L);
+            offsets.setAtIndex(ValueLayout.JAVA_LONG, 1, 0L);
+            
+            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 2, buffers, offsets);
+            VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+            System.out.println("[DEBUG] Drew glTF test triangle with buffers");
+        } else {
+            System.out.println("[DEBUG] glTF test triangle buffers are NULL");
+        }
+    }
+    
+    /**
+     * Bind only the instance buffer for testing
+     */
+    public void bindInstanceBufferOnly(MemorySegment commandBuffer, Arena frameArena) {
+        if (staticInstanceBuffer.equals(MemorySegment.NULL)) {
+            float[] matrix = {
+                1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, 1.0f
+            };
+            System.out.println("[DEBUG] Matrix data: [" + matrix[0] + ", " + matrix[1] + ", " + matrix[2] + ", " + matrix[3] + "]");
+            System.out.println("[DEBUG] Matrix data: [" + matrix[4] + ", " + matrix[5] + ", " + matrix[6] + ", " + matrix[7] + "]");
+            System.out.println("[DEBUG] Matrix data: [" + matrix[8] + ", " + matrix[9] + ", " + matrix[10] + ", " + matrix[11] + "]");
+            System.out.println("[DEBUG] Matrix data: [" + matrix[12] + ", " + matrix[13] + ", " + matrix[14] + ", " + matrix[15] + "]");
+            staticInstanceBuffer = geometryStreamer.createTestBuffer(matrix);
+        }
+        
+        if (!staticInstanceBuffer.equals(MemorySegment.NULL)) {
+            MemorySegment buffers = frameArena.allocate(ValueLayout.ADDRESS);
+            buffers.set(ValueLayout.ADDRESS, 0, staticInstanceBuffer);
+            
+            MemorySegment offsets = frameArena.allocate(ValueLayout.JAVA_LONG);
+            offsets.set(ValueLayout.JAVA_LONG, 0, 0L);
+            
+            // Bind instance buffer at binding 1 (which maps to locations 3-6 for mat4)
+            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, buffers, offsets);
+            System.out.println("[DEBUG] Bound instance buffer at binding 1");
+        } else {
+            System.out.println("[DEBUG] Instance buffer is NULL");
+        }
+    }
+    
     /**
      * Get total triangle count being rendered (for performance monitoring)
      */

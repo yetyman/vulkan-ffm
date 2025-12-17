@@ -404,18 +404,22 @@ public class ThreadedRenderer {
         // TEST: Manual triangle with simple triangle pipeline (no vertex buffers needed)
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        // System.out.println("[DEBUG] Drew hardcoded triangle with simple pipeline");
+        
+        // Test glTF pipeline with instance matrix only
+        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
+        System.out.println("[DEBUG] Rendering glTF test triangle with instance matrix");
+        
+        // Bind just the instance buffer (binding 1)
+        lodRenderer.bindInstanceBufferOnly(commandBuffer, frameArena);
+        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();
         if (instanceCount > 0) {
             // lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
-            System.out.println("[DEBUG] Skipping renderModels to isolate buffer issue");
         }
         
-        // TEMPORARY: Also render a test triangle to verify basic pipeline works
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+
     }
     
 
