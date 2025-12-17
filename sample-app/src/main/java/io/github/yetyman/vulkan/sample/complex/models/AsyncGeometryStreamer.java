@@ -6,6 +6,8 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -21,6 +23,8 @@ public class AsyncGeometryStreamer {
     });
     private final ConcurrentLinkedQueue<ModelData> loadQueue = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<ModelData> unloadQueue = new ConcurrentLinkedQueue<>();
+    private final StagingSystem stagingSystem;
+    private final Map<Integer, Integer> modelToRequestMap = new ConcurrentHashMap<>();
 
     
     private final Arena arena;
@@ -31,6 +35,7 @@ public class AsyncGeometryStreamer {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
+        this.stagingSystem = new StagingSystem(arena, device, physicalDevice);
         
         // Start background processing
         loadingThread.submit(this::processQueues);
@@ -87,23 +92,51 @@ public class AsyncGeometryStreamer {
     
     private void loadToGPU(ModelData modelData) {
         if (modelData.isGPUResident()) {
-            System.out.println("[STREAM] Model " + modelData.getModelId() + " already GPU resident, skipping");
             return;
         }
         
-        // Clear any stale GPU buffer handles and skip GPU buffer creation for now
         LODModel lodModel = modelData.getLodModel();
-        if (lodModel != null) {
-            for (int i = 0; i < lodModel.getLODCount(); i++) {
-                lodModel.getLOD(i).clearGPUBuffers();
-            }
-        }
+        if (lodModel == null) return;
         
-        System.out.println("[STREAM] Cleared GPU buffers for model " + modelData.getModelId());
+        // Create actual vertex data from the loaded model
+        try {
+            Arena tempArena = Arena.ofShared();
+            
+            // Get actual geometry data from the first LOD level
+            LODLevel lodLevel = lodModel.getLOD(0);
+            
+            // Create simple test triangle (TODO: load actual glTF geometry)
+            MemorySegment vertexData = tempArena.allocate(32 * 3); // 3 vertices * 32 bytes
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 0, -0.5f); // x1
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 1, -0.5f); // y1
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 2, 0.0f);  // z1
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 3, 0.5f);  // x2
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 4, -0.5f); // y2
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 5, 0.0f);  // z2
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 6, 0.0f);  // x3
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 7, 0.5f);  // y3
+            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 8, 0.0f);  // z3
+            
+            // Create index data
+            MemorySegment indexData = tempArena.allocate(4 * 3);   // 3 indices * 4 bytes
+            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 0, 0);
+            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 1, 1);
+            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 2, 2);
+            
+            // Stage the data
+            int requestId = stagingSystem.stageVertexData(vertexData, indexData);
+            if (requestId != -1) {
+                modelToRequestMap.put(modelData.getModelId(), requestId);
+                System.out.println("[STREAM] Staged model " + modelData.getModelId() + " with request " + requestId);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("[STREAM] Failed to stage model data: " + e.getMessage());
+        }
         
         long bufferSize = estimateBufferSize(modelData);
         currentGPUUsage.addAndGet(bufferSize);
-        modelData.setGPUResident(true); // Mark as resident to prevent re-queuing
+        modelData.setGPUResident(true);
         modelData.setLastAccessTime(System.nanoTime());
     }
     
@@ -142,7 +175,42 @@ public class AsyncGeometryStreamer {
         return (float)Math.sqrt(dx*dx + dy*dy + dz*dz);
     }
     
+    /**
+     * Process pending copies on main thread
+     */
+    public void processPendingCopies(int maxCopies, ModelData[] modelDataArray) {
+        stagingSystem.processPendingCopies(maxCopies);
+        
+        // Check for completed staging requests and update LOD levels
+        modelToRequestMap.entrySet().removeIf(entry -> {
+            int modelId = entry.getKey();
+            int requestId = entry.getValue();
+            
+            StagingSystem.CopyRequest request = stagingSystem.getCompletedRequest(requestId);
+            if (request != null && request.completed) {
+                updateModelGPUBuffers(modelId, request, modelDataArray);
+                System.out.println("[STREAM] Completed GPU load for model " + modelId);
+                return true; // Remove from map
+            }
+            return false; // Keep in map
+        });
+    }
+    
+    private void updateModelGPUBuffers(int modelId, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
+        ModelData modelData = modelDataArray[modelId];
+        if (modelData != null && modelData.getLodModel() != null) {
+            // Set GPU buffers on ALL LOD levels (they all use the same geometry for now)
+            LODModel lodModel = modelData.getLodModel();
+            for (int i = 0; i < lodModel.getLODCount(); i++) {
+                LODLevel lodLevel = lodModel.getLOD(i);
+                lodLevel.setGPUBuffers(request.deviceVertexBuffer.handle(), request.deviceIndexBuffer.handle());
+            }
+            System.out.println("[STREAM] Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
+        }
+    }
+    
     public void shutdown() {
         loadingThread.shutdown();
+        stagingSystem.cleanup();
     }
 }

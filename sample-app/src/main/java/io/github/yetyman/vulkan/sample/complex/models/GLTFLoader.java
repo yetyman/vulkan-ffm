@@ -120,13 +120,42 @@ public class GLTFLoader {
         System.out.println("[GLTF] Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
         MeshPrimitiveModel primitive = meshModel.getMeshPrimitiveModels().get(0);
         
-        // Get vertex positions
+        // TODO: Refactor to separate vertex attribute arrays (SoA) instead of interleaved (AoS) for better cache efficiency and flexibility
+        // Get vertex data (position + normal + texcoord)
         AccessorModel positionsAccessor = primitive.getAttributes().get("POSITION");
         AccessorData positionsData = positionsAccessor.getAccessorData();
         FloatBuffer positionsBuffer = positionsData.createByteBuffer().asFloatBuffer();
         
-        float[] vertices = new float[positionsBuffer.remaining()];
-        positionsBuffer.get(vertices);
+        int vertexCount = positionsBuffer.remaining() / 3;
+        float[] vertices = new float[vertexCount * 8]; // 8 floats per vertex (pos=3, normal=3, texcoord=2)
+        
+        // Copy positions
+        for (int i = 0; i < vertexCount; i++) {
+            vertices[i * 8 + 0] = positionsBuffer.get(i * 3 + 0);
+            vertices[i * 8 + 1] = positionsBuffer.get(i * 3 + 1);
+            vertices[i * 8 + 2] = positionsBuffer.get(i * 3 + 2);
+            // Default normal (up)
+            vertices[i * 8 + 3] = 0.0f;
+            vertices[i * 8 + 4] = 1.0f;
+            vertices[i * 8 + 5] = 0.0f;
+            // Default texcoord
+            vertices[i * 8 + 6] = 0.0f;
+            vertices[i * 8 + 7] = 0.0f;
+        }
+        
+        // Calculate bounds
+        float minX = Float.MAX_VALUE, maxX = Float.MIN_VALUE;
+        float minY = Float.MAX_VALUE, maxY = Float.MIN_VALUE;
+        float minZ = Float.MAX_VALUE, maxZ = Float.MIN_VALUE;
+        for (int i = 0; i < vertices.length; i += 8) {
+            minX = Math.min(minX, vertices[i]);
+            maxX = Math.max(maxX, vertices[i]);
+            minY = Math.min(minY, vertices[i+1]);
+            maxY = Math.max(maxY, vertices[i+1]);
+            minZ = Math.min(minZ, vertices[i+2]);
+            maxZ = Math.max(maxZ, vertices[i+2]);
+        }
+        System.out.println("[GLTF] Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
         
         // Get indices
         AccessorModel indicesAccessor = primitive.getIndices();

@@ -28,4 +28,20 @@ public class VkClearValue {
         clearValue.set(ValueLayout.JAVA_INT, 4, stencil);
         return clearValue;
     }
+    
+    /** Returns the memory layout for VkClearValue */
+    public static MemoryLayout layout() {
+        return MemoryLayout.unionLayout(
+            MemoryLayout.structLayout(
+                ValueLayout.JAVA_FLOAT.withName("r"),
+                ValueLayout.JAVA_FLOAT.withName("g"),
+                ValueLayout.JAVA_FLOAT.withName("b"),
+                ValueLayout.JAVA_FLOAT.withName("a")
+            ).withName("color"),
+            MemoryLayout.structLayout(
+                ValueLayout.JAVA_FLOAT.withName("depth"),
+                ValueLayout.JAVA_INT.withName("stencil")
+            ).withName("depthStencil")
+        );
+    }
 }

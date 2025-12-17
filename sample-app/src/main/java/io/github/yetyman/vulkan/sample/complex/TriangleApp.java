@@ -59,28 +59,19 @@ public class TriangleApp {
             
             System.out.println("Extensions: " + String.join(", ", extensions));
             
-            // Create surface first so VulkanContext can use it for queue family selection
-            VkInstance tempInstance = VkInstance.builder()
-                .applicationName("Triangle App")
-                .applicationVersion(1)
-                .extensions(extensions)
-                .build(tempArena);
-            
-            surface = VkSurface.createPlatformSurface(tempInstance.handle(), window, tempArena);
-            System.out.println("[OK] Surface created");
-            
-            // Now create VulkanContext with surface
+            // Create VulkanContext first
             vulkanContext = VulkanContext.builder()
                 .applicationName("Triangle App")
                 .applicationVersion(1)
                 .instanceExtensions(extensions)
-                .surface(surface)
+                .validationLayers("VK_LAYER_KHRONOS_validation")
                 .build();
             
             System.out.println("[OK] VulkanContext created");
             
-            // Copy surface to context arena for proper lifecycle management
+            // Create surface with the same instance used by VulkanContext
             surface = VkSurface.createPlatformSurface(vulkanContext.instance().handle(), window, vulkanContext.arena());
+            System.out.println("[OK] Surface created");
         }
     }
     

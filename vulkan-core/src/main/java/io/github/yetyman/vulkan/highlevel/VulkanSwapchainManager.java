@@ -13,19 +13,19 @@ public class VulkanSwapchainManager implements AutoCloseable {
     private final MemorySegment device;
     private final MemorySegment surface;
     private VkSwapchain swapchain;
-    private VkImageView[] imageViews;
+    private SwapchainImage[] swapchainImages;
     private VkFramebuffer[] framebuffers;
     private int width, height;
     
     private VulkanSwapchainManager(Arena arena, MemorySegment device, MemorySegment surface, int width, int height,
-                                  VkSwapchain swapchain, VkImageView[] imageViews) {
+                                  VkSwapchain swapchain, SwapchainImage[] swapchainImages) {
         this.arena = arena;
         this.device = device;
         this.surface = surface;
         this.width = width;
         this.height = height;
         this.swapchain = swapchain;
-        this.imageViews = imageViews;
+        this.swapchainImages = swapchainImages;
     }
     
     /** @return a new builder for configuring swapchain manager creation */
@@ -36,8 +36,11 @@ public class VulkanSwapchainManager implements AutoCloseable {
     /** @return the swapchain */
     public VkSwapchain swapchain() { return swapchain; }
     
-    /** @return the image views */
-    public VkImageView[] imageViews() { return imageViews; }
+    /** @return the swapchain images */
+    public SwapchainImage[] swapchainImages() { return swapchainImages; }
+    
+    /** @return specific swapchain image */
+    public SwapchainImage getImage(int index) { return swapchainImages[index]; }
     
     /** @return the framebuffers (null if not created) */
     public VkFramebuffer[] framebuffers() { return framebuffers; }
@@ -49,7 +52,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
     public int height() { return height; }
     
     /** @return number of swapchain images */
-    public int imageCount() { return imageViews.length; }
+    public int imageCount() { return swapchainImages.length; }
     
     /** Creates framebuffers for the given render pass */
     public void createFramebuffers(MemorySegment renderPass, MemorySegment... additionalAttachments) {
@@ -59,12 +62,12 @@ public class VulkanSwapchainManager implements AutoCloseable {
             }
         }
         
-        framebuffers = new VkFramebuffer[imageViews.length];
-        for (int i = 0; i < imageViews.length; i++) {
+        framebuffers = new VkFramebuffer[swapchainImages.length];
+        for (int i = 0; i < swapchainImages.length; i++) {
             VkFramebuffer.Builder builder = VkFramebuffer.builder()
                 .device(device)
                 .renderPass(renderPass)
-                .attachment(imageViews[i].handle())
+                .attachment(swapchainImages[i].imageView().handle())
                 .dimensions(width, height);
             
             for (MemorySegment attachment : additionalAttachments) {
@@ -84,8 +87,8 @@ public class VulkanSwapchainManager implements AutoCloseable {
             }
             framebuffers = null;
         }
-        for (VkImageView iv : imageViews) {
-            iv.close();
+        for (SwapchainImage si : swapchainImages) {
+            si.close();
         }
         swapchain.close();
         
@@ -100,17 +103,26 @@ public class VulkanSwapchainManager implements AutoCloseable {
             .extent(width, height)
             .build(arena);
         
-        // Recreate image views
+        // Recreate swapchain images
         MemorySegment[] images = swapchain.getImages();
-        imageViews = new VkImageView[images.length];
+        swapchainImages = new SwapchainImage[images.length];
         for (int i = 0; i < images.length; i++) {
-            imageViews[i] = VkImageView.builder()
+            VkImageView imageView = VkImageView.builder()
                 .device(device)
                 .image(images[i])
                 .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
                 .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
                 .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
                 .build(arena);
+            
+            VkSemaphore imageAvailable = VkSemaphore.builder()
+                .device(device)
+                .build(arena);
+            VkSemaphore renderFinished = VkSemaphore.builder()
+                .device(device)
+                .build(arena);
+            
+            swapchainImages[i] = new SwapchainImage(images[i], imageView, imageAvailable, renderFinished);
         }
     }
     
@@ -121,8 +133,8 @@ public class VulkanSwapchainManager implements AutoCloseable {
                 fb.close();
             }
         }
-        for (VkImageView iv : imageViews) {
-            iv.close();
+        for (SwapchainImage si : swapchainImages) {
+            si.close();
         }
         swapchain.close();
     }
@@ -208,20 +220,29 @@ public class VulkanSwapchainManager implements AutoCloseable {
                 .format(format, VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
                 .build(arena);
             
-            // Create image views
+            // Create swapchain images with semaphores
             MemorySegment[] images = swapchain.getImages();
-            VkImageView[] imageViews = new VkImageView[images.length];
+            SwapchainImage[] swapchainImages = new SwapchainImage[images.length];
             for (int i = 0; i < images.length; i++) {
-                imageViews[i] = VkImageView.builder()
+                VkImageView imageView = VkImageView.builder()
                     .device(device)
                     .image(images[i])
                     .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
                     .format(format)
                     .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
                     .build(arena);
+                
+                VkSemaphore imageAvailable = VkSemaphore.builder()
+                    .device(device)
+                    .build(arena);
+                VkSemaphore renderFinished = VkSemaphore.builder()
+                    .device(device)
+                    .build(arena);
+                
+                swapchainImages[i] = new SwapchainImage(images[i], imageView, imageAvailable, renderFinished);
             }
             
-            return new VulkanSwapchainManager(arena, device, surface, width, height, swapchain, imageViews);
+            return new VulkanSwapchainManager(arena, device, surface, width, height, swapchain, swapchainImages);
         }
     }
 }

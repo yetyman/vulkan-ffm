@@ -27,6 +27,7 @@ public class VulkanCommandManager implements AutoCloseable {
             mainPool = VkCommandPool.builder()
                 .device(device)
                 .queueFamilyIndex(queueFamilyIndex)
+                .resetCommandBufferBit()
                 .build(arena);
         }
     }
@@ -56,6 +57,7 @@ public class VulkanCommandManager implements AutoCloseable {
             return VkCommandPool.builder()
                 .device(device)
                 .queueFamilyIndex(queueFamilyIndex)
+                .resetCommandBufferBit()
                 .build(threadArena);
         });
     }

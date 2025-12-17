@@ -88,4 +88,8 @@ public class InstanceData {
     
     public int getCount() { return count; }
     public int getCapacity() { return capacity; }
+    
+    public MemorySegment getMatricesBuffer() {
+        return matrices;
+    }
 }

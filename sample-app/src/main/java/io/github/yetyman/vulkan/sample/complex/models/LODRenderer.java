@@ -49,10 +49,14 @@ public class LODRenderer {
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
         // Bind glTF pipeline
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline);
+        System.out.println("[LOD] Using glTF pipeline: " + gltfPipeline);
         if (staticBatches.isEmpty()) return;
         
         // Update geometry streaming (transparent to user)
         geometryStreamer.updateStreaming(modelDataArray, cameraPosition);
+        
+        // Process pending staging copies on main thread
+        geometryStreamer.processPendingCopies(2, modelDataArray); // Process up to 2 copies per frame
         
         // Batch process all validation and uploads
         batchValidateAndUpload(cameraPosition);
@@ -60,7 +64,11 @@ public class LODRenderer {
         // Execute pre-recorded batch commands for enabled instances only
         int totalTriangles = 0;
         for (StaticBatch batch : staticBatches) {
-            if (hasEnabledInstancesInBatch(batch) && batch.getLodLevel().hasGPUBuffers()) {
+            boolean hasEnabled = hasEnabledInstancesInBatch(batch);
+            boolean hasBuffers = batch.getLodLevel().hasGPUBuffers();
+
+            
+            if (hasEnabled && hasBuffers) {
                 if (!batch.getCommandBuffer().equals(MemorySegment.NULL)) {
                     VulkanExtensions.cmdExecuteCommands(commandBuffer, 1, batch.getCommandBuffer());
                 } else {
@@ -77,25 +85,44 @@ public class LODRenderer {
     private void renderBatchDirectly(MemorySegment commandBuffer, StaticBatch batch, Arena frameArena) {
         LODLevel lodLevel = batch.getLodLevel();
         
+        // Check if buffers are valid before binding
+        if (!lodLevel.hasGPUBuffers()) {
+            return; // Skip silently - buffers not ready yet
+        }
+        
 
         
-        // Bind vertex buffer
+        // Bind vertex buffer (binding 0)
         MemorySegment vertexBuffers = frameArena.allocate(ValueLayout.ADDRESS);
         vertexBuffers.set(ValueLayout.ADDRESS, 0, lodLevel.vertexBuffer());
-        MemorySegment offsets = frameArena.allocate(ValueLayout.JAVA_LONG);
-        offsets.set(ValueLayout.JAVA_LONG, 0, 0L);
-        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        MemorySegment vertexOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
+        vertexOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
+        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets);
         
-        // Bind index buffer
+        // Bind instance data buffer (binding 1) - debug the buffer
+        MemorySegment matrixBuffer = instanceData.getMatricesBuffer();
+        System.out.println("[DEBUG] Matrix buffer size: " + matrixBuffer.byteSize() + " bytes");
+        
+        MemorySegment instanceBuffers = frameArena.allocate(ValueLayout.ADDRESS);
+        instanceBuffers.set(ValueLayout.ADDRESS, 0, matrixBuffer);
+        MemorySegment instanceOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
+        instanceOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
+        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, instanceBuffers, instanceOffsets);
+        
         VulkanExtensions.cmdBindIndexBuffer(commandBuffer, lodLevel.indexBuffer(), 0, VkIndexType.VK_INDEX_TYPE_UINT32);
         
         // Draw indexed for each enabled instance in this batch
         int enabledCount = getEnabledInstanceCount(batch);
         if (enabledCount > 0) {
-            System.out.println("[LOD] Drawing " + enabledCount + " instances with " + lodLevel.indexCount() + " indices each");
+            // Get instance positions for debugging
+            int[] batchInstances = batch.getInstanceIds();
+            for (int instanceId : batchInstances) {
+                if (instanceId < modelDataArray.length && modelDataArray[instanceId] != null) {
+                    float[] pos = modelDataArray[instanceId].getTransform().getPosition();
+                    System.out.println("[LOD] Instance " + instanceId + " at position: (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ")");
+                }
+            }
             VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
-        } else {
-            System.out.println("[LOD] No enabled instances for this batch");
         }
     }
     
@@ -105,6 +132,7 @@ public class LODRenderer {
             if (instanceData.isActive(i)) {
                 ModelData modelData = instanceData.getModelData(i, modelDataArray);
                 boolean enabled = modelData != null && modelData.isGPUResident();
+
                 batchState.markInstanceEnabled(i, enabled);
                 
                 if (enabled) {
@@ -122,6 +150,12 @@ public class LODRenderer {
         for (int i = 0; i < batchState.getDirtyCount(); i++) {
             int instanceId = dirtyInstances[i];
             instanceData.syncMatrixFromModelData(instanceId, modelDataArray);
+            
+            // Debug: Print first few matrix values
+            MemorySegment matrix = instanceData.getMatrix(instanceId);
+            float m00 = matrix.get(ValueLayout.JAVA_FLOAT, 0);
+            float m12 = matrix.get(ValueLayout.JAVA_FLOAT, 12 * 4); // translation X
+            System.out.println("[DEBUG] Instance " + instanceId + " matrix[0,0]=" + m00 + ", translation X=" + m12);
         }
     }
     

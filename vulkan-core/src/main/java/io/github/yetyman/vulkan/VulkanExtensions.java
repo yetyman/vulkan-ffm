@@ -288,4 +288,21 @@ public class VulkanExtensions {
     public static void unmapMemory(MemorySegment device, MemorySegment memory) {
         VulkanFFM.vkUnmapMemory(device, memory);
     }
+    
+    public static void getPhysicalDeviceFormatProperties(MemorySegment physicalDevice, int format, MemorySegment formatProperties) {
+        VulkanFFM.vkGetPhysicalDeviceFormatProperties(physicalDevice, format, formatProperties);
+    }
+    
+    public static VkResult queueWaitIdle(MemorySegment queue) {
+        int result = VulkanFFM.vkQueueWaitIdle(queue);
+        return VkResult.fromInt(result);
+    }
+    
+    public static void getDeviceQueue(MemorySegment device, int queueFamilyIndex, int queueIndex, MemorySegment queue) {
+        VulkanFFM.vkGetDeviceQueue(device, queueFamilyIndex, queueIndex, queue);
+    }
+    
+    public static void cmdPipelineBarrier(MemorySegment commandBuffer, int srcStageMask, int dstStageMask, int dependencyFlags, int memoryBarrierCount, MemorySegment memoryBarriers, int bufferMemoryBarrierCount, MemorySegment bufferMemoryBarriers, int imageMemoryBarrierCount, MemorySegment imageMemoryBarriers) {
+        VulkanFFM.vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, memoryBarriers, bufferMemoryBarrierCount, bufferMemoryBarriers, imageMemoryBarrierCount, imageMemoryBarriers);
+    }
 }

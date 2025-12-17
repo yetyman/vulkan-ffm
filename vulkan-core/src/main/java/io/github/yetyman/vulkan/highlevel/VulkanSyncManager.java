@@ -19,8 +19,6 @@ public class VulkanSyncManager implements AutoCloseable {
     private final MemorySegment[] waitFenceArrays;
     private final MemorySegment[] resetFenceArrays;
     
-
-    
     private VulkanSyncManager(Arena arena, MemorySegment device, int maxFramesInFlight) {
         this.arena = arena;
         this.device = device;

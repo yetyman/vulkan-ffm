@@ -4,9 +4,9 @@ layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 outColor;
 
 layout(binding = 0) uniform sampler2D currentFrame;
-layout(binding = 1) uniform sampler2D previousFrame;
-layout(binding = 2) uniform sampler2D edgeTexture;
-layout(binding = 3) uniform sampler2D depthTexture;
+layout(binding = 1) uniform sampler2D depthTexture;
+layout(binding = 2) uniform sampler2D previousFrame;
+layout(binding = 3) uniform sampler2D edgeTexture;
 
 layout(push_constant) uniform PushConstants {
     float frameIndex;

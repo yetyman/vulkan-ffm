@@ -114,6 +114,11 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
     
+    public static void cmdCopyBuffer(MemorySegment commandBuffer, MemorySegment srcBuffer, MemorySegment dstBuffer, 
+                                     int regionCount, MemorySegment regions) {
+        VulkanFFM.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, regionCount, regions);
+    }
+    
     public static int makeVersion(int major, int minor, int patch) {
         return (major << 22) | (minor << 12) | patch;
     }

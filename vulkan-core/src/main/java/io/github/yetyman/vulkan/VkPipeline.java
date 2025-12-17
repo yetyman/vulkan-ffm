@@ -500,7 +500,7 @@ public class VkPipeline implements AutoCloseable {
             VkShaderModule vertModule = VkShaderModule.create(arena, device, vertShader);
             shaderModules.add(vertModule);
             MemorySegment vertStage = VkPipelineShaderStageCreateInfo.allocate(arena);
-            VkPipelineShaderStageCreateInfo.sType(vertStage, 18);
+            VkPipelineShaderStageCreateInfo.sType(vertStage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
             VkPipelineShaderStageCreateInfo.stage(vertStage, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT);
             VkPipelineShaderStageCreateInfo.module(vertStage, vertModule.handle());
             VkPipelineShaderStageCreateInfo.pName(vertStage, mainName);
@@ -511,7 +511,7 @@ public class VkPipeline implements AutoCloseable {
                 VkShaderModule module = VkShaderModule.create(arena, device, tessControlShader);
                 shaderModules.add(module);
                 MemorySegment stage = VkPipelineShaderStageCreateInfo.allocate(arena);
-                VkPipelineShaderStageCreateInfo.sType(stage, 18);
+                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
                 VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
                 VkPipelineShaderStageCreateInfo.module(stage, module.handle());
                 VkPipelineShaderStageCreateInfo.pName(stage, mainName);
@@ -522,7 +522,7 @@ public class VkPipeline implements AutoCloseable {
                 VkShaderModule module = VkShaderModule.create(arena, device, tessEvalShader);
                 shaderModules.add(module);
                 MemorySegment stage = VkPipelineShaderStageCreateInfo.allocate(arena);
-                VkPipelineShaderStageCreateInfo.sType(stage, 18);
+                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
                 VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
                 VkPipelineShaderStageCreateInfo.module(stage, module.handle());
                 VkPipelineShaderStageCreateInfo.pName(stage, mainName);
@@ -533,7 +533,7 @@ public class VkPipeline implements AutoCloseable {
                 VkShaderModule module = VkShaderModule.create(arena, device, geomShader);
                 shaderModules.add(module);
                 MemorySegment stage = VkPipelineShaderStageCreateInfo.allocate(arena);
-                VkPipelineShaderStageCreateInfo.sType(stage, 18);
+                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
                 VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_GEOMETRY_BIT);
                 VkPipelineShaderStageCreateInfo.module(stage, module.handle());
                 VkPipelineShaderStageCreateInfo.pName(stage, mainName);
@@ -544,7 +544,7 @@ public class VkPipeline implements AutoCloseable {
                 VkShaderModule module = VkShaderModule.create(arena, device, fragShader);
                 shaderModules.add(module);
                 MemorySegment stage = VkPipelineShaderStageCreateInfo.allocate(arena);
-                VkPipelineShaderStageCreateInfo.sType(stage, 18);
+                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
                 VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT);
                 VkPipelineShaderStageCreateInfo.module(stage, module.handle());
                 VkPipelineShaderStageCreateInfo.pName(stage, mainName);
@@ -560,7 +560,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Vertex input state
                 MemorySegment vertexInputInfo = VkPipelineVertexInputStateCreateInfo.allocate(arena);
-                VkPipelineVertexInputStateCreateInfo.sType(vertexInputInfo, 19);
+                VkPipelineVertexInputStateCreateInfo.sType(vertexInputInfo, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
                 
                 if (!vertexBindings.isEmpty()) {
                     MemorySegment bindingDescs = arena.allocate(VkVertexInputBindingDescription.layout(), vertexBindings.size());
@@ -591,7 +591,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Input assembly state
                 MemorySegment inputAssembly = VkPipelineInputAssemblyStateCreateInfo.allocate(arena);
-                VkPipelineInputAssemblyStateCreateInfo.sType(inputAssembly, 20);
+                VkPipelineInputAssemblyStateCreateInfo.sType(inputAssembly, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO);
                 VkPipelineInputAssemblyStateCreateInfo.topology(inputAssembly, topology);
                 VkPipelineInputAssemblyStateCreateInfo.primitiveRestartEnable(inputAssembly, primitiveRestart ? 1 : 0);
                 
@@ -599,13 +599,13 @@ public class VkPipeline implements AutoCloseable {
                 MemorySegment tessellationState = MemorySegment.NULL;
                 if (tessControlShader != null || tessEvalShader != null) {
                     tessellationState = VkPipelineTessellationStateCreateInfo.allocate(arena);
-                    VkPipelineTessellationStateCreateInfo.sType(tessellationState, 21);
+                    VkPipelineTessellationStateCreateInfo.sType(tessellationState, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO);
                     VkPipelineTessellationStateCreateInfo.patchControlPoints(tessellationState, patchControlPoints);
                 }
                 
                 // Viewport state
                 MemorySegment viewportState = VkPipelineViewportStateCreateInfo.allocate(arena);
-                VkPipelineViewportStateCreateInfo.sType(viewportState, 22);
+                VkPipelineViewportStateCreateInfo.sType(viewportState, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO);
                 
                 if (viewports.isEmpty()) {
                     viewports.add(new ViewportConfig(0, 0, 800, 600, 0.0f, 1.0f));
@@ -642,7 +642,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Rasterization state
                 MemorySegment rasterizer = VkPipelineRasterizationStateCreateInfo.allocate(arena);
-                VkPipelineRasterizationStateCreateInfo.sType(rasterizer, 23);
+                VkPipelineRasterizationStateCreateInfo.sType(rasterizer, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO);
                 VkPipelineRasterizationStateCreateInfo.depthClampEnable(rasterizer, depthClamp ? 1 : 0);
                 VkPipelineRasterizationStateCreateInfo.rasterizerDiscardEnable(rasterizer, rasterizerDiscard ? 1 : 0);
                 VkPipelineRasterizationStateCreateInfo.polygonMode(rasterizer, polygonMode);
@@ -656,7 +656,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Multisample state
                 MemorySegment multisampling = VkPipelineMultisampleStateCreateInfo.allocate(arena);
-                VkPipelineMultisampleStateCreateInfo.sType(multisampling, 24);
+                VkPipelineMultisampleStateCreateInfo.sType(multisampling, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO);
                 VkPipelineMultisampleStateCreateInfo.rasterizationSamples(multisampling, rasterizationSamples);
                 VkPipelineMultisampleStateCreateInfo.sampleShadingEnable(multisampling, sampleShading ? 1 : 0);
                 VkPipelineMultisampleStateCreateInfo.minSampleShading(multisampling, minSampleShading);
@@ -674,7 +674,7 @@ public class VkPipeline implements AutoCloseable {
                 MemorySegment depthStencilState = MemorySegment.NULL;
                 if (depthTest || stencilTest) {
                     depthStencilState = VkPipelineDepthStencilStateCreateInfo.allocate(arena);
-                    VkPipelineDepthStencilStateCreateInfo.sType(depthStencilState, 25);
+                    VkPipelineDepthStencilStateCreateInfo.sType(depthStencilState, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
                     VkPipelineDepthStencilStateCreateInfo.depthTestEnable(depthStencilState, depthTest ? 1 : 0);
                     VkPipelineDepthStencilStateCreateInfo.depthWriteEnable(depthStencilState, depthWrite ? 1 : 0);
                     VkPipelineDepthStencilStateCreateInfo.depthCompareOp(depthStencilState, depthCompareOp);
@@ -705,7 +705,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Color blend state
                 MemorySegment colorBlending = VkPipelineColorBlendStateCreateInfo.allocate(arena);
-                VkPipelineColorBlendStateCreateInfo.sType(colorBlending, 26);
+                VkPipelineColorBlendStateCreateInfo.sType(colorBlending, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO);
                 VkPipelineColorBlendStateCreateInfo.logicOpEnable(colorBlending, logicOpEnable ? 1 : 0);
                 VkPipelineColorBlendStateCreateInfo.logicOp(colorBlending, logicOp);
                 
@@ -738,7 +738,7 @@ public class VkPipeline implements AutoCloseable {
                 MemorySegment dynamicState = MemorySegment.NULL;
                 if (!dynamicStates.isEmpty()) {
                     dynamicState = VkPipelineDynamicStateCreateInfo.allocate(arena);
-                    VkPipelineDynamicStateCreateInfo.sType(dynamicState, 27);
+                    VkPipelineDynamicStateCreateInfo.sType(dynamicState, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO);
                     
                     MemorySegment statesArray = arena.allocate(ValueLayout.JAVA_INT, dynamicStates.size());
                     for (int i = 0; i < dynamicStates.size(); i++) {
@@ -750,7 +750,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Pipeline layout
                 MemorySegment pipelineLayoutInfo = VkPipelineLayoutCreateInfo.allocate(arena);
-                VkPipelineLayoutCreateInfo.sType(pipelineLayoutInfo, 30);
+                VkPipelineLayoutCreateInfo.sType(pipelineLayoutInfo, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
                 
                 if (descriptorSetLayouts != null && descriptorSetLayouts.length > 0) {
                     MemorySegment layoutsArray = arena.allocate(ValueLayout.ADDRESS, descriptorSetLayouts.length);
@@ -780,7 +780,7 @@ public class VkPipeline implements AutoCloseable {
                 
                 // Graphics pipeline
                 MemorySegment pipelineInfo = VkGraphicsPipelineCreateInfo.allocate(arena);
-                VkGraphicsPipelineCreateInfo.sType(pipelineInfo, 29);
+                VkGraphicsPipelineCreateInfo.sType(pipelineInfo, VkStructureType.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
                 VkGraphicsPipelineCreateInfo.flags(pipelineInfo, flags);
                 VkGraphicsPipelineCreateInfo.stageCount(pipelineInfo, stages.size());
                 VkGraphicsPipelineCreateInfo.pStages(pipelineInfo, stagesArray);

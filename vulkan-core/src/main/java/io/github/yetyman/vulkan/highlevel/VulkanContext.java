@@ -65,6 +65,7 @@ public class VulkanContext implements AutoCloseable {
         return VkCommandPool.builder()
             .device(device.handle())
             .queueFamilyIndex(graphicsQueueFamily)
+            .resetCommandBufferBit()
             .build(arena);
     }
     

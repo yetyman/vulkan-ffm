@@ -95,10 +95,25 @@ public class ThreadManager implements AutoCloseable {
         int maxThreads = Runtime.getRuntime().availableProcessors();
         count = Math.max(1, Math.min(count, maxThreads));
         
-        executor.setCorePoolSize(count);
-        executor.setMaximumPoolSize(count);
-        currentThreadCount.set(count);
+        int currentCore = executor.getCorePoolSize();
+        int currentMax = executor.getMaximumPoolSize();
         
+        // Adjust pool sizes in the correct order to avoid IllegalArgumentException
+        if (count > currentMax) {
+            // Increasing: set maximum first, then core
+            executor.setMaximumPoolSize(count);
+            executor.setCorePoolSize(count);
+        } else if (count < currentCore) {
+            // Decreasing: set core first, then maximum
+            executor.setCorePoolSize(count);
+            executor.setMaximumPoolSize(count);
+        } else {
+            // Within bounds: set both
+            executor.setCorePoolSize(count);
+            executor.setMaximumPoolSize(count);
+        }
+        
+        currentThreadCount.set(count);
         System.out.println("[THREADS] Adjusted to " + count + " threads");
     }
     

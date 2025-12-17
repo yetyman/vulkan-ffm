@@ -1,11 +1,13 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.generated.VkFormatProperties;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
+import io.github.yetyman.vulkan.sample.complex.threading.ThreadManager;
 
 import java.lang.foreign.*;
 import java.util.*;
@@ -86,7 +88,7 @@ public class ThreadedRenderer {
         createDepthTarget();
         createRenderPasses();
         if (adaptiveAAEnabled) {
-            adaptiveAA = new AdaptiveAA(arena, device, width, height);
+            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
         }
         
         // Set Vulkan resources after managers are created
@@ -133,24 +135,54 @@ public class ThreadedRenderer {
     }
     
     private void createDepthTarget() {
+        // Find supported depth format
+        int depthFormat = findSupportedDepthFormat();
+        
         depthTarget = VulkanRenderTarget.builder()
             .arena(arena)
             .device(device)
             .physicalDevice(physicalDevice)
-            .format(VkFormat.VK_FORMAT_D24_UNORM_S8_UINT)
+            .format(depthFormat)
             .extent(width, height)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT)
             .build();
-        System.out.println("[OK] Depth target created");
+        System.out.println("[OK] Depth target created with format: " + depthFormat);
+    }
+    
+    private int findSupportedDepthFormat() {
+        // Try common depth formats in order of preference
+        int[] candidates = {
+            VkFormat.VK_FORMAT_D32_SFLOAT,
+            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT,
+            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT,
+            VkFormat.VK_FORMAT_D16_UNORM
+        };
+        
+        try (Arena tempArena = Arena.ofConfined()) {
+            for (int format : candidates) {
+                MemorySegment formatProps = tempArena.allocate(VkFormatProperties.sizeof());
+                VulkanExtensions.getPhysicalDeviceFormatProperties(physicalDevice, format, formatProps);
+                
+                int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
+                if ((optimalFeatures & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
+                    return format;
+                }
+            }
+        }
+        
+        throw new RuntimeException("Failed to find supported depth format");
     }
     
     private void createRenderPasses() {
+        // Find supported depth format
+        int depthFormat = findSupportedDepthFormat();
+        
         // Direct rendering to swapchain (no AA)
         directRenderPass = VkRenderPass.builder()
             .device(device)
             .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
-            .depthAttachment(VkFormat.VK_FORMAT_D24_UNORM_S8_UINT, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
             .subpassDependency(~0, 0, 
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
@@ -189,6 +221,9 @@ public class ThreadedRenderer {
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
+            .depthTest(true)
+            .depthWrite(true)
+            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS)
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
             .build(arena);
         
@@ -203,12 +238,19 @@ public class ThreadedRenderer {
             .dynamicViewport()
             .dynamicScissor()
             .depthTest(true)
+            .depthWrite(true)
+            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS)
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
             .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX) // 3*4 + 3*4 + 2*4 = 32 bytes
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0)  // position
                 .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 12) // normal
                 .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, 24)    // texcoord
+                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE) // 16*4 = 64 bytes per matrix
+                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0)  // matrix row 0
+                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 16) // matrix row 1
+                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 32) // matrix row 2
+                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 48) // matrix row 3
                 .build()
             .build(arena);
         
@@ -245,34 +287,30 @@ public class ThreadedRenderer {
             System.out.println("[WORK] Processed " + workProcessed + " main thread tasks");
         }
         
-        // Use main arena instead of creating new one each frame
         Arena frameArena = arena;
-            VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame();
-            
-            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
-                .semaphore(frameSync.imageAvailable.handle())
-                .execute(frameArena);
-            
-            if (threadManager.getActiveThreads() == 1) {
-                // Single-threaded: use normal submission
-                recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
-                
-                VkSubmit.builder()
-                    .waitSemaphore(frameSync.imageAvailable.handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-                    .commandBuffer(commandBuffers[frameSync.frameIndex])
-                    .signalSemaphore(frameSync.renderFinished.handle())
-                    .submit(queue, frameSync.inFlight.handle(), frameArena).check();
-            } else {
-                // Multi-threaded: command buffers are submitted inside recordCommandBufferThreaded
-                recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
-            }
-            
-            VkPresent.builder()
-                .waitSemaphore(frameSync.renderFinished.handle())
-                .swapchain(swapchainManager.swapchain().handle(), imgIdx)
-                .present(queue, frameArena);
-            
-            syncManager.nextFrame();
+        VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame();
+        
+        // Acquire image with semaphore
+        int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
+            .semaphore(frameSync.imageAvailable.handle())
+            .execute(frameArena);
+        
+        SwapchainImage swapImage = swapchainManager.getImage(imgIdx);
+        
+        recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
+        
+        VkSubmit.builder()
+            .waitSemaphore(frameSync.imageAvailable.handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+            .commandBuffer(commandBuffers[frameSync.frameIndex])
+            .signalSemaphore(frameSync.renderFinished.handle())
+            .submit(queue, frameSync.inFlight.handle(), frameArena).check();
+        
+        VkPresent.builder()
+            .waitSemaphore(frameSync.renderFinished.handle())
+            .swapchain(swapchainManager.swapchain().handle(), imgIdx)
+            .present(queue, frameArena);
+        
+        syncManager.nextFrame();
         
         // Track performance and adjust threads
         trackPerformance(frameStart);
@@ -288,38 +326,36 @@ public class ThreadedRenderer {
             return;
         }
         
-        // Use VulkanThreadManager for threaded execution
-        MemorySegment[] threadCommandBuffers = new MemorySegment[threadsToUse];
+        // Multi-threaded path with proper command buffer handling
+        VkCommandBuffer.begin(primaryCommandBuffer).execute(frameArena);
         
-        threadManager.executeThreaded(TRIANGLES_COUNT, triangleIndex -> {
-            int threadId = (int) Thread.currentThread().getId() % threadsToUse;
-            if (threadCommandBuffers[threadId] == null) {
-                Arena threadArena = Arena.ofShared();
-                MemorySegment threadCmd = commandManager.allocateBuffer(threadArena);
-                threadCommandBuffers[threadId] = threadCmd;
-                
-                VkCommandBuffer.begin(threadCmd).execute(threadArena);
-                VkCommandBuffer.beginRenderPass(threadCmd, renderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
-                    .renderArea(0, 0, width, height)
-                    .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                    .execute(threadArena);
-                VulkanExtensions.cmdBindPipeline(threadCmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
-                VulkanExtensions.cmdSetViewport(threadCmd, 0, 1, cachedViewport);
-                VulkanExtensions.cmdSetScissor(threadCmd, 0, 1, cachedScissor);
-                VulkanExtensions.cmdDraw(threadCmd, 3, 1, 0, triangleIndex);
-                VulkanExtensions.cmdEndRenderPass(threadCmd);
-                VulkanExtensions.endCommandBuffer(threadCmd).check();
-            }
-        });
-        
-        // Submit command buffers
-        for (MemorySegment cmd : threadCommandBuffers) {
-            if (cmd != null) {
-                VkSubmit.builder()
-                    .commandBuffer(cmd)
-                    .submit(queue, MemorySegment.NULL, frameArena).check();
-            }
+        if (adaptiveAAEnabled) {
+            // Render scene to AA targets
+            VkCommandBuffer.beginRenderPass(primaryCommandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            renderScene(primaryCommandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(primaryCommandBuffer);
+            
+            // Perform adaptive AA and output to swapchain
+            adaptiveAA.performAA(primaryCommandBuffer, swapchainManager.framebuffers()[imageIndex], frameArena);
+        } else {
+            // Direct rendering to swapchain
+            VkCommandBuffer.beginRenderPass(primaryCommandBuffer, directRenderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            renderScene(primaryCommandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(primaryCommandBuffer);
         }
+        
+        // Always end the command buffer
+        VulkanExtensions.endCommandBuffer(primaryCommandBuffer).check();
     }
     
     private void recordSingleThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
@@ -330,6 +366,7 @@ public class ThreadedRenderer {
             VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
@@ -342,6 +379,7 @@ public class ThreadedRenderer {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
@@ -363,18 +401,21 @@ public class ThreadedRenderer {
         VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
+        // TEST: Manual triangle with simple triangle pipeline (no vertex buffers needed)
+        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        // System.out.println("[DEBUG] Drew hardcoded triangle with simple pipeline");
+        
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();
         if (instanceCount > 0) {
-            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
-            
-            // TEMPORARY: Also render a test triangle to verify pipeline works
-            VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
-            VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        } else {
-            // Fallback to original triangle rendering
-            VulkanExtensions.cmdDraw(commandBuffer, 3, TRIANGLES_COUNT, 0, 0);
+            // lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
+            System.out.println("[DEBUG] Skipping renderModels to isolate buffer issue");
         }
+        
+        // TEMPORARY: Also render a test triangle to verify basic pipeline works
+        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
     }
     
 
@@ -527,7 +568,7 @@ public class ThreadedRenderer {
         createDepthTarget();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
-            adaptiveAA = new AdaptiveAA(arena, device, width, height);
+            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
         }
         
         // Recreate framebuffers
