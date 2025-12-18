@@ -68,8 +68,6 @@ public class LODRenderer {
             boolean hasEnabled = hasEnabledInstancesInBatch(batch);
             boolean hasBuffers = batch.getLodLevel().hasGPUBuffers();
             
-            System.out.println("[BATCH] Batch - hasEnabled: " + hasEnabled + ", hasBuffers: " + hasBuffers);
-            
             if (hasEnabled && hasBuffers) {
                 if (!batch.getCommandBuffer().equals(MemorySegment.NULL)) {
                     VulkanExtensions.cmdExecuteCommands(commandBuffer, 1, batch.getCommandBuffer());
@@ -81,7 +79,7 @@ public class LODRenderer {
             }
         }
         
-        System.out.println("[LOD] Executed batches, " + totalTriangles + " triangles (" + staticBatches.size() + " total batches)");
+        System.out.println("[LOD] Executed batches, " + totalTriangles + " triangles");
     }
     
     private void renderBatchDirectly(MemorySegment commandBuffer, StaticBatch batch, Arena frameArena) {
@@ -146,6 +144,8 @@ public class LODRenderer {
                 }
             }
             System.out.println("[DRAW] Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
+            System.out.println("[DRAW] Vertex buffer: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", Index buffer: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+            System.out.println("[DRAW] Matrix buffer: 0x" + Long.toHexString(matrixBuffer.address()));
             VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
             System.out.println("[DRAW] Draw call completed");
         } else {
@@ -155,13 +155,10 @@ public class LODRenderer {
     
     private void batchValidateAndUpload(float[] cameraPosition) {
         // Batch validate all instances
-        System.out.println("[BATCH] Validating " + instanceData.getCount() + " instances");
         for (int i = 0; i < instanceData.getCount(); i++) {
             if (instanceData.isActive(i)) {
                 ModelData modelData = instanceData.getModelData(i, modelDataArray);
                 boolean enabled = modelData != null && modelData.isGPUResident();
-                
-                System.out.println("[BATCH] Instance " + i + " - modelData: " + (modelData != null) + ", gpuResident: " + (modelData != null ? modelData.isGPUResident() : "null") + ", enabled: " + enabled);
 
                 batchState.markInstanceEnabled(i, enabled);
                 
@@ -181,11 +178,15 @@ public class LODRenderer {
             int instanceId = dirtyInstances[i];
             instanceData.syncMatrixFromModelData(instanceId, modelDataArray);
             
-            // Debug: Print first few matrix values
+            // Debug: Print matrix values
             MemorySegment matrix = instanceData.getMatrix(instanceId);
             float m00 = matrix.get(ValueLayout.JAVA_FLOAT, 0);
-            float m12 = matrix.get(ValueLayout.JAVA_FLOAT, 12 * 4); // translation X
-            System.out.println("[DEBUG] Instance " + instanceId + " matrix[0,0]=" + m00 + ", translation X=" + m12);
+            float m11 = matrix.get(ValueLayout.JAVA_FLOAT, 5 * 4);
+            float m22 = matrix.get(ValueLayout.JAVA_FLOAT, 10 * 4);
+            float m03 = matrix.get(ValueLayout.JAVA_FLOAT, 3 * 4); // translation X
+            float m13 = matrix.get(ValueLayout.JAVA_FLOAT, 7 * 4); // translation Y
+            float m23 = matrix.get(ValueLayout.JAVA_FLOAT, 11 * 4); // translation Z
+            System.out.println("[MATRIX] Instance " + instanceId + " scale=[" + m00 + "," + m11 + "," + m22 + "] pos=[" + m03 + "," + m13 + "," + m23 + "]");
         }
     }
     

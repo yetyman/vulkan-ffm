@@ -120,6 +120,12 @@ public class GLTFLoader {
         System.out.println("[GLTF] Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
         MeshPrimitiveModel primitive = meshModel.getMeshPrimitiveModels().get(0);
         
+        // Debug: Check what attributes are available
+        System.out.println("[GLTF] Available attributes: " + primitive.getAttributes().keySet());
+        boolean hasNormals = primitive.getAttributes().containsKey("NORMAL");
+        boolean hasTexCoords = primitive.getAttributes().containsKey("TEXCOORD_0");
+        System.out.println("[GLTF] Has normals: " + hasNormals + ", has texcoords: " + hasTexCoords);
+        
         // TODO: Refactor to separate vertex attribute arrays (SoA) instead of interleaved (AoS) for better cache efficiency and flexibility
         // Get vertex data (position + normal + texcoord)
         AccessorModel positionsAccessor = primitive.getAttributes().get("POSITION");
@@ -129,18 +135,50 @@ public class GLTFLoader {
         int vertexCount = positionsBuffer.remaining() / 3;
         float[] vertices = new float[vertexCount * 8]; // 8 floats per vertex (pos=3, normal=3, texcoord=2)
         
-        // Copy positions
+        // Get normals if available
+        FloatBuffer normalsBuffer = null;
+        if (hasNormals) {
+            AccessorModel normalsAccessor = primitive.getAttributes().get("NORMAL");
+            AccessorData normalsData = normalsAccessor.getAccessorData();
+            normalsBuffer = normalsData.createByteBuffer().asFloatBuffer();
+        }
+        
+        // Get texture coordinates if available
+        FloatBuffer texCoordsBuffer = null;
+        if (hasTexCoords) {
+            AccessorModel texCoordsAccessor = primitive.getAttributes().get("TEXCOORD_0");
+            AccessorData texCoordsData = texCoordsAccessor.getAccessorData();
+            texCoordsBuffer = texCoordsData.createByteBuffer().asFloatBuffer();
+        }
+        
+        // Copy all vertex data
         for (int i = 0; i < vertexCount; i++) {
+            // Position
             vertices[i * 8 + 0] = positionsBuffer.get(i * 3 + 0);
             vertices[i * 8 + 1] = positionsBuffer.get(i * 3 + 1);
             vertices[i * 8 + 2] = positionsBuffer.get(i * 3 + 2);
-            // Default normal (up)
-            vertices[i * 8 + 3] = 0.0f;
-            vertices[i * 8 + 4] = 1.0f;
-            vertices[i * 8 + 5] = 0.0f;
-            // Default texcoord
-            vertices[i * 8 + 6] = 0.0f;
-            vertices[i * 8 + 7] = 0.0f;
+            
+            // Normal
+            if (normalsBuffer != null) {
+                vertices[i * 8 + 3] = normalsBuffer.get(i * 3 + 0);
+                vertices[i * 8 + 4] = normalsBuffer.get(i * 3 + 1);
+                vertices[i * 8 + 5] = normalsBuffer.get(i * 3 + 2);
+            } else {
+                // Default normal (up)
+                vertices[i * 8 + 3] = 0.0f;
+                vertices[i * 8 + 4] = 1.0f;
+                vertices[i * 8 + 5] = 0.0f;
+            }
+            
+            // Texture coordinates
+            if (texCoordsBuffer != null) {
+                vertices[i * 8 + 6] = texCoordsBuffer.get(i * 2 + 0);
+                vertices[i * 8 + 7] = texCoordsBuffer.get(i * 2 + 1);
+            } else {
+                // Default texcoord
+                vertices[i * 8 + 6] = 0.0f;
+                vertices[i * 8 + 7] = 0.0f;
+            }
         }
         
         // Calculate bounds

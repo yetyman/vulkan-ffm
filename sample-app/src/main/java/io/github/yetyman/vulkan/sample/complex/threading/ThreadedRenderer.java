@@ -517,13 +517,39 @@ public class ThreadedRenderer {
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
+                transform.setPosition(-5.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Box loaded at (0, 0, -2), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                System.out.println("[OK] Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Box: " + throwable.getMessage());
+                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
+        loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
+            .thenAcceptAsync(modelData -> {
+                TransformationMatrix transform = modelData.getTransform();
+                transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
+                transform.setScale(1.0f, 1.0f, 1.0f); // Make it bigger
+                int instanceId = addLODInstance(modelData);
+                System.out.println("[OK] Box loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            })
+            .exceptionally(throwable -> {
+                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                throwable.printStackTrace();
+                return null;
+            });
+        loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
+            .thenAcceptAsync(modelData -> {
+                TransformationMatrix transform = modelData.getTransform();
+                transform.setPosition(5.0f, 0.0f, -2.0f); // Move closer to camera
+                transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
+                int instanceId = addLODInstance(modelData);
+                System.out.println("[OK] Box loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            })
+            .exceptionally(throwable -> {
+                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return null;
             });

@@ -13,11 +13,27 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 
 void main() {
-    // Use vertex position from buffer
+    // Transform to world space
     vec4 worldPos = instanceMatrix * vec4(inPosition, 1.0);
-    gl_Position = worldPos;
+    
+    // Simple perspective projection (no uniform buffers needed)
+    mat4 view = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, -5.0, 1.0  // Camera at (0,0,5) looking at origin
+    );
+    
+    mat4 projection = mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, -1.0, -1.0,
+        0.0, 0.0, -2.0, 0.0  // Simple perspective
+    );
+    
+    gl_Position = projection * view * worldPos;
     
     // Use texture coordinates for color variation
-    fragColor = vec3(inTexCoord, 0.5);
+    fragColor = inNormal;
     fragTexCoord = inTexCoord;
 }
