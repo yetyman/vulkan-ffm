@@ -10,6 +10,8 @@ public class ModelData {
     private final int modelId;
     private volatile LODModel lodModel;
     private volatile TransformationMatrix transform;
+    private volatile float[] vertices;
+    private volatile int[] indices;
     private final AtomicBoolean isLoaded = new AtomicBoolean(false);
     private final AtomicBoolean isFreed = new AtomicBoolean(false);
     private volatile boolean gpuResident = false;
@@ -22,11 +24,13 @@ public class ModelData {
     }
     
     // Async loading - must be called from thread with Vulkan context
-    public void loadModel(LODModel model, TransformationMatrix initialTransform) {
+    public void loadModel(LODModel model, TransformationMatrix initialTransform, float[] vertices, int[] indices) {
         // GPU resources must be created on Vulkan context thread
         // LODModel should already have GPU buffers allocated
         this.lodModel = model;
         this.transform = initialTransform;
+        this.vertices = vertices;
+        this.indices = indices;
         isLoaded.set(true);
     }
     
@@ -51,4 +55,7 @@ public class ModelData {
     public boolean setPendingGPUUnload(boolean pending) { return pendingGPUUnload.getAndSet(pending); }
     public boolean isPendingGPULoad() { return pendingGPULoad.get(); }
     public boolean isPendingGPUUnload() { return pendingGPUUnload.get(); }
+    
+    public float[] getVertices() { return vertices; }
+    public int[] getIndices() { return indices; }
 }

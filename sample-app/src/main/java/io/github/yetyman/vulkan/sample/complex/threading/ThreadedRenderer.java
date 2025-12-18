@@ -410,8 +410,8 @@ public class ThreadedRenderer {
         System.out.println("[DEBUG] Rendering glTF test triangle with vertex buffers");
         
         // Bind both vertex and instance buffers
-        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+//        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
+//        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();
@@ -517,9 +517,10 @@ public class ThreadedRenderer {
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(-5.0f, 0.0f, 0.0f);
+                transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
+                transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                System.out.println("[OK] Box loaded at (0, 0, -2), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
                 System.err.println("[ERROR] Failed to load Box: " + throwable.getMessage());

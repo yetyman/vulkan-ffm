@@ -72,8 +72,8 @@ public class GLTFLoader {
             // Create initial transform
             TransformationMatrix transform = new TransformationMatrix();
             
-            // Load into ModelData
-            modelData.loadModel(lodModel, transform);
+            // Load into ModelData with geometry data
+            modelData.loadModel(lodModel, transform, gltfData.vertices, gltfData.indices);
             System.out.println("[GLTF] ModelData loaded and ready");
         }
         

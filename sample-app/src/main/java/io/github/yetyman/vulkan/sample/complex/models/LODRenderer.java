@@ -67,7 +67,8 @@ public class LODRenderer {
         for (StaticBatch batch : staticBatches) {
             boolean hasEnabled = hasEnabledInstancesInBatch(batch);
             boolean hasBuffers = batch.getLodLevel().hasGPUBuffers();
-
+            
+            System.out.println("[BATCH] Batch - hasEnabled: " + hasEnabled + ", hasBuffers: " + hasBuffers);
             
             if (hasEnabled && hasBuffers) {
                 if (!batch.getCommandBuffer().equals(MemorySegment.NULL)) {
@@ -80,7 +81,7 @@ public class LODRenderer {
             }
         }
         
-        System.out.println("[LOD] Executed batches, " + totalTriangles + " triangles");
+        System.out.println("[LOD] Executed batches, " + totalTriangles + " triangles (" + staticBatches.size() + " total batches)");
     }
     
     private void renderBatchDirectly(MemorySegment commandBuffer, StaticBatch batch, Arena frameArena) {
@@ -154,10 +155,13 @@ public class LODRenderer {
     
     private void batchValidateAndUpload(float[] cameraPosition) {
         // Batch validate all instances
+        System.out.println("[BATCH] Validating " + instanceData.getCount() + " instances");
         for (int i = 0; i < instanceData.getCount(); i++) {
             if (instanceData.isActive(i)) {
                 ModelData modelData = instanceData.getModelData(i, modelDataArray);
                 boolean enabled = modelData != null && modelData.isGPUResident();
+                
+                System.out.println("[BATCH] Instance " + i + " - modelData: " + (modelData != null) + ", gpuResident: " + (modelData != null ? modelData.isGPUResident() : "null") + ", enabled: " + enabled);
 
                 batchState.markInstanceEnabled(i, enabled);
                 

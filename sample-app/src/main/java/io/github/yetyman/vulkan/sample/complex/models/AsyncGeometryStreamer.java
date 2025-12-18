@@ -102,26 +102,33 @@ public class AsyncGeometryStreamer {
         try {
             Arena tempArena = Arena.ofShared();
             
-            // Get actual geometry data from the first LOD level
-            LODLevel lodLevel = lodModel.getLOD(0);
+            // Get actual geometry data from the loaded glTF model
+            System.out.println("[STREAM] Using actual glTF geometry data for model " + modelData.getModelId());
             
-            // Create simple test triangle (TODO: load actual glTF geometry)
-            MemorySegment vertexData = tempArena.allocate(32 * 3); // 3 vertices * 32 bytes
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 0, -0.5f); // x1
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 1, -0.5f); // y1
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 2, 0.0f);  // z1
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 3, 0.5f);  // x2
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 4, -0.5f); // y2
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 5, 0.0f);  // z2
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 6, 0.0f);  // x3
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 7, 0.5f);  // y3
-            vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 8, 0.0f);  // z3
+            // Get vertex and index data from the model
+            float[] vertices = modelData.getVertices();
+            int[] indices = modelData.getIndices();
             
-            // Create index data
-            MemorySegment indexData = tempArena.allocate(4 * 3);   // 3 indices * 4 bytes
-            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 0, 0);
-            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 1, 1);
-            indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, 2, 2);
+            if (vertices == null || indices == null) {
+                System.out.println("[STREAM] ERROR: Model geometry data is null! vertices=" + vertices + ", indices=" + indices);
+                return;
+            }
+            
+            System.out.println("[STREAM] Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
+            System.out.println("[STREAM] First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
+            System.out.println("[STREAM] First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
+            
+            // Create vertex data buffer
+            MemorySegment vertexData = tempArena.allocate(vertices.length * 4); // 4 bytes per float
+            for (int i = 0; i < vertices.length; i++) {
+                vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, i, vertices[i]);
+            }
+            
+            // Create index data buffer
+            MemorySegment indexData = tempArena.allocate(indices.length * 4); // 4 bytes per int
+            for (int i = 0; i < indices.length; i++) {
+                indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, i, indices[i]);
+            }
             
             // Stage the data
             int requestId = stagingSystem.stageVertexData(vertexData, indexData);
