@@ -74,7 +74,9 @@ public class BufferPool {
         
         // Use a dedicated arena for each buffer to ensure proper lifecycle management
         Arena bufferArena = Arena.ofShared();
-        return builder.build(bufferArena);
+        VkBuffer buffer = builder.build(bufferArena);
+        System.out.println("[DEBUG] Created " + (isVertexBuffer ? "vertex" : "index") + " buffer with handle: 0x" + Long.toHexString(buffer.handle().address()) + ", size: " + bufferSize);
+        return buffer;
     }
     
     public long getBufferSize() { return bufferSize; }

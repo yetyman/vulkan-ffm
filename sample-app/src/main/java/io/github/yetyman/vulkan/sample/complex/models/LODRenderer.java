@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.BufferHandle;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
@@ -31,7 +32,7 @@ public class LODRenderer {
     public LODRenderer(Arena arena, MemorySegment device, MemorySegment physicalDevice, int maxInstances, int maxModelData) {
         // Use shared arena for instance data to allow multi-thread access
         Arena sharedArena = Arena.ofShared();
-        this.instanceData = new InstanceData(sharedArena, maxInstances);
+        this.instanceData = new InstanceData(sharedArena, maxInstances, device, physicalDevice);
         this.modelDataArray = new ModelData[maxModelData];
         this.batchState = new BatchState(maxInstances);
 
@@ -87,21 +88,40 @@ public class LODRenderer {
         
         // Check if buffers are valid before binding
         if (!lodLevel.hasGPUBuffers()) {
+            System.out.println("[DEBUG] LODLevel has no GPU buffers, skipping");
             return; // Skip silently - buffers not ready yet
         }
         
-
+        // Get buffer handles - these should be BufferHandle objects
+        BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
+        BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
         
-        // Bind vertex buffer (binding 0)
+        System.out.println("[RENDER] Got BufferHandles - vertex id=" + (vertexHandle != null ? vertexHandle.getHandleId() : "null") + ", index id=" + (indexHandle != null ? indexHandle.getHandleId() : "null"));
+        
+        if (vertexHandle == null || indexHandle == null || !vertexHandle.isReady() || !indexHandle.isReady()) {
+            System.out.println("[RENDER] Buffers not ready - vertex ready=" + (vertexHandle != null ? vertexHandle.isReady() : "null") + ", index ready=" + (indexHandle != null ? indexHandle.isReady() : "null"));
+            return; // Buffers not ready yet
+        }
+        
+        // Use encoded handles directly
+        System.out.println("[RENDER] Getting handles from BufferHandle objects:");
+        MemorySegment encodedVertexBuffer = vertexHandle.handle();
+        MemorySegment encodedIndexBuffer = indexHandle.handle();
+        System.out.println("[RENDER] Final encoded handles - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+        
+        // Bind vertex buffer (binding 0) - store the handle address value
         MemorySegment vertexBuffers = frameArena.allocate(ValueLayout.ADDRESS);
-        vertexBuffers.set(ValueLayout.ADDRESS, 0, lodLevel.vertexBuffer());
+        vertexBuffers.set(ValueLayout.ADDRESS, 0, MemorySegment.ofAddress(encodedVertexBuffer.address()));
         MemorySegment vertexOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
         vertexOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
+        
+        System.out.println("[DEBUG] Setting buffers - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+        
         VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets);
         
-        // Bind instance data buffer (binding 1) - debug the buffer
+        // Bind instance data buffer (binding 1) - now it's a proper VkBuffer
         MemorySegment matrixBuffer = instanceData.getMatricesBuffer();
-        System.out.println("[DEBUG] Matrix buffer size: " + matrixBuffer.byteSize() + " bytes");
+        System.out.println("[DEBUG] Matrix buffer handle: 0x" + Long.toHexString(matrixBuffer.address()) + " (now encoded VkBuffer handle)");
         
         MemorySegment instanceBuffers = frameArena.allocate(ValueLayout.ADDRESS);
         instanceBuffers.set(ValueLayout.ADDRESS, 0, matrixBuffer);
@@ -109,10 +129,12 @@ public class LODRenderer {
         instanceOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
         VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, instanceBuffers, instanceOffsets);
         
-        VulkanExtensions.cmdBindIndexBuffer(commandBuffer, lodLevel.indexBuffer(), 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+        // Bind index buffer with encoded handle
+        VulkanExtensions.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
         
         // Draw indexed for each enabled instance in this batch
         int enabledCount = getEnabledInstanceCount(batch);
+        System.out.println("[DRAW] About to draw - enabledCount: " + enabledCount + ", indexCount: " + lodLevel.indexCount());
         if (enabledCount > 0) {
             // Get instance positions for debugging
             int[] batchInstances = batch.getInstanceIds();
@@ -122,7 +144,11 @@ public class LODRenderer {
                     System.out.println("[LOD] Instance " + instanceId + " at position: (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ")");
                 }
             }
+            System.out.println("[DRAW] Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
             VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
+            System.out.println("[DRAW] Draw call completed");
+        } else {
+            System.out.println("[DRAW] No enabled instances to draw");
         }
     }
     
@@ -332,6 +358,7 @@ public class LODRenderer {
         staticBatches.clear();
     }
     
+
     public void shutdown() {
         geometryStreamer.shutdown();
         gltfLoader.shutdown();

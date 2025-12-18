@@ -217,17 +217,16 @@ public class StagingSystem {
     /**
      * Create an immediate buffer for testing (synchronous)
      */
-    public MemorySegment createImmediateBuffer(float[] data) {
+    public VkBuffer createImmediateBuffer(float[] data) {
         try {
-            // Create vertex data in staging buffer
-            Arena tempArena = Arena.ofConfined();
-            MemorySegment vertexData = tempArena.allocate(data.length * 4);
+            // Create vertex data in staging buffer using shared arena
+            MemorySegment vertexData = arena.allocate(data.length * 4);
             for (int i = 0; i < data.length; i++) {
                 vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, i, data[i]);
             }
             
             // Stage the data and get device buffer
-            int requestId = stageVertexData(vertexData, tempArena.allocate(4)); // dummy index data
+            int requestId = stageVertexData(vertexData, arena.allocate(4)); // dummy index data
             
             // Process the copy immediately (synchronous for testing)
             processPendingCopies(1);
@@ -235,12 +234,12 @@ public class StagingSystem {
             // Get the completed request
             CopyRequest request = getCompletedRequest(requestId);
             if (request != null && request.deviceVertexBuffer != null) {
-                return request.deviceVertexBuffer.handle();
+                return request.deviceVertexBuffer;
             }
         } catch (Exception e) {
             System.err.println("[STAGING] Failed to create immediate buffer: " + e.getMessage());
         }
-        return MemorySegment.NULL;
+        return null;
     }
     
     /**

@@ -199,11 +199,20 @@ public class AsyncGeometryStreamer {
     private void updateModelGPUBuffers(int modelId, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
         ModelData modelData = modelDataArray[modelId];
         if (modelData != null && modelData.getLodModel() != null) {
+            System.out.println("[STREAM] Getting handles from VkBuffer objects:");
+            System.out.println("[STREAM] request.deviceVertexBuffer: " + request.deviceVertexBuffer);
+            System.out.println("[STREAM] request.deviceIndexBuffer: " + request.deviceIndexBuffer);
+            
+            MemorySegment vertexBuffer = request.deviceVertexBuffer.handle();
+            MemorySegment indexBuffer = request.deviceIndexBuffer.handle();
+            System.out.println("[STREAM] VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
+            
             // Set GPU buffers on ALL LOD levels (they all use the same geometry for now)
             LODModel lodModel = modelData.getLodModel();
             for (int i = 0; i < lodModel.getLODCount(); i++) {
                 LODLevel lodLevel = lodModel.getLOD(i);
-                lodLevel.setGPUBuffers(request.deviceVertexBuffer.handle(), request.deviceIndexBuffer.handle());
+                System.out.println("[STREAM] Calling setGPUBuffers on LOD level " + i);
+                lodLevel.setGPUBuffers(vertexBuffer, indexBuffer);
             }
             System.out.println("[STREAM] Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
         }
@@ -214,7 +223,8 @@ public class AsyncGeometryStreamer {
      */
     public MemorySegment createTestBuffer(float[] data) {
         try {
-            return stagingSystem.createImmediateBuffer(data);
+            VkBuffer buffer = stagingSystem.createImmediateBuffer(data);
+            return buffer != null ? buffer.handle() : MemorySegment.NULL;
         } catch (Exception e) {
             System.err.println("[STREAM] Failed to create test buffer: " + e.getMessage());
             return MemorySegment.NULL;

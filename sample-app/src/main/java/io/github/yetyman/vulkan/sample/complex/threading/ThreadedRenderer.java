@@ -416,7 +416,8 @@ public class ThreadedRenderer {
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();
         if (instanceCount > 0) {
-            // lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
+            System.out.println("[DEBUG] Attempting model rendering with debug logging");
+            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
         }
         
 
@@ -512,7 +513,7 @@ public class ThreadedRenderer {
     public void loadSampleModels() {
         System.out.println("[LOAD] Starting to load sample models...");
         
-        // Load Box at origin
+        // Load only Box for debugging
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
@@ -522,34 +523,6 @@ public class ThreadedRenderer {
             })
             .exceptionally(throwable -> {
                 System.err.println("[ERROR] Failed to load Box: " + throwable.getMessage());
-                throwable.printStackTrace();
-                return null;
-            });
-        
-        // Load Duck at center
-        loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
-            .thenAcceptAsync(modelData -> {
-                TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(0.0f, 0.0f, 0.0f);
-                int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
-            })
-            .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Duck: " + throwable.getMessage());
-                throwable.printStackTrace();
-                return null;
-            });
-        
-        // Load Suzanne at right
-        loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
-            .thenAccept(modelData -> {
-                TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(5.0f, 0.0f, 0.0f);
-                int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
-            })
-            .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return null;
             });

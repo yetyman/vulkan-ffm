@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -9,16 +11,40 @@ import java.lang.foreign.ValueLayout;
  */
 public class InstanceData {
     private final MemorySegment modelDataPtrs; // 1 long per instance (pointer to ModelData)
-    private final MemorySegment matrices;      // 16 floats per instance (GPU-ready)
+    private final VkBuffer matricesBuffer;     // VkBuffer for GPU-ready matrices
+    private final MemorySegment matrices;      // Host-visible memory for matrices
     private final boolean[] activeInstances;   // Track which instances are active
     private final int capacity;
     private int count = 0;
     
-    public InstanceData(Arena arena, int maxInstances) {
+    public InstanceData(Arena arena, int maxInstances, MemorySegment device, MemorySegment physicalDevice) {
         this.capacity = maxInstances;
         this.modelDataPtrs = arena.allocate(maxInstances * Long.BYTES);
-        this.matrices = arena.allocate(maxInstances * 16 * Float.BYTES);
+        
+        // Create proper VkBuffer for matrices
+        long bufferSize = maxInstances * 16 * Float.BYTES;
+        this.matricesBuffer = VkBuffer.builder()
+            .device(device)
+            .physicalDevice(physicalDevice)
+            .size(bufferSize)
+            .vertexBuffer()
+            .hostVisible()
+            .build(arena);
+        
+        // Map the buffer memory for CPU access
+        this.matrices = mapBufferMemory(device, matricesBuffer, bufferSize);
         this.activeInstances = new boolean[maxInstances];
+    }
+    
+    private MemorySegment mapBufferMemory(MemorySegment device, VkBuffer buffer, long size) {
+        try {
+            MemorySegment mappedPtr = Arena.ofShared().allocate(ValueLayout.ADDRESS);
+            io.github.yetyman.vulkan.VulkanExtensions.mapMemory(device, buffer.memory(), 0, size, 0, mappedPtr).check();
+            MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
+            return MemorySegment.ofAddress(mappedAddress.address()).reinterpret(size);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to map buffer memory", e);
+        }
     }
     
     public int addInstance(ModelData modelData) {
@@ -90,6 +116,6 @@ public class InstanceData {
     public int getCapacity() { return capacity; }
     
     public MemorySegment getMatricesBuffer() {
-        return matrices;
+        return matricesBuffer.handle(); // Return the encoded VkBuffer handle
     }
 }
