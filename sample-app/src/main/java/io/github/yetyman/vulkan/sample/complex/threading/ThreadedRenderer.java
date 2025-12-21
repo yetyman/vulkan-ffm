@@ -13,29 +13,18 @@ import java.lang.foreign.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
-public class ThreadedRenderer {
+public class ThreadedRenderer extends BaseRenderer {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
     
-    private static final int MAX_FRAMES_IN_FLIGHT = 2;
-    private static final int TRIANGLES_COUNT = 1000; // Back to 1000 triangles with depth testing
+    private static final int TRIANGLES_COUNT = 1000;
     
     // AA toggle
     private boolean adaptiveAAEnabled = true;
     private AdaptiveAA adaptiveAA;
     
-    private final Arena arena;
-    private final MemorySegment device;
-    private final MemorySegment queue;
-    private final MemorySegment surface;
-    private int width, height;
-    
-    private VulkanSwapchainManager swapchainManager;
-    private VkRenderPass renderPass;
-    private VkRenderPass directRenderPass; // For non-AA rendering
+    private VkRenderPass directRenderPass;
     private VkPipeline pipeline;
     private VkPipeline gltfPipeline;
-    private MemorySegment[] commandBuffers;
-    private VulkanSyncManager syncManager;
     private VulkanCommandManager commandManager;
     private VulkanRenderTarget depthTarget;
     private VulkanShaderManager shaderManager;
@@ -60,12 +49,7 @@ public class ThreadedRenderer {
     
     public ThreadedRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
-        this.arena = arena;
-        this.device = device;
-        this.queue = queue;
-        this.surface = surface;
-        this.width = width;
-        this.height = height;
+        super(arena, device, queue, surface, width, height, 3);
         
         // Initialize thread manager
         threadManager = new ThreadManager();
@@ -75,7 +59,8 @@ public class ThreadedRenderer {
         lodRenderer = null; // Will be created in init() when physicalDevice is available
     }
     
-    public void init(MemorySegment physicalDevice, int queueFamilyIndex) {
+    @Override
+    protected void initializeResources(MemorySegment physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
         
         // Initialize LOD renderer now that we have physicalDevice
@@ -83,42 +68,24 @@ public class ThreadedRenderer {
         mainThreadWork = new MainThreadWorkQueue(60.0); // Target 60 FPS
         lodRenderer.setMainThreadWorkQueue(mainThreadWork);
         
-        createSwapchainManager();
         createManagers(queueFamilyIndex);
         createDepthTarget();
-        createRenderPasses();
+        createDirectRenderPass();
         if (adaptiveAAEnabled) {
             adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
         }
         
         // Set Vulkan resources after managers are created
-        lodRenderer.setVulkanResources(commandManager.getCommandPool(), renderPass.handle());
+        lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass.handle());
         createGraphicsPipeline();
-        createFramebuffers();
-        createCommandBuffers();
         System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
-    private void createSwapchainManager() {
-        swapchainManager = VulkanSwapchainManager.builder()
-            .arena(arena)
-            .device(device)
-            .surface(surface)
-            .extent(width, height)
-            .vsync(true)
-            .build();
-        System.out.println("[OK] Swapchain manager created with " + swapchainManager.imageCount() + " images");
-    }
+
     
     private MemorySegment physicalDevice;
     
     private void createManagers(int queueFamilyIndex) {
-        syncManager = VulkanSyncManager.builder()
-            .arena(arena)
-            .device(device)
-            .framesInFlight(swapchainManager.imageCount()) // Use swapchain image count, not MAX_FRAMES_IN_FLIGHT
-            .build();
-        
         commandManager = VulkanCommandManager.builder()
             .arena(arena)
             .device(device)
@@ -174,12 +141,10 @@ public class ThreadedRenderer {
         throw new RuntimeException("Failed to find supported depth format");
     }
     
-    private void createRenderPasses() {
-        // Find supported depth format
+    @Override
+    protected VkRenderPass createRenderPassImpl() {
         int depthFormat = findSupportedDepthFormat();
-        
-        // Direct rendering to swapchain (no AA)
-        directRenderPass = VkRenderPass.builder()
+        return VkRenderPass.builder()
             .device(device)
             .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
             .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
@@ -188,10 +153,11 @@ public class ThreadedRenderer {
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                 0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
             .build(arena);
-        
-        // Set active render pass based on AA setting
-        renderPass = directRenderPass;
-        System.out.println("[OK] Render passes created");
+    }
+    
+    private void createDirectRenderPass() {
+        directRenderPass = createRenderPassImpl();
+        System.out.println("[OK] Direct render pass created");
     }
     
     private void createGraphicsPipeline() {
@@ -257,15 +223,19 @@ public class ThreadedRenderer {
         System.out.println("[OK] Graphics pipelines created (triangle + glTF)");
     }
     
-    private void createFramebuffers() {
-        swapchainManager.createFramebuffers(directRenderPass.handle(), depthTarget.imageView().handle());
-        System.out.println("[OK] Framebuffers created");
+    @Override
+    protected VkFramebuffer createFramebufferImpl(int imageIndex) {
+        return VkFramebuffer.builder()
+            .device(device)
+            .renderPass(renderPass.handle())
+            .attachment(swapchainImageViews[imageIndex].handle())
+            .attachment(depthTarget.imageView().handle())
+            .dimensions(width, height)
+            .build(arena);
     }
     
-    private void createCommandBuffers() {
-        commandBuffers = commandManager.allocateBuffers(swapchainManager.imageCount(), arena); // Match swapchain image count
-        System.out.println("[OK] Command buffers allocated");
-        
+    @Override
+    protected void postRenderPassInit() {
         // Pre-allocate cached layouts
         cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
             .position(0, 0)
@@ -287,85 +257,31 @@ public class ThreadedRenderer {
             System.out.println("[WORK] Processed " + workProcessed + " main thread tasks");
         }
         
-        Arena frameArena = arena;
-        VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame();
-        
-        // VulkanSyncManager should handle fence synchronization internally
-        // Remove manual fence operations - let syncManager handle it
-        
-        // Acquire image with semaphore
-        int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
-            .semaphore(frameSync.imageAvailable.handle())
-            .execute(frameArena);
-        
-        SwapchainImage swapImage = swapchainManager.getImage(imgIdx);
-        
-        recordCommandBufferThreaded(commandBuffers[frameSync.frameIndex], imgIdx, frameArena);
-        
-        VkSubmit.builder()
-            .waitSemaphore(frameSync.imageAvailable.handle(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-            .commandBuffer(commandBuffers[frameSync.frameIndex])
-            .signalSemaphore(frameSync.renderFinished.handle())
-            .submit(queue, frameSync.inFlight.handle(), frameArena).check();
-        
-        VkPresent.builder()
-            .waitSemaphore(frameSync.renderFinished.handle())
-            .swapchain(swapchainManager.swapchain().handle(), imgIdx)
-            .present(queue, frameArena);
-        
-        syncManager.nextFrame();
+        // Use BaseRenderer's drawFrame implementation
+        super.drawFrame();
         
         // Track performance and adjust threads
         trackPerformance(frameStart);
         adjustThreadCount();
     }
     
-    private void recordCommandBufferThreaded(MemorySegment primaryCommandBuffer, int imageIndex, Arena frameArena) {
+    @Override
+    protected void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
         int threadsToUse = threadManager.getActiveThreads();
         
         if (threadsToUse == 1) {
-            // Single-threaded path for efficiency
-            recordSingleThreaded(primaryCommandBuffer, imageIndex, frameArena);
+            recordSingleThreaded(commandBuffer, imageIndex, frameArena);
             return;
         }
         
-        // Multi-threaded path with proper command buffer handling
-        VkCommandBuffer.begin(primaryCommandBuffer).execute(frameArena);
-        
-        if (adaptiveAAEnabled) {
-            // Render scene to AA targets
-            VkCommandBuffer.beginRenderPass(primaryCommandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
-            
-            renderScene(primaryCommandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(primaryCommandBuffer);
-            
-            // Perform adaptive AA and output to swapchain
-            adaptiveAA.performAA(primaryCommandBuffer, swapchainManager.framebuffers()[imageIndex], frameArena);
-        } else {
-            // Direct rendering to swapchain
-            VkCommandBuffer.beginRenderPass(primaryCommandBuffer, directRenderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
-            
-            renderScene(primaryCommandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(primaryCommandBuffer);
-        }
-        
-        // Always end the command buffer
-        VulkanExtensions.endCommandBuffer(primaryCommandBuffer).check();
+        // Multi-threaded path
+        recordMultiThreaded(commandBuffer, imageIndex, frameArena);
     }
     
     private void recordSingleThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
         if (adaptiveAAEnabled) {
-            // Render scene to AA targets
             VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
@@ -375,11 +291,37 @@ public class ThreadedRenderer {
             renderScene(commandBuffer, frameArena);
             VulkanExtensions.cmdEndRenderPass(commandBuffer);
             
-            // Perform adaptive AA and output to swapchain
-            adaptiveAA.performAA(commandBuffer, swapchainManager.framebuffers()[imageIndex], frameArena);
+            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
         } else {
-            // Direct rendering to swapchain
-            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), swapchainManager.framebuffers()[imageIndex].handle())
+            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            renderScene(commandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+        }
+        
+        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+    }
+    
+    private void recordMultiThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
+        VkCommandBuffer.begin(commandBuffer).execute(frameArena);
+        
+        if (adaptiveAAEnabled) {
+            VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            renderScene(commandBuffer, frameArena);
+            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            
+            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
+        } else {
+            VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .clearDepth(1.0f, 0)
@@ -558,18 +500,12 @@ public class ThreadedRenderer {
             });
     }
     
-    public void resize(int newWidth, int newHeight) {
+    @Override
+    protected void onResize(int width, int height) {
         // Clean up depth target
         if (depthTarget != null) {
             depthTarget.close();
         }
-        
-        // Update dimensions
-        width = newWidth;
-        height = newHeight;
-        
-        // Recreate swapchain manager
-        swapchainManager.recreate(width, height);
         
         // Recreate depth target
         createDepthTarget();
@@ -577,9 +513,6 @@ public class ThreadedRenderer {
             adaptiveAA.cleanup();
             adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
         }
-        
-        // Recreate framebuffers
-        createFramebuffers();
         
         // Update cached layouts with new dimensions
         cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
@@ -592,16 +525,11 @@ public class ThreadedRenderer {
             .extent(width, height)
             .build(arena);
         
-        System.out.println("[OK] Swapchain and depth buffer recreated for resize");
+        System.out.println("[OK] Depth buffer recreated for resize");
     }
     
-    public void cleanup() {
-        // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting renderer cleanup");
-        }
-        
+    @Override
+    protected void cleanupResources() {
         // Clean up thread manager
         if (threadManager != null) threadManager.close();
         
@@ -609,7 +537,6 @@ public class ThreadedRenderer {
         if (lodRenderer != null) lodRenderer.cleanup();
         
         // Clean up managers
-        if (syncManager != null) syncManager.close();
         if (commandManager != null) commandManager.close();
         if (shaderManager != null) shaderManager.close();
         if (depthTarget != null) depthTarget.close();
@@ -618,21 +545,18 @@ public class ThreadedRenderer {
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
         
-        // Only destroy render passes if they haven't been destroyed yet
-        if (renderPass != null && renderPass != directRenderPass) {
-            renderPass.close();
-            renderPass = null;
-        }
         if (directRenderPass != null) {
             directRenderPass.close();
-            directRenderPass = null;
         }
         
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
         }
-        if (swapchainManager != null) swapchainManager.close();
         
-        System.out.println("[OK] Renderer cleanup complete");
+        System.out.println("[OK] Threaded renderer cleanup complete");
+    }
+    
+    public void cleanup() {
+        close();
     }
 }
