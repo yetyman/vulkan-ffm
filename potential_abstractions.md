@@ -164,9 +164,10 @@ RenderSettings settings = RenderSettings.defaults()
 - **Testing**: Create simple test cases for each abstraction layer
 
 ## Implementation Progress
-- **VulkanApplication Framework**: ✅ Enhanced existing class with renderer integration and input system
-  - Created SimpleTriangleApp (30 lines vs 130+ original)
-  - Created ComplexTriangleApp (60 lines vs 210+ original)
+- **VulkanApplication Framework**: ✅ **MOVED TO VULKAN-CORE**
+  - Enhanced with Config class for universal use
+  - InputManager system moved to vulkan-core
+  - Sample apps updated to use vulkan-core classes
   - Eliminated ~200 lines of duplicated boilerplate
 - **BaseRenderer**: 🔄 Next - Extract common pipeline code from existing renderers
 - **Resource Management**: ⏳ Pending

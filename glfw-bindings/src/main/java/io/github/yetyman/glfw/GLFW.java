@@ -15,6 +15,7 @@ public class GLFW {
     public static final int GLFW_NO_API = GLFWFFM.GLFW_NO_API();
     public static final int GLFW_RESIZABLE = GLFWFFM.GLFW_RESIZABLE();
     public static final int GLFW_KEY_SPACE = GLFWFFM.GLFW_KEY_SPACE();
+    public static final int GLFW_KEY_1 = GLFWFFM.GLFW_KEY_1();
     public static final int GLFW_PRESS = GLFWFFM.GLFW_PRESS();
     
     // Core functions

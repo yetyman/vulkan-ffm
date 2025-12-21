@@ -116,7 +116,7 @@ public class ThreadedRenderer {
         syncManager = VulkanSyncManager.builder()
             .arena(arena)
             .device(device)
-            .framesInFlight(MAX_FRAMES_IN_FLIGHT)
+            .framesInFlight(swapchainManager.imageCount()) // Use swapchain image count, not MAX_FRAMES_IN_FLIGHT
             .build();
         
         commandManager = VulkanCommandManager.builder()
@@ -263,7 +263,7 @@ public class ThreadedRenderer {
     }
     
     private void createCommandBuffers() {
-        commandBuffers = commandManager.allocateBuffers(MAX_FRAMES_IN_FLIGHT, arena);
+        commandBuffers = commandManager.allocateBuffers(swapchainManager.imageCount(), arena); // Match swapchain image count
         System.out.println("[OK] Command buffers allocated");
         
         // Pre-allocate cached layouts
@@ -289,6 +289,9 @@ public class ThreadedRenderer {
         
         Arena frameArena = arena;
         VulkanSyncManager.FrameSync frameSync = syncManager.acquireFrame();
+        
+        // VulkanSyncManager should handle fence synchronization internally
+        // Remove manual fence operations - let syncManager handle it
         
         // Acquire image with semaphore
         int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchainManager.swapchain().handle())
