@@ -136,12 +136,24 @@ public class TriangleApp {
     }
     
     private void cleanup() {
+        // Wait for device to be idle before cleanup
+        if (vulkanContext != null && vulkanContext.device() != null) {
+            Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
+            System.out.println("[OK] Device idle - starting cleanup");
+        }
+        
         if (inputManager != null) {
             inputManager.close();
         }
         
         if (renderer != null) {
             renderer.cleanup();
+        }
+        
+        // Destroy surface before destroying VulkanContext
+        if (surface != null && !surface.equals(MemorySegment.NULL)) {
+            VkSurface.destroy(vulkanContext.instance().handle(), surface);
+            System.out.println("[OK] Surface destroyed");
         }
         
         if (vulkanContext != null) {

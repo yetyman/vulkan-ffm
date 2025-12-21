@@ -408,21 +408,41 @@ public class AdaptiveAA {
     }
     
     public void cleanup() {
-        sceneFramebuffer.close();
-        edgeFramebuffer.close();
-        edgePipeline.close();
-        aaPipeline.close();
-        sceneRenderPass.close();
-        edgeRenderPass.close();
-        aaRenderPass.close();
-        colorTargetView.close();
-        depthTargetView.close();
-        edgeTargetView.close();
-        previousFrameView.close();
-        colorTarget.close();
-        depthTarget.close();
-        edgeTarget.close();
-        previousFrame.close();
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting AdaptiveAA cleanup");
+        }
+        
+        // Clean up descriptor resources
+        if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
+            VulkanExtensions.destroyDescriptorPool(device, descriptorPool);
+        }
+        if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
+            VulkanExtensions.destroyDescriptorSetLayout(device, descriptorSetLayout);
+        }
+        if (sampler != null && !sampler.equals(MemorySegment.NULL)) {
+            VulkanExtensions.destroySampler(device, sampler);
+        }
+        
+        // Clean up other resources
+        if (sceneFramebuffer != null) sceneFramebuffer.close();
+        if (edgeFramebuffer != null) edgeFramebuffer.close();
+        if (edgePipeline != null) edgePipeline.close();
+        if (aaPipeline != null) aaPipeline.close();
+        if (sceneRenderPass != null) sceneRenderPass.close();
+        if (edgeRenderPass != null) edgeRenderPass.close();
+        if (aaRenderPass != null) aaRenderPass.close();
+        if (colorTargetView != null) colorTargetView.close();
+        if (depthTargetView != null) depthTargetView.close();
+        if (edgeTargetView != null) edgeTargetView.close();
+        if (previousFrameView != null) previousFrameView.close();
+        if (colorTarget != null) colorTarget.close();
+        if (depthTarget != null) depthTarget.close();
+        if (edgeTarget != null) edgeTarget.close();
+        if (previousFrame != null) previousFrame.close();
+        
+        System.out.println("[OK] AdaptiveAA cleanup complete");
     }
     
     private int findSupportedDepthFormat() {

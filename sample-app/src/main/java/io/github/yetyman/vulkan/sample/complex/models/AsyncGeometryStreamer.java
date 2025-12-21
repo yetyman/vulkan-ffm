@@ -239,7 +239,15 @@ public class AsyncGeometryStreamer {
     }
     
     public void shutdown() {
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting AsyncGeometryStreamer cleanup");
+        }
+        
         loadingThread.shutdown();
         stagingSystem.cleanup();
+        
+        System.out.println("[OK] AsyncGeometryStreamer cleanup complete");
     }
 }

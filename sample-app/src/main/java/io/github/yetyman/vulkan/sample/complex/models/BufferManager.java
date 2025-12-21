@@ -5,6 +5,8 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages multiple buffer pools of different sizes for optimal allocation
@@ -12,6 +14,7 @@ import java.util.Map;
 public class BufferManager {
     private final Map<Long, BufferPool> vertexPools = new HashMap<>();
     private final Map<Long, BufferPool> indexPools = new HashMap<>();
+    private final Set<VkBuffer> allBuffers = ConcurrentHashMap.newKeySet(); // Track all created buffers
     private final Arena arena;
     private final MemorySegment device;
     private final MemorySegment physicalDevice;
@@ -34,8 +37,8 @@ public class BufferManager {
         
         // Create pools for each size
         for (long size : BUFFER_SIZES) {
-            vertexPools.put(size, new BufferPool(arena, device, physicalDevice, size, true, 32));
-            indexPools.put(size, new BufferPool(arena, device, physicalDevice, size, false, 32));
+            vertexPools.put(size, new BufferPool(arena, device, physicalDevice, size, true, 32, allBuffers));
+            indexPools.put(size, new BufferPool(arena, device, physicalDevice, size, false, 32, allBuffers));
         }
         
         // Pre-allocate some common sizes including small test buffers
@@ -109,11 +112,27 @@ public class BufferManager {
     }
     
     public void cleanup() {
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting BufferManager cleanup");
+        }
+        
+        // Destroy ALL buffers from global registry
+        System.out.println("[BUFFER] Destroying " + allBuffers.size() + " total buffers");
+        for (VkBuffer buffer : allBuffers) {
+            buffer.close();
+        }
+        allBuffers.clear();
+        
+        // Clean up pools
         for (BufferPool pool : vertexPools.values()) {
             pool.cleanup();
         }
         for (BufferPool pool : indexPools.values()) {
             pool.cleanup();
         }
+        
+        System.out.println("[OK] BufferManager cleanup complete");
     }
 }

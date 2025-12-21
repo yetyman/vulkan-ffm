@@ -118,4 +118,12 @@ public class InstanceData {
     public MemorySegment getMatricesBuffer() {
         return matricesBuffer.handle(); // Return the encoded VkBuffer handle
     }
+    
+    public void cleanup() {
+        // Clean up the VkBuffer
+        if (matricesBuffer != null) {
+            matricesBuffer.close();
+        }
+        System.out.println("[OK] InstanceData cleanup complete");
+    }
 }

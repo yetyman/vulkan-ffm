@@ -256,11 +256,19 @@ public class StagingSystem {
     }
     
     public void cleanup() {
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting StagingSystem cleanup");
+        }
+        
         bufferManager.cleanup();
         StagingBuffer buffer;
         while ((buffer = availableStagingBuffers.poll()) != null) {
             buffer.close();
         }
+        
+        System.out.println("[OK] StagingSystem cleanup complete");
     }
     
     /**

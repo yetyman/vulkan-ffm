@@ -593,8 +593,17 @@ public class ThreadedRenderer {
     }
     
     public void cleanup() {
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting renderer cleanup");
+        }
+        
         // Clean up thread manager
         if (threadManager != null) threadManager.close();
+        
+        // Clean up LOD renderer first (it has GPU resources)
+        if (lodRenderer != null) lodRenderer.cleanup();
         
         // Clean up managers
         if (syncManager != null) syncManager.close();
@@ -603,15 +612,24 @@ public class ThreadedRenderer {
         if (depthTarget != null) depthTarget.close();
         
         // Clean up main resources
-        pipeline.close();
+        if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
-        renderPass.close();
+        
+        // Only destroy render passes if they haven't been destroyed yet
+        if (renderPass != null && renderPass != directRenderPass) {
+            renderPass.close();
+            renderPass = null;
+        }
         if (directRenderPass != null) {
             directRenderPass.close();
+            directRenderPass = null;
         }
+        
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
         }
-        swapchainManager.close();
+        if (swapchainManager != null) swapchainManager.close();
+        
+        System.out.println("[OK] Renderer cleanup complete");
     }
 }

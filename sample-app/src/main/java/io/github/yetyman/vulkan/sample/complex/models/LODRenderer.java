@@ -364,9 +364,27 @@ public class LODRenderer {
     }
     
 
-    public void shutdown() {
+    public void cleanup() {
+        // Wait for device to be idle before cleanup
+        if (device != null && !device.equals(MemorySegment.NULL)) {
+            Vulkan.deviceWaitIdle(device).check();
+            System.out.println("[OK] Device idle - starting LODRenderer cleanup");
+        }
+        
+        // Clean up geometry streamer and GLTF loader
         geometryStreamer.shutdown();
         gltfLoader.shutdown();
+        
+        // Clean up instance data
+        if (instanceData != null) {
+            instanceData.cleanup();
+        }
+        
+        System.out.println("[OK] LODRenderer cleanup complete");
+    }
+    
+    public void shutdown() {
+        cleanup();
     }
     
     /**

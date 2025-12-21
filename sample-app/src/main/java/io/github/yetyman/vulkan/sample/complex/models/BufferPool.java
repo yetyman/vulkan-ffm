@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 import io.github.yetyman.vulkan.VkBuffer;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -20,15 +21,17 @@ public class BufferPool {
     private final long bufferSize;
     private final boolean isVertexBuffer;
     private final long maxPoolSize;
+    private final Set<VkBuffer> globalBufferRegistry; // Reference to global registry
     
     public BufferPool(Arena arena, MemorySegment device, MemorySegment physicalDevice, 
-                     long bufferSize, boolean isVertexBuffer, long maxPoolSize) {
+                     long bufferSize, boolean isVertexBuffer, long maxPoolSize, Set<VkBuffer> globalBufferRegistry) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
         this.bufferSize = bufferSize;
         this.isVertexBuffer = isVertexBuffer;
         this.maxPoolSize = maxPoolSize;
+        this.globalBufferRegistry = globalBufferRegistry;
     }
     
     /**
@@ -75,6 +78,10 @@ public class BufferPool {
         // Use a dedicated arena for each buffer to ensure proper lifecycle management
         Arena bufferArena = Arena.ofShared();
         VkBuffer buffer = builder.build(bufferArena);
+        
+        // Register buffer globally
+        globalBufferRegistry.add(buffer);
+        
         System.out.println("[DEBUG] Created " + (isVertexBuffer ? "vertex" : "index") + " buffer with handle: 0x" + Long.toHexString(buffer.handle().address()) + ", size: " + bufferSize);
         return buffer;
     }
@@ -96,9 +103,11 @@ public class BufferPool {
     }
     
     public void cleanup() {
-        VkBuffer buffer;
-        while ((buffer = availableBuffers.poll()) != null) {
-            buffer.close();
-        }
+        // Just clear the available queue - buffers will be destroyed by BufferManager
+        availableBuffers.clear();
+    }
+    
+    public void forceCleanup() {
+        cleanup();
     }
 }

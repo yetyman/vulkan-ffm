@@ -14,6 +14,10 @@ public class VulkanExtensions {
         VulkanFFM.vkDestroySwapchainKHR(device, swapchain, MemorySegment.NULL);
     }
     
+    public static void destroySurfaceKHR(MemorySegment instance, MemorySegment surface) {
+        VulkanFFM.vkDestroySurfaceKHR(instance, surface, MemorySegment.NULL);
+    }
+    
     public static VkResult getSwapchainImagesKHR(MemorySegment device, MemorySegment swapchain, MemorySegment count, MemorySegment images) {
         int result = VulkanFFM.vkGetSwapchainImagesKHR(device, swapchain, count, images);
         return VkResult.fromInt(result);

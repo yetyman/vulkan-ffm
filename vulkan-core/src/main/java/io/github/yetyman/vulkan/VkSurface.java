@@ -19,6 +19,10 @@ public class VkSurface {
         }
     }
     
+    public static void destroy(MemorySegment instance, MemorySegment surface) {
+        VulkanExtensions.destroySurfaceKHR(instance, surface);
+    }
+    
     private static MemorySegment createWin32Surface(MemorySegment instance, MemorySegment window, Arena arena) {
         return VkWin32Surface.builder(instance)
             .hwnd(getWindowHandle(window))
