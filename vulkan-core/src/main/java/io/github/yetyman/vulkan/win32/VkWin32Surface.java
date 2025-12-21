@@ -1,6 +1,5 @@
 package io.github.yetyman.vulkan.win32;
 
-import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.win32.VkWin32SurfaceCreateInfoKHR;
 import java.lang.foreign.*;

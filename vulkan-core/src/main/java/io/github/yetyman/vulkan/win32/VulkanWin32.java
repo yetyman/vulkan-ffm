@@ -1,4 +1,6 @@
-package io.github.yetyman.vulkan;
+package io.github.yetyman.vulkan.win32;
+
+import io.github.yetyman.vulkan.VkResult;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
@@ -38,7 +40,7 @@ public class VulkanWin32 {
      * @param surfacePtr pointer to store the created VkSurfaceKHR handle
      * @return VkResult indicating success or failure
      */
-    public static VkResult createWin32Surface(MemorySegment instance, MemorySegment createInfo, 
+    public static VkResult createWin32Surface(MemorySegment instance, MemorySegment createInfo,
                                               MemorySegment surfacePtr) {
         try {
             int result = (int) vkCreateWin32SurfaceKHR.invoke(instance, createInfo, MemorySegment.NULL, surfacePtr);

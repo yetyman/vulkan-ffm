@@ -169,7 +169,10 @@ RenderSettings settings = RenderSettings.defaults()
   - InputManager system moved to vulkan-core
   - Sample apps updated to use vulkan-core classes
   - Eliminated ~200 lines of duplicated boilerplate
-- **BaseRenderer**: 🔄 Next - Extract common pipeline code from existing renderers
+- **BaseRenderer**: ✅ **CREATED IN VULKAN-CORE**
+  - Extracted common pipeline code (swapchain, render pass, sync)
+  - NewSimpleRenderer: 80 lines vs 200+ original (60% reduction)
+  - Template method pattern for easy extension
 - **Resource Management**: ⏳ Pending
 - **Model System**: ⏳ Pending
 - **Configuration**: ⏳ Pending

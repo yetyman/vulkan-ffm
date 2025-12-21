@@ -1,10 +1,8 @@
 package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.VulkanApplication;
-import io.github.yetyman.vulkan.input.InputManager;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
-import io.github.yetyman.glfw.GLFW;
 
 /**
  * Simplified triangle app using the enhanced VulkanApplication framework.
@@ -24,30 +22,30 @@ public class SimpleTriangleApp extends VulkanApplication {
     
     @Override
     protected Object createRenderer() {
-        Renderer renderer = new Renderer(vulkanContext().arena(), vulkanContext().device().handle(),
+        SimpleRenderer renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device().handle(),
                                         vulkanContext().graphicsQueue(), surface(), 800, 600);
         renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
-        System.out.println("[OK] Simple renderer initialized");
+        System.out.println("[OK] New simple renderer initialized");
         return renderer;
     }
     
     @Override
     protected void render() {
-        Renderer renderer = renderer();
+        SimpleRenderer renderer = renderer();
         renderer.drawFrame();
     }
     
     @Override
     protected void onResize(int width, int height) {
-        Renderer renderer = renderer();
+        SimpleRenderer renderer = renderer();
         renderer.resize(width, height);
     }
     
     @Override
     protected void shutdown() {
-        Renderer renderer = renderer();
+        SimpleRenderer renderer = renderer();
         if (renderer != null) {
-            renderer.cleanup();
+            renderer.close();
         }
     }
     

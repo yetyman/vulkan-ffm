@@ -10,6 +10,10 @@ public class VkCommandBuffer {
         return new Builder(commandBuffer);
     }
     
+    public static Builder begin(MemorySegment commandBuffer, int usageFlags) {
+        return new Builder(commandBuffer).flags(usageFlags);
+    }
+    
     public static class Builder {
         private final MemorySegment commandBuffer;
         private int flags = 0;
