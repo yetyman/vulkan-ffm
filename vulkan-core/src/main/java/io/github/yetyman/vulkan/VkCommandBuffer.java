@@ -14,6 +14,16 @@ public class VkCommandBuffer {
         return new Builder(commandBuffer).flags(usageFlags);
     }
     
+    public static VkResult reset(MemorySegment commandBuffer) {
+        int result = VulkanFFM.vkResetCommandBuffer(commandBuffer, 0);
+        return VkResult.fromInt(result);
+    }
+    
+    public static VkResult reset(MemorySegment commandBuffer, int flags) {
+        int result = VulkanFFM.vkResetCommandBuffer(commandBuffer, flags);
+        return VkResult.fromInt(result);
+    }
+    
     public static class Builder {
         private final MemorySegment commandBuffer;
         private int flags = 0;
@@ -61,7 +71,8 @@ public class VkCommandBuffer {
             
             VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, inheritanceInfo);
             
-            VulkanExtensions.beginCommandBuffer(commandBuffer, beginInfo).check();
+            int result = VulkanFFM.vkBeginCommandBuffer(commandBuffer, beginInfo);
+            VkResult.fromInt(result).check();
         }
     }
     
@@ -78,6 +89,7 @@ public class VkCommandBuffer {
         private float depthValue = 1.0f;
         private int stencilValue = 0;
         private boolean hasDepthClear = false;
+        private int subpassContents = VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE;
         
         private RenderPassBuilder(MemorySegment commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {
             this.commandBuffer = commandBuffer;
@@ -102,6 +114,11 @@ public class VkCommandBuffer {
             this.depthValue = depth;
             this.stencilValue = stencil;
             this.hasDepthClear = true;
+            return this;
+        }
+        
+        public RenderPassBuilder contents(int contents) {
+            this.subpassContents = contents;
             return this;
         }
         
@@ -133,7 +150,7 @@ public class VkCommandBuffer {
             VkRenderPassBeginInfo.clearValueCount(renderPassInfo, clearValueCount);
             VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValues);
             
-            VulkanExtensions.cmdBeginRenderPass(commandBuffer, renderPassInfo, VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE);
+            VulkanFFM.vkCmdBeginRenderPass(commandBuffer, renderPassInfo, subpassContents);
         }
     }
 }
