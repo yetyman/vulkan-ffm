@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.highlevel.VulkanContext;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 /**
@@ -12,9 +13,9 @@ public class VulkanBuilderExample {
     public static void main(String[] args) {
         try {
             demonstrateBuilders();
-            System.out.println("Builder example completed successfully!");
+            Logger.info("Builder example completed successfully!");
         } catch (Exception e) {
-            System.err.println("Builder example failed: " + e.getMessage());
+            Logger.error("Builder example failed: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -30,10 +31,10 @@ public class VulkanBuilderExample {
                 .deviceExtensions("VK_KHR_swapchain")
                 .build();
             
-            System.out.println("✓ VulkanContext created");
+            Logger.info("✓ VulkanContext created");
             
             // Skip swapchain creation (requires real surface)
-            System.out.println("✓ Skipping swapchain (no real surface)");
+            Logger.info("✓ Skipping swapchain (no real surface)");
             
             // Create render pass with complex configuration
             VkRenderPass renderPass = VkRenderPass.builder()
@@ -49,10 +50,10 @@ public class VulkanBuilderExample {
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                     0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
                 .build(arena);
-            System.out.println("✓ VkRenderPass created");
+            Logger.info("✓ VkRenderPass created");
             
             // Skip pipeline creation (requires valid shaders)
-            System.out.println("✓ Skipping pipeline (no valid shaders)");
+            Logger.info("✓ Skipping pipeline (no valid shaders)");
             
             // Create descriptor set layout
             VkDescriptorSetLayout descriptorLayout = VkDescriptorSetLayout.builder()
@@ -60,7 +61,7 @@ public class VulkanBuilderExample {
                 .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT)
                 .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(arena);
-            System.out.println("✓ VkDescriptorSetLayout created");
+            Logger.info("✓ VkDescriptorSetLayout created");
             
             // Create descriptor pool
             VkDescriptorPool descriptorPool = VkDescriptorPool.builder()
@@ -70,13 +71,13 @@ public class VulkanBuilderExample {
                 .combinedImageSamplers(10)
                 .freeDescriptorSet()
                 .build(arena);
-            System.out.println("✓ VkDescriptorPool created");
+            Logger.info("✓ VkDescriptorPool created");
             
             // Create buffers using context convenience methods
             VkBuffer vertexBuffer = context.createVertexBuffer(1024);
             VkBuffer uniformBuffer = context.createUniformBuffer(256);
             VkBuffer stagingBuffer = context.createStagingBuffer(1024);
-            System.out.println("✓ VkBuffers created");
+            Logger.info("✓ VkBuffers created");
             
             // Create synchronization objects
             VkSemaphore imageAvailable = VkSemaphore.builder()
@@ -87,7 +88,7 @@ public class VulkanBuilderExample {
                 .device(context.device().handle())
                 .signaled(true)
                 .build(arena);
-            System.out.println("✓ Synchronization objects created");
+            Logger.info("✓ Synchronization objects created");
             
             // Create command pool
             VkCommandPool commandPool = VkCommandPool.builder()
@@ -95,7 +96,7 @@ public class VulkanBuilderExample {
                 .queueFamilyIndex(context.graphicsQueueFamily())
                 .resetCommandBufferBit()
                 .build(arena);
-            System.out.println("✓ VkCommandPool created");
+            Logger.info("✓ VkCommandPool created");
             
             // Clean up resources
             commandPool.close();
@@ -108,7 +109,7 @@ public class VulkanBuilderExample {
             descriptorLayout.close();
             renderPass.close();
             context.close();
-            System.out.println("✓ All resources cleaned up");
+            Logger.info("✓ All resources cleaned up");
         }
     }
 }

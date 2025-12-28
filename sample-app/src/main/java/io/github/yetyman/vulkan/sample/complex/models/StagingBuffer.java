@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkResult;
+import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -29,13 +30,13 @@ public class StagingBuffer {
         Arena mappingArena = Arena.ofShared();
         MemorySegment mappedPtr = mappingArena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
         
-        System.out.println("[STAGING] Mapping memory - device: " + device + ", memory: " + buffer.memory() + ", size: " + size);
+        Logger.debug("Mapping memory - device: " + device + ", memory: " + buffer.memory() + ", size: " + size);
         VkResult mapResult = io.github.yetyman.vulkan.VulkanExtensions.mapMemory(device, buffer.memory(), 0, size, 0, mappedPtr);
         mapResult.check();
         
         MemorySegment rawPointer = mappedPtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);
         this.mappedMemory = rawPointer.reinterpret(size, mappingArena, null);
-        System.out.println("[STAGING] Mapped memory segment: " + mappedMemory + ", byteSize: " + mappedMemory.byteSize());
+        Logger.debug("Mapped memory segment: " + mappedMemory + ", byteSize: " + mappedMemory.byteSize());
     }
     
     /**

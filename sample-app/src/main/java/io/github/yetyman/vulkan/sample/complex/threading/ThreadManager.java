@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
+import io.github.yetyman.vulkan.util.Logger;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -114,12 +115,12 @@ public class ThreadManager implements AutoCloseable {
         }
         
         currentThreadCount.set(count);
-        System.out.println("[THREADS] Adjusted to " + count + " threads");
+        Logger.debug("Adjusted to " + count + " threads");
     }
     
     public void setMode(Mode mode) {
         this.mode = mode;
-        System.out.println("[MODE] Switched to " + mode);
+        Logger.debug("Switched to " + mode);
     }
     
     public int getActiveThreads() {

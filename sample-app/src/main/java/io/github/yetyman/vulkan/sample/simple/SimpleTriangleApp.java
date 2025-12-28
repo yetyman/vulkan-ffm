@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sample.simple;
 import io.github.yetyman.vulkan.VulkanApplication;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
+import io.github.yetyman.vulkan.util.Logger;
 
 /**
  * Simplified triangle app using the enhanced VulkanApplication framework.
@@ -17,7 +18,7 @@ public class SimpleTriangleApp extends VulkanApplication {
     @Override
     protected void initialize() {
         // Context is fully ready - can query device capabilities here
-        System.out.println("[OK] Context ready for renderer creation");
+        Logger.info("Context ready for renderer creation");
     }
     
     @Override
@@ -25,7 +26,7 @@ public class SimpleTriangleApp extends VulkanApplication {
         SimpleRenderer renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device().handle(),
                                         vulkanContext().graphicsQueue(), surface(), 800, 600);
         renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
-        System.out.println("[OK] New simple renderer initialized");
+        Logger.info("New simple renderer initialized");
         return renderer;
     }
     
@@ -51,14 +52,14 @@ public class SimpleTriangleApp extends VulkanApplication {
     
     @Override
     protected void onFPSUpdate(int fps) {
-        System.out.printf("FPS: %d%n", fps);
+        Logger.info(String.format("FPS: %d", fps));
     }
     
     public static void main(String[] args) {
         try (SimpleTriangleApp app = new SimpleTriangleApp()) {
             app.run();
         } catch (Exception e) {
-            System.err.println("Application error: " + e.getMessage());
+            Logger.error("Application error: " + e.getMessage());
             e.printStackTrace();
         }
     }

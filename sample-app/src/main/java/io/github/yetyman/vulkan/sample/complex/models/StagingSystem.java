@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkBufferCopy;
 import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.VulkanExtensions;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -36,7 +37,7 @@ public class StagingSystem {
             try {
                 StagingBuffer stagingBuffer = new StagingBuffer(this.arena, device, physicalDevice, STAGING_BUFFER_SIZE);
                 availableStagingBuffers.offer(stagingBuffer);
-                System.out.println("[STAGING] Created staging buffer " + i + " with size " + STAGING_BUFFER_SIZE);
+                Logger.debug("Created staging buffer " + i + " with size " + STAGING_BUFFER_SIZE);
             } catch (Exception e) {
                 System.err.println("[STAGING] Failed to create staging buffer " + i + ": " + e.getMessage());
             }
@@ -52,7 +53,7 @@ public class StagingSystem {
             // Create new staging buffer if none available
             try {
                 stagingBuffer = new StagingBuffer(this.arena, device, physicalDevice, STAGING_BUFFER_SIZE);
-                System.out.println("[STAGING] Created new staging buffer on demand");
+                Logger.debug("Created new staging buffer on demand");
             } catch (Exception e) {
                 System.err.println("[STAGING] Failed to create staging buffer on demand: " + e.getMessage());
                 return -1;
@@ -81,7 +82,7 @@ public class StagingSystem {
             vertexOffset, vertexData.byteSize(), indexOffset, indexData.byteSize());
         pendingCopies.offer(request);
         
-        System.out.println("[STAGING] Staged data for request " + requestId + 
+        Logger.debug("Staged data for request " + requestId + 
                           " (V:" + vertexData.byteSize() + ", I:" + indexData.byteSize() + ")");
         return requestId;
     }
@@ -100,7 +101,7 @@ public class StagingSystem {
             
             if (vertexBuffer != null && indexBuffer != null) {
                 copyBufferData(request, vertexBuffer, indexBuffer);
-                System.out.println("[STAGING] Copied request " + request.requestId + " to GPU buffers");
+                Logger.debug("Copied request " + request.requestId + " to GPU buffers");
                 
                 // Store buffer handles in request for retrieval
                 request.deviceVertexBuffer = vertexBuffer;
@@ -259,7 +260,7 @@ public class StagingSystem {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting StagingSystem cleanup");
+            Logger.debug("Device idle - starting StagingSystem cleanup");
         }
         
         bufferManager.cleanup();
@@ -268,7 +269,7 @@ public class StagingSystem {
             buffer.close();
         }
         
-        System.out.println("[OK] StagingSystem cleanup complete");
+        Logger.debug("StagingSystem cleanup complete");
     }
     
     /**

@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 public class VulkanExample {
@@ -33,15 +34,15 @@ public class VulkanExample {
             result.check();
             
             MemorySegment instance = instancePtr.get(ValueLayout.ADDRESS, 0);
-            System.out.println("Vulkan instance created successfully!");
+            Logger.info("Vulkan instance created successfully!");
             
             MemorySegment deviceCount = arena.allocate(ValueLayout.JAVA_INT);
             Vulkan.enumeratePhysicalDevices(instance, deviceCount, MemorySegment.NULL).check();
             int count = deviceCount.get(ValueLayout.JAVA_INT, 0);
-            System.out.println("Physical devices found: " + count);
+            Logger.info("Physical devices found: " + count);
             
             Vulkan.destroyInstance(instance);
-            System.out.println("Vulkan instance destroyed");
+            Logger.info("Vulkan instance destroyed");
         }
     }
 }

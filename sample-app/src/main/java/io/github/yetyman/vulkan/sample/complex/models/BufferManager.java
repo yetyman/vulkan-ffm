@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.HashMap;
@@ -102,11 +103,11 @@ public class BufferManager {
     }
     
     public void printStats() {
-        System.out.println("[BUFFER] Pool Statistics:");
+        Logger.debug("Pool Statistics:");
         for (long size : BUFFER_SIZES) {
             BufferPool vPool = vertexPools.get(size);
             BufferPool iPool = indexPools.get(size);
-            System.out.println("  " + (size / 1024) + "KB: V=" + vPool.getTotalUsed() + "/" + vPool.getTotalAllocated() + 
+            Logger.debug("  " + (size / 1024) + "KB: V=" + vPool.getTotalUsed() + "/" + vPool.getTotalAllocated() + 
                              ", I=" + iPool.getTotalUsed() + "/" + iPool.getTotalAllocated());
         }
     }
@@ -115,11 +116,11 @@ public class BufferManager {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting BufferManager cleanup");
+            Logger.debug("Device idle - starting BufferManager cleanup");
         }
         
         // Destroy ALL buffers from global registry
-        System.out.println("[BUFFER] Destroying " + allBuffers.size() + " total buffers");
+        Logger.debug("Destroying " + allBuffers.size() + " total buffers");
         for (VkBuffer buffer : allBuffers) {
             buffer.close();
         }
@@ -133,6 +134,6 @@ public class BufferManager {
             pool.cleanup();
         }
         
-        System.out.println("[OK] BufferManager cleanup complete");
+        Logger.debug("BufferManager cleanup complete");
     }
 }

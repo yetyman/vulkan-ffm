@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.highlevel.VulkanContext;
 import io.github.yetyman.vulkan.input.InputManager;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 import java.util.function.Consumer;
 
@@ -11,7 +12,7 @@ public abstract class VulkanApplication implements AutoCloseable {
         public boolean enableInput = true;
         public boolean enableLogging = true;
         public boolean resizable = true;
-        public Consumer<String> logger = System.out::println;
+        public Consumer<String> logger = Logger::info;
         public WindowSystem windowSystem;
         public io.github.yetyman.vulkan.input.InputSystem inputSystem;
         
@@ -79,7 +80,7 @@ public abstract class VulkanApplication implements AutoCloseable {
         }
         
         config.windowSystem.setResizeCallback(window, this::onFramebufferResize, Arena.global());
-        log("[OK] Window created");
+        log("Window created");
     }
     
     private void initVulkan() {
@@ -100,14 +101,14 @@ public abstract class VulkanApplication implements AutoCloseable {
             
             vulkanContext = builder.build();
             surface = config.windowSystem.createSurface(vulkanContext.instance().handle(), window, vulkanContext.arena());
-            log("[OK] Vulkan initialized");
+            log("Vulkan initialized");
         }
     }
     
     private void initInput() {
         inputManager = new InputManager(window, config.inputSystem);
         configureInput(inputManager);
-        log("[OK] Input system initialized");
+        log("Input system initialized");
     }
     
     private void mainLoop() {
@@ -159,7 +160,7 @@ public abstract class VulkanApplication implements AutoCloseable {
             
             if (newWidth > 0 && newHeight > 0) {
                 onResize(newWidth, newHeight);
-                log("[OK] Resized to " + newWidth + "x" + newHeight);
+                log("Resized to " + newWidth + "x" + newHeight);
             }
         }
     }
@@ -203,7 +204,7 @@ public abstract class VulkanApplication implements AutoCloseable {
         }
         
         config.windowSystem.terminate();
-        log("[OK] Application cleanup complete");
+        log("Application cleanup complete");
     }
     
     // Protected accessors

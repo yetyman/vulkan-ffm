@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.*;
@@ -60,7 +61,7 @@ public class AsyncGeometryStreamer {
         }
         
         if (loadRequests > 0 || unloadRequests > 0) {
-            System.out.println("[STREAM] Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
+            Logger.load("Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
         }
     }
     
@@ -77,7 +78,7 @@ public class AsyncGeometryStreamer {
                 // Process loads if we have budget
                 ModelData toLoad = loadQueue.poll();
                 if (toLoad != null && currentGPUUsage.get() < GPU_MEMORY_BUDGET) {
-                    System.out.println("[STREAM] Processing GPU load for model " + toLoad.getModelId());
+                    Logger.load("Processing GPU load for model " + toLoad.getModelId());
                     loadToGPU(toLoad);
                     toLoad.setPendingGPULoad(false);
                 }
@@ -103,20 +104,20 @@ public class AsyncGeometryStreamer {
             Arena tempArena = Arena.ofShared();
             
             // Get actual geometry data from the loaded glTF model
-            System.out.println("[STREAM] Using actual glTF geometry data for model " + modelData.getModelId());
+            Logger.load("Using actual glTF geometry data for model " + modelData.getModelId());
             
             // Get vertex and index data from the model
             float[] vertices = modelData.getVertices();
             int[] indices = modelData.getIndices();
             
             if (vertices == null || indices == null) {
-                System.out.println("[STREAM] ERROR: Model geometry data is null! vertices=" + vertices + ", indices=" + indices);
+                Logger.error("Model geometry data is null! vertices=" + vertices + ", indices=" + indices);
                 return;
             }
             
-            System.out.println("[STREAM] Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
-            System.out.println("[STREAM] First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
-            System.out.println("[STREAM] First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
+            Logger.load("Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
+            Logger.load("First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
+            Logger.load("First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
             
             // Create vertex data buffer
             MemorySegment vertexData = tempArena.allocate(vertices.length * 4); // 4 bytes per float
@@ -134,11 +135,11 @@ public class AsyncGeometryStreamer {
             int requestId = stagingSystem.stageVertexData(vertexData, indexData);
             if (requestId != -1) {
                 modelToRequestMap.put(modelData.getModelId(), requestId);
-                System.out.println("[STREAM] Staged model " + modelData.getModelId() + " with request " + requestId);
+                Logger.load("Staged model " + modelData.getModelId() + " with request " + requestId);
             }
             
         } catch (Exception e) {
-            System.err.println("[STREAM] Failed to stage model data: " + e.getMessage());
+            Logger.error("Failed to stage model data: " + e.getMessage());
         }
         
         long bufferSize = estimateBufferSize(modelData);
@@ -151,7 +152,7 @@ public class AsyncGeometryStreamer {
         if (!modelData.isGPUResident()) return;
         
         try {
-            System.out.println("[STREAM] Unloading model ID " + modelData.getModelId() + " from GPU");
+            Logger.load("Unloading model ID " + modelData.getModelId() + " from GPU");
             
             LODModel lodModel = modelData.getLodModel();
             if (lodModel != null) {
@@ -167,7 +168,7 @@ public class AsyncGeometryStreamer {
             modelData.setGPUResident(false);
             
         } catch (Exception e) {
-            System.err.println("[STREAM] Failed to unload geometry from GPU: " + e.getMessage());
+            Logger.error("Failed to unload geometry from GPU: " + e.getMessage());
         }
     }
     
@@ -196,7 +197,7 @@ public class AsyncGeometryStreamer {
             StagingSystem.CopyRequest request = stagingSystem.getCompletedRequest(requestId);
             if (request != null && request.completed) {
                 updateModelGPUBuffers(modelId, request, modelDataArray);
-                System.out.println("[STREAM] Completed GPU load for model " + modelId);
+                Logger.load("Completed GPU load for model " + modelId);
                 return true; // Remove from map
             }
             return false; // Keep in map
@@ -206,22 +207,22 @@ public class AsyncGeometryStreamer {
     private void updateModelGPUBuffers(int modelId, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
         ModelData modelData = modelDataArray[modelId];
         if (modelData != null && modelData.getLodModel() != null) {
-            System.out.println("[STREAM] Getting handles from VkBuffer objects:");
-            System.out.println("[STREAM] request.deviceVertexBuffer: " + request.deviceVertexBuffer);
-            System.out.println("[STREAM] request.deviceIndexBuffer: " + request.deviceIndexBuffer);
+            Logger.load("Getting handles from VkBuffer objects:");
+            Logger.load("request.deviceVertexBuffer: " + request.deviceVertexBuffer);
+            Logger.load("request.deviceIndexBuffer: " + request.deviceIndexBuffer);
             
             MemorySegment vertexBuffer = request.deviceVertexBuffer.handle();
             MemorySegment indexBuffer = request.deviceIndexBuffer.handle();
-            System.out.println("[STREAM] VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
+            Logger.load("VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
             
             // Set GPU buffers on ALL LOD levels (they all use the same geometry for now)
             LODModel lodModel = modelData.getLodModel();
             for (int i = 0; i < lodModel.getLODCount(); i++) {
                 LODLevel lodLevel = lodModel.getLOD(i);
-                System.out.println("[STREAM] Calling setGPUBuffers on LOD level " + i);
+                Logger.load("Calling setGPUBuffers on LOD level " + i);
                 lodLevel.setGPUBuffers(vertexBuffer, indexBuffer);
             }
-            System.out.println("[STREAM] Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
+            Logger.load("Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
         }
     }
     
@@ -233,7 +234,7 @@ public class AsyncGeometryStreamer {
             VkBuffer buffer = stagingSystem.createImmediateBuffer(data);
             return buffer != null ? buffer.handle() : MemorySegment.NULL;
         } catch (Exception e) {
-            System.err.println("[STREAM] Failed to create test buffer: " + e.getMessage());
+            Logger.error("Failed to create test buffer: " + e.getMessage());
             return MemorySegment.NULL;
         }
     }
@@ -242,12 +243,12 @@ public class AsyncGeometryStreamer {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting AsyncGeometryStreamer cleanup");
+            Logger.info("Device idle - starting AsyncGeometryStreamer cleanup");
         }
         
         loadingThread.shutdown();
         stagingSystem.cleanup();
         
-        System.out.println("[OK] AsyncGeometryStreamer cleanup complete");
+        Logger.info("AsyncGeometryStreamer cleanup complete");
     }
 }

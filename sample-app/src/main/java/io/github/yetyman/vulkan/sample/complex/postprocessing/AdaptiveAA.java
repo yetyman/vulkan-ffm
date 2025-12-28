@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sample.complex.postprocessing;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 public class AdaptiveAA {
@@ -411,7 +412,7 @@ public class AdaptiveAA {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting AdaptiveAA cleanup");
+            Logger.debug("Device idle - starting AdaptiveAA cleanup");
         }
         
         // Clean up descriptor resources
@@ -442,7 +443,7 @@ public class AdaptiveAA {
         if (edgeTarget != null) edgeTarget.close();
         if (previousFrame != null) previousFrame.close();
         
-        System.out.println("[OK] AdaptiveAA cleanup complete");
+        Logger.debug("AdaptiveAA cleanup complete");
     }
     
     private int findSupportedDepthFormat() {

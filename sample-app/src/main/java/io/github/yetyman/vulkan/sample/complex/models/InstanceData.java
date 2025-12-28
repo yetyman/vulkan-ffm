@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -124,6 +125,6 @@ public class InstanceData {
         if (matricesBuffer != null) {
             matricesBuffer.close();
         }
-        System.out.println("[OK] InstanceData cleanup complete");
+        Logger.debug("InstanceData cleanup complete");
     }
 }

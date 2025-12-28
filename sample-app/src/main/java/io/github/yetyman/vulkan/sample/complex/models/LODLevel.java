@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.BufferHandle;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -41,10 +42,10 @@ public class LODLevel {
     }
     
     public void setGPUBuffers(MemorySegment vertexBuf, MemorySegment indexBuf) {
-        System.out.println("[LOD] setGPUBuffers called with vertex: 0x" + Long.toHexString(vertexBuf.address()) + ", index: 0x" + Long.toHexString(indexBuf.address()));
+        Logger.lod("setGPUBuffers called with vertex: 0x" + Long.toHexString(vertexBuf.address()) + ", index: 0x" + Long.toHexString(indexBuf.address()));
         this.vertexBuffer = vertexBuf;
         this.indexBuffer = indexBuf;
-        System.out.println("[LOD] Setting BufferHandle vertex (id=" + vertexBufferHandle.getHandleId() + ") and index (id=" + indexBufferHandle.getHandleId() + ")");
+        Logger.lod("Setting BufferHandle vertex (id=" + vertexBufferHandle.getHandleId() + ") and index (id=" + indexBufferHandle.getHandleId() + ")");
         this.vertexBufferHandle.setVkBuffer(vertexBuf);
         this.indexBufferHandle.setVkBuffer(indexBuf);
     }

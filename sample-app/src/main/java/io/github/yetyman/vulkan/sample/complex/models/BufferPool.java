@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.Set;
@@ -82,7 +83,7 @@ public class BufferPool {
         // Register buffer globally
         globalBufferRegistry.add(buffer);
         
-        System.out.println("[DEBUG] Created " + (isVertexBuffer ? "vertex" : "index") + " buffer with handle: 0x" + Long.toHexString(buffer.handle().address()) + ", size: " + bufferSize);
+        Logger.debug("Created " + (isVertexBuffer ? "vertex" : "index") + " buffer with handle: 0x" + Long.toHexString(buffer.handle().address()) + ", size: " + bufferSize);
         return buffer;
     }
     

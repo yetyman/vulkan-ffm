@@ -5,6 +5,7 @@ import io.github.yetyman.vulkan.BufferHandle;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
+import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -50,7 +51,7 @@ public class LODRenderer {
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
         // Bind glTF pipeline
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline);
-        System.out.println("[LOD] Using glTF pipeline: " + gltfPipeline);
+        Logger.lod("Using glTF pipeline: " + gltfPipeline);
         if (staticBatches.isEmpty()) return;
         
         // Update geometry streaming (transparent to user)
@@ -79,7 +80,7 @@ public class LODRenderer {
             }
         }
         
-        System.out.println("[LOD] Executed batches, " + totalTriangles + " triangles");
+        Logger.lod("Executed batches, " + totalTriangles + " triangles");
     }
     
     private void renderBatchDirectly(MemorySegment commandBuffer, StaticBatch batch, Arena frameArena) {
@@ -87,7 +88,7 @@ public class LODRenderer {
         
         // Check if buffers are valid before binding
         if (!lodLevel.hasGPUBuffers()) {
-            System.out.println("[DEBUG] LODLevel has no GPU buffers, skipping");
+            Logger.debug("LODLevel has no GPU buffers, skipping");
             return; // Skip silently - buffers not ready yet
         }
         
@@ -95,18 +96,18 @@ public class LODRenderer {
         BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
         BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
         
-        System.out.println("[RENDER] Got BufferHandles - vertex id=" + (vertexHandle != null ? vertexHandle.getHandleId() : "null") + ", index id=" + (indexHandle != null ? indexHandle.getHandleId() : "null"));
+        Logger.render("Got BufferHandles - vertex id=" + (vertexHandle != null ? vertexHandle.getHandleId() : "null") + ", index id=" + (indexHandle != null ? indexHandle.getHandleId() : "null"));
         
         if (vertexHandle == null || indexHandle == null || !vertexHandle.isReady() || !indexHandle.isReady()) {
-            System.out.println("[RENDER] Buffers not ready - vertex ready=" + (vertexHandle != null ? vertexHandle.isReady() : "null") + ", index ready=" + (indexHandle != null ? indexHandle.isReady() : "null"));
+            Logger.render("Buffers not ready - vertex ready=" + (vertexHandle != null ? vertexHandle.isReady() : "null") + ", index ready=" + (indexHandle != null ? indexHandle.isReady() : "null"));
             return; // Buffers not ready yet
         }
         
         // Use encoded handles directly
-        System.out.println("[RENDER] Getting handles from BufferHandle objects:");
+        Logger.render("Getting handles from BufferHandle objects:");
         MemorySegment encodedVertexBuffer = vertexHandle.handle();
         MemorySegment encodedIndexBuffer = indexHandle.handle();
-        System.out.println("[RENDER] Final encoded handles - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+        Logger.render("Final encoded handles - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
         
         // Bind vertex buffer (binding 0) - store the handle address value
         MemorySegment vertexBuffers = frameArena.allocate(ValueLayout.ADDRESS);
@@ -114,13 +115,13 @@ public class LODRenderer {
         MemorySegment vertexOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
         vertexOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
         
-        System.out.println("[DEBUG] Setting buffers - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+        Logger.debug("Setting buffers - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
         
         VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets);
         
         // Bind instance data buffer (binding 1) - now it's a proper VkBuffer
         MemorySegment matrixBuffer = instanceData.getMatricesBuffer();
-        System.out.println("[DEBUG] Matrix buffer handle: 0x" + Long.toHexString(matrixBuffer.address()) + " (now encoded VkBuffer handle)");
+        Logger.debug("Matrix buffer handle: 0x" + Long.toHexString(matrixBuffer.address()) + " (now encoded VkBuffer handle)");
         
         MemorySegment instanceBuffers = frameArena.allocate(ValueLayout.ADDRESS);
         instanceBuffers.set(ValueLayout.ADDRESS, 0, matrixBuffer);
@@ -133,23 +134,23 @@ public class LODRenderer {
         
         // Draw indexed for each enabled instance in this batch
         int enabledCount = getEnabledInstanceCount(batch);
-        System.out.println("[DRAW] About to draw - enabledCount: " + enabledCount + ", indexCount: " + lodLevel.indexCount());
+        Logger.draw("About to draw - enabledCount: " + enabledCount + ", indexCount: " + lodLevel.indexCount());
         if (enabledCount > 0) {
             // Get instance positions for debugging
             int[] batchInstances = batch.getInstanceIds();
             for (int instanceId : batchInstances) {
                 if (instanceId < modelDataArray.length && modelDataArray[instanceId] != null) {
                     float[] pos = modelDataArray[instanceId].getTransform().getPosition();
-                    System.out.println("[LOD] Instance " + instanceId + " at position: (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ")");
+                    Logger.lod("Instance " + instanceId + " at position: (" + pos[0] + ", " + pos[1] + ", " + pos[2] + ")");
                 }
             }
-            System.out.println("[DRAW] Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
-            System.out.println("[DRAW] Vertex buffer: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", Index buffer: 0x" + Long.toHexString(encodedIndexBuffer.address()));
-            System.out.println("[DRAW] Matrix buffer: 0x" + Long.toHexString(matrixBuffer.address()));
+            Logger.draw("Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
+            Logger.draw("Vertex buffer: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", Index buffer: 0x" + Long.toHexString(encodedIndexBuffer.address()));
+            Logger.draw("Matrix buffer: 0x" + Long.toHexString(matrixBuffer.address()));
             VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
-            System.out.println("[DRAW] Draw call completed");
+            Logger.draw("Draw call completed");
         } else {
-            System.out.println("[DRAW] No enabled instances to draw");
+            Logger.draw("No enabled instances to draw");
         }
     }
     
@@ -186,7 +187,7 @@ public class LODRenderer {
             float m03 = matrix.get(ValueLayout.JAVA_FLOAT, 3 * 4); // translation X
             float m13 = matrix.get(ValueLayout.JAVA_FLOAT, 7 * 4); // translation Y
             float m23 = matrix.get(ValueLayout.JAVA_FLOAT, 11 * 4); // translation Z
-            System.out.println("[MATRIX] Instance " + instanceId + " scale=[" + m00 + "," + m11 + "," + m22 + "] pos=[" + m03 + "," + m13 + "," + m23 + "]");
+            Logger.matrix("Instance " + instanceId + " scale=[" + m00 + "," + m11 + "," + m22 + "] pos=[" + m03 + "," + m13 + "," + m23 + "]");
         }
     }
     
@@ -266,12 +267,12 @@ public class LODRenderer {
                     mainThreadWorkQueue.enqueue(() -> createCommandBufferForLOD(lodLevel))
                         .thenAccept(commandBuffer -> {
                             addStaticBatch(lodLevel, commandBuffer, new int[]{instanceId});
-                            System.out.println("[LOD] Created static batch for LOD level " + lodIndex + " of model " + modelData.getModelId());
+                            Logger.lod("Created static batch for LOD level " + lodIndex + " of model " + modelData.getModelId());
                         });
                 } else {
                     // Fallback to placeholder
                     addStaticBatch(lodLevel, MemorySegment.NULL, new int[]{instanceId});
-                    System.out.println("[LOD] Created placeholder batch for LOD level " + i + " of model " + modelData.getModelId());
+                    Logger.lod("Created placeholder batch for LOD level " + i + " of model " + modelData.getModelId());
                 }
             }
         }
@@ -282,7 +283,7 @@ public class LODRenderer {
         /*
         // This runs on main thread and can access Vulkan resources
         if (!lodLevel.hasGPUBuffers()) {
-            System.out.println("[LOD] LOD level has no GPU buffers, skipping command buffer creation");
+            Logger.lod("LOD level has no GPU buffers, skipping command buffer creation");
             return MemorySegment.NULL;
         }
         
@@ -317,7 +318,7 @@ public class LODRenderer {
             
             VulkanExtensions.endCommandBuffer(commandBuffer).check();
             
-            System.out.println("[LOD] Created command buffer for LOD level with " + lodLevel.indexCount() + " indices");
+            Logger.lod("Created command buffer for LOD level with " + lodLevel.indexCount() + " indices");
             return commandBuffer;
             
         } catch (Exception e) {
@@ -327,7 +328,7 @@ public class LODRenderer {
         */
         
         // Temporary: Skip command buffer creation, use direct rendering fallback
-        System.out.println("[LOD] Skipping command buffer creation, using direct rendering");
+        Logger.lod("Skipping command buffer creation, using direct rendering");
         return MemorySegment.NULL;
     }
     
@@ -368,7 +369,7 @@ public class LODRenderer {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             Vulkan.deviceWaitIdle(device).check();
-            System.out.println("[OK] Device idle - starting LODRenderer cleanup");
+            Logger.info("Device idle - starting LODRenderer cleanup");
         }
         
         // Clean up geometry streamer and GLTF loader
@@ -380,7 +381,7 @@ public class LODRenderer {
             instanceData.cleanup();
         }
         
-        System.out.println("[OK] LODRenderer cleanup complete");
+        Logger.info("LODRenderer cleanup complete");
     }
     
     public void shutdown() {
@@ -407,7 +408,7 @@ public class LODRenderer {
     public void renderTestTriangle(MemorySegment commandBuffer, Arena frameArena) {
         // Create static buffers only once
         if (staticVertexBuffer.equals(MemorySegment.NULL)) {
-            System.out.println("[DEBUG] Creating new glTF test buffers");
+            Logger.debug("Creating new glTF test buffers");
             float[] vertices = {
                 -0.8f, -0.8f, 0.2f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f, // vertex 0
                  0.8f, -0.8f, 0.2f,  0.0f, 0.0f, 1.0f,  1.0f, 0.0f, // vertex 1
@@ -437,9 +438,9 @@ public class LODRenderer {
             
             VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 2, buffers, offsets);
             VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-            System.out.println("[DEBUG] Drew glTF test triangle with buffers");
+            Logger.debug("Drew glTF test triangle with buffers");
         } else {
-            System.out.println("[DEBUG] glTF test triangle buffers are NULL");
+            Logger.debug("glTF test triangle buffers are NULL");
         }
     }
     
@@ -454,10 +455,10 @@ public class LODRenderer {
                 0.0f, 0.0f, 1.0f, 0.0f,
                 0.0f, 0.0f, 0.0f, 1.0f
             };
-            System.out.println("[DEBUG] Matrix data: [" + matrix[0] + ", " + matrix[1] + ", " + matrix[2] + ", " + matrix[3] + "]");
-            System.out.println("[DEBUG] Matrix data: [" + matrix[4] + ", " + matrix[5] + ", " + matrix[6] + ", " + matrix[7] + "]");
-            System.out.println("[DEBUG] Matrix data: [" + matrix[8] + ", " + matrix[9] + ", " + matrix[10] + ", " + matrix[11] + "]");
-            System.out.println("[DEBUG] Matrix data: [" + matrix[12] + ", " + matrix[13] + ", " + matrix[14] + ", " + matrix[15] + "]");
+            Logger.debug("Matrix data: [" + matrix[0] + ", " + matrix[1] + ", " + matrix[2] + ", " + matrix[3] + "]");
+            Logger.debug("Matrix data: [" + matrix[4] + ", " + matrix[5] + ", " + matrix[6] + ", " + matrix[7] + "]");
+            Logger.debug("Matrix data: [" + matrix[8] + ", " + matrix[9] + ", " + matrix[10] + ", " + matrix[11] + "]");
+            Logger.debug("Matrix data: [" + matrix[12] + ", " + matrix[13] + ", " + matrix[14] + ", " + matrix[15] + "]");
             staticInstanceBuffer = geometryStreamer.createTestBuffer(matrix);
         }
         
@@ -470,9 +471,9 @@ public class LODRenderer {
             
             // Bind instance buffer at binding 1 (which maps to locations 3-6 for mat4)
             VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, buffers, offsets);
-            System.out.println("[DEBUG] Bound instance buffer at binding 1");
+            Logger.debug("Bound instance buffer at binding 1");
         } else {
-            System.out.println("[DEBUG] Instance buffer is NULL");
+            Logger.debug("Instance buffer is NULL");
         }
     }
     

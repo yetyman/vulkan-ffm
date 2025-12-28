@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 public class SimpleRenderer extends BaseRenderer {
@@ -39,7 +40,7 @@ public class SimpleRenderer extends BaseRenderer {
     @Override
     protected void initializeResources(MemorySegment physicalDevice, int queueFamilyIndex) {
         createGraphicsPipeline();
-        System.out.println("[OK] Simple renderer initialized");
+        Logger.info("Simple renderer initialized");
     }
     
     private void createGraphicsPipeline() {

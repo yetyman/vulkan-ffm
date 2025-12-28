@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import de.javagl.jgltf.model.*;
 import de.javagl.jgltf.model.io.GltfModelReader;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.nio.file.Paths;
 import java.util.concurrent.*;
@@ -31,18 +32,18 @@ public class GLTFLoader {
      * @return CompletableFuture that resolves to ModelData when loaded
      */
     public CompletableFuture<ModelData> loadModel(String filePath) {
-        System.out.println("[GLTF] Queuing load for: " + filePath);
+        Logger.load("Queuing load for: " + filePath);
         CompletableFuture<ModelData> promise = new CompletableFuture<>();
         
         // Queue loading on background thread
         loadingThread.submit(() -> {
             try {
-                System.out.println("[GLTF] Starting load: " + filePath);
+                Logger.load("Starting load: " + filePath);
                 ModelData modelData = loadModelSync(filePath);
-                System.out.println("[GLTF] Load complete: " + filePath);
+                Logger.load("Load complete: " + filePath);
                 promise.complete(modelData);
             } catch (Exception e) {
-                System.err.println("[GLTF] Load failed: " + filePath + " - " + e.getMessage());
+                Logger.error("Load failed: " + filePath + " - " + e.getMessage());
                 e.printStackTrace();
                 promise.completeExceptionally(e);
             }
@@ -55,26 +56,26 @@ public class GLTFLoader {
         // Create ModelData with unique ID
         int modelId = nextModelId.getAndIncrement();
         ModelData modelData = new ModelData(modelId);
-        System.out.println("[GLTF] Created ModelData with ID: " + modelId);
+        Logger.load("Created ModelData with ID: " + modelId);
         
         // Parse glTF file
-        System.out.println("[GLTF] Parsing glTF file: " + filePath);
+        Logger.load("Parsing glTF file: " + filePath);
         GLTFData gltfData = parseGLTF(filePath);
-        System.out.println("[GLTF] Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
+        Logger.load("Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
         
         // Convert to LOD model using background thread arena
-        System.out.println("[GLTF] Generating LOD levels...");
+        Logger.load("Generating LOD levels...");
         try (Arena backgroundArena = Arena.ofConfined()) {
             LODConverter lodConverter = new LODConverter(backgroundArena);
             LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
-            System.out.println("[GLTF] Generated " + lodModel.getLODCount() + " LOD levels");
+            Logger.load("Generated " + lodModel.getLODCount() + " LOD levels");
             
             // Create initial transform
             TransformationMatrix transform = new TransformationMatrix();
             
             // Load into ModelData with geometry data
             modelData.loadModel(lodModel, transform, gltfData.vertices, gltfData.indices);
-            System.out.println("[GLTF] ModelData loaded and ready");
+            Logger.load("ModelData loaded and ready");
         }
         
         return modelData;
@@ -94,7 +95,7 @@ public class GLTFLoader {
         
         // Extract first mesh data (robust parsing)
         SceneModel scene = gltfModel.getSceneModels().get(0);
-        System.out.println("[GLTF] Scene has " + scene.getNodeModels().size() + " nodes");
+        Logger.load("Scene has " + scene.getNodeModels().size() + " nodes");
         
         // Find first node with a mesh
         MeshModel meshModel = null;
@@ -117,14 +118,14 @@ public class GLTFLoader {
             throw new RuntimeException("No mesh found in glTF file");
         }
         
-        System.out.println("[GLTF] Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
+        Logger.load("Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
         MeshPrimitiveModel primitive = meshModel.getMeshPrimitiveModels().get(0);
         
         // Debug: Check what attributes are available
-        System.out.println("[GLTF] Available attributes: " + primitive.getAttributes().keySet());
+        Logger.load("Available attributes: " + primitive.getAttributes().keySet());
         boolean hasNormals = primitive.getAttributes().containsKey("NORMAL");
         boolean hasTexCoords = primitive.getAttributes().containsKey("TEXCOORD_0");
-        System.out.println("[GLTF] Has normals: " + hasNormals + ", has texcoords: " + hasTexCoords);
+        Logger.load("Has normals: " + hasNormals + ", has texcoords: " + hasTexCoords);
         
         // TODO: Refactor to separate vertex attribute arrays (SoA) instead of interleaved (AoS) for better cache efficiency and flexibility
         // Get vertex data (position + normal + texcoord)
@@ -193,7 +194,7 @@ public class GLTFLoader {
             minZ = Math.min(minZ, vertices[i+2]);
             maxZ = Math.max(maxZ, vertices[i+2]);
         }
-        System.out.println("[GLTF] Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
+        Logger.load("Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
         
         // Get indices
         AccessorModel indicesAccessor = primitive.getIndices();

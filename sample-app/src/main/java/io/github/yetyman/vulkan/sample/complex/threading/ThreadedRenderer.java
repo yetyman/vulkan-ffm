@@ -8,6 +8,7 @@ import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
 import io.github.yetyman.vulkan.sample.complex.threading.ThreadManager;
+import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.*;
 import java.util.*;
@@ -78,7 +79,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // Set Vulkan resources after managers are created
         lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass.handle());
         createGraphicsPipeline();
-        System.out.println("[OK] Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
+        Logger.info("Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
 
@@ -98,7 +99,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .device(device)
             .build();
         
-        System.out.println("[OK] Managers created");
+        Logger.info("Managers created");
     }
     
     private void createDepthTarget() {
@@ -114,7 +115,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
             .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT)
             .build();
-        System.out.println("[OK] Depth target created with format: " + depthFormat);
+        Logger.info("Depth target created with format: " + depthFormat);
     }
     
     private int findSupportedDepthFormat() {
@@ -157,7 +158,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
     private void createDirectRenderPass() {
         directRenderPass = createRenderPassImpl();
-        System.out.println("[OK] Direct render pass created");
+        Logger.info("Direct render pass created");
     }
     
     private void createGraphicsPipeline() {
@@ -220,7 +221,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 .build()
             .build(arena);
         
-        System.out.println("[OK] Graphics pipelines created (triangle + glTF)");
+        Logger.info("Graphics pipelines created (triangle + glTF)");
     }
     
     @Override
@@ -254,7 +255,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // Process main thread work during spare time
         int workProcessed = mainThreadWork.processWork(frameStart);
         if (workProcessed > 0) {
-            System.out.println("[WORK] Processed " + workProcessed + " main thread tasks");
+            Logger.work("Processed " + workProcessed + " main thread tasks");
         }
         
         // Use BaseRenderer's drawFrame implementation
@@ -352,7 +353,7 @@ public class ThreadedRenderer extends BaseRenderer {
         
         // Test glTF pipeline with vertex and instance buffers
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
-        System.out.println("[DEBUG] Rendering glTF test triangle with vertex buffers");
+        Logger.debug("Rendering glTF test triangle with vertex buffers");
         
         // Bind both vertex and instance buffers
 //        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
@@ -361,7 +362,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();
         if (instanceCount > 0) {
-            System.out.println("[DEBUG] Attempting model rendering with debug logging");
+            Logger.debug("Attempting model rendering with debug logging");
             lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
         }
         
@@ -396,7 +397,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
     public void setAdaptiveAAEnabled(boolean enabled) {
         this.adaptiveAAEnabled = enabled;
-        System.out.println("[AA] Adaptive AA " + (enabled ? "enabled" : "disabled"));
+        Logger.aa("Adaptive AA " + (enabled ? "enabled" : "disabled"));
         // Note: Requires renderer recreation to take effect
     }
     
@@ -456,7 +457,7 @@ public class ThreadedRenderer extends BaseRenderer {
      * Load sample models at adjacent positions for testing
      */
     public void loadSampleModels() {
-        System.out.println("[LOAD] Starting to load sample models...");
+        Logger.load("Starting to load sample models...");
         
         // Load only Box for debugging
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
@@ -465,10 +466,10 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(-5.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.load("Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                Logger.error("Failed to load Box: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return null;
             });
@@ -478,10 +479,10 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(1.0f, 1.0f, 1.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Box loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.load("Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                Logger.error("Failed to load Duck: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return null;
             });
@@ -491,10 +492,10 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(5.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                System.out.println("[OK] Box loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.load("Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
-                System.err.println("[ERROR] Failed to load Suzanne: " + throwable.getMessage());
+                Logger.error("Failed to load Suzanne: " + throwable.getMessage());
                 throwable.printStackTrace();
                 return null;
             });
@@ -525,7 +526,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .extent(width, height)
             .build(arena);
         
-        System.out.println("[OK] Depth buffer recreated for resize");
+        Logger.info("Depth buffer recreated for resize");
     }
     
     @Override
@@ -553,7 +554,7 @@ public class ThreadedRenderer extends BaseRenderer {
             adaptiveAA.cleanup();
         }
         
-        System.out.println("[OK] Threaded renderer cleanup complete");
+        Logger.info("Threaded renderer cleanup complete");
     }
     
     public void cleanup() {
