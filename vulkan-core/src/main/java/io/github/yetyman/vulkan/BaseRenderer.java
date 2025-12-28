@@ -167,10 +167,11 @@ public abstract class BaseRenderer implements AutoCloseable {
         // Recreate resources
         createSwapchain(null);
         createImageViews();
-        createFramebuffers();
         
-        // Allow subclass to handle resize
+        // Allow subclass to handle resize before creating framebuffers
         onResize(newWidth, newHeight);
+        
+        createFramebuffers();
     }
     
     @Override

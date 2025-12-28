@@ -503,12 +503,16 @@ public class ThreadedRenderer extends BaseRenderer {
     
     @Override
     protected void onResize(int width, int height) {
+        // Update dimensions first
+        this.width = width;
+        this.height = height;
+        
         // Clean up depth target
         if (depthTarget != null) {
             depthTarget.close();
         }
         
-        // Recreate depth target
+        // Recreate depth target with new dimensions
         createDepthTarget();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
