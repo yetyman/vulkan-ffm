@@ -1,5 +1,6 @@
 package io.github.yetyman.glfw;
 
+import io.github.yetyman.glfw.enums.GLFWConstants;
 import io.github.yetyman.glfw.generated.GLFWFFM;
 import java.lang.foreign.*;
 
@@ -8,19 +9,9 @@ public class GLFW {
         GLFWLoader.load();
     }
     
-    // Constants
-    public static final int GLFW_TRUE = GLFWFFM.GLFW_TRUE();
-    public static final int GLFW_FALSE = GLFWFFM.GLFW_FALSE();
-    public static final int GLFW_CLIENT_API = GLFWFFM.GLFW_CLIENT_API();
-    public static final int GLFW_NO_API = GLFWFFM.GLFW_NO_API();
-    public static final int GLFW_RESIZABLE = GLFWFFM.GLFW_RESIZABLE();
-    public static final int GLFW_KEY_SPACE = GLFWFFM.GLFW_KEY_SPACE();
-    public static final int GLFW_KEY_1 = GLFWFFM.GLFW_KEY_1();
-    public static final int GLFW_PRESS = GLFWFFM.GLFW_PRESS();
-    
     // Core functions
     public static boolean glfwInit() {
-        return GLFWFFM.glfwInit() == GLFW_TRUE;
+        return GLFWFFM.glfwInit() == GLFWConstants.GLFW_TRUE;
     }
     
     public static void glfwTerminate() {
@@ -43,7 +34,7 @@ public class GLFW {
     }
     
     public static boolean glfwWindowShouldClose(MemorySegment window) {
-        return GLFWFFM.glfwWindowShouldClose(window) == GLFW_TRUE;
+        return GLFWFFM.glfwWindowShouldClose(window) == GLFWConstants.GLFW_TRUE;
     }
     
     public static void glfwPollEvents() {
