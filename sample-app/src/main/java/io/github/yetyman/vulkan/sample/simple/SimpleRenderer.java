@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.highlevel.BaseRenderer;
 import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;

@@ -6,8 +6,6 @@ import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
-import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
-import io.github.yetyman.vulkan.sample.complex.threading.ThreadManager;
 import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.*;
