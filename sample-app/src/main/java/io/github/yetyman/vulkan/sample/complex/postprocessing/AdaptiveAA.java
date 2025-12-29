@@ -342,8 +342,8 @@ public class AdaptiveAA {
         sceneFramebuffer = VkFramebuffer.builder()
             .device(device)
             .renderPass(sceneRenderPass.handle())
-            .attachment(colorTargetView.handle())
-            .attachment(depthTargetView.handle())
+            .attachment(new VkFramebufferAttachment(colorTargetView, VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
+            .attachment(new VkFramebufferAttachment(depthTargetView, VkFramebufferAttachment.AttachmentType.DEPTH, 0, 1))
             .dimensions(width, height)
             .build(arena);
         
@@ -351,7 +351,7 @@ public class AdaptiveAA {
         edgeFramebuffer = VkFramebuffer.builder()
             .device(device)
             .renderPass(edgeRenderPass.handle())
-            .attachment(edgeTargetView.handle())
+            .attachment(new VkFramebufferAttachment(edgeTargetView, VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
             .dimensions(width, height)
             .build(arena);
     }

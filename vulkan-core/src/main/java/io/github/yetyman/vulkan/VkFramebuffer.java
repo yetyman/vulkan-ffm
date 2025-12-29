@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
+import java.util.*;
 
 /**
  * Wrapper for Vulkan framebuffer (VkFramebuffer) with automatic resource management.
@@ -11,29 +12,12 @@ import java.lang.foreign.*;
 public class VkFramebuffer implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
+    private final List<VkFramebufferAttachment> attachments;
     
-    private VkFramebuffer(MemorySegment handle, MemorySegment device) {
+    private VkFramebuffer(MemorySegment handle, MemorySegment device, List<VkFramebufferAttachment> attachments) {
         this.handle = handle;
         this.device = device;
-    }
-    
-    /**
-     * Creates a framebuffer with a single image view attachment.
-     * @param arena memory arena for allocations
-     * @param device the VkDevice handle
-     * @param renderPass the VkRenderPass handle this framebuffer is compatible with
-     * @param imageView the VkImageView handle to use as the color attachment
-     * @param width framebuffer width in pixels
-     * @param height framebuffer height in pixels
-     * @return a new VkFramebuffer instance
-     */
-    public static VkFramebuffer create(Arena arena, MemorySegment device, MemorySegment renderPass, MemorySegment imageView, int width, int height) {
-        return builder()
-            .device(device)
-            .renderPass(renderPass)
-            .attachment(imageView)
-            .dimensions(width, height)
-            .build(arena);
+        this.attachments = new ArrayList<>(attachments);
     }
     
     /** @return a new builder for configuring framebuffer creation */
@@ -43,6 +27,33 @@ public class VkFramebuffer implements AutoCloseable {
     
     /** @return the VkFramebuffer handle */
     public MemorySegment handle() { return handle; }
+    
+    /** @return all attachments */
+    public List<VkFramebufferAttachment> attachments() { return new ArrayList<>(attachments); }
+    
+    /** @return color attachment at the specified index */
+    public VkFramebufferAttachment getColorAttachment(int index) {
+        return attachments.stream()
+            .filter(a -> a.isColor() && a.index() == index)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    /** @return depth attachment */
+    public VkFramebufferAttachment getDepthAttachment() {
+        return attachments.stream()
+            .filter(VkFramebufferAttachment::isDepth)
+            .findFirst()
+            .orElse(null);
+    }
+    
+    /** @return depth-stencil attachment */
+    public VkFramebufferAttachment getDepthStencilAttachment() {
+        return attachments.stream()
+            .filter(VkFramebufferAttachment::isDepthStencil)
+            .findFirst()
+            .orElse(null);
+    }
     
     @Override
     public void close() {
@@ -55,7 +66,7 @@ public class VkFramebuffer implements AutoCloseable {
     public static class Builder {
         private MemorySegment device;
         private MemorySegment renderPass;
-        private MemorySegment[] attachments;
+        private final List<VkFramebufferAttachment> attachments = new ArrayList<>();
         private int width;
         private int height;
         private int layers = 1;
@@ -75,22 +86,34 @@ public class VkFramebuffer implements AutoCloseable {
             return this;
         }
         
-        /** Adds an attachment (color, depth, etc.) */
-        public Builder attachment(MemorySegment imageView) {
-            if (this.attachments == null) {
-                this.attachments = new MemorySegment[] { imageView };
-            } else {
-                MemorySegment[] newAttachments = new MemorySegment[this.attachments.length + 1];
-                System.arraycopy(this.attachments, 0, newAttachments, 0, this.attachments.length);
-                newAttachments[this.attachments.length] = imageView;
-                this.attachments = newAttachments;
-            }
+        /** Adds an attachment with metadata */
+        public Builder attachment(VkFramebufferAttachment attachment) {
+            this.attachments.add(attachment);
             return this;
         }
         
-        /** Sets multiple attachments in order (color, depth, etc.) */
-        public Builder attachments(MemorySegment... imageViews) {
-            this.attachments = imageViews;
+        /** Adds an attachment using VkImageView with explicit type */
+        public Builder attachment(VkImageView imageView, VkFramebufferAttachment.AttachmentType type) {
+            this.attachments.add(new VkFramebufferAttachment(imageView, type, 0, attachments.size()));
+            return this;
+        }
+        
+        /** Adds an attachment using MemorySegment with explicit type */
+        public Builder attachment(MemorySegment imageView, VkFramebufferAttachment.AttachmentType type) {
+            this.attachments.add(new VkFramebufferAttachment(new VkImageView(imageView, device), 
+                type, 0, attachments.size()));
+            return this;
+        }
+        
+        /** Sets multiple attachments from imageViews with explicit types */
+        public Builder attachments(MemorySegment[] imageViews, VkFramebufferAttachment.AttachmentType[] types) {
+            if (imageViews.length != types.length) {
+                throw new IllegalArgumentException("imageViews and types arrays must have same length");
+            }
+            this.attachments.clear();
+            for (int i = 0; i < imageViews.length; i++) {
+                attachment(imageViews[i], types[i]);
+            }
             return this;
         }
         
@@ -129,12 +152,12 @@ public class VkFramebuffer implements AutoCloseable {
         public VkFramebuffer build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (renderPass == null) throw new IllegalStateException("renderPass not set");
-            if (attachments == null || attachments.length == 0) throw new IllegalStateException("attachments not set");
+            if (attachments.isEmpty()) throw new IllegalStateException("attachments not set");
             if (width <= 0 || height <= 0) throw new IllegalStateException("invalid dimensions");
             
-            MemorySegment attachmentArray = arena.allocate(ValueLayout.ADDRESS, attachments.length);
-            for (int i = 0; i < attachments.length; i++) {
-                attachmentArray.setAtIndex(ValueLayout.ADDRESS, i, attachments[i]);
+            MemorySegment attachmentArray = arena.allocate(ValueLayout.ADDRESS, attachments.size());
+            for (int i = 0; i < attachments.size(); i++) {
+                attachmentArray.setAtIndex(ValueLayout.ADDRESS, i, attachments.get(i).imageViewHandle());
             }
             
             MemorySegment framebufferInfo = VkFramebufferCreateInfo.allocate(arena);
@@ -142,7 +165,7 @@ public class VkFramebuffer implements AutoCloseable {
             VkFramebufferCreateInfo.pNext(framebufferInfo, MemorySegment.NULL);
             VkFramebufferCreateInfo.flags(framebufferInfo, flags);
             VkFramebufferCreateInfo.renderPass(framebufferInfo, renderPass);
-            VkFramebufferCreateInfo.attachmentCount(framebufferInfo, attachments.length);
+            VkFramebufferCreateInfo.attachmentCount(framebufferInfo, attachments.size());
             VkFramebufferCreateInfo.pAttachments(framebufferInfo, attachmentArray);
             VkFramebufferCreateInfo.width(framebufferInfo, width);
             VkFramebufferCreateInfo.height(framebufferInfo, height);
@@ -150,7 +173,7 @@ public class VkFramebuffer implements AutoCloseable {
             
             MemorySegment framebufferPtr = arena.allocate(ValueLayout.ADDRESS);
             VulkanExtensions.createFramebuffer(device, framebufferInfo, framebufferPtr).check();
-            return new VkFramebuffer(framebufferPtr.get(ValueLayout.ADDRESS, 0), device);
+            return new VkFramebuffer(framebufferPtr.get(ValueLayout.ADDRESS, 0), device, attachments);
         }
     }
 }

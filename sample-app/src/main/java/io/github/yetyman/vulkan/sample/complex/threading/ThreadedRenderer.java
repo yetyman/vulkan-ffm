@@ -229,8 +229,8 @@ public class ThreadedRenderer extends BaseRenderer {
         return VkFramebuffer.builder()
             .device(device)
             .renderPass(renderPass.handle())
-            .attachment(swapchainImageViews[imageIndex].handle())
-            .attachment(depthTarget.imageView().handle())
+            .attachment(new VkFramebufferAttachment(swapchainImageViews[imageIndex], VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
+            .attachment(new VkFramebufferAttachment(depthTarget.imageView(), VkFramebufferAttachment.AttachmentType.DEPTH, 0, 1))
             .dimensions(width, height)
             .build(arena);
     }

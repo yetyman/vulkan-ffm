@@ -12,7 +12,8 @@ public class VkImageView implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment device;
     
-    private VkImageView(MemorySegment handle, MemorySegment device) {
+    // Package-private constructor for VkFramebufferAttachment
+    VkImageView(MemorySegment handle, MemorySegment device) {
         this.handle = handle;
         this.device = device;
     }

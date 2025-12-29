@@ -14,7 +14,6 @@ public class VulkanSwapchainManager implements AutoCloseable {
     private final MemorySegment surface;
     private VkSwapchain swapchain;
     private SwapchainImage[] swapchainImages;
-    private VkFramebuffer[] framebuffers;
     private int width, height;
     
     private VulkanSwapchainManager(Arena arena, MemorySegment device, MemorySegment surface, int width, int height,
@@ -42,9 +41,6 @@ public class VulkanSwapchainManager implements AutoCloseable {
     /** @return specific swapchain image */
     public SwapchainImage getImage(int index) { return swapchainImages[index]; }
     
-    /** @return the framebuffers (null if not created) */
-    public VkFramebuffer[] framebuffers() { return framebuffers; }
-    
     /** @return current width */
     public int width() { return width; }
     
@@ -54,39 +50,9 @@ public class VulkanSwapchainManager implements AutoCloseable {
     /** @return number of swapchain images */
     public int imageCount() { return swapchainImages.length; }
     
-    /** Creates framebuffers for the given render pass */
-    public void createFramebuffers(MemorySegment renderPass, MemorySegment... additionalAttachments) {
-        if (framebuffers != null) {
-            for (VkFramebuffer fb : framebuffers) {
-                fb.close();
-            }
-        }
-        
-        framebuffers = new VkFramebuffer[swapchainImages.length];
-        for (int i = 0; i < swapchainImages.length; i++) {
-            VkFramebuffer.Builder builder = VkFramebuffer.builder()
-                .device(device)
-                .renderPass(renderPass)
-                .attachment(swapchainImages[i].imageView().handle())
-                .dimensions(width, height);
-            
-            for (MemorySegment attachment : additionalAttachments) {
-                builder.attachment(attachment);
-            }
-            
-            framebuffers[i] = builder.build(arena);
-        }
-    }
-    
     /** Recreates swapchain and related resources with new dimensions */
     public void recreate(int newWidth, int newHeight) {
         // Clean up old resources
-        if (framebuffers != null) {
-            for (VkFramebuffer fb : framebuffers) {
-                fb.close();
-            }
-            framebuffers = null;
-        }
         for (SwapchainImage si : swapchainImages) {
             si.close();
         }
@@ -128,11 +94,6 @@ public class VulkanSwapchainManager implements AutoCloseable {
     
     @Override
     public void close() {
-        if (framebuffers != null) {
-            for (VkFramebuffer fb : framebuffers) {
-                fb.close();
-            }
-        }
         for (SwapchainImage si : swapchainImages) {
             si.close();
         }

@@ -33,7 +33,7 @@ public class SimpleRenderer extends BaseRenderer {
         return VkFramebuffer.builder()
             .device(device)
             .renderPass(renderPass.handle())
-            .attachment(swapchainImageViews[imageIndex].handle())
+            .attachment(new VkFramebufferAttachment(swapchainImageViews[imageIndex], VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
             .dimensions(width, height)
             .build(arena);
     }
