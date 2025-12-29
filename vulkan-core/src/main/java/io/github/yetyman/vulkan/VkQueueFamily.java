@@ -6,6 +6,8 @@ import java.lang.foreign.*;
 
 public class VkQueueFamily {
     
+    public static final int VK_QUEUE_FAMILY_IGNORED = ~0;
+    
     public static int findGraphics(MemorySegment physicalDevice, Arena arena) {
         MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
         Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice, queueFamilyCount, MemorySegment.NULL);

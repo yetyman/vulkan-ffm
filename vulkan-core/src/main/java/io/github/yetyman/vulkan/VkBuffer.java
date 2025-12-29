@@ -35,6 +35,9 @@ public class VkBuffer implements AutoCloseable {
     /** @return the buffer size in bytes */
     public long size() { return size; }
     
+    /** @return the device handle */
+    public MemorySegment device() { return device; }
+    
     @Override
     public void close() {
         if (memory != null && !memory.equals(MemorySegment.NULL)) {

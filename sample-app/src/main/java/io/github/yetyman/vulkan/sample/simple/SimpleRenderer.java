@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
@@ -44,8 +45,8 @@ public class SimpleRenderer extends BaseRenderer {
     }
     
     private void createGraphicsPipeline() {
-        byte[] vertShaderCode = ShaderLoader.compileShader("/shaders/triangle.vert");
-        byte[] fragShaderCode = ShaderLoader.compileShader("/shaders/triangle.frag");
+        byte[] vertShaderCode = ShaderLoader.load("/shaders/triangle.vert").compile();
+        byte[] fragShaderCode = ShaderLoader.load("/shaders/triangle.frag").compile();
         
         pipeline = VkPipeline.builder()
             .device(device)

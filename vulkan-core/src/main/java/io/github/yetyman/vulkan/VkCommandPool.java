@@ -16,7 +16,7 @@ public class VkCommandPool implements AutoCloseable {
         this.handle = handle;
         this.device = device;
     }
-    
+
     /**
      * Creates a command pool for the specified queue family.
      */
@@ -34,7 +34,10 @@ public class VkCommandPool implements AutoCloseable {
     
     /** @return the VkCommandPool handle */
     public MemorySegment handle() { return handle; }
-    
+
+    /** @return the VkCommandPool device */
+    public MemorySegment device() { return device; }
+
     @Override
     public void close() {
         VulkanExtensions.destroyCommandPool(device, handle);

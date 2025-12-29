@@ -167,6 +167,16 @@ public class VkPipeline implements AutoCloseable {
             this.cullMode = VkCullModeFlagBits.VK_CULL_MODE_BACK_BIT;
             return this;
         }
+
+        public Builder cullMode(int cullMode) {
+            this.cullMode = cullMode;
+            return this;
+        }
+
+        public Builder frontFace(int frontFace) {
+            this.cullMode = cullMode;
+            return this;
+        }
         
         // Shader stage methods
         public Builder tessellationControlShader(byte[] shader) {

@@ -27,6 +27,26 @@ public class VkDescriptorPool implements AutoCloseable {
     /** @return the VkDescriptorPool handle */
     public MemorySegment handle() { return handle; }
     
+    /**
+     * Allocates a descriptor set from this pool.
+     */
+    public VkDescriptorSet allocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment allocInfo = VkDescriptorSetAllocateInfo.allocate(arena);
+            VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
+            VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, handle);
+            VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
+            
+            MemorySegment layouts = arena.allocate(ValueLayout.ADDRESS);
+            layouts.set(ValueLayout.ADDRESS, 0, descriptorSetLayout.handle());
+            VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layouts);
+            
+            MemorySegment descriptorSet = arena.allocate(ValueLayout.ADDRESS);
+            VulkanExtensions.allocateDescriptorSets(device, allocInfo, descriptorSet).check();
+            return new VkDescriptorSet(descriptorSet.get(ValueLayout.ADDRESS, 0));
+        }
+    }
+    
     @Override
     public void close() {
         VulkanExtensions.destroyDescriptorPool(device, handle);
