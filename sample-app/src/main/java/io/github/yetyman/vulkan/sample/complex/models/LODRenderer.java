@@ -109,25 +109,18 @@ public class LODRenderer {
         MemorySegment encodedIndexBuffer = indexHandle.handle();
         Logger.render("Final encoded handles - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
         
-        // Bind vertex buffer (binding 0) - store the handle address value
-        MemorySegment vertexBuffers = frameArena.allocate(ValueLayout.ADDRESS);
-        vertexBuffers.set(ValueLayout.ADDRESS, 0, MemorySegment.ofAddress(encodedVertexBuffer.address()));
-        MemorySegment vertexOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
-        vertexOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
-        
-        Logger.debug("Setting buffers - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
-        
-        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, vertexOffsets);
+        // Bind vertex buffer (binding 0) - use VkVertexBufferBinding abstraction
+        VkVertexBufferBinding.create()
+            .buffer(MemorySegment.ofAddress(encodedVertexBuffer.address()))
+            .bind(commandBuffer, 0, frameArena);
         
         // Bind instance data buffer (binding 1) - now it's a proper VkBuffer
         MemorySegment matrixBuffer = instanceData.getMatricesBuffer();
         Logger.debug("Matrix buffer handle: 0x" + Long.toHexString(matrixBuffer.address()) + " (now encoded VkBuffer handle)");
         
-        MemorySegment instanceBuffers = frameArena.allocate(ValueLayout.ADDRESS);
-        instanceBuffers.set(ValueLayout.ADDRESS, 0, matrixBuffer);
-        MemorySegment instanceOffsets = frameArena.allocate(ValueLayout.JAVA_LONG);
-        instanceOffsets.set(ValueLayout.JAVA_LONG, 0, 0L);
-        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, instanceBuffers, instanceOffsets);
+        VkVertexBufferBinding.create()
+            .buffer(matrixBuffer)
+            .bind(commandBuffer, 1, frameArena);
         
         // Bind index buffer with encoded handle
         VulkanExtensions.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
@@ -427,16 +420,12 @@ public class LODRenderer {
         }
         
         if (!staticVertexBuffer.equals(MemorySegment.NULL) && !staticInstanceBuffer.equals(MemorySegment.NULL)) {
-            // Bind static buffers
-            MemorySegment buffers = frameArena.allocate(ValueLayout.ADDRESS, 2);
-            buffers.setAtIndex(ValueLayout.ADDRESS, 0, staticVertexBuffer);
-            buffers.setAtIndex(ValueLayout.ADDRESS, 1, staticInstanceBuffer);
+            // Bind static buffers using VkVertexBufferBinding abstraction
+            VkVertexBufferBinding.create()
+                .buffer(staticVertexBuffer)
+                .buffer(staticInstanceBuffer)
+                .bind(commandBuffer, 0, frameArena);
             
-            MemorySegment offsets = frameArena.allocate(ValueLayout.JAVA_LONG, 2);
-            offsets.setAtIndex(ValueLayout.JAVA_LONG, 0, 0L);
-            offsets.setAtIndex(ValueLayout.JAVA_LONG, 1, 0L);
-            
-            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 2, buffers, offsets);
             VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
             Logger.debug("Drew glTF test triangle with buffers");
         } else {
@@ -463,14 +452,10 @@ public class LODRenderer {
         }
         
         if (!staticInstanceBuffer.equals(MemorySegment.NULL)) {
-            MemorySegment buffers = frameArena.allocate(ValueLayout.ADDRESS);
-            buffers.set(ValueLayout.ADDRESS, 0, staticInstanceBuffer);
+            VkVertexBufferBinding.create()
+                .buffer(staticInstanceBuffer)
+                .bind(commandBuffer, 1, frameArena);
             
-            MemorySegment offsets = frameArena.allocate(ValueLayout.JAVA_LONG);
-            offsets.set(ValueLayout.JAVA_LONG, 0, 0L);
-            
-            // Bind instance buffer at binding 1 (which maps to locations 3-6 for mat4)
-            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 1, 1, buffers, offsets);
             Logger.debug("Bound instance buffer at binding 1");
         } else {
             Logger.debug("Instance buffer is NULL");

@@ -141,10 +141,9 @@ public abstract class VulkanApplication implements AutoCloseable {
     
     private boolean shouldRender() {
         try (Arena tempArena = Arena.ofConfined()) {
-            MemorySegment widthPtr = tempArena.allocate(ValueLayout.JAVA_INT);
-            MemorySegment heightPtr = tempArena.allocate(ValueLayout.JAVA_INT);
-            config.windowSystem.getFramebufferSize(window, widthPtr, heightPtr);
-            return widthPtr.get(ValueLayout.JAVA_INT, 0) > 0 && heightPtr.get(ValueLayout.JAVA_INT, 0) > 0;
+            var size = io.github.yetyman.vulkan.util.VkFramebufferSize.query(
+                config.windowSystem::getFramebufferSize, window, tempArena);
+            return size.isValid();
         }
     }
     
@@ -152,15 +151,12 @@ public abstract class VulkanApplication implements AutoCloseable {
         try (Arena tempArena = Arena.ofConfined()) {
             Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
             
-            MemorySegment widthPtr = tempArena.allocate(ValueLayout.JAVA_INT);
-            MemorySegment heightPtr = tempArena.allocate(ValueLayout.JAVA_INT);
-            config.windowSystem.getFramebufferSize(window, widthPtr, heightPtr);
-            int newWidth = widthPtr.get(ValueLayout.JAVA_INT, 0);
-            int newHeight = heightPtr.get(ValueLayout.JAVA_INT, 0);
+            var size = io.github.yetyman.vulkan.util.VkFramebufferSize.query(
+                config.windowSystem::getFramebufferSize, window, tempArena);
             
-            if (newWidth > 0 && newHeight > 0) {
-                onResize(newWidth, newHeight);
-                log("Resized to " + newWidth + "x" + newHeight);
+            if (size.isValid()) {
+                onResize(size.width, size.height);
+                log("Resized to " + size.width + "x" + size.height);
             }
         }
     }

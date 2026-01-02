@@ -38,6 +38,25 @@ public class VkBuffer implements AutoCloseable {
     /** @return the device handle */
     public MemorySegment device() { return device; }
     
+    /**
+     * Maps buffer memory for CPU access
+     * @param arena Arena for memory allocation
+     * @return Mapped memory segment
+     */
+    public MemorySegment map(Arena arena) {
+        MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
+        VulkanExtensions.mapMemory(device, memory, 0, size, 0, mappedPtr).check();
+        MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
+        return mappedAddress.reinterpret(size, arena, null);
+    }
+    
+    /**
+     * Unmaps buffer memory
+     */
+    public void unmap() {
+        VulkanExtensions.unmapMemory(device, memory);
+    }
+    
     @Override
     public void close() {
         if (memory != null && !memory.equals(MemorySegment.NULL)) {

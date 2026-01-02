@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.util.VkDataCopy;
+
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
@@ -61,9 +63,7 @@ public class TransformationMatrix {
             updateMatrix();
             dirty = false;
         }
-        for (int i = 0; i < 16; i++) {
-            target.setAtIndex(ValueLayout.JAVA_FLOAT, offset + i, matrix[i]);
-        }
+        VkDataCopy.copyFloatArrayTo(matrix, target.asSlice(offset * Float.BYTES));
     }
     
     private void updateMatrix() {

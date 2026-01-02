@@ -337,10 +337,9 @@ public class ThreadedRenderer extends BaseRenderer {
         VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         
         // Push time constant for rotation
-        MemorySegment timeConstant = frameArena.allocate(4);
-        timeConstant.set(ValueLayout.JAVA_FLOAT, 0, (float)(System.nanoTime() / 1_000_000_000.0));
-        VulkanExtensions.cmdPushConstants(commandBuffer, pipeline.layout(), 
-            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4, timeConstant);
+        VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
+            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, frameArena)
+            .push(commandBuffer, pipeline.layout());
         
         VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
         VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);

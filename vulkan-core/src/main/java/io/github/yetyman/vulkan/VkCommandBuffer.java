@@ -85,10 +85,7 @@ public class VkCommandBuffer {
         private final MemorySegment renderPass;
         private final MemorySegment framebuffer;
         private int x = 0, y = 0, width = 800, height = 600;
-        private float[] clearColorValues = {0.0f, 0.0f, 0.0f, 1.0f};
-        private float depthValue = 1.0f;
-        private int stencilValue = 0;
-        private boolean hasDepthClear = false;
+        private final VkClearValues clearValues = VkClearValues.create();
         private int subpassContents = VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE;
         
         private RenderPassBuilder(MemorySegment commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {
@@ -106,14 +103,12 @@ public class VkCommandBuffer {
         }
         
         public RenderPassBuilder clearColor(float r, float g, float b, float a) {
-            this.clearColorValues = new float[]{r, g, b, a};
+            clearValues.color(r, g, b, a);
             return this;
         }
         
         public RenderPassBuilder clearDepth(float depth, int stencil) {
-            this.depthValue = depth;
-            this.stencilValue = stencil;
-            this.hasDepthClear = true;
+            clearValues.depthStencil(depth, stencil);
             return this;
         }
         
@@ -123,19 +118,7 @@ public class VkCommandBuffer {
         }
         
         public void execute(Arena arena) {
-            int clearValueCount = hasDepthClear ? 2 : 1;
-            MemorySegment clearValues = arena.allocate(VkClearValue.layout(), clearValueCount);
-            
-            // Color clear value
-            MemorySegment colorClear = VkClearValue.color(arena, 
-                clearColorValues[0], clearColorValues[1], clearColorValues[2], clearColorValues[3]);
-            MemorySegment.copy(colorClear, 0, clearValues, 0, VkClearValue.layout().byteSize());
-            
-            // Depth clear value if needed
-            if (hasDepthClear) {
-                MemorySegment depthClear = VkClearValue.depthStencil(arena, depthValue, stencilValue);
-                MemorySegment.copy(depthClear, 0, clearValues, VkClearValue.layout().byteSize(), VkClearValue.layout().byteSize());
-            }
+            MemorySegment clearValuesArray = clearValues.build(arena);
             
             MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(arena);
             VkRenderPassBeginInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
@@ -147,8 +130,8 @@ public class VkCommandBuffer {
                 .extent(width, height)
                 .build(arena);
             MemorySegment.copy(renderArea, 0, VkRenderPassBeginInfo.renderArea(renderPassInfo), 0, renderArea.byteSize());
-            VkRenderPassBeginInfo.clearValueCount(renderPassInfo, clearValueCount);
-            VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValues);
+            VkRenderPassBeginInfo.clearValueCount(renderPassInfo, clearValues.count());
+            VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValuesArray);
             
             VulkanFFM.vkCmdBeginRenderPass(commandBuffer, renderPassInfo, subpassContents);
         }

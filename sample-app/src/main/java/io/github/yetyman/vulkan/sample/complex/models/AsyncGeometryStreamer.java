@@ -119,17 +119,11 @@ public class AsyncGeometryStreamer {
             Logger.load("First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
             Logger.load("First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
             
-            // Create vertex data buffer
-            MemorySegment vertexData = tempArena.allocate(vertices.length * 4); // 4 bytes per float
-            for (int i = 0; i < vertices.length; i++) {
-                vertexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, i, vertices[i]);
-            }
+            // Create vertex data buffer using VkDataCopy utility
+            MemorySegment vertexData = io.github.yetyman.vulkan.util.VkDataCopy.copyFloatArray(vertices, tempArena);
             
-            // Create index data buffer
-            MemorySegment indexData = tempArena.allocate(indices.length * 4); // 4 bytes per int
-            for (int i = 0; i < indices.length; i++) {
-                indexData.setAtIndex(java.lang.foreign.ValueLayout.JAVA_INT, i, indices[i]);
-            }
+            // Create index data buffer using VkDataCopy utility
+            MemorySegment indexData = io.github.yetyman.vulkan.util.VkDataCopy.copyIntArray(indices, tempArena);
             
             // Stage the data
             int requestId = stagingSystem.stageVertexData(vertexData, indexData);

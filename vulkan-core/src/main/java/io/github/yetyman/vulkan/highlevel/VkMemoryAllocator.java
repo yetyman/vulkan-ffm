@@ -116,7 +116,8 @@ public class VkMemoryAllocator implements AutoCloseable {
         MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
         VulkanExtensions.mapMemory(device, allocation.memory(), allocation.offset(), 
             allocation.size(), 0, mappedPtr).check();
-        return mappedPtr.get(ValueLayout.ADDRESS, 0);
+        MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
+        return mappedAddress.reinterpret(allocation.size(), arena, null);
     }
     
     /**

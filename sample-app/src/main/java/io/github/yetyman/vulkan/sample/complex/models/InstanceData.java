@@ -39,10 +39,7 @@ public class InstanceData {
     
     private MemorySegment mapBufferMemory(MemorySegment device, VkBuffer buffer, long size) {
         try {
-            MemorySegment mappedPtr = Arena.ofShared().allocate(ValueLayout.ADDRESS);
-            io.github.yetyman.vulkan.VulkanExtensions.mapMemory(device, buffer.memory(), 0, size, 0, mappedPtr).check();
-            MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
-            return MemorySegment.ofAddress(mappedAddress.address()).reinterpret(size);
+            return buffer.map(Arena.ofShared());
         } catch (Exception e) {
             throw new RuntimeException("Failed to map buffer memory", e);
         }
