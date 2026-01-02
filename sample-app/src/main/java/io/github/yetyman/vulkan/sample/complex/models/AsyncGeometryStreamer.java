@@ -32,11 +32,11 @@ public class AsyncGeometryStreamer {
     private final MemorySegment device;
     private final MemorySegment physicalDevice;
     
-    public AsyncGeometryStreamer(Arena arena, MemorySegment device, MemorySegment physicalDevice) {
+    public AsyncGeometryStreamer(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
-        this.stagingSystem = new StagingSystem(arena, device, physicalDevice);
+        this.stagingSystem = new StagingSystem(arena, device, physicalDevice, queue);
         
         // Start background processing
         loadingThread.submit(this::processQueues);

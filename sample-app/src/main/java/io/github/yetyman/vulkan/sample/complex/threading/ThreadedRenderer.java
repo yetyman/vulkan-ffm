@@ -63,7 +63,7 @@ public class ThreadedRenderer extends BaseRenderer {
         this.physicalDevice = physicalDevice;
         
         // Initialize LOD renderer now that we have physicalDevice
-        lodRenderer = new LODRenderer(arena, device, physicalDevice, 10000, 1000);
+        lodRenderer = new LODRenderer(arena, device, physicalDevice, queue, 10000, 1000);
         mainThreadWork = new MainThreadWorkQueue(60.0); // Target 60 FPS
         lodRenderer.setMainThreadWorkQueue(mainThreadWork);
         

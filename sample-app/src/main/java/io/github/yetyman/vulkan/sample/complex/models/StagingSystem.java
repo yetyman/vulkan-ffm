@@ -4,6 +4,8 @@ import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkBufferCopy;
 import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.VulkanExtensions;
+import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
+import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -22,14 +24,22 @@ public class StagingSystem {
     private final Arena arena;
     private final MemorySegment device;
     private final MemorySegment physicalDevice;
+    private final MemorySegment queue;
+    private final VkCommandPool commandPool;
     private final AtomicInteger nextRequestId = new AtomicInteger(0);
     
     private static final long STAGING_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB staging buffers
     
-    public StagingSystem(Arena arena, MemorySegment device, MemorySegment physicalDevice) {
+    public StagingSystem(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue) {
         this.arena = Arena.ofShared(); // Use shared arena for cross-thread access
         this.device = device;
         this.physicalDevice = physicalDevice;
+        this.queue = queue;
+        this.commandPool = VkCommandPool.builder()
+            .device(device)
+            .queueFamilyIndex(0) // Assume graphics queue family 0
+            .transientBit()
+            .build(this.arena);
         this.bufferManager = new BufferManager(Arena.ofShared(), device, physicalDevice); // BufferManager needs shared arena too
         
         // Create initial staging buffers on main thread
@@ -139,42 +149,16 @@ public class StagingSystem {
     
     private void copyBufferData(CopyRequest request, VkBuffer vertexBuffer, VkBuffer indexBuffer) {
         try {
-            // Create temporary command buffer for copy
-            MemorySegment commandPool = createTransientCommandPool();
-            MemorySegment commandBuffer = allocateCommandBuffer(commandPool);
-            
-            // Begin command buffer
-            MemorySegment beginInfo = io.github.yetyman.vulkan.generated.VkCommandBufferBeginInfo.allocate(arena);
-            io.github.yetyman.vulkan.generated.VkCommandBufferBeginInfo.sType(beginInfo, io.github.yetyman.vulkan.enums.VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
-            io.github.yetyman.vulkan.generated.VkCommandBufferBeginInfo.flags(beginInfo, io.github.yetyman.vulkan.enums.VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-            VulkanExtensions.beginCommandBuffer(commandBuffer, beginInfo).check();
-            
-            // Create buffer copy regions
-            MemorySegment vertexCopy = VkBufferCopy.allocate(arena, request.vertexOffset, 0, request.vertexSize);
-            MemorySegment indexCopy = VkBufferCopy.allocate(arena, request.indexOffset, 0, request.indexSize);
-            
-            // Copy buffers
-            Vulkan.cmdCopyBuffer(commandBuffer, request.stagingBuffer.getBuffer().handle(), vertexBuffer.handle(), 1, vertexCopy);
-            Vulkan.cmdCopyBuffer(commandBuffer, request.stagingBuffer.getBuffer().handle(), indexBuffer.handle(), 1, indexCopy);
-            
-            // End and submit command buffer
-            VulkanExtensions.endCommandBuffer(commandBuffer).check();
-            
-            // Submit and wait
-            MemorySegment submitInfo = io.github.yetyman.vulkan.generated.VkSubmitInfo.allocate(arena);
-            io.github.yetyman.vulkan.generated.VkSubmitInfo.sType(submitInfo, io.github.yetyman.vulkan.enums.VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO);
-            io.github.yetyman.vulkan.generated.VkSubmitInfo.commandBufferCount(submitInfo, 1);
-            MemorySegment cmdBufPtr = arena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
-            cmdBufPtr.set(java.lang.foreign.ValueLayout.ADDRESS, 0, commandBuffer);
-            io.github.yetyman.vulkan.generated.VkSubmitInfo.pCommandBuffers(submitInfo, cmdBufPtr);
-            
-            // Get graphics queue (assuming index 0)
-            MemorySegment queue = getGraphicsQueue();
-            VulkanExtensions.queueSubmit(queue, 1, submitInfo, MemorySegment.NULL).check();
-            VulkanExtensions.queueWaitIdle(queue).check();
-            
-            // Cleanup
-            VulkanExtensions.destroyCommandPool(device, commandPool);
+            // Use VkTransientCommandBuffer for simplified copy operations
+            VkTransientCommandBuffer.execute(commandPool, queue, arena, cmd -> {
+                // Copy vertex data
+                MemorySegment vertexCopy = VkBufferCopy.allocate(arena, request.vertexOffset, 0, request.vertexSize);
+                Vulkan.cmdCopyBuffer(cmd, request.stagingBuffer.getBuffer().handle(), vertexBuffer.handle(), 1, vertexCopy);
+                
+                // Copy index data
+                MemorySegment indexCopy = VkBufferCopy.allocate(arena, request.indexOffset, 0, request.indexSize);
+                Vulkan.cmdCopyBuffer(cmd, request.stagingBuffer.getBuffer().handle(), indexBuffer.handle(), 1, indexCopy);
+            });
             
             // Store the buffers in the request
             request.deviceVertexBuffer = vertexBuffer;
@@ -185,35 +169,7 @@ public class StagingSystem {
             e.printStackTrace();
         }
     }
-    
-    private MemorySegment createTransientCommandPool() {
-        MemorySegment poolInfo = io.github.yetyman.vulkan.generated.VkCommandPoolCreateInfo.allocate(arena);
-        io.github.yetyman.vulkan.generated.VkCommandPoolCreateInfo.sType(poolInfo, io.github.yetyman.vulkan.enums.VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
-        io.github.yetyman.vulkan.generated.VkCommandPoolCreateInfo.flags(poolInfo, io.github.yetyman.vulkan.enums.VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-        io.github.yetyman.vulkan.generated.VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, 0); // Assume graphics queue family 0
-        
-        MemorySegment poolPtr = arena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
-        VulkanExtensions.createCommandPool(device, poolInfo, poolPtr).check();
-        return poolPtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);
-    }
-    
-    private MemorySegment allocateCommandBuffer(MemorySegment commandPool) {
-        MemorySegment allocInfo = io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo.allocate(arena);
-        io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo.sType(allocInfo, io.github.yetyman.vulkan.enums.VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
-        io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo.commandPool(allocInfo, commandPool);
-        io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo.level(allocInfo, io.github.yetyman.vulkan.enums.VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-        io.github.yetyman.vulkan.generated.VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, 1);
-        
-        MemorySegment cmdBufPtr = arena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
-        VulkanExtensions.allocateCommandBuffers(device, allocInfo, cmdBufPtr).check();
-        return cmdBufPtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);
-    }
-    
-    private MemorySegment getGraphicsQueue() {
-        MemorySegment queuePtr = arena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
-        VulkanExtensions.getDeviceQueue(device, 0, 0, queuePtr);
-        return queuePtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);
-    }
+
     
     /**
      * Create an immediate buffer for testing (synchronous)
@@ -264,6 +220,11 @@ public class StagingSystem {
         }
         
         bufferManager.cleanup();
+        
+        if (commandPool != null) {
+            commandPool.close();
+        }
+        
         StagingBuffer buffer;
         while ((buffer = availableStagingBuffers.poll()) != null) {
             buffer.close();

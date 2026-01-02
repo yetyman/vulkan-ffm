@@ -30,7 +30,7 @@ public class LODRenderer {
     private final GLTFLoader gltfLoader;
     private MainThreadWorkQueue mainThreadWorkQueue;
     
-    public LODRenderer(Arena arena, MemorySegment device, MemorySegment physicalDevice, int maxInstances, int maxModelData) {
+    public LODRenderer(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue, int maxInstances, int maxModelData) {
         // Use shared arena for instance data to allow multi-thread access
         Arena sharedArena = Arena.ofShared();
         this.instanceData = new InstanceData(sharedArena, maxInstances, device, physicalDevice);
@@ -38,7 +38,7 @@ public class LODRenderer {
         this.batchState = new BatchState(maxInstances);
 
         this.device = device;
-        this.geometryStreamer = new AsyncGeometryStreamer(arena, device, physicalDevice);
+        this.geometryStreamer = new AsyncGeometryStreamer(arena, device, physicalDevice, queue);
         this.gltfLoader = new GLTFLoader(arena);
         this.mainThreadWorkQueue = null; // Will be set by ThreadedRenderer
         this.commandPool = MemorySegment.NULL;
