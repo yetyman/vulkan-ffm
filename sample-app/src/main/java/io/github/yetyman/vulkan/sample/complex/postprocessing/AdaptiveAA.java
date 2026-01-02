@@ -3,23 +3,24 @@ package io.github.yetyman.vulkan.sample.complex.postprocessing;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.highlevel.ShaderLoader;
+import io.github.yetyman.vulkan.highlevel.VkTexture;
+import io.github.yetyman.vulkan.highlevel.VkMemoryAllocator;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 public class AdaptiveAA {
     private final Arena arena;
     private final MemorySegment device;
+    private final MemorySegment physicalDevice;
+    private final VkMemoryAllocator allocator;
     private final int width, height;
     
-    // Render targets
-    private VkImage colorTarget;
-    private VkImageView colorTargetView;
-    private VkImage depthTarget;
-    private VkImageView depthTargetView;
-    private VkImage edgeTarget;
-    private VkImageView edgeTargetView;
-    private VkImage previousFrame;
-    private VkImageView previousFrameView;
+    // Render targets using VkTexture
+    private VkTexture colorTarget;
+    private VkTexture depthTarget;
+    private VkTexture edgeTarget;
+    private VkTexture previousFrame;
     
     // Render passes and pipelines
     private VkRenderPass sceneRenderPass;
@@ -30,7 +31,6 @@ public class AdaptiveAA {
     
     // Descriptor sets
     private MemorySegment descriptorSetLayout;
-    private MemorySegment sampler;
     private MemorySegment descriptorPool;
     private MemorySegment descriptorSet;
     
@@ -40,18 +40,19 @@ public class AdaptiveAA {
     
     private int frameIndex = 0;
     
-    private final MemorySegment physicalDevice;
-    
     public AdaptiveAA(Arena arena, MemorySegment device, MemorySegment physicalDevice, int width, int height) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
+        this.allocator = VkMemoryAllocator.builder()
+            .device(device)
+            .physicalDevice(physicalDevice)
+            .build(arena);
         this.width = width;
         this.height = height;
         
         createRenderTargets();
         createRenderPasses();
-        createSampler();
         createPipelines();
         createFramebuffers();
         createDescriptorSets();
@@ -59,64 +60,48 @@ public class AdaptiveAA {
     
     private void createRenderTargets() {
         // Color target (RGBA8)
-        colorTarget = VkImage.builder()
+        colorTarget = VkTexture.builder()
             .device(device)
-            .dimensions(width, height, 1)
+            .allocator(allocator)
+            .size(width, height)
             .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
-            .build(arena);
-        
-        colorTargetView = VkImageView.builder()
-            .device(device)
-            .image(colorTarget.handle())
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+            .nearest()
+            .clampToEdge()
             .build(arena);
         
         // Depth target - use supported format with sampling for AA
         int depthFormat = findSupportedDepthFormat();
-        depthTarget = VkImage.builder()
+        depthTarget = VkTexture.builder()
             .device(device)
-            .dimensions(width, height, 1)
+            .allocator(allocator)
+            .size(width, height)
             .format(depthFormat)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
-            .build(arena);
-        
-        depthTargetView = VkImageView.builder()
-            .device(device)
-            .image(depthTarget.handle())
-            .format(depthFormat)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT)
+            .nearest()
+            .clampToEdge()
             .build(arena);
         
         // Edge detection target (R8)
-        edgeTarget = VkImage.builder()
+        edgeTarget = VkTexture.builder()
             .device(device)
-            .dimensions(width, height, 1)
+            .allocator(allocator)
+            .size(width, height)
             .format(VkFormat.VK_FORMAT_R8_UNORM)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
-            .build(arena);
-        
-        edgeTargetView = VkImageView.builder()
-            .device(device)
-            .image(edgeTarget.handle())
-            .format(VkFormat.VK_FORMAT_R8_UNORM)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+            .nearest()
+            .clampToEdge()
             .build(arena);
         
         // Previous frame for TAA
-        previousFrame = VkImage.builder()
+        previousFrame = VkTexture.builder()
             .device(device)
-            .dimensions(width, height, 1)
+            .allocator(allocator)
+            .size(width, height)
             .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
-            .build(arena);
-        
-        previousFrameView = VkImageView.builder()
-            .device(device)
-            .image(previousFrame.handle())
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+            .nearest()
+            .clampToEdge()
             .build(arena);
     }
     
@@ -190,30 +175,7 @@ public class AdaptiveAA {
         }
     }
     
-    private void createSampler() {
-        MemorySegment samplerInfo = VkSamplerCreateInfo.allocate(arena);
-        VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
-        VkSamplerCreateInfo.magFilter(samplerInfo, VkFilter.VK_FILTER_NEAREST);
-        VkSamplerCreateInfo.minFilter(samplerInfo, VkFilter.VK_FILTER_NEAREST);
-        VkSamplerCreateInfo.addressModeU(samplerInfo, VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-        VkSamplerCreateInfo.addressModeV(samplerInfo, VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-        VkSamplerCreateInfo.addressModeW(samplerInfo, VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
-        VkSamplerCreateInfo.anisotropyEnable(samplerInfo, 0);
-        VkSamplerCreateInfo.maxAnisotropy(samplerInfo, 1.0f);
-        VkSamplerCreateInfo.borderColor(samplerInfo, VkBorderColor.VK_BORDER_COLOR_INT_OPAQUE_BLACK);
-        VkSamplerCreateInfo.unnormalizedCoordinates(samplerInfo, 0);
-        VkSamplerCreateInfo.compareEnable(samplerInfo, 0);
-        VkSamplerCreateInfo.compareOp(samplerInfo, VkCompareOp.VK_COMPARE_OP_ALWAYS);
-        VkSamplerCreateInfo.mipmapMode(samplerInfo, VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR);
-        VkSamplerCreateInfo.mipLodBias(samplerInfo, 0.0f);
-        VkSamplerCreateInfo.minLod(samplerInfo, 0.0f);
-        VkSamplerCreateInfo.maxLod(samplerInfo, 0.0f);
-        
-        MemorySegment samplerPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createSampler(device, samplerInfo, samplerPtr).check();
-        sampler = samplerPtr.get(ValueLayout.ADDRESS, 0);
-    }
-    
+
     private MemorySegment createDescriptorSetLayout() {
         // Create 4 bindings including depth texture
         MemorySegment bindings = arena.allocate(VkDescriptorSetLayoutBinding.layout(), 4);
@@ -276,8 +238,8 @@ public class AdaptiveAA {
         
         // Binding 0: currentFrame
         MemorySegment imageInfo0 = imageInfos.asSlice(0, VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo0, sampler);
-        VkDescriptorImageInfo.imageView(imageInfo0, colorTargetView.handle());
+        VkDescriptorImageInfo.sampler(imageInfo0, colorTarget.sampler());
+        VkDescriptorImageInfo.imageView(imageInfo0, colorTarget.imageView());
         VkDescriptorImageInfo.imageLayout(imageInfo0, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         MemorySegment write0 = writeDescriptorSets.asSlice(0, VkWriteDescriptorSet.layout());
@@ -291,8 +253,8 @@ public class AdaptiveAA {
         
         // Binding 1: depthTexture (for edge detection shader)
         MemorySegment imageInfo1 = imageInfos.asSlice(VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo1, sampler);
-        VkDescriptorImageInfo.imageView(imageInfo1, depthTargetView.handle());
+        VkDescriptorImageInfo.sampler(imageInfo1, depthTarget.sampler());
+        VkDescriptorImageInfo.imageView(imageInfo1, depthTarget.imageView());
         VkDescriptorImageInfo.imageLayout(imageInfo1, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         MemorySegment write1 = writeDescriptorSets.asSlice(VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
@@ -306,8 +268,8 @@ public class AdaptiveAA {
         
         // Binding 2: previousFrame
         MemorySegment imageInfo2 = imageInfos.asSlice(2 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo2, sampler);
-        VkDescriptorImageInfo.imageView(imageInfo2, previousFrameView.handle());
+        VkDescriptorImageInfo.sampler(imageInfo2, previousFrame.sampler());
+        VkDescriptorImageInfo.imageView(imageInfo2, previousFrame.imageView());
         VkDescriptorImageInfo.imageLayout(imageInfo2, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         MemorySegment write2 = writeDescriptorSets.asSlice(2 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
@@ -321,8 +283,8 @@ public class AdaptiveAA {
         
         // Binding 3: edgeTexture
         MemorySegment imageInfo3 = imageInfos.asSlice(3 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo3, sampler);
-        VkDescriptorImageInfo.imageView(imageInfo3, edgeTargetView.handle());
+        VkDescriptorImageInfo.sampler(imageInfo3, edgeTarget.sampler());
+        VkDescriptorImageInfo.imageView(imageInfo3, edgeTarget.imageView());
         VkDescriptorImageInfo.imageLayout(imageInfo3, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         
         MemorySegment write3 = writeDescriptorSets.asSlice(3 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
@@ -342,8 +304,8 @@ public class AdaptiveAA {
         sceneFramebuffer = VkFramebuffer.builder()
             .device(device)
             .renderPass(sceneRenderPass.handle())
-            .attachment(new VkFramebufferAttachment(colorTargetView, VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
-            .attachment(new VkFramebufferAttachment(depthTargetView, VkFramebufferAttachment.AttachmentType.DEPTH, 0, 1))
+            .attachment(new VkFramebufferAttachment(colorTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
+            .attachment(new VkFramebufferAttachment(depthTarget, VkFramebufferAttachment.AttachmentType.DEPTH, 1))
             .dimensions(width, height)
             .build(arena);
         
@@ -351,7 +313,7 @@ public class AdaptiveAA {
         edgeFramebuffer = VkFramebuffer.builder()
             .device(device)
             .renderPass(edgeRenderPass.handle())
-            .attachment(new VkFramebufferAttachment(edgeTargetView, VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
+            .attachment(new VkFramebufferAttachment(edgeTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
             .dimensions(width, height)
             .build(arena);
     }
@@ -361,9 +323,9 @@ public class AdaptiveAA {
     
     public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
         // Transition color and depth textures for edge detection sampling - use actual current layouts
-        transitionImageLayout(commandBuffer, colorTarget.handle(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
-        transitionImageLayout(commandBuffer, depthTarget.handle(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true);
-        transitionImageLayout(commandBuffer, previousFrame.handle(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+        transitionImageLayout(commandBuffer, colorTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+        transitionImageLayout(commandBuffer, depthTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true);
+        transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
         
         // 1. Edge detection pass
         VkCommandBuffer.beginRenderPass(commandBuffer, edgeRenderPass.handle(), edgeFramebuffer.handle())
@@ -380,7 +342,7 @@ public class AdaptiveAA {
         VulkanExtensions.cmdEndRenderPass(commandBuffer);
         
         // Transition edge texture to shader read layout after edge detection
-        transitionImageLayout(commandBuffer, edgeTarget.handle(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+        transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
         
         // 2. Adaptive AA pass - need to create compatible framebuffer or use direct rendering
         VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
@@ -422,9 +384,6 @@ public class AdaptiveAA {
         if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
             VulkanExtensions.destroyDescriptorSetLayout(device, descriptorSetLayout);
         }
-        if (sampler != null && !sampler.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroySampler(device, sampler);
-        }
         
         // Clean up other resources
         if (sceneFramebuffer != null) sceneFramebuffer.close();
@@ -434,14 +393,14 @@ public class AdaptiveAA {
         if (sceneRenderPass != null) sceneRenderPass.close();
         if (edgeRenderPass != null) edgeRenderPass.close();
         if (aaRenderPass != null) aaRenderPass.close();
-        if (colorTargetView != null) colorTargetView.close();
-        if (depthTargetView != null) depthTargetView.close();
-        if (edgeTargetView != null) edgeTargetView.close();
-        if (previousFrameView != null) previousFrameView.close();
+        
+        // Clean up textures (includes image, imageView, and sampler)
         if (colorTarget != null) colorTarget.close();
         if (depthTarget != null) depthTarget.close();
         if (edgeTarget != null) edgeTarget.close();
         if (previousFrame != null) previousFrame.close();
+        
+        if (allocator != null) allocator.close();
         
         Logger.debug("AdaptiveAA cleanup complete");
     }

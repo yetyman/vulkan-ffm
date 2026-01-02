@@ -1,24 +1,19 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.highlevel.VkSizedResourcePool;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages multiple buffer pools of different sizes for optimal allocation
+ * Manages vertex and index buffer pools using VkSizedResourcePool
  */
-public class BufferManager {
-    private final Map<Long, BufferPool> vertexPools = new HashMap<>();
-    private final Map<Long, BufferPool> indexPools = new HashMap<>();
-    private final Set<VkBuffer> allBuffers = ConcurrentHashMap.newKeySet(); // Track all created buffers
-    private final Arena arena;
+public class BufferManager implements AutoCloseable {
+    private final VkSizedResourcePool<VkBuffer> vertexPool;
+    private final VkSizedResourcePool<VkBuffer> indexPool;
     private final MemorySegment device;
-    private final MemorySegment physicalDevice;
     
     // Standard buffer sizes (powers of 2 for good coverage)
     private static final long[] BUFFER_SIZES = {
@@ -32,107 +27,100 @@ public class BufferManager {
     };
     
     public BufferManager(Arena arena, MemorySegment device, MemorySegment physicalDevice) {
-        this.arena = arena;
         this.device = device;
-        this.physicalDevice = physicalDevice;
         
-        // Create pools for each size
-        for (long size : BUFFER_SIZES) {
-            vertexPools.put(size, new BufferPool(arena, device, physicalDevice, size, true, 32, allBuffers));
-            indexPools.put(size, new BufferPool(arena, device, physicalDevice, size, false, 32, allBuffers));
-        }
+        // Create vertex buffer pool
+        vertexPool = VkSizedResourcePool.builder(VkBuffer.class)
+            .sizes(BUFFER_SIZES)
+            .factory(size -> VkBuffer.builder()
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .size(size)
+                .vertexBuffer()
+                .transferDst()
+                .deviceLocal()
+                .build(Arena.ofShared()))
+            .sizeExtractor(VkBuffer::size)
+            .destroyFunction(VkBuffer::close)
+            .maxPoolSizePerSize(32)
+            .build();
         
-        // Pre-allocate some common sizes including small test buffers
-        vertexPools.get(1024L).preallocate(20);       // More small test buffers
-        vertexPools.get(4 * 1024L).preallocate(20);   // More small test buffers
-        vertexPools.get(256 * 1024L).preallocate(8);
-        vertexPools.get(1024 * 1024L).preallocate(4);
-        indexPools.get(1024L).preallocate(4);         // Small test buffers
-        indexPools.get(64 * 1024L).preallocate(8);
-        indexPools.get(256 * 1024L).preallocate(4);
+        // Create index buffer pool
+        indexPool = VkSizedResourcePool.builder(VkBuffer.class)
+            .sizes(BUFFER_SIZES)
+            .factory(size -> VkBuffer.builder()
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .size(size)
+                .indexBuffer()
+                .transferDst()
+                .deviceLocal()
+                .build(Arena.ofShared()))
+            .sizeExtractor(VkBuffer::size)
+            .destroyFunction(VkBuffer::close)
+            .maxPoolSizePerSize(32)
+            .build();
+        
+        // Pre-allocate common sizes
+        vertexPool.preallocate(1024L, 20);
+        vertexPool.preallocate(4 * 1024L, 20);
+        vertexPool.preallocate(256 * 1024L, 8);
+        vertexPool.preallocate(1024 * 1024L, 4);
+        indexPool.preallocate(1024L, 4);
+        indexPool.preallocate(64 * 1024L, 8);
+        indexPool.preallocate(256 * 1024L, 4);
     }
     
     /**
      * Acquire vertex buffer that can fit the requested size
      */
     public VkBuffer acquireVertexBuffer(long requiredSize) {
-        return acquireBuffer(vertexPools, requiredSize);
+        return vertexPool.acquire(requiredSize);
     }
     
     /**
      * Acquire index buffer that can fit the requested size
      */
     public VkBuffer acquireIndexBuffer(long requiredSize) {
-        return acquireBuffer(indexPools, requiredSize);
-    }
-    
-    private VkBuffer acquireBuffer(Map<Long, BufferPool> pools, long requiredSize) {
-        // Find smallest buffer size that fits
-        for (long size : BUFFER_SIZES) {
-            if (size >= requiredSize) {
-                BufferPool pool = pools.get(size);
-                VkBuffer buffer = pool.acquireBuffer();
-                if (buffer != null) {
-                    return buffer;
-                }
-            }
-        }
-        
-        // No suitable buffer available
-        System.err.println("[BUFFER] No buffer available for size: " + requiredSize);
-        return null;
+        return indexPool.acquire(requiredSize);
     }
     
     public void releaseVertexBuffer(VkBuffer buffer) {
-        releaseBuffer(vertexPools, buffer);
+        vertexPool.release(buffer);
     }
     
     public void releaseIndexBuffer(VkBuffer buffer) {
-        releaseBuffer(indexPools, buffer);
-    }
-    
-    private void releaseBuffer(Map<Long, BufferPool> pools, VkBuffer buffer) {
-        if (buffer == null) return;
-        
-        // Find the pool this buffer belongs to
-        long bufferSize = buffer.size();
-        BufferPool pool = pools.get(bufferSize);
-        if (pool != null) {
-            pool.releaseBuffer(buffer);
-        }
+        indexPool.release(buffer);
     }
     
     public void printStats() {
-        Logger.debug("Pool Statistics:");
-        for (long size : BUFFER_SIZES) {
-            BufferPool vPool = vertexPools.get(size);
-            BufferPool iPool = indexPools.get(size);
-            Logger.debug("  " + (size / 1024) + "KB: V=" + vPool.getTotalUsed() + "/" + vPool.getTotalAllocated() + 
-                             ", I=" + iPool.getTotalUsed() + "/" + iPool.getTotalAllocated());
+        Logger.debug("Vertex Pool Statistics:");
+        Map<Long, VkSizedResourcePool.PoolStats> vStats = vertexPool.getStats();
+        for (Map.Entry<Long, VkSizedResourcePool.PoolStats> entry : vStats.entrySet()) {
+            Logger.debug("  " + (entry.getKey() / 1024) + "KB: " + entry.getValue().available + "/" + entry.getValue().total);
+        }
+        
+        Logger.debug("Index Pool Statistics:");
+        Map<Long, VkSizedResourcePool.PoolStats> iStats = indexPool.getStats();
+        for (Map.Entry<Long, VkSizedResourcePool.PoolStats> entry : iStats.entrySet()) {
+            Logger.debug("  " + (entry.getKey() / 1024) + "KB: " + entry.getValue().available + "/" + entry.getValue().total);
         }
     }
     
     public void cleanup() {
+        close();
+    }
+    
+    @Override
+    public void close() {
         // Wait for device to be idle before cleanup
         if (device != null && !device.equals(MemorySegment.NULL)) {
             io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
             Logger.debug("Device idle - starting BufferManager cleanup");
         }
         
-        // Destroy ALL buffers from global registry
-        Logger.debug("Destroying " + allBuffers.size() + " total buffers");
-        for (VkBuffer buffer : allBuffers) {
-            buffer.close();
-        }
-        allBuffers.clear();
-        
-        // Clean up pools
-        for (BufferPool pool : vertexPools.values()) {
-            pool.cleanup();
-        }
-        for (BufferPool pool : indexPools.values()) {
-            pool.cleanup();
-        }
+        vertexPool.close();
+        indexPool.close();
         
         Logger.debug("BufferManager cleanup complete");
     }

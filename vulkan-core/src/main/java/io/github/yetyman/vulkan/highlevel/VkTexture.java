@@ -244,9 +244,6 @@ public class VkTexture implements AutoCloseable {
         if (image != null) {
             image.close();
         }
-        if (allocator != null && allocation != null) {
-            allocator.free(allocation);
-        }
     }
     
     public static class Builder {
@@ -363,6 +360,13 @@ public class VkTexture implements AutoCloseable {
             return (int)Math.floor(Math.log(Math.max(width, height)) / Math.log(2)) + 1;
         }
         
+        private boolean isDepthFormat(int format) {
+            return format == VkFormat.VK_FORMAT_D16_UNORM ||
+                   format == VkFormat.VK_FORMAT_D32_SFLOAT ||
+                   format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT ||
+                   format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT;
+        }
+        
         public VkTexture build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (allocator == null) throw new IllegalStateException("allocator not set");
@@ -378,11 +382,7 @@ public class VkTexture implements AutoCloseable {
                 .usage(usage)
                 .build(arena);
             
-            // Allocate memory
-            VkAllocation allocation = allocator.allocateImage(image.handle(), VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            
-            // Bind memory
-            VulkanExtensions.bindImageMemory(device, image.handle(), allocation.memory(), allocation.offset()).check();
+            // VkImage already handles memory allocation and binding, so no need to do it again
             
             // Create image view
             MemorySegment imageViewInfo = VkImageViewCreateInfo.allocate(arena);
@@ -393,7 +393,9 @@ public class VkTexture implements AutoCloseable {
             VkImageViewCreateInfo.format(imageViewInfo, format);
             
             MemorySegment subresourceRange = VkImageViewCreateInfo.subresourceRange(imageViewInfo);
-            VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+            // Use correct aspect mask based on format
+            int aspectMask = isDepthFormat(format) ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT;
+            VkImageSubresourceRange.aspectMask(subresourceRange, aspectMask);
             VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
             VkImageSubresourceRange.levelCount(subresourceRange, mipLevels);
             VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
@@ -421,7 +423,7 @@ public class VkTexture implements AutoCloseable {
             VulkanExtensions.createSampler(device, samplerInfo, samplerPtr).check();
             MemorySegment sampler = samplerPtr.get(ValueLayout.ADDRESS, 0);
             
-            return new VkTexture(image, imageView, sampler, allocation, allocator, device, width, height, depth, mipLevels, format);
+            return new VkTexture(image, imageView, sampler, null, null, device, width, height, depth, mipLevels, format);
         }
     }
 }
