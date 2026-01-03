@@ -2,7 +2,6 @@ package io.github.yetyman.vulkan.sample.complex;
 
 import io.github.yetyman.glfw.enums.GLFWAction;
 import io.github.yetyman.glfw.enums.GLFWKey;
-import io.github.yetyman.glfw.enums.GLFWMouseButton;
 import io.github.yetyman.vulkan.VulkanApplication;
 import io.github.yetyman.vulkan.input.InputManager;
 import io.github.yetyman.vulkan.input.events.KeyEvent;
@@ -65,7 +64,7 @@ public class ComplexTriangleApp extends VulkanApplication {
 
         // Toggle adaptive AA with spacebar
         inputManager.registerHandler(
-            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_SPACE && ke.action() == GLFWAction.GLFW_PRESS,
+            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_SPACE.value() && ke.action() == GLFWAction.GLFW_PRESS.value(),
             () -> {
                 ThreadedRenderer renderer = renderer();
                 renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
@@ -78,7 +77,7 @@ public class ComplexTriangleApp extends VulkanApplication {
             final int threadCount = i;
             int finalI = i;
             inputManager.registerHandler(
-                event -> event instanceof KeyEvent ke && ke.key() == (GLFWKey.GLFW_KEY_1 + finalI - 1) && ke.action() == GLFWAction.GLFW_PRESS,
+                event -> event instanceof KeyEvent ke && ke.key() == (GLFWKey.GLFW_KEY_1.value() + finalI - 1) && ke.action() == GLFWAction.GLFW_PRESS.value(),
                 () -> {
                     ThreadedRenderer renderer = renderer();
                     renderer.setThreadCount(threadCount);
@@ -89,7 +88,7 @@ public class ComplexTriangleApp extends VulkanApplication {
         
         // Toggle debug logging with D key
         inputManager.registerHandler(
-            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_D && ke.action() == GLFWAction.GLFW_PRESS,
+            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_D.value() && ke.action() == GLFWAction.GLFW_PRESS.value(),
             () -> {
                 if (Logger.isEnabled(Logger.Level.DEBUG)) {
                     Logger.disable(Logger.Level.DEBUG);
@@ -103,7 +102,7 @@ public class ComplexTriangleApp extends VulkanApplication {
         
         // Toggle LOD logging with L key
         inputManager.registerHandler(
-            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_L && ke.action() == GLFWAction.GLFW_PRESS,
+            event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_L.value() && ke.action() == GLFWAction.GLFW_PRESS.value(),
             () -> {
                 if (Logger.isEnabled(Logger.Level.LOD)) {
                     Logger.disable(Logger.Level.LOD, Logger.Level.RENDER, Logger.Level.DRAW, Logger.Level.MATRIX);

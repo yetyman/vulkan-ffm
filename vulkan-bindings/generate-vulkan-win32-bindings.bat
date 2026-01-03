@@ -24,8 +24,19 @@ if %ERRORLEVEL% GEQ 5 (
 
 echo Win32 Vulkan bindings generated in %OUTPUT_DIR%\io\github\yetyman\vulkan\generated\win32
 
+REM Remove duplicates from win32 generated classes
+echo Removing duplicate classes...
+call mvn compile -q
+call mvn exec:java -q "-Dexec.mainClass=io.github.yetyman.enumgen.Win32Deduplicator" "-Dexec.args=src\main\java\io\github\yetyman\vulkan\generated src\main\java\io\github\yetyman\vulkan\generated\win32"
+echo Enum classes generated
+
 REM Generate enum classes
 echo Generating enum classes...
 call mvn compile -q
 call mvn exec:java -q "-Dexec.mainClass=io.github.yetyman.enumgen.EnumGenerator" "-Dexec.args=src\main\java\io\github\yetyman\vulkan\generated\win32 src\main\java\io\github\yetyman\vulkan\enums\win32 io.github.yetyman.vulkan.enums.win32"
+
+REM Remove duplicates from win32 generated classes
+echo Removing duplicate classes...
+call mvn compile -q
+call mvn exec:java -q "-Dexec.mainClass=io.github.yetyman.enumgen.Win32Deduplicator" "-Dexec.args=src\main\java\io\github\yetyman\vulkan\enum src\main\java\io\github\yetyman\vulkan\enum\win32"
 echo Enum classes generated

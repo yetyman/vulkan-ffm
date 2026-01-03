@@ -1,12 +1,26 @@
 package io.github.yetyman.vulkan.enums;
 
+import java.util.*;
+
 /**
- * Constants for VkInstanceCreateFlagBits
+ * Type-safe constants for VkInstanceCreateFlagBits
  * Generated from jextract bindings
  */
-public final class VkInstanceCreateFlagBits {
-    private VkInstanceCreateFlagBits() {}
+public record VkInstanceCreateFlagBits(int value) {
 
-    public static final int VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR = 1;
-    public static final int VK_INSTANCE_CREATE_FLAG_BITS_MAX_ENUM = 2147483647;
+    public static final VkInstanceCreateFlagBits VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR = new VkInstanceCreateFlagBits(1);
+    public static final VkInstanceCreateFlagBits VK_INSTANCE_CREATE_FLAG_BITS_MAX_ENUM = new VkInstanceCreateFlagBits(2147483647);
+
+    public static VkInstanceCreateFlagBits fromValue(int value) {
+        return switch (value) {
+            case 1 -> VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+            case 2147483647 -> VK_INSTANCE_CREATE_FLAG_BITS_MAX_ENUM;
+            default -> new VkInstanceCreateFlagBits(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

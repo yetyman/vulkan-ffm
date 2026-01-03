@@ -1,6 +1,5 @@
 package io.github.yetyman.glfw;
 
-import io.github.yetyman.glfw.enums.GLFWConstants;
 import io.github.yetyman.glfw.generated.GLFWFFM;
 import java.lang.foreign.*;
 
@@ -11,7 +10,7 @@ public class GLFW {
     
     // Core functions
     public static boolean glfwInit() {
-        return GLFWFFM.glfwInit() == GLFWConstants.GLFW_TRUE;
+        return GLFWFFM.glfwInit() == 1;//GLFWConstants.GLFW_TRUE.value();not using it directly here to simplify re-generation
     }
     
     public static void glfwTerminate() {
@@ -34,7 +33,7 @@ public class GLFW {
     }
     
     public static boolean glfwWindowShouldClose(MemorySegment window) {
-        return GLFWFFM.glfwWindowShouldClose(window) == GLFWConstants.GLFW_TRUE;
+        return GLFWFFM.glfwWindowShouldClose(window) == 1;//GLFWConstants.GLFW_TRUE.value();not using it directly here to simplify re-generation
     }
     
     public static void glfwPollEvents() {

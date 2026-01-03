@@ -1,19 +1,36 @@
 package io.github.yetyman.vulkan.enums.win32;
 
+import java.util.*;
+
 /**
- * Constants for VkDescriptorBindingFlagBits
+ * Type-safe constants for VkDescriptorBindingFlagBits
  * Generated from jextract bindings
  */
-public final class VkDescriptorBindingFlagBits {
-    private VkDescriptorBindingFlagBits() {}
+public record VkDescriptorBindingFlagBits(int value) {
 
-    public static final int VK_DESCRIPTOR_BINDING_FLAG_BITS_MAX_ENUM = 2147483647;
-    public static final int VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT = 4;
-    public static final int VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT = 4;
-    public static final int VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT = 1;
-    public static final int VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT = 1;
-    public static final int VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT = 2;
-    public static final int VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT_EXT = 2;
-    public static final int VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT = 8;
-    public static final int VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT = 8;
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_FLAG_BITS_MAX_ENUM = new VkDescriptorBindingFlagBits(2147483647);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT = new VkDescriptorBindingFlagBits(4);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT = new VkDescriptorBindingFlagBits(4);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT = new VkDescriptorBindingFlagBits(1);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT = new VkDescriptorBindingFlagBits(1);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT = new VkDescriptorBindingFlagBits(2);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT_EXT = new VkDescriptorBindingFlagBits(2);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT = new VkDescriptorBindingFlagBits(8);
+    public static final VkDescriptorBindingFlagBits VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT = new VkDescriptorBindingFlagBits(8);
+
+    public static VkDescriptorBindingFlagBits fromValue(int value) {
+        return switch (value) {
+            case 2147483647 -> VK_DESCRIPTOR_BINDING_FLAG_BITS_MAX_ENUM;
+            case 4 -> VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+            case 1 -> VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+            case 2 -> VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
+            case 8 -> VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT;
+            default -> new VkDescriptorBindingFlagBits(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

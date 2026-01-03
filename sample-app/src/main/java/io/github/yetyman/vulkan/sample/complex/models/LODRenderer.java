@@ -50,7 +50,7 @@ public class LODRenderer {
      */
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
         // Bind glTF pipeline
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline);
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline);
         Logger.lod("Using glTF pipeline: " + gltfPipeline);
         if (staticBatches.isEmpty()) return;
         
@@ -123,7 +123,7 @@ public class LODRenderer {
             .bind(commandBuffer, 1, frameArena);
         
         // Bind index buffer with encoded handle
-        Vulkan.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+        Vulkan.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32.value());
         
         // Draw indexed for each enabled instance in this batch
         int enabledCount = getEnabledInstanceCount(batch);

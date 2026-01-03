@@ -1,13 +1,28 @@
 package io.github.yetyman.vulkan.enums;
 
+import java.util.*;
+
 /**
- * Constants for VkDepthClampModeEXT
+ * Type-safe constants for VkDepthClampModeEXT
  * Generated from jextract bindings
  */
-public final class VkDepthClampModeEXT {
-    private VkDepthClampModeEXT() {}
+public record VkDepthClampModeEXT(int value) {
 
-    public static final int VK_DEPTH_CLAMP_MODE_MAX_ENUM_EXT = 2147483647;
-    public static final int VK_DEPTH_CLAMP_MODE_USER_DEFINED_RANGE_EXT = 1;
-    public static final int VK_DEPTH_CLAMP_MODE_VIEWPORT_RANGE_EXT = 0;
+    public static final VkDepthClampModeEXT VK_DEPTH_CLAMP_MODE_MAX_ENUM_EXT = new VkDepthClampModeEXT(2147483647);
+    public static final VkDepthClampModeEXT VK_DEPTH_CLAMP_MODE_USER_DEFINED_RANGE_EXT = new VkDepthClampModeEXT(1);
+    public static final VkDepthClampModeEXT VK_DEPTH_CLAMP_MODE_VIEWPORT_RANGE_EXT = new VkDepthClampModeEXT(0);
+
+    public static VkDepthClampModeEXT fromValue(int value) {
+        return switch (value) {
+            case 2147483647 -> VK_DEPTH_CLAMP_MODE_MAX_ENUM_EXT;
+            case 1 -> VK_DEPTH_CLAMP_MODE_USER_DEFINED_RANGE_EXT;
+            case 0 -> VK_DEPTH_CLAMP_MODE_VIEWPORT_RANGE_EXT;
+            default -> new VkDepthClampModeEXT(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

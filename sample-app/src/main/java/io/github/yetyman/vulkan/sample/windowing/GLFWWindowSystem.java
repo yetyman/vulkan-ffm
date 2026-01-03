@@ -23,8 +23,8 @@ public class GLFWWindowSystem implements WindowSystem {
             initialized = true;
         }
         
-        GLFW.glfwWindowHint(GLFWClientAPI.GLFW_CLIENT_API, GLFWClientAPI.GLFW_NO_API);
-        GLFW.glfwWindowHint(GLFWWindowHint.GLFW_RESIZABLE, resizable ? GLFWConstants.GLFW_TRUE : GLFWConstants.GLFW_FALSE);
+        GLFW.glfwWindowHint(GLFWClientAPI.GLFW_CLIENT_API.value(), GLFWClientAPI.GLFW_NO_API.value());
+        GLFW.glfwWindowHint(GLFWWindowHint.GLFW_RESIZABLE.value(), resizable ? GLFWConstants.GLFW_TRUE.value() : GLFWConstants.GLFW_FALSE.value());
         
         return GLFW.glfwCreateWindow(width, height, title);
     }

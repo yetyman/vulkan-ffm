@@ -83,24 +83,59 @@ public class EnumGenerator {
             StringBuilder sb = new StringBuilder();
             
             sb.append("package io.github.yetyman.glfw.enums;\n\n");
+            sb.append("import java.util.*;\n\n");
             sb.append("/**\n");
-            sb.append(" * Constants for ").append(enumType).append("\n");
+            sb.append(" * Type-safe constants for ").append(enumType).append("\n");
             sb.append(" * Generated from jextract bindings\n");
             sb.append(" */\n");
-            sb.append("public final class ").append(enumType).append(" {\n");
-            sb.append("    private ").append(enumType).append("() {}\n\n");
+            sb.append("public record ").append(enumType).append("(int value) {\n\n");
             
             for (Map.Entry<String, Long> entry : constants.entrySet()) {
                 String name = entry.getKey();
                 long value = entry.getValue();
-                if (value > Integer.MAX_VALUE) {
-                    // Use hex representation for values that overflow int
-                    int intValue = (int) value;
-                    sb.append("    public static final int ").append(name).append(" = 0x").append(Integer.toHexString(intValue).toUpperCase()).append(";\n");
+                int intValue = (int) value;
+                
+                // Check if we already have an instance for this value
+                String existingName = null;
+                for (Map.Entry<String, Long> existing : constants.entrySet()) {
+                    if (existing.getValue().equals(value) && existing.getKey().compareTo(name) < 0) {
+                        existingName = existing.getKey();
+                        break;
+                    }
+                }
+                
+                if (existingName != null) {
+                    sb.append("    public static final ").append(enumType).append(" ").append(name).append(" = ").append(existingName).append(";\n");
                 } else {
-                    sb.append("    public static final int ").append(name).append(" = ").append(value).append(";\n");
+                    sb.append("    public static final ").append(enumType).append(" ").append(name).append(" = new ").append(enumType).append("(").append(intValue).append(");\n");
                 }
             }
+            
+            sb.append("\n    public static ").append(enumType).append(" fromValue(int value) {\n");
+            sb.append("        return switch (value) {\n");
+            
+            // Handle duplicate values - prefer shorter names
+            Map<Integer, String> valueToName = new LinkedHashMap<>();
+            for (Map.Entry<String, Long> entry : constants.entrySet()) {
+                int intValue = (int) entry.getValue().longValue();
+                String name = entry.getKey();
+                
+                if (!valueToName.containsKey(intValue)) {
+                    valueToName.put(intValue, name);
+                } else {
+                    String existing = valueToName.get(intValue);
+                    if (name.length() < existing.length()) {
+                        valueToName.put(intValue, name);
+                    }
+                }
+            }
+            
+            for (Map.Entry<Integer, String> entry : valueToName.entrySet()) {
+                sb.append("            case ").append(entry.getKey()).append(" -> ").append(entry.getValue()).append(";\n");
+            }
+            sb.append("            default -> new ").append(enumType).append("(value);\n");
+            sb.append("        };\n");
+            sb.append("    }\n");
             
             sb.append("}\n");
             

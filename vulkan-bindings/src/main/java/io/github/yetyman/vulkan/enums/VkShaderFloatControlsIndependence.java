@@ -1,17 +1,33 @@
 package io.github.yetyman.vulkan.enums;
 
+import java.util.*;
+
 /**
- * Constants for VkShaderFloatControlsIndependence
+ * Type-safe constants for VkShaderFloatControlsIndependence
  * Generated from jextract bindings
  */
-public final class VkShaderFloatControlsIndependence {
-    private VkShaderFloatControlsIndependence() {}
+public record VkShaderFloatControlsIndependence(int value) {
 
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY = 0;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR = 0;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL = 1;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL_KHR = 1;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_MAX_ENUM = 2147483647;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE = 2;
-    public static final int VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR = 2;
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY = new VkShaderFloatControlsIndependence(0);
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY_KHR = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY;
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL = new VkShaderFloatControlsIndependence(1);
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL_KHR = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL;
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_MAX_ENUM = new VkShaderFloatControlsIndependence(2147483647);
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE = new VkShaderFloatControlsIndependence(2);
+    public static final VkShaderFloatControlsIndependence VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE_KHR = VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE;
+
+    public static VkShaderFloatControlsIndependence fromValue(int value) {
+        return switch (value) {
+            case 0 -> VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY;
+            case 1 -> VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_ALL;
+            case 2147483647 -> VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_MAX_ENUM;
+            case 2 -> VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE;
+            default -> new VkShaderFloatControlsIndependence(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

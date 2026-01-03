@@ -64,8 +64,8 @@ public class AdaptiveAA {
             .device(device)
             .allocator(allocator)
             .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
+            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value())
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
             .nearest()
             .clampToEdge()
             .build(arena);
@@ -77,7 +77,7 @@ public class AdaptiveAA {
             .allocator(allocator)
             .size(width, height)
             .format(depthFormat)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
             .nearest()
             .clampToEdge()
             .build(arena);
@@ -87,8 +87,8 @@ public class AdaptiveAA {
             .device(device)
             .allocator(allocator)
             .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8_UNORM)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
+            .format(VkFormat.VK_FORMAT_R8_UNORM.value())
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
             .nearest()
             .clampToEdge()
             .build(arena);
@@ -98,8 +98,8 @@ public class AdaptiveAA {
             .device(device)
             .allocator(allocator)
             .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT)
+            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value())
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
             .nearest()
             .clampToEdge()
             .build(arena);
@@ -111,25 +111,25 @@ public class AdaptiveAA {
         // Scene render pass (color + depth) - transition color to shader read optimal for sampling
         sceneRenderPass = VkRenderPass.builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_R8G8B8A8_UNORM, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+            .colorAttachment(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
             .build(arena);
         
         // Edge detection render pass - transition to shader read optimal
         edgeRenderPass = VkRenderPass.builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_R8_UNORM, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
+            .colorAttachment(VkFormat.VK_FORMAT_R8_UNORM.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
             .build(arena);
         
         // Final AA render pass (to swapchain) - must match swapchain framebuffer structure
         aaRenderPass = VkRenderPass.builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
             .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(), 
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value() | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value())
             .build(arena);
     }
     
@@ -164,10 +164,10 @@ public class AdaptiveAA {
                 .fragmentShader(aaFragCode)
                 .triangleTopology()
                 .descriptorSetLayouts(descriptorSetLayout.handle())
-                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, 8)
+                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8)
                 .depthTest(true)
                 .depthWrite(false)
-                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_ALWAYS)
+                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_ALWAYS.value())
                 .build(arena);
         } catch (Exception e) {
             System.err.println("[ERROR] Failed to create AA pipelines: " + e.getMessage());
@@ -183,14 +183,14 @@ public class AdaptiveAA {
         for (int i = 0; i < 4; i++) {
             MemorySegment binding = bindings.asSlice(i * VkDescriptorSetLayoutBinding.layout().byteSize(), VkDescriptorSetLayoutBinding.layout());
             VkDescriptorSetLayoutBinding.binding(binding, i);
-            VkDescriptorSetLayoutBinding.descriptorType(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            VkDescriptorSetLayoutBinding.descriptorType(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
             VkDescriptorSetLayoutBinding.descriptorCount(binding, 1);
-            VkDescriptorSetLayoutBinding.stageFlags(binding, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT);
+            VkDescriptorSetLayoutBinding.stageFlags(binding, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value());
             VkDescriptorSetLayoutBinding.pImmutableSamplers(binding, MemorySegment.NULL);
         }
         
         MemorySegment layoutInfo = VkDescriptorSetLayoutCreateInfo.allocate(arena);
-        VkDescriptorSetLayoutCreateInfo.sType(layoutInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
+        VkDescriptorSetLayoutCreateInfo.sType(layoutInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO.value());
         VkDescriptorSetLayoutCreateInfo.pNext(layoutInfo, MemorySegment.NULL);
         VkDescriptorSetLayoutCreateInfo.flags(layoutInfo, 0);
         VkDescriptorSetLayoutCreateInfo.bindingCount(layoutInfo, 4);
@@ -205,11 +205,11 @@ public class AdaptiveAA {
     private void createDescriptorSets() {
         // Create descriptor pool for 4 textures including depth
         MemorySegment poolSize = VkDescriptorPoolSize.allocate(arena);
-        VkDescriptorPoolSize.type(poolSize, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkDescriptorPoolSize.type(poolSize, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
         VkDescriptorPoolSize.descriptorCount(poolSize, 4);
         
         MemorySegment poolInfo = VkDescriptorPoolCreateInfo.allocate(arena);
-        VkDescriptorPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+        VkDescriptorPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO.value());
         VkDescriptorPoolCreateInfo.flags(poolInfo, 0);
         VkDescriptorPoolCreateInfo.maxSets(poolInfo, 1);
         VkDescriptorPoolCreateInfo.poolSizeCount(poolInfo, 1);
@@ -221,7 +221,7 @@ public class AdaptiveAA {
         
         // Allocate descriptor set
         MemorySegment allocInfo = VkDescriptorSetAllocateInfo.allocate(arena);
-        VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
+        VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO.value());
         VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, descriptorPool.handle());
         VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
         MemorySegment layoutArray = arena.allocate(ValueLayout.ADDRESS);
@@ -240,14 +240,14 @@ public class AdaptiveAA {
         MemorySegment imageInfo0 = imageInfos.asSlice(0, VkDescriptorImageInfo.layout());
         VkDescriptorImageInfo.sampler(imageInfo0, colorTarget.sampler());
         VkDescriptorImageInfo.imageView(imageInfo0, colorTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo0, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDescriptorImageInfo.imageLayout(imageInfo0, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
         
         MemorySegment write0 = writeDescriptorSets.asSlice(0, VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write0, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+        VkWriteDescriptorSet.sType(write0, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
         VkWriteDescriptorSet.dstSet(write0, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write0, 0);
         VkWriteDescriptorSet.dstArrayElement(write0, 0);
-        VkWriteDescriptorSet.descriptorType(write0, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkWriteDescriptorSet.descriptorType(write0, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
         VkWriteDescriptorSet.descriptorCount(write0, 1);
         VkWriteDescriptorSet.pImageInfo(write0, imageInfo0);
         
@@ -255,14 +255,14 @@ public class AdaptiveAA {
         MemorySegment imageInfo1 = imageInfos.asSlice(VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
         VkDescriptorImageInfo.sampler(imageInfo1, depthTarget.sampler());
         VkDescriptorImageInfo.imageView(imageInfo1, depthTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo1, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDescriptorImageInfo.imageLayout(imageInfo1, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
         
         MemorySegment write1 = writeDescriptorSets.asSlice(VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write1, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+        VkWriteDescriptorSet.sType(write1, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
         VkWriteDescriptorSet.dstSet(write1, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write1, 1);
         VkWriteDescriptorSet.dstArrayElement(write1, 0);
-        VkWriteDescriptorSet.descriptorType(write1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkWriteDescriptorSet.descriptorType(write1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
         VkWriteDescriptorSet.descriptorCount(write1, 1);
         VkWriteDescriptorSet.pImageInfo(write1, imageInfo1);
         
@@ -270,14 +270,14 @@ public class AdaptiveAA {
         MemorySegment imageInfo2 = imageInfos.asSlice(2 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
         VkDescriptorImageInfo.sampler(imageInfo2, previousFrame.sampler());
         VkDescriptorImageInfo.imageView(imageInfo2, previousFrame.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo2, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDescriptorImageInfo.imageLayout(imageInfo2, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
         
         MemorySegment write2 = writeDescriptorSets.asSlice(2 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write2, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+        VkWriteDescriptorSet.sType(write2, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
         VkWriteDescriptorSet.dstSet(write2, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write2, 2);
         VkWriteDescriptorSet.dstArrayElement(write2, 0);
-        VkWriteDescriptorSet.descriptorType(write2, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkWriteDescriptorSet.descriptorType(write2, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
         VkWriteDescriptorSet.descriptorCount(write2, 1);
         VkWriteDescriptorSet.pImageInfo(write2, imageInfo2);
         
@@ -285,14 +285,14 @@ public class AdaptiveAA {
         MemorySegment imageInfo3 = imageInfos.asSlice(3 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
         VkDescriptorImageInfo.sampler(imageInfo3, edgeTarget.sampler());
         VkDescriptorImageInfo.imageView(imageInfo3, edgeTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo3, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDescriptorImageInfo.imageLayout(imageInfo3, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
         
         MemorySegment write3 = writeDescriptorSets.asSlice(3 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write3, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
+        VkWriteDescriptorSet.sType(write3, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
         VkWriteDescriptorSet.dstSet(write3, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write3, 3);
         VkWriteDescriptorSet.dstArrayElement(write3, 0);
-        VkWriteDescriptorSet.descriptorType(write3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkWriteDescriptorSet.descriptorType(write3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
         VkWriteDescriptorSet.descriptorCount(write3, 1);
         VkWriteDescriptorSet.pImageInfo(write3, imageInfo3);
         
@@ -323,9 +323,9 @@ public class AdaptiveAA {
     
     public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
         // Transition color and depth textures for edge detection sampling - use actual current layouts
-        transitionImageLayout(commandBuffer, colorTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
-        transitionImageLayout(commandBuffer, depthTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true);
-        transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+        transitionImageLayout(commandBuffer, colorTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
+        transitionImageLayout(commandBuffer, depthTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), true);
+        transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
         
         // 1. Edge detection pass
         VkCommandBuffer.beginRenderPass(commandBuffer, edgeRenderPass.handle(), edgeFramebuffer.handle())
@@ -333,16 +333,16 @@ public class AdaptiveAA {
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
             .execute(frameArena);
         
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, edgePipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
         MemorySegment edgeDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
         edgeDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
-        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
             edgePipeline.layout(), 0, 1, edgeDescriptorSets, 0, MemorySegment.NULL);
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         Vulkan.cmdEndRenderPass(commandBuffer);
         
         // Transition edge texture to shader read layout after edge detection
-        transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
+        transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
         
         // 2. Adaptive AA pass - need to create compatible framebuffer or use direct rendering
         VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
@@ -351,10 +351,10 @@ public class AdaptiveAA {
             .clearDepth(1.0f, 0)
             .execute(frameArena);
         
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, aaPipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
         MemorySegment aaDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
         aaDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
-        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
             aaPipeline.layout(), 0, 1, aaDescriptorSets, 0, MemorySegment.NULL);
         
         // Push constants for frame info
@@ -362,7 +362,7 @@ public class AdaptiveAA {
         pushConstants.set(ValueLayout.JAVA_FLOAT, 0, (float)frameIndex);
         pushConstants.set(ValueLayout.JAVA_FLOAT, 4, 16.67f); // ~60fps
         Vulkan.cmdPushConstants(commandBuffer, aaPipeline.layout(), 
-            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, 8, pushConstants);
+            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8, pushConstants);
         
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         Vulkan.cmdEndRenderPass(commandBuffer);
@@ -408,10 +408,10 @@ public class AdaptiveAA {
     private int findSupportedDepthFormat() {
         // Try common depth formats in order of preference, requiring both attachment and sampling support
         int[] candidates = {
-            VkFormat.VK_FORMAT_D32_SFLOAT,
-            VkFormat.VK_FORMAT_D16_UNORM,
-            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT,
-            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT
+            VkFormat.VK_FORMAT_D32_SFLOAT.value(),
+            VkFormat.VK_FORMAT_D16_UNORM.value(),
+            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value(),
+            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value()
         };
         
         try (Arena tempArena = Arena.ofConfined()) {
@@ -420,7 +420,7 @@ public class AdaptiveAA {
                 Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
                 
                 int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
-                int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+                int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT.value();
                 if ((optimalFeatures & requiredFeatures) == requiredFeatures) {
                     return format;
                 }
@@ -432,7 +432,7 @@ public class AdaptiveAA {
     
     private void transitionImageLayout(MemorySegment commandBuffer, MemorySegment image, int oldLayout, int newLayout, boolean isDepth) {
         MemorySegment barrier = VkImageMemoryBarrier.allocate(arena);
-        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
         VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
         VkImageMemoryBarrier.newLayout(barrier, newLayout);
         VkImageMemoryBarrier.srcQueueFamilyIndex(barrier, ~0);
@@ -441,29 +441,29 @@ public class AdaptiveAA {
         
         MemorySegment subresourceRange = VkImageMemoryBarrier.subresourceRange(barrier);
         VkImageSubresourceRange.aspectMask(subresourceRange, 
-            isDepth ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+            isDepth ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value() : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
         VkImageSubresourceRange.levelCount(subresourceRange, 1);
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
         // When transitioning from UNDEFINED, no source access mask is needed
-        if (oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED) {
+        if (oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value()) {
             VkImageMemoryBarrier.srcAccessMask(barrier, 0);
         } else if (isDepth) {
-            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value());
         } else {
-            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value());
         }
-        VkImageMemoryBarrier.dstAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT);
+        VkImageMemoryBarrier.dstAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value());
         
-        int srcStage = oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED ? 
-            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT :
-            (isDepth ? VkPipelineStageFlagBits.VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        int srcStage = oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value() ? 
+            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value() :
+            (isDepth ? VkPipelineStageFlagBits.VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT.value() : VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
         
         Vulkan.cmdPipelineBarrier(commandBuffer, 
             srcStage,
-            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value(),
             0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
 }

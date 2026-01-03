@@ -110,8 +110,8 @@ public class ThreadedRenderer extends BaseRenderer {
             .physicalDevice(physicalDevice)
             .format(depthFormat)
             .extent(width, height)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT)
+            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value())
+            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value())
             .build();
         Logger.info("Depth target created with format: " + depthFormat);
     }
@@ -119,10 +119,10 @@ public class ThreadedRenderer extends BaseRenderer {
     private int findSupportedDepthFormat() {
         // Try common depth formats in order of preference
         int[] candidates = {
-            VkFormat.VK_FORMAT_D32_SFLOAT,
-            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT,
-            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT,
-            VkFormat.VK_FORMAT_D16_UNORM
+            VkFormat.VK_FORMAT_D32_SFLOAT.value(),
+            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value(),
+            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value(),
+            VkFormat.VK_FORMAT_D16_UNORM.value()
         };
         
         try (Arena tempArena = Arena.ofConfined()) {
@@ -131,7 +131,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
                 
                 int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
-                if ((optimalFeatures & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
+                if ((optimalFeatures & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value()) != 0) {
                     return format;
                 }
             }
@@ -145,12 +145,12 @@ public class ThreadedRenderer extends BaseRenderer {
         int depthFormat = findSupportedDepthFormat();
         return VkRenderPass.builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
             .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(), 
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value() | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value())
             .build(arena);
     }
     
@@ -188,8 +188,8 @@ public class ThreadedRenderer extends BaseRenderer {
             .dynamicScissor()
             .depthTest(true)
             .depthWrite(true)
-            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
+            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
         
         // glTF pipeline with vertex input descriptions
@@ -204,18 +204,18 @@ public class ThreadedRenderer extends BaseRenderer {
             .dynamicScissor()
             .depthTest(true)
             .depthWrite(true)
-            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 0, 4)
+            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .vertexInput()
-                .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX) // 3*4 + 3*4 + 2*4 = 32 bytes
-                .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 0)  // position
-                .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT, 12) // normal
-                .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT, 24)    // texcoord
-                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE) // 16*4 = 64 bytes per matrix
-                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 0)  // matrix row 0
-                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 16) // matrix row 1
-                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 32) // matrix row 2
-                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT, 48) // matrix row 3
+                .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value()) // 3*4 + 3*4 + 2*4 = 32 bytes
+                .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)  // position
+                .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 12) // normal
+                .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT.value(), 24)    // texcoord
+                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE.value()) // 16*4 = 64 bytes per matrix
+                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 0)  // matrix row 0
+                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 16) // matrix row 1
+                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 32) // matrix row 2
+                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 48) // matrix row 3
                 .build()
             .build(arena);
         
@@ -334,22 +334,22 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
         
         // Push time constant for rotation
         VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
-            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, frameArena)
+            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
             .push(commandBuffer, pipeline.layout());
         
         Vulkan.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
         Vulkan.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
         // TEST: Manual triangle with simple triangle pipeline (no vertex buffers needed)
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Test glTF pipeline with vertex and instance buffers
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
         Logger.debug("Rendering glTF test triangle with vertex buffers");
         
         // Bind both vertex and instance buffers

@@ -1,13 +1,27 @@
 package io.github.yetyman.vulkan.enums.win32;
 
+import java.util.*;
+
 /**
- * Constants for VkSurfaceCounterFlagBitsEXT
+ * Type-safe constants for VkSurfaceCounterFlagBitsEXT
  * Generated from jextract bindings
  */
-public final class VkSurfaceCounterFlagBitsEXT {
-    private VkSurfaceCounterFlagBitsEXT() {}
+public record VkSurfaceCounterFlagBitsEXT(int value) {
 
-    public static final int VK_SURFACE_COUNTER_FLAG_BITS_MAX_ENUM_EXT = 2147483647;
-    public static final int VK_SURFACE_COUNTER_VBLANK_BIT_EXT = 1;
-    public static final int VK_SURFACE_COUNTER_VBLANK_EXT = 1;
+    public static final VkSurfaceCounterFlagBitsEXT VK_SURFACE_COUNTER_FLAG_BITS_MAX_ENUM_EXT = new VkSurfaceCounterFlagBitsEXT(2147483647);
+    public static final VkSurfaceCounterFlagBitsEXT VK_SURFACE_COUNTER_VBLANK_BIT_EXT = new VkSurfaceCounterFlagBitsEXT(1);
+    public static final VkSurfaceCounterFlagBitsEXT VK_SURFACE_COUNTER_VBLANK_EXT = new VkSurfaceCounterFlagBitsEXT(1);
+
+    public static VkSurfaceCounterFlagBitsEXT fromValue(int value) {
+        return switch (value) {
+            case 2147483647 -> VK_SURFACE_COUNTER_FLAG_BITS_MAX_ENUM_EXT;
+            case 1 -> VK_SURFACE_COUNTER_VBLANK_EXT;
+            default -> new VkSurfaceCounterFlagBitsEXT(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

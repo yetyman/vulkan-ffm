@@ -19,13 +19,13 @@ public class SimpleRenderer extends BaseRenderer {
     protected VkRenderPass createRenderPassImpl() {
         return VkRenderPass.builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, 
-                           VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, 
-                           VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(),
+                           VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                           VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
             .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
             .build(arena);
     }
     
@@ -70,7 +70,7 @@ public class SimpleRenderer extends BaseRenderer {
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
             .execute(frameArena);
         
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
         
         // Set dynamic viewport and scissor
         MemorySegment viewport = VkViewport.builder()

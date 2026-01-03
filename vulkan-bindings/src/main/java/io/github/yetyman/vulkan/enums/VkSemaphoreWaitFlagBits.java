@@ -1,13 +1,27 @@
 package io.github.yetyman.vulkan.enums;
 
+import java.util.*;
+
 /**
- * Constants for VkSemaphoreWaitFlagBits
+ * Type-safe constants for VkSemaphoreWaitFlagBits
  * Generated from jextract bindings
  */
-public final class VkSemaphoreWaitFlagBits {
-    private VkSemaphoreWaitFlagBits() {}
+public record VkSemaphoreWaitFlagBits(int value) {
 
-    public static final int VK_SEMAPHORE_WAIT_ANY_BIT = 1;
-    public static final int VK_SEMAPHORE_WAIT_ANY_BIT_KHR = 1;
-    public static final int VK_SEMAPHORE_WAIT_FLAG_BITS_MAX_ENUM = 2147483647;
+    public static final VkSemaphoreWaitFlagBits VK_SEMAPHORE_WAIT_ANY_BIT = new VkSemaphoreWaitFlagBits(1);
+    public static final VkSemaphoreWaitFlagBits VK_SEMAPHORE_WAIT_ANY_BIT_KHR = VK_SEMAPHORE_WAIT_ANY_BIT;
+    public static final VkSemaphoreWaitFlagBits VK_SEMAPHORE_WAIT_FLAG_BITS_MAX_ENUM = new VkSemaphoreWaitFlagBits(2147483647);
+
+    public static VkSemaphoreWaitFlagBits fromValue(int value) {
+        return switch (value) {
+            case 1 -> VK_SEMAPHORE_WAIT_ANY_BIT;
+            case 2147483647 -> VK_SEMAPHORE_WAIT_FLAG_BITS_MAX_ENUM;
+            default -> new VkSemaphoreWaitFlagBits(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }

@@ -1,13 +1,28 @@
 package io.github.yetyman.vulkan.enums.win32;
 
+import java.util.*;
+
 /**
- * Constants for VkFrontFace
+ * Type-safe constants for VkFrontFace
  * Generated from jextract bindings
  */
-public final class VkFrontFace {
-    private VkFrontFace() {}
+public record VkFrontFace(int value) {
 
-    public static final int VK_FRONT_FACE_CLOCKWISE = 1;
-    public static final int VK_FRONT_FACE_COUNTER_CLOCKWISE = 0;
-    public static final int VK_FRONT_FACE_MAX_ENUM = 2147483647;
+    public static final VkFrontFace VK_FRONT_FACE_CLOCKWISE = new VkFrontFace(1);
+    public static final VkFrontFace VK_FRONT_FACE_COUNTER_CLOCKWISE = new VkFrontFace(0);
+    public static final VkFrontFace VK_FRONT_FACE_MAX_ENUM = new VkFrontFace(2147483647);
+
+    public static VkFrontFace fromValue(int value) {
+        return switch (value) {
+            case 1 -> VK_FRONT_FACE_CLOCKWISE;
+            case 0 -> VK_FRONT_FACE_COUNTER_CLOCKWISE;
+            case 2147483647 -> VK_FRONT_FACE_MAX_ENUM;
+            default -> new VkFrontFace(value);
+        };
+    }
+
+    private static boolean hasVendorSuffix(String name) {
+        return name.endsWith("_KHR") || name.endsWith("_EXT") || name.endsWith("_NV") || 
+               name.endsWith("_AMD") || name.endsWith("_INTEL") || name.endsWith("_ARM");
+    }
 }
