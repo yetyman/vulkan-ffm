@@ -24,8 +24,8 @@ public class LODRenderer {
     private final ModelData[] modelDataArray; // Global array for pointer resolution
     private final BatchState batchState;
     private final VkDevice device; // For GPU resource management
-    private MemorySegment commandPool;
-    private MemorySegment renderPass;
+    private VkCommandPool commandPool;
+    private VkRenderPass renderPass;
     private final AsyncGeometryStreamer geometryStreamer;
     private final GLTFLoader gltfLoader;
     private MainThreadWorkQueue mainThreadWorkQueue;
@@ -41,8 +41,8 @@ public class LODRenderer {
         this.geometryStreamer = new AsyncGeometryStreamer(arena, device, physicalDevice, queue);
         this.gltfLoader = new GLTFLoader(arena);
         this.mainThreadWorkQueue = null; // Will be set by ThreadedRenderer
-        this.commandPool = MemorySegment.NULL;
-        this.renderPass = MemorySegment.NULL;
+        this.commandPool = null;
+        this.renderPass = null;
     }
     
     /**
@@ -329,7 +329,7 @@ public class LODRenderer {
         this.mainThreadWorkQueue = workQueue;
     }
     
-    public void setVulkanResources(MemorySegment commandPool, MemorySegment renderPass) {
+    public void setVulkanResources(VkCommandPool commandPool, VkRenderPass renderPass) {
         this.commandPool = commandPool;
         this.renderPass = renderPass;
     }

@@ -14,7 +14,7 @@ public class VkDescriptorSetLayout implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
     
-    private VkDescriptorSetLayout(MemorySegment handle, VkDevice device) {
+    public VkDescriptorSetLayout(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -23,7 +23,7 @@ public class VkDescriptorSetLayout implements AutoCloseable {
     public static Builder builder() {
         return new Builder();
     }
-    
+
     /** @return the VkDescriptorSetLayout handle */
     public MemorySegment handle() { return handle; }
     

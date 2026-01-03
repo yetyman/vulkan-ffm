@@ -75,7 +75,7 @@ public class ThreadedRenderer extends BaseRenderer {
         }
         
         // Set Vulkan resources after managers are created
-        lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass.handle());
+        lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass);
         createGraphicsPipeline();
         Logger.info("Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }

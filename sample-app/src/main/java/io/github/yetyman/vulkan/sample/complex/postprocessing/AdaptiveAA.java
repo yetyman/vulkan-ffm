@@ -30,9 +30,9 @@ public class AdaptiveAA {
     private VkPipeline aaPipeline;
     
     // Descriptor sets
-    private MemorySegment descriptorSetLayout;
-    private MemorySegment descriptorPool;
-    private MemorySegment descriptorSet;
+    private VkDescriptorSetLayout descriptorSetLayout;
+    private VkDescriptorPool descriptorPool;
+    private VkDescriptorSet descriptorSet;
     
     // Framebuffers
     private VkFramebuffer sceneFramebuffer;
@@ -135,7 +135,7 @@ public class AdaptiveAA {
     
     private void createPipelines() {
         // Create descriptor set layout for texture sampling
-        MemorySegment descriptorSetLayout = createDescriptorSetLayout();
+        descriptorSetLayout = createDescriptorSetLayout();
         
         try {
             // Edge detection pipeline
@@ -149,7 +149,7 @@ public class AdaptiveAA {
                 .vertexShader(edgeVertCode)
                 .fragmentShader(edgeFragCode)
                 .triangleTopology()
-                .descriptorSetLayouts(descriptorSetLayout)
+                .descriptorSetLayouts(descriptorSetLayout.handle())
                 .build(arena);
             
             // Adaptive AA pipeline
@@ -163,7 +163,7 @@ public class AdaptiveAA {
                 .vertexShader(aaVertCode)
                 .fragmentShader(aaFragCode)
                 .triangleTopology()
-                .descriptorSetLayouts(descriptorSetLayout)
+                .descriptorSetLayouts(descriptorSetLayout.handle())
                 .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, 8)
                 .depthTest(true)
                 .depthWrite(false)
@@ -176,7 +176,7 @@ public class AdaptiveAA {
     }
     
 
-    private MemorySegment createDescriptorSetLayout() {
+    private VkDescriptorSetLayout createDescriptorSetLayout() {
         // Create 4 bindings including depth texture
         MemorySegment bindings = arena.allocate(VkDescriptorSetLayoutBinding.layout(), 4);
         
@@ -198,7 +198,7 @@ public class AdaptiveAA {
         
         MemorySegment layoutPtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createDescriptorSetLayout(device.handle(), layoutInfo, layoutPtr).check();
-        descriptorSetLayout = layoutPtr.get(ValueLayout.ADDRESS, 0);
+        descriptorSetLayout = new VkDescriptorSetLayout(layoutPtr.get(ValueLayout.ADDRESS, 0), device);
         return descriptorSetLayout;
     }
     
@@ -217,20 +217,20 @@ public class AdaptiveAA {
         
         MemorySegment poolPtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createDescriptorPool(device.handle(), poolInfo, poolPtr).check();
-        descriptorPool = poolPtr.get(ValueLayout.ADDRESS, 0);
+        descriptorPool = new VkDescriptorPool(poolPtr.get(ValueLayout.ADDRESS, 0), device);
         
         // Allocate descriptor set
         MemorySegment allocInfo = VkDescriptorSetAllocateInfo.allocate(arena);
         VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
-        VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, descriptorPool);
+        VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, descriptorPool.handle());
         VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
         MemorySegment layoutArray = arena.allocate(ValueLayout.ADDRESS);
-        layoutArray.set(ValueLayout.ADDRESS, 0, descriptorSetLayout);
+        layoutArray.set(ValueLayout.ADDRESS, 0, descriptorSetLayout.handle());
         VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layoutArray);
         
         MemorySegment setPtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.allocateDescriptorSets(device.handle(), allocInfo, setPtr).check();
-        descriptorSet = setPtr.get(ValueLayout.ADDRESS, 0);
+        descriptorSet = new VkDescriptorSet(setPtr.get(ValueLayout.ADDRESS, 0));
         
         // Update descriptor set with 4 textures including depth
         MemorySegment imageInfos = arena.allocate(VkDescriptorImageInfo.layout(), 4);
@@ -244,7 +244,7 @@ public class AdaptiveAA {
         
         MemorySegment write0 = writeDescriptorSets.asSlice(0, VkWriteDescriptorSet.layout());
         VkWriteDescriptorSet.sType(write0, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
-        VkWriteDescriptorSet.dstSet(write0, descriptorSet);
+        VkWriteDescriptorSet.dstSet(write0, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write0, 0);
         VkWriteDescriptorSet.dstArrayElement(write0, 0);
         VkWriteDescriptorSet.descriptorType(write0, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -259,7 +259,7 @@ public class AdaptiveAA {
         
         MemorySegment write1 = writeDescriptorSets.asSlice(VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
         VkWriteDescriptorSet.sType(write1, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
-        VkWriteDescriptorSet.dstSet(write1, descriptorSet);
+        VkWriteDescriptorSet.dstSet(write1, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write1, 1);
         VkWriteDescriptorSet.dstArrayElement(write1, 0);
         VkWriteDescriptorSet.descriptorType(write1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -274,7 +274,7 @@ public class AdaptiveAA {
         
         MemorySegment write2 = writeDescriptorSets.asSlice(2 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
         VkWriteDescriptorSet.sType(write2, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
-        VkWriteDescriptorSet.dstSet(write2, descriptorSet);
+        VkWriteDescriptorSet.dstSet(write2, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write2, 2);
         VkWriteDescriptorSet.dstArrayElement(write2, 0);
         VkWriteDescriptorSet.descriptorType(write2, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -289,7 +289,7 @@ public class AdaptiveAA {
         
         MemorySegment write3 = writeDescriptorSets.asSlice(3 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
         VkWriteDescriptorSet.sType(write3, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
-        VkWriteDescriptorSet.dstSet(write3, descriptorSet);
+        VkWriteDescriptorSet.dstSet(write3, descriptorSet.handle());
         VkWriteDescriptorSet.dstBinding(write3, 3);
         VkWriteDescriptorSet.dstArrayElement(write3, 0);
         VkWriteDescriptorSet.descriptorType(write3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -335,7 +335,7 @@ public class AdaptiveAA {
         
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, edgePipeline.handle());
         MemorySegment edgeDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
-        edgeDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
+        edgeDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
         Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
             edgePipeline.layout(), 0, 1, edgeDescriptorSets, 0, MemorySegment.NULL);
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -353,7 +353,7 @@ public class AdaptiveAA {
         
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, aaPipeline.handle());
         MemorySegment aaDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
-        aaDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
+        aaDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
         Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
             aaPipeline.layout(), 0, 1, aaDescriptorSets, 0, MemorySegment.NULL);
         
@@ -379,10 +379,10 @@ public class AdaptiveAA {
         
         // Clean up descriptor resources
         if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorPool(device != null ? device.handle() : MemorySegment.NULL, descriptorPool);
+            Vulkan.destroyDescriptorPool(device != null ? device.handle() : MemorySegment.NULL, descriptorPool.handle());
         }
         if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorSetLayout(device != null ? device.handle() : MemorySegment.NULL, descriptorSetLayout);
+            Vulkan.destroyDescriptorSetLayout(device != null ? device.handle() : MemorySegment.NULL, descriptorSetLayout.handle());
         }
         
         // Clean up other resources

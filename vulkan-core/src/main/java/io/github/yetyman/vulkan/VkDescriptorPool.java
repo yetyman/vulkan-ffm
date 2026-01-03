@@ -14,7 +14,7 @@ public class VkDescriptorPool implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
     
-    private VkDescriptorPool(MemorySegment handle, VkDevice device) {
+    public VkDescriptorPool(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }

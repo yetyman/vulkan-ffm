@@ -62,12 +62,12 @@ public class ComplexTriangleApp extends VulkanApplication {
     
     @Override
     protected void configureInput(InputManager inputManager) {
-        ThreadedRenderer renderer = renderer();
-        
+
         // Toggle adaptive AA with spacebar
         inputManager.registerHandler(
             event -> event instanceof KeyEvent ke && ke.key() == GLFWKey.GLFW_KEY_SPACE && ke.action() == GLFWAction.GLFW_PRESS,
             () -> {
+                ThreadedRenderer renderer = renderer();
                 renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
                 Logger.input("AA toggled: " + (renderer.isAdaptiveAAEnabled() ? "ON" : "OFF"));
             }
@@ -80,6 +80,7 @@ public class ComplexTriangleApp extends VulkanApplication {
             inputManager.registerHandler(
                 event -> event instanceof KeyEvent ke && ke.key() == (GLFWKey.GLFW_KEY_1 + finalI - 1) && ke.action() == GLFWAction.GLFW_PRESS,
                 () -> {
+                    ThreadedRenderer renderer = renderer();
                     renderer.setThreadCount(threadCount);
                     Logger.input("Thread count set to: " + threadCount);
                 }
