@@ -11,10 +11,10 @@ import java.lang.foreign.*;
  */
 public class VkSwapchain implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final MemorySegment[] images;
     
-    private VkSwapchain(MemorySegment handle, MemorySegment device, MemorySegment[] images) {
+    private VkSwapchain(MemorySegment handle, VkDevice device, MemorySegment[] images) {
         this.handle = handle;
         this.device = device;
         this.images = images;
@@ -23,7 +23,7 @@ public class VkSwapchain implements AutoCloseable {
     /**
      * Creates a new swapchain for the given surface and dimensions with VSync enabled.
      */
-    public static VkSwapchain create(Arena arena, MemorySegment device, MemorySegment surface, int width, int height) {
+    public static VkSwapchain create(Arena arena, VkDevice device, MemorySegment surface, int width, int height) {
         return builder()
             .device(device)
             .surface(surface)
@@ -35,7 +35,7 @@ public class VkSwapchain implements AutoCloseable {
     /**
      * Creates a new swapchain for the given surface and dimensions.
      */
-    public static VkSwapchain create(Arena arena, MemorySegment device, MemorySegment surface, int width, int height, boolean vsync) {
+    public static VkSwapchain create(Arena arena, VkDevice device, MemorySegment surface, int width, int height, boolean vsync) {
         return builder()
             .device(device)
             .surface(surface)
@@ -57,14 +57,14 @@ public class VkSwapchain implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroySwapchainKHR(device, handle);
+        Vulkan.destroySwapchainKHR(device.handle(), handle);
     }
     
     /**
      * Builder for flexible swapchain creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment surface;
         private int width, height;
         private int minImageCount = 3;
@@ -84,7 +84,7 @@ public class VkSwapchain implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -197,16 +197,16 @@ public class VkSwapchain implements AutoCloseable {
             VkSwapchainCreateInfoKHR.oldSwapchain(createInfo, oldSwapchain);
             
             MemorySegment swapchainPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createSwapchainKHR(device, createInfo, swapchainPtr).check();
+            Vulkan.createSwapchainKHR(device.handle(), createInfo, swapchainPtr).check();
             MemorySegment swapchain = swapchainPtr.get(ValueLayout.ADDRESS, 0);
             
             MemorySegment imageCount = arena.allocate(ValueLayout.JAVA_INT);
-            VulkanExtensions.getSwapchainImagesKHR(device, swapchain, imageCount, MemorySegment.NULL).check();
+            Vulkan.getSwapchainImagesKHR(device.handle(), swapchain, imageCount, MemorySegment.NULL).check();
             int count = imageCount.get(ValueLayout.JAVA_INT, 0);
             
             MemorySegment[] images = new MemorySegment[count];
             MemorySegment imagesArray = arena.allocate(ValueLayout.ADDRESS, count);
-            VulkanExtensions.getSwapchainImagesKHR(device, swapchain, imageCount, imagesArray).check();
+            Vulkan.getSwapchainImagesKHR(device.handle(), swapchain, imageCount, imagesArray).check();
             for (int i = 0; i < count; i++) {
                 images[i] = imagesArray.getAtIndex(ValueLayout.ADDRESS, i);
             }

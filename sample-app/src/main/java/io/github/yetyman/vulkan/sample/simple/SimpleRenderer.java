@@ -10,7 +10,7 @@ import java.lang.foreign.*;
 public class SimpleRenderer extends BaseRenderer {
     private VkPipeline pipeline;
     
-    public SimpleRenderer(Arena arena, MemorySegment device, MemorySegment queue,
+    public SimpleRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3); // 3 frames in flight
     }
@@ -40,7 +40,7 @@ public class SimpleRenderer extends BaseRenderer {
     }
     
     @Override
-    protected void initializeResources(MemorySegment physicalDevice, int queueFamilyIndex) {
+    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
         createGraphicsPipeline();
         Logger.info("Simple renderer initialized");
     }
@@ -70,7 +70,7 @@ public class SimpleRenderer extends BaseRenderer {
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
             .execute(frameArena);
         
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         
         // Set dynamic viewport and scissor
         MemorySegment viewport = VkViewport.builder()
@@ -78,17 +78,17 @@ public class SimpleRenderer extends BaseRenderer {
             .size(width, height)
             .depthRange(0.0f, 1.0f)
             .build(frameArena);
-        VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, viewport);
+        Vulkan.cmdSetViewport(commandBuffer, 0, 1, viewport);
         
         MemorySegment scissor = VkRect2D.builder()
             .offset(0, 0)
             .extent(width, height)
             .build(frameArena);
-        VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, scissor);
+        Vulkan.cmdSetScissor(commandBuffer, 0, 1, scissor);
         
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        VulkanExtensions.cmdEndRenderPass(commandBuffer);
-        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        Vulkan.cmdEndRenderPass(commandBuffer);
+        Vulkan.endCommandBuffer(commandBuffer).check();
     }
     
     @Override

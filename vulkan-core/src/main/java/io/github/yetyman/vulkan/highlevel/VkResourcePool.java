@@ -14,7 +14,7 @@ import java.util.function.Consumer;
  * // Pool for command buffers
  * VkResourcePool<MemorySegment> cmdBufferPool = VkResourcePool.builder(MemorySegment.class)
  *     .factory(v -> VkCommandBufferAlloc.allocateSingle(arena, device, commandPool))
- *     .resetFunction(cmdBuffer -> VulkanExtensions.resetCommandBuffer(cmdBuffer, 0))
+ *     .resetFunction(cmdBuffer -> Vulkan.resetCommandBuffer(cmdBuffer, 0))
  *     .maxPoolSize(16)
  *     .build();
  * 

@@ -11,14 +11,14 @@ import java.lang.foreign.*;
 public class VulkanContext implements AutoCloseable {
     private final Arena arena;
     private final VkInstance instance;
-    private final MemorySegment physicalDevice;
+    private final VkPhysicalDevice physicalDevice;
     private final VkDevice device;
     private final MemorySegment graphicsQueue;
     private final MemorySegment presentQueue;
     private final int graphicsQueueFamily;
     private final int presentQueueFamily;
     
-    private VulkanContext(Arena arena, VkInstance instance, MemorySegment physicalDevice, 
+    private VulkanContext(Arena arena, VkInstance instance, VkPhysicalDevice physicalDevice, 
                          VkDevice device, MemorySegment graphicsQueue, MemorySegment presentQueue,
                          int graphicsQueueFamily, int presentQueueFamily) {
         this.arena = arena;
@@ -42,8 +42,8 @@ public class VulkanContext implements AutoCloseable {
     /** @return the Vulkan instance */
     public VkInstance instance() { return instance; }
     
-    /** @return the physical device handle */
-    public MemorySegment physicalDevice() { return physicalDevice; }
+    /** @return the physical device */
+    public VkPhysicalDevice physicalDevice() { return physicalDevice; }
     
     /** @return the logical device */
     public VkDevice device() { return device; }
@@ -63,7 +63,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a command pool for graphics operations */
     public VkCommandPool createGraphicsCommandPool() {
         return VkCommandPool.builder()
-            .device(device.handle())
+            .device(device)
             .queueFamilyIndex(graphicsQueueFamily)
             .resetCommandBufferBit()
             .build(arena);
@@ -72,7 +72,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a transient command pool for short-lived operations */
     public VkCommandPool createTransientCommandPool() {
         return VkCommandPool.builder()
-            .device(device.handle())
+            .device(device)
             .queueFamilyIndex(graphicsQueueFamily)
             .transientBit()
             .resetCommandBufferBit()
@@ -82,7 +82,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a descriptor pool with common descriptor types */
     public VkDescriptorPool createDescriptorPool(int maxSets) {
         return VkDescriptorPool.builder()
-            .device(device.handle())
+            .device(device)
             .maxSets(maxSets)
             .uniformBuffers(maxSets * 2)
             .combinedImageSamplers(maxSets * 2)
@@ -94,7 +94,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a vertex buffer */
     public VkBuffer createVertexBuffer(long size) {
         return VkBuffer.builder()
-            .device(device.handle())
+            .device(device)
             .physicalDevice(physicalDevice)
             .size(size)
             .vertexBuffer()
@@ -106,7 +106,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a staging buffer for data transfer */
     public VkBuffer createStagingBuffer(long size) {
         return VkBuffer.builder()
-            .device(device.handle())
+            .device(device)
             .physicalDevice(physicalDevice)
             .size(size)
             .transferSrc()
@@ -117,7 +117,7 @@ public class VulkanContext implements AutoCloseable {
     /** Creates a uniform buffer */
     public VkBuffer createUniformBuffer(long size) {
         return VkBuffer.builder()
-            .device(device.handle())
+            .device(device)
             .physicalDevice(physicalDevice)
             .size(size)
             .uniformBuffer()
@@ -220,7 +220,8 @@ public class VulkanContext implements AutoCloseable {
                 VkInstance instance = instanceBuilder.build(arena);
                 
                 // Select physical device
-                MemorySegment physicalDevice = VkPhysicalDeviceOps.enumerate(instance.handle()).first(arena);
+                MemorySegment physicalDeviceHandle = VkPhysicalDeviceOps.enumerate(instance.handle()).first(arena);
+                VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physicalDeviceHandle);
                 
                 // Find queue families
                 int graphicsFamily = VkQueueFamily.findGraphics(physicalDevice, arena);

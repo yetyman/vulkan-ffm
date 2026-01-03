@@ -10,13 +10,13 @@ import java.lang.foreign.*;
  */
 public class VulkanSwapchainManager implements AutoCloseable {
     private final Arena arena;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final MemorySegment surface;
     private VkSwapchain swapchain;
     private SwapchainImage[] swapchainImages;
     private int width, height;
     
-    private VulkanSwapchainManager(Arena arena, MemorySegment device, MemorySegment surface, int width, int height,
+    private VulkanSwapchainManager(Arena arena, VkDevice device, MemorySegment surface, int width, int height,
                                   VkSwapchain swapchain, SwapchainImage[] swapchainImages) {
         this.arena = arena;
         this.device = device;
@@ -105,7 +105,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
      */
     public static class Builder {
         private Arena arena;
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment surface;
         private int width, height;
         private boolean vsync = true;
@@ -121,7 +121,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
         }
         
         /** Sets the device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -129,7 +129,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
         /** Sets the Vulkan context */
         public Builder context(VulkanContext context) {
             this.arena = context.arena();
-            this.device = context.device().handle();
+            this.device = context.device();
             return this;
         }
         

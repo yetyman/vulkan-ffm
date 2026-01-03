@@ -31,12 +31,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * }</pre>
  */
 public class VkDescriptorSetAllocator implements AutoCloseable {
-    private final MemorySegment device;
+    private final VkDevice device;
     private final Arena arena;
     private final Map<LayoutKey, DescriptorPool> pools = new ConcurrentHashMap<>();
     private final int maxSetsPerPool;
     
-    private VkDescriptorSetAllocator(MemorySegment device, Arena arena, int maxSetsPerPool) {
+    private VkDescriptorSetAllocator(VkDevice device, Arena arena, int maxSetsPerPool) {
         this.device = device;
         this.arena = arena;
         this.maxSetsPerPool = maxSetsPerPool;
@@ -134,10 +134,10 @@ public class VkDescriptorSetAllocator implements AutoCloseable {
     private record LayoutKey(MemorySegment layout) {}
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int maxSetsPerPool = 64;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }

@@ -12,9 +12,9 @@ import java.util.List;
  */
 public class VkRenderPass implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkRenderPass(MemorySegment handle, MemorySegment device) {
+    private VkRenderPass(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -25,7 +25,7 @@ public class VkRenderPass implements AutoCloseable {
      * @param device the VkDevice handle
      * @return a new VkRenderPass instance
      */
-    public static VkRenderPass create(Arena arena, MemorySegment device) {
+    public static VkRenderPass create(Arena arena, VkDevice device) {
         return builder()
             .device(device)
             .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
@@ -45,14 +45,14 @@ public class VkRenderPass implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyRenderPass(device, handle);
+        Vulkan.destroyRenderPass(device.handle(), handle);
     }
     
     /**
      * Builder for complete render pass creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private final List<AttachmentConfig> attachments = new ArrayList<>();
         private final List<SubpassConfig> subpasses = new ArrayList<>();
         private final List<DependencyConfig> dependencies = new ArrayList<>();
@@ -61,7 +61,7 @@ public class VkRenderPass implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -279,7 +279,7 @@ public class VkRenderPass implements AutoCloseable {
             VkRenderPassCreateInfo.pDependencies(renderPassInfo, dependencyDescs);
             
             MemorySegment renderPassPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createRenderPass(device, renderPassInfo, renderPassPtr).check();
+            Vulkan.createRenderPass(device.handle(), renderPassInfo, renderPassPtr).check();
             return new VkRenderPass(renderPassPtr.get(ValueLayout.ADDRESS, 0), device);
         }
         

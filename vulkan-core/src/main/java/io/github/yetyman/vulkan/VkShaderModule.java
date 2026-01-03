@@ -6,14 +6,14 @@ import java.lang.foreign.*;
 
 public class VkShaderModule implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkShaderModule(MemorySegment handle, MemorySegment device) {
+    private VkShaderModule(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
     
-    public static VkShaderModule create(Arena arena, MemorySegment device, byte[] code) {
+    public static VkShaderModule create(Arena arena, VkDevice device, byte[] code) {
         MemorySegment codeSegment = arena.allocate(code.length);
         MemorySegment.copy(code, 0, codeSegment, ValueLayout.JAVA_BYTE, 0, code.length);
         
@@ -25,7 +25,7 @@ public class VkShaderModule implements AutoCloseable {
         VkShaderModuleCreateInfo.pCode(createInfo, codeSegment);
         
         MemorySegment shaderModulePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createShaderModule(device, createInfo, shaderModulePtr).check();
+        Vulkan.createShaderModule(device.handle(), createInfo, shaderModulePtr).check();
         return new VkShaderModule(shaderModulePtr.get(ValueLayout.ADDRESS, 0), device);
     }
     
@@ -33,6 +33,6 @@ public class VkShaderModule implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyShaderModule(device, handle);
+        Vulkan.destroyShaderModule(device.handle(), handle);
     }
 }

@@ -4,17 +4,17 @@ import java.lang.foreign.*;
 
 public class VkFenceOps {
     
-    public static Builder waitFor(MemorySegment device) {
+    public static Builder waitFor(VkDevice device) {
         return new Builder(device);
     }
     
     public static class Builder {
-        private final MemorySegment device;
+        private final VkDevice device;
         private MemorySegment[] fences = new MemorySegment[0];
         private boolean waitAll = true;
         private long timeout = 0xFFFFFFFFFFFFFFFFL;
         
-        private Builder(MemorySegment device) {
+        private Builder(VkDevice device) {
             this.device = device;
         }
         
@@ -41,7 +41,7 @@ public class VkFenceOps {
             for (int i = 0; i < fences.length; i++) {
                 fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
             }
-            return VulkanExtensions.waitForFences(device, fences.length, fenceArray, waitAll ? 1 : 0, timeout);
+            return Vulkan.waitForFences(device.handle(), fences.length, fenceArray, waitAll ? 1 : 0, timeout);
         }
         
         public VkResult reset(Arena arena) {
@@ -49,7 +49,7 @@ public class VkFenceOps {
             for (int i = 0; i < fences.length; i++) {
                 fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
             }
-            return VulkanExtensions.resetFences(device, fences.length, fenceArray);
+            return Vulkan.resetFences(device.handle(), fences.length, fenceArray);
         }
     }
 }

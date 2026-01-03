@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.VkDevice;
+
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -35,7 +37,7 @@ public class ModelData {
     }
     
     // Async freeing
-    public void freeModel(MemorySegment device) {
+    public void freeModel(VkDevice device) {
         isFreed.set(true);
         // Schedule GPU resource cleanup on render thread
         // Actual buffer destruction must happen on Vulkan context thread

@@ -4,18 +4,18 @@ import java.lang.foreign.*;
 
 public class VkSwapchainOps {
     
-    public static AcquireBuilder acquireNextImage(MemorySegment device, MemorySegment swapchain) {
+    public static AcquireBuilder acquireNextImage(VkDevice device, MemorySegment swapchain) {
         return new AcquireBuilder(device, swapchain);
     }
     
     public static class AcquireBuilder {
-        private final MemorySegment device;
+        private final VkDevice device;
         private final MemorySegment swapchain;
         private long timeout = 0xFFFFFFFFFFFFFFFFL;
         private MemorySegment semaphore = MemorySegment.NULL;
         private MemorySegment fence = MemorySegment.NULL;
         
-        private AcquireBuilder(MemorySegment device, MemorySegment swapchain) {
+        private AcquireBuilder(VkDevice device, MemorySegment swapchain) {
             this.device = device;
             this.swapchain = swapchain;
         }
@@ -37,7 +37,7 @@ public class VkSwapchainOps {
         
         public int execute(Arena arena) {
             MemorySegment imageIndex = arena.allocate(ValueLayout.JAVA_INT);
-            VulkanExtensions.acquireNextImageKHR(device, swapchain, timeout, semaphore, fence, imageIndex).check();
+            Vulkan.acquireNextImageKHR(device.handle(), swapchain, timeout, semaphore, fence, imageIndex).check();
             return imageIndex.get(ValueLayout.JAVA_INT, 0);
         }
     }

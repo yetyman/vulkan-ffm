@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.highlevel.VkSizedResourcePool;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
@@ -13,7 +15,7 @@ import java.util.Map;
 public class BufferManager implements AutoCloseable {
     private final VkSizedResourcePool<VkBuffer> vertexPool;
     private final VkSizedResourcePool<VkBuffer> indexPool;
-    private final MemorySegment device;
+    private final VkDevice device;
     
     // Standard buffer sizes (powers of 2 for good coverage)
     private static final long[] BUFFER_SIZES = {
@@ -26,7 +28,7 @@ public class BufferManager implements AutoCloseable {
         16 * 1024 * 1024  // 16MB
     };
     
-    public BufferManager(Arena arena, MemorySegment device, MemorySegment physicalDevice) {
+    public BufferManager(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice) {
         this.device = device;
         
         // Create vertex buffer pool
@@ -114,8 +116,8 @@ public class BufferManager implements AutoCloseable {
     @Override
     public void close() {
         // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+        if (device != null && !device.handle().equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device.handle()).check();
             Logger.debug("Device idle - starting BufferManager cleanup");
         }
         

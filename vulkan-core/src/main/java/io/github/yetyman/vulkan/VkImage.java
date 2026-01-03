@@ -9,10 +9,10 @@ import java.lang.foreign.*;
  */
 public class VkImage implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final MemorySegment memory;
     
-    private VkImage(MemorySegment handle, MemorySegment device, MemorySegment memory) {
+    private VkImage(MemorySegment handle, VkDevice device, MemorySegment memory) {
         this.handle = handle;
         this.device = device;
         this.memory = memory;
@@ -29,16 +29,16 @@ public class VkImage implements AutoCloseable {
     @Override
     public void close() {
         if (memory != null && !memory.equals(MemorySegment.NULL)) {
-            VulkanExtensions.freeMemory(device, memory);
+            Vulkan.freeMemory(device.handle(), memory);
         }
-        VulkanExtensions.destroyImage(device, handle);
+        Vulkan.destroyImage(device.handle(), handle);
     }
     
     /**
      * Builder for image creation with automatic memory allocation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int width, height, depth = 1;
         private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
         private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -50,7 +50,7 @@ public class VkImage implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -130,12 +130,12 @@ public class VkImage implements AutoCloseable {
             VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED);
             
             MemorySegment imagePtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createImage(device, imageInfo, imagePtr).check();
+            Vulkan.createImage(device.handle(), imageInfo, imagePtr).check();
             MemorySegment image = imagePtr.get(ValueLayout.ADDRESS, 0);
             
             // Get memory requirements
             MemorySegment memReqs = VkMemoryRequirements.allocate(arena);
-            VulkanExtensions.getImageMemoryRequirements(device, image, memReqs);
+            Vulkan.getImageMemoryRequirements(device.handle(), image, memReqs);
             
             // Allocate memory
             MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
@@ -149,11 +149,11 @@ public class VkImage implements AutoCloseable {
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
             
             MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.allocateMemory(device, allocInfo, memoryPtr).check();
+            Vulkan.allocateMemory(device.handle(), allocInfo, memoryPtr).check();
             MemorySegment memory = memoryPtr.get(ValueLayout.ADDRESS, 0);
             
             // Bind memory
-            VulkanExtensions.bindImageMemory(device, image, memory, 0).check();
+            Vulkan.bindImageMemory(device.handle(), image, memory, 0).check();
             
             return new VkImage(image, device, memory);
         }

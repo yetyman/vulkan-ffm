@@ -32,7 +32,7 @@ public class ComplexTriangleApp extends VulkanApplication {
     
     @Override
     protected Object createRenderer() {
-        ThreadedRenderer renderer = new ThreadedRenderer(vulkanContext().arena(), vulkanContext().device().handle(),
+        ThreadedRenderer renderer = new ThreadedRenderer(vulkanContext().arena(), vulkanContext().device(),
                                                          vulkanContext().graphicsQueue(), surface(), 800, 600);
         renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
         renderer.loadSampleModels();

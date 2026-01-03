@@ -32,13 +32,13 @@ public class VkTexture implements AutoCloseable {
     private final MemorySegment sampler;
     private final VkAllocation allocation;
     private final VkMemoryAllocator allocator;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final int width, height, depth;
     private final int mipLevels;
     private final int format;
     
     private VkTexture(VkImage image, MemorySegment imageView, MemorySegment sampler, 
-                     VkAllocation allocation, VkMemoryAllocator allocator, MemorySegment device,
+                     VkAllocation allocation, VkMemoryAllocator allocator, VkDevice device,
                      int width, int height, int depth, int mipLevels, int format) {
         this.image = image;
         this.imageView = imageView;
@@ -103,7 +103,7 @@ public class VkTexture implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
@@ -132,7 +132,7 @@ public class VkTexture implements AutoCloseable {
         VkExtent3D.height(imageExtent, Math.max(1, height >> mipLevel));
         VkExtent3D.depth(imageExtent, Math.max(1, depth >> mipLevel));
         
-        VulkanExtensions.cmdCopyBufferToImage(commandBuffer, buffer, image.handle(),
+        Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image.handle(),
             VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, region);
     }
     
@@ -194,7 +194,7 @@ public class VkTexture implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
@@ -229,17 +229,17 @@ public class VkTexture implements AutoCloseable {
         VkOffset3D.y(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, height >> dstMip));
         VkOffset3D.z(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, depth >> dstMip));
         
-        VulkanExtensions.cmdBlitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        Vulkan.cmdBlitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, blit, VkFilter.VK_FILTER_LINEAR);
     }
     
     @Override
     public void close() {
         if (sampler != null && !sampler.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroySampler(device, sampler);
+            Vulkan.destroySampler(device.handle(), sampler);
         }
         if (imageView != null && !imageView.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroyImageView(device, imageView);
+            Vulkan.destroyImageView(device.handle(), imageView);
         }
         if (image != null) {
             image.close();
@@ -247,7 +247,7 @@ public class VkTexture implements AutoCloseable {
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private VkMemoryAllocator allocator;
         private int width = 1, height = 1, depth = 1;
         private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
@@ -268,7 +268,7 @@ public class VkTexture implements AutoCloseable {
         private float maxAnisotropy = 1.0f;
         private boolean anisotropyEnable = false;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -402,7 +402,7 @@ public class VkTexture implements AutoCloseable {
             VkImageSubresourceRange.layerCount(subresourceRange, arrayLayers);
             
             MemorySegment imageViewPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createImageView(device, imageViewInfo, imageViewPtr).check();
+            Vulkan.createImageView(device.handle(), imageViewInfo, imageViewPtr).check();
             MemorySegment imageView = imageViewPtr.get(ValueLayout.ADDRESS, 0);
             
             // Create sampler
@@ -420,7 +420,7 @@ public class VkTexture implements AutoCloseable {
             VkSamplerCreateInfo.maxLod(samplerInfo, mipLevels);
             
             MemorySegment samplerPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createSampler(device, samplerInfo, samplerPtr).check();
+            Vulkan.createSampler(device.handle(), samplerInfo, samplerPtr).check();
             MemorySegment sampler = samplerPtr.get(ValueLayout.ADDRESS, 0);
             
             return new VkTexture(image, imageView, sampler, null, null, device, width, height, depth, mipLevels, format);

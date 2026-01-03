@@ -10,10 +10,10 @@ import java.lang.foreign.*;
  */
 public class VkImageView implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
     // Package-private constructor for VkFramebufferAttachment
-    VkImageView(MemorySegment handle, MemorySegment device) {
+    VkImageView(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -25,7 +25,7 @@ public class VkImageView implements AutoCloseable {
      * @param image the VkImage handle to create a view for
      * @return a new VkImageView instance
      */
-    public static VkImageView create(Arena arena, MemorySegment device, MemorySegment image) {
+    public static VkImageView create(Arena arena, VkDevice device, MemorySegment image) {
         return builder()
             .device(device)
             .image(image)
@@ -45,14 +45,14 @@ public class VkImageView implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyImageView(device, handle);
+        Vulkan.destroyImageView(device.handle(), handle);
     }
     
     /**
      * Builder for flexible image view creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment image;
         private int viewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_2D;
         private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB;
@@ -67,7 +67,7 @@ public class VkImageView implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -150,7 +150,7 @@ public class VkImageView implements AutoCloseable {
             VkImageSubresourceRange.layerCount(subresourceRange, layerCount);
             
             MemorySegment imageViewPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createImageView(device, createInfo, imageViewPtr).check();
+            Vulkan.createImageView(device.handle(), createInfo, imageViewPtr).check();
             return new VkImageView(imageViewPtr.get(ValueLayout.ADDRESS, 0), device);
         }
     }

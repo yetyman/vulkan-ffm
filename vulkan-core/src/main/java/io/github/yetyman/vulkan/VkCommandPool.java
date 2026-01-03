@@ -10,9 +10,9 @@ import java.lang.foreign.*;
  */
 public class VkCommandPool implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkCommandPool(MemorySegment handle, MemorySegment device) {
+    private VkCommandPool(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -20,7 +20,7 @@ public class VkCommandPool implements AutoCloseable {
     /**
      * Creates a command pool for the specified queue family.
      */
-    public static VkCommandPool create(Arena arena, MemorySegment device, int queueFamilyIndex) {
+    public static VkCommandPool create(Arena arena, VkDevice device, int queueFamilyIndex) {
         return builder()
             .device(device)
             .queueFamilyIndex(queueFamilyIndex)
@@ -36,25 +36,25 @@ public class VkCommandPool implements AutoCloseable {
     public MemorySegment handle() { return handle; }
 
     /** @return the VkCommandPool device */
-    public MemorySegment device() { return device; }
+    public VkDevice device() { return device; }
 
     @Override
     public void close() {
-        VulkanExtensions.destroyCommandPool(device, handle);
+        Vulkan.destroyCommandPool(device.handle(), handle);
     }
     
     /**
      * Builder for command pool creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int queueFamilyIndex;
         private int flags = 0;
         
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -94,7 +94,7 @@ public class VkCommandPool implements AutoCloseable {
             VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, queueFamilyIndex);
             
             MemorySegment commandPoolPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createCommandPool(device, poolInfo, commandPoolPtr).check();
+            Vulkan.createCommandPool(device.handle(), poolInfo, commandPoolPtr).check();
             return new VkCommandPool(commandPoolPtr.get(ValueLayout.ADDRESS, 0), device);
         }
     }

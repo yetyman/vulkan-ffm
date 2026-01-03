@@ -10,9 +10,9 @@ import java.lang.foreign.*;
  */
 public class VkSemaphore implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkSemaphore(MemorySegment handle, MemorySegment device) {
+    private VkSemaphore(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -20,7 +20,7 @@ public class VkSemaphore implements AutoCloseable {
     /**
      * Creates a new semaphore.
      */
-    public static VkSemaphore create(Arena arena, MemorySegment device) {
+    public static VkSemaphore create(Arena arena, VkDevice device) {
         return builder().device(device).build(arena);
     }
     
@@ -34,20 +34,20 @@ public class VkSemaphore implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroySemaphore(device, handle);
+        Vulkan.destroySemaphore(device.handle(), handle);
     }
     
     /**
      * Builder for semaphore creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int flags = 0;
         
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -68,7 +68,7 @@ public class VkSemaphore implements AutoCloseable {
             VkSemaphoreCreateInfo.flags(semaphoreInfo, flags);
             
             MemorySegment semPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createSemaphore(device, semaphoreInfo, semPtr).check();
+            Vulkan.createSemaphore(device.handle(), semaphoreInfo, semPtr).check();
             return new VkSemaphore(semPtr.get(ValueLayout.ADDRESS, 0), device);
         }
     }

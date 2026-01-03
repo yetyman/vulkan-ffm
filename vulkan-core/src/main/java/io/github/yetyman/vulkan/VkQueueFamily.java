@@ -8,9 +8,9 @@ public class VkQueueFamily {
     
     public static final int VK_QUEUE_FAMILY_IGNORED = ~0;
     
-    public static int findGraphics(MemorySegment physicalDevice, Arena arena) {
+    public static int findGraphics(VkPhysicalDevice physicalDevice, Arena arena) {
         MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
-        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice, queueFamilyCount, MemorySegment.NULL);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, MemorySegment.NULL);
         int count = queueFamilyCount.get(ValueLayout.JAVA_INT, 0);
         
         if (count == 0) {
@@ -18,7 +18,7 @@ public class VkQueueFamily {
         }
         
         MemorySegment queueFamilies = arena.allocate(VkQueueFamilyProperties.layout(), count);
-        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice, queueFamilyCount, queueFamilies);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, queueFamilies);
         
         for (int i = 0; i < count; i++) {
             MemorySegment queueFamily = queueFamilies.asSlice(i * VkQueueFamilyProperties.layout().byteSize(), VkQueueFamilyProperties.layout());
@@ -32,14 +32,14 @@ public class VkQueueFamily {
         throw new VulkanException("No graphics queue family found");
     }
     
-    public static int findPresent(MemorySegment physicalDevice, MemorySegment surface, Arena arena) {
+    public static int findPresent(VkPhysicalDevice physicalDevice, MemorySegment surface, Arena arena) {
         MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
-        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice, queueFamilyCount, MemorySegment.NULL);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, MemorySegment.NULL);
         int count = queueFamilyCount.get(ValueLayout.JAVA_INT, 0);
         
         for (int i = 0; i < count; i++) {
             MemorySegment presentSupport = arena.allocate(ValueLayout.JAVA_INT);
-            VulkanExtensions.getPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, presentSupport).check();
+            Vulkan.getPhysicalDeviceSurfaceSupportKHR(physicalDevice.handle(), i, surface, presentSupport).check();
             if (presentSupport.get(ValueLayout.JAVA_INT, 0) != 0) {
                 return i;
             }

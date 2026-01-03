@@ -11,7 +11,7 @@ import java.lang.foreign.*;
 public abstract class BaseRenderer implements AutoCloseable {
     
     protected final Arena arena;
-    protected final MemorySegment device;
+    protected final VkDevice device;
     protected final MemorySegment queue;
     protected final MemorySegment surface;
     protected int width, height;
@@ -30,7 +30,7 @@ public abstract class BaseRenderer implements AutoCloseable {
     private int currentFrame = 0;
     private final int maxFramesInFlight;
     
-    protected BaseRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
+    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue, 
                           MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this.arena = arena;
         this.device = device;
@@ -41,7 +41,7 @@ public abstract class BaseRenderer implements AutoCloseable {
         this.maxFramesInFlight = maxFramesInFlight;
     }
     
-    public final void init(MemorySegment physicalDevice, int queueFamilyIndex) {
+    public final void init(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
         // Initialize subclass resources first
         initializeResources(physicalDevice, queueFamilyIndex);
         
@@ -57,7 +57,7 @@ public abstract class BaseRenderer implements AutoCloseable {
         postRenderPassInit();
     }
     
-    private void createSwapchain(MemorySegment physicalDevice) {
+    private void createSwapchain(VkPhysicalDevice physicalDevice) {
         swapchain = VkSwapchain.create(arena, device, surface, width, height);
     }
     
@@ -205,7 +205,7 @@ public abstract class BaseRenderer implements AutoCloseable {
     protected abstract void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena);
     
     // Optional hooks
-    protected void initializeResources(MemorySegment physicalDevice, int queueFamilyIndex) {}
+    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {}
     protected void postRenderPassInit() {}
     protected void onResize(int width, int height) {}
     protected void cleanupResources() {}

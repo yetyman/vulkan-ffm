@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.VkResult;
 import io.github.yetyman.vulkan.util.Logger;
 
@@ -16,7 +18,7 @@ public class StagingBuffer {
     private final long size;
     private long usedBytes = 0;
     
-    public StagingBuffer(Arena arena, MemorySegment device, MemorySegment physicalDevice, long size) {
+    public StagingBuffer(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, long size) {
         this.size = size;
         this.buffer = VkBuffer.builder()
             .device(device)
@@ -31,7 +33,7 @@ public class StagingBuffer {
         MemorySegment mappedPtr = mappingArena.allocate(java.lang.foreign.ValueLayout.ADDRESS);
         
         Logger.debug("Mapping memory - device: " + device + ", memory: " + buffer.memory() + ", size: " + size);
-        VkResult mapResult = io.github.yetyman.vulkan.VulkanExtensions.mapMemory(device, buffer.memory(), 0, size, 0, mappedPtr);
+        VkResult mapResult = io.github.yetyman.vulkan.Vulkan.mapMemory(device.handle(), buffer.memory(), 0, size, 0, mappedPtr);
         mapResult.check();
         
         MemorySegment rawPointer = mappedPtr.get(java.lang.foreign.ValueLayout.ADDRESS, 0);

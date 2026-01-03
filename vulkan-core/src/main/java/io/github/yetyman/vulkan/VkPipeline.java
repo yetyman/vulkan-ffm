@@ -11,9 +11,9 @@ import java.lang.foreign.*;
 public class VkPipeline implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment layout;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkPipeline(MemorySegment handle, MemorySegment layout, MemorySegment device) {
+    private VkPipeline(MemorySegment handle, MemorySegment layout, VkDevice device) {
         this.handle = handle;
         this.layout = layout;
         this.device = device;
@@ -27,7 +27,7 @@ public class VkPipeline implements AutoCloseable {
     /**
      * Creates a graphics pipeline configured for rendering a simple triangle.
      */
-    public static VkPipeline createTrianglePipeline(Arena arena, MemorySegment device, MemorySegment renderPass, int width, int height, byte[] vertShader, byte[] fragShader) {
+    public static VkPipeline createTrianglePipeline(Arena arena, VkDevice device, MemorySegment renderPass, int width, int height, byte[] vertShader, byte[] fragShader) {
         return builder()
             .device(device)
             .renderPass(renderPass)
@@ -46,15 +46,15 @@ public class VkPipeline implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyPipeline(device, handle);
-        VulkanExtensions.destroyPipelineLayout(device, layout);
+        Vulkan.destroyPipeline(device.handle(), handle);
+        Vulkan.destroyPipelineLayout(device.handle(), layout);
     }
     
     /**
      * Builder for complete graphics pipeline creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment renderPass;
         private int subpass = 0;
         private MemorySegment basePipeline = MemorySegment.NULL;
@@ -120,7 +120,7 @@ public class VkPipeline implements AutoCloseable {
         
         private Builder() {}
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -785,7 +785,7 @@ public class VkPipeline implements AutoCloseable {
                 }
                 
                 MemorySegment pipelineLayoutPtr = arena.allocate(ValueLayout.ADDRESS);
-                VulkanExtensions.createPipelineLayout(device, pipelineLayoutInfo, pipelineLayoutPtr).check();
+                Vulkan.createPipelineLayout(device.handle(), pipelineLayoutInfo, pipelineLayoutPtr).check();
                 MemorySegment pipelineLayout = pipelineLayoutPtr.get(ValueLayout.ADDRESS, 0);
                 
                 // Graphics pipeline
@@ -810,7 +810,7 @@ public class VkPipeline implements AutoCloseable {
                 VkGraphicsPipelineCreateInfo.basePipelineIndex(pipelineInfo, basePipelineIndex);
                 
                 MemorySegment pipelinePtr = arena.allocate(ValueLayout.ADDRESS);
-                VulkanExtensions.createGraphicsPipelines(device, MemorySegment.NULL, 1, pipelineInfo, pipelinePtr).check();
+                Vulkan.createGraphicsPipelines(device.handle(), MemorySegment.NULL, 1, pipelineInfo, pipelinePtr).check();
                 return new VkPipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device);
             } finally {
                 for (VkShaderModule module : shaderModules) {

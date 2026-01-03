@@ -11,8 +11,8 @@ import java.lang.foreign.*;
 
 public class AdaptiveAA {
     private final Arena arena;
-    private final MemorySegment device;
-    private final MemorySegment physicalDevice;
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     private final VkMemoryAllocator allocator;
     private final int width, height;
     
@@ -40,7 +40,7 @@ public class AdaptiveAA {
     
     private int frameIndex = 0;
     
-    public AdaptiveAA(Arena arena, MemorySegment device, MemorySegment physicalDevice, int width, int height) {
+    public AdaptiveAA(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, int width, int height) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
@@ -197,7 +197,7 @@ public class AdaptiveAA {
         VkDescriptorSetLayoutCreateInfo.pBindings(layoutInfo, bindings);
         
         MemorySegment layoutPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createDescriptorSetLayout(device, layoutInfo, layoutPtr).check();
+        Vulkan.createDescriptorSetLayout(device.handle(), layoutInfo, layoutPtr).check();
         descriptorSetLayout = layoutPtr.get(ValueLayout.ADDRESS, 0);
         return descriptorSetLayout;
     }
@@ -216,7 +216,7 @@ public class AdaptiveAA {
         VkDescriptorPoolCreateInfo.pPoolSizes(poolInfo, poolSize);
         
         MemorySegment poolPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createDescriptorPool(device, poolInfo, poolPtr).check();
+        Vulkan.createDescriptorPool(device.handle(), poolInfo, poolPtr).check();
         descriptorPool = poolPtr.get(ValueLayout.ADDRESS, 0);
         
         // Allocate descriptor set
@@ -229,7 +229,7 @@ public class AdaptiveAA {
         VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layoutArray);
         
         MemorySegment setPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.allocateDescriptorSets(device, allocInfo, setPtr).check();
+        Vulkan.allocateDescriptorSets(device.handle(), allocInfo, setPtr).check();
         descriptorSet = setPtr.get(ValueLayout.ADDRESS, 0);
         
         // Update descriptor set with 4 textures including depth
@@ -296,7 +296,7 @@ public class AdaptiveAA {
         VkWriteDescriptorSet.descriptorCount(write3, 1);
         VkWriteDescriptorSet.pImageInfo(write3, imageInfo3);
         
-        VulkanExtensions.updateDescriptorSets(device, 4, writeDescriptorSets, 0, MemorySegment.NULL);
+        Vulkan.updateDescriptorSets(device.handle(), 4, writeDescriptorSets, 0, MemorySegment.NULL);
     }
     
     private void createFramebuffers() {
@@ -333,13 +333,13 @@ public class AdaptiveAA {
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
             .execute(frameArena);
         
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, edgePipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, edgePipeline.handle());
         MemorySegment edgeDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
         edgeDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
-        VulkanExtensions.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
             edgePipeline.layout(), 0, 1, edgeDescriptorSets, 0, MemorySegment.NULL);
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        VulkanExtensions.cmdEndRenderPass(commandBuffer);
+        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        Vulkan.cmdEndRenderPass(commandBuffer);
         
         // Transition edge texture to shader read layout after edge detection
         transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, false);
@@ -351,38 +351,38 @@ public class AdaptiveAA {
             .clearDepth(1.0f, 0)
             .execute(frameArena);
         
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, aaPipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, aaPipeline.handle());
         MemorySegment aaDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
         aaDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
-        VulkanExtensions.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, 
             aaPipeline.layout(), 0, 1, aaDescriptorSets, 0, MemorySegment.NULL);
         
         // Push constants for frame info
         MemorySegment pushConstants = frameArena.allocate(8); // float frameIndex + float deltaTime
         pushConstants.set(ValueLayout.JAVA_FLOAT, 0, (float)frameIndex);
         pushConstants.set(ValueLayout.JAVA_FLOAT, 4, 16.67f); // ~60fps
-        VulkanExtensions.cmdPushConstants(commandBuffer, aaPipeline.layout(), 
+        Vulkan.cmdPushConstants(commandBuffer, aaPipeline.layout(), 
             VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 0, 8, pushConstants);
         
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        VulkanExtensions.cmdEndRenderPass(commandBuffer);
+        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        Vulkan.cmdEndRenderPass(commandBuffer);
         
         frameIndex++;
     }
     
     public void cleanup() {
         // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+        if (device != null && !device.handle().equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device.handle()).check();
             Logger.debug("Device idle - starting AdaptiveAA cleanup");
         }
         
         // Clean up descriptor resources
         if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroyDescriptorPool(device, descriptorPool);
+            Vulkan.destroyDescriptorPool(device != null ? device.handle() : MemorySegment.NULL, descriptorPool);
         }
         if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroyDescriptorSetLayout(device, descriptorSetLayout);
+            Vulkan.destroyDescriptorSetLayout(device != null ? device.handle() : MemorySegment.NULL, descriptorSetLayout);
         }
         
         // Clean up other resources
@@ -417,7 +417,7 @@ public class AdaptiveAA {
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
                 MemorySegment formatProps = tempArena.allocate(VkFormatProperties.sizeof());
-                VulkanExtensions.getPhysicalDeviceFormatProperties(physicalDevice, format, formatProps);
+                Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
                 
                 int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
                 int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
@@ -461,7 +461,7 @@ public class AdaptiveAA {
             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT :
             (isDepth ? VkPipelineStageFlagBits.VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, 
+        Vulkan.cmdPipelineBarrier(commandBuffer, 
             srcStage,
             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);

@@ -12,9 +12,9 @@ import java.util.List;
  */
 public class VkDescriptorPool implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkDescriptorPool(MemorySegment handle, MemorySegment device) {
+    private VkDescriptorPool(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -42,21 +42,21 @@ public class VkDescriptorPool implements AutoCloseable {
             VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layouts);
             
             MemorySegment descriptorSet = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.allocateDescriptorSets(device, allocInfo, descriptorSet).check();
+            Vulkan.allocateDescriptorSets(device.handle(), allocInfo, descriptorSet).check();
             return new VkDescriptorSet(descriptorSet.get(ValueLayout.ADDRESS, 0));
         }
     }
     
     @Override
     public void close() {
-        VulkanExtensions.destroyDescriptorPool(device, handle);
+        Vulkan.destroyDescriptorPool(device.handle(), handle);
     }
     
     /**
      * Builder for descriptor pool creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int maxSets = 1;
         private final List<PoolSize> poolSizes = new ArrayList<>();
         private int flags = 0;
@@ -64,7 +64,7 @@ public class VkDescriptorPool implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -136,7 +136,7 @@ public class VkDescriptorPool implements AutoCloseable {
             VkDescriptorPoolCreateInfo.pPoolSizes(createInfo, poolSizesArray);
             
             MemorySegment poolPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createDescriptorPool(device, createInfo, poolPtr).check();
+            Vulkan.createDescriptorPool(device.handle(), createInfo, poolPtr).check();
             return new VkDescriptorPool(poolPtr.get(ValueLayout.ADDRESS, 0), device);
         }
         

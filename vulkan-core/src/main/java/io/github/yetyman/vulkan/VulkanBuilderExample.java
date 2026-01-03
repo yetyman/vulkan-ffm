@@ -38,7 +38,7 @@ public class VulkanBuilderExample {
             
             // Create render pass with complex configuration
             VkRenderPass renderPass = VkRenderPass.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, 
                                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
                                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
@@ -57,7 +57,7 @@ public class VulkanBuilderExample {
             
             // Create descriptor set layout
             VkDescriptorSetLayout descriptorLayout = VkDescriptorSetLayout.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT)
                 .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(arena);
@@ -65,7 +65,7 @@ public class VulkanBuilderExample {
             
             // Create descriptor pool
             VkDescriptorPool descriptorPool = VkDescriptorPool.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .maxSets(10)
                 .uniformBuffers(10)
                 .combinedImageSamplers(10)
@@ -81,18 +81,18 @@ public class VulkanBuilderExample {
             
             // Create synchronization objects
             VkSemaphore imageAvailable = VkSemaphore.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .build(arena);
             
             VkFence inFlightFence = VkFence.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .signaled(true)
                 .build(arena);
             Logger.info("✓ Synchronization objects created");
             
             // Create command pool
             VkCommandPool commandPool = VkCommandPool.builder()
-                .device(context.device().handle())
+                .device(context.device())
                 .queueFamilyIndex(context.graphicsQueueFamily())
                 .resetCommandBufferBit()
                 .build(arena);

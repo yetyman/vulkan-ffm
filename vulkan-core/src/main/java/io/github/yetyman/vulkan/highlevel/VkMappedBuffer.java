@@ -104,7 +104,7 @@ public class VkMappedBuffer implements AutoCloseable {
         VkMappedMemoryRange.offset(flushRange, allocation.offset() + offset);
         VkMappedMemoryRange.size(flushRange, size);
         
-        VulkanExtensions.flushMappedMemoryRanges(buffer.device(), 1, flushRange).check();
+        Vulkan.flushMappedMemoryRanges(buffer.device().handle(), 1, flushRange).check();
     }
     
     /**
@@ -125,7 +125,7 @@ public class VkMappedBuffer implements AutoCloseable {
         VkMappedMemoryRange.offset(invalidateRange, allocation.offset() + offset);
         VkMappedMemoryRange.size(invalidateRange, size);
         
-        VulkanExtensions.invalidateMappedMemoryRanges(buffer.device(), 1, invalidateRange).check();
+        Vulkan.invalidateMappedMemoryRanges(buffer.device().handle(), 1, invalidateRange).check();
     }
     
     @Override
@@ -140,7 +140,7 @@ public class VkMappedBuffer implements AutoCloseable {
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private VkMemoryAllocator allocator;
         private long size;
         private int usage = VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -148,7 +148,7 @@ public class VkMappedBuffer implements AutoCloseable {
                                       VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         private MemorySegment initialData;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -230,7 +230,7 @@ public class VkMappedBuffer implements AutoCloseable {
             VkAllocation allocation = allocator.allocateBuffer(buffer.handle(), memoryProperties);
             
             // Bind memory
-            VulkanExtensions.bindBufferMemory(device, buffer.handle(), allocation.memory(), allocation.offset()).check();
+            Vulkan.bindBufferMemory(device.handle(), buffer.handle(), allocation.memory(), allocation.offset()).check();
             
             // Map memory
             MemorySegment mappedMemory = allocator.map(allocation);

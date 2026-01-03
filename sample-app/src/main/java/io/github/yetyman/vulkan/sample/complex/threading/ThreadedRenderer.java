@@ -46,7 +46,7 @@ public class ThreadedRenderer extends BaseRenderer {
     private float[] cameraPosition = {0.0f, 0.0f, 5.0f};
     private MainThreadWorkQueue mainThreadWork;
     
-    public ThreadedRenderer(Arena arena, MemorySegment device, MemorySegment queue, 
+    public ThreadedRenderer(Arena arena, VkDevice device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3);
         
@@ -59,7 +59,7 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     @Override
-    protected void initializeResources(MemorySegment physicalDevice, int queueFamilyIndex) {
+    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
         
         // Initialize LOD renderer now that we have physicalDevice
@@ -82,7 +82,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
 
     
-    private MemorySegment physicalDevice;
+    private VkPhysicalDevice physicalDevice;
     
     private void createManagers(int queueFamilyIndex) {
         commandManager = VulkanCommandManager.builder()
@@ -128,7 +128,7 @@ public class ThreadedRenderer extends BaseRenderer {
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
                 MemorySegment formatProps = tempArena.allocate(VkFormatProperties.sizeof());
-                VulkanExtensions.getPhysicalDeviceFormatProperties(physicalDevice, format, formatProps);
+                Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
                 
                 int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
                 if ((optimalFeatures & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
@@ -288,7 +288,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer);
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
         } else {
@@ -299,10 +299,10 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer);
         }
         
-        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+        Vulkan.endCommandBuffer(commandBuffer).check();
     }
     
     private void recordMultiThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
@@ -316,7 +316,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer);
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
         } else {
@@ -327,34 +327,34 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            VulkanExtensions.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer);
         }
         
-        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+        Vulkan.endCommandBuffer(commandBuffer).check();
     }
     
     private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
         
         // Push time constant for rotation
         VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
             VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, frameArena)
             .push(commandBuffer, pipeline.layout());
         
-        VulkanExtensions.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
-        VulkanExtensions.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
+        Vulkan.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
+        Vulkan.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
         
         // TEST: Manual triangle with simple triangle pipeline (no vertex buffers needed)
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
-        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle());
+        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Test glTF pipeline with vertex and instance buffers
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline.handle());
         Logger.debug("Rendering glTF test triangle with vertex buffers");
         
         // Bind both vertex and instance buffers
 //        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
-//        VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+//        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         
         // Render LOD models if any exist
         int instanceCount = lodRenderer.getInstanceCount();

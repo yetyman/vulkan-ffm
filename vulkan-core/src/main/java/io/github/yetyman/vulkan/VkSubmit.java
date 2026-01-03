@@ -50,7 +50,7 @@ public class VkSubmit {
             VkSubmitInfo.signalSemaphoreCount(submitInfo, signalSemaphores.count());
             VkSubmitInfo.pSignalSemaphores(submitInfo, signalSemArray);
             
-            return VulkanExtensions.queueSubmit(queue, 1, submitInfo, fence);
+            return Vulkan.queueSubmit(queue, 1, submitInfo, fence);
         }
     }
 }

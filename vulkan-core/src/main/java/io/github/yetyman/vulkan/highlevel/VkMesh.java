@@ -105,12 +105,12 @@ public class VkMesh implements AutoCloseable {
                 }
             }
             
-            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, maxBinding + 1, bufferArray, offsetArray);
+            Vulkan.cmdBindVertexBuffers(commandBuffer, 0, maxBinding + 1, bufferArray, offsetArray);
         }
         
         // Bind index buffer if present
         if (indexBuffer != null) {
-            VulkanExtensions.cmdBindIndexBuffer(commandBuffer, indexBuffer.handle(), 0, indexType);
+            Vulkan.cmdBindIndexBuffer(commandBuffer, indexBuffer.handle(), 0, indexType);
         }
     }
     
@@ -130,9 +130,9 @@ public class VkMesh implements AutoCloseable {
         int vertexCount = calculateVertexCount();
         
         if (isIndexed()) {
-            VulkanExtensions.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, firstInstance);
+            Vulkan.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, firstInstance);
         } else {
-            VulkanExtensions.cmdDraw(commandBuffer, vertexCount, instanceCount, 0, firstInstance);
+            Vulkan.cmdDraw(commandBuffer, vertexCount, instanceCount, 0, firstInstance);
         }
     }
     
@@ -170,7 +170,7 @@ public class VkMesh implements AutoCloseable {
         if (!isIndexed()) {
             throw new IllegalStateException("Mesh is not indexed");
         }
-        VulkanExtensions.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        Vulkan.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
     
     @Override
@@ -188,20 +188,20 @@ public class VkMesh implements AutoCloseable {
     private record VertexBufferBinding(VkBuffer buffer, int count) {}
     
     public static class Builder {
-        private MemorySegment device;
-        private MemorySegment physicalDevice;
+        private VkDevice device;
+        private VkPhysicalDevice physicalDevice;
         private VkVertexFormat vertexFormat;
         private final Map<Integer, VertexBufferData> vertexBuffers = new HashMap<>();
         private MemorySegment indexData;
         private int indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
         private int indexCount;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
-        public Builder physicalDevice(MemorySegment physicalDevice) {
+        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
             this.physicalDevice = physicalDevice;
             return this;
         }

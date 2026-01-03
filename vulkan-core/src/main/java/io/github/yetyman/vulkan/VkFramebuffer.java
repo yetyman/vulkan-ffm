@@ -11,10 +11,10 @@ import java.util.*;
  */
 public class VkFramebuffer implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final List<VkFramebufferAttachment> attachments;
     
-    private VkFramebuffer(MemorySegment handle, MemorySegment device, List<VkFramebufferAttachment> attachments) {
+    private VkFramebuffer(MemorySegment handle, VkDevice device, List<VkFramebufferAttachment> attachments) {
         this.handle = handle;
         this.device = device;
         this.attachments = new ArrayList<>(attachments);
@@ -57,14 +57,14 @@ public class VkFramebuffer implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyFramebuffer(device, handle);
+        Vulkan.destroyFramebuffer(device.handle(), handle);
     }
     
     /**
      * Builder for flexible framebuffer creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment renderPass;
         private final List<VkFramebufferAttachment> attachments = new ArrayList<>();
         private int width;
@@ -75,7 +75,7 @@ public class VkFramebuffer implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -172,7 +172,7 @@ public class VkFramebuffer implements AutoCloseable {
             VkFramebufferCreateInfo.layers(framebufferInfo, layers);
             
             MemorySegment framebufferPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createFramebuffer(device, framebufferInfo, framebufferPtr).check();
+            Vulkan.createFramebuffer(device.handle(), framebufferInfo, framebufferPtr).check();
             return new VkFramebuffer(framebufferPtr.get(ValueLayout.ADDRESS, 0), device, attachments);
         }
     }

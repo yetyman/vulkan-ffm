@@ -30,10 +30,10 @@ import java.util.*;
 public class VkComputePipeline implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment layout;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final int[] workgroupSize;
     
-    private VkComputePipeline(MemorySegment handle, MemorySegment layout, MemorySegment device, int[] workgroupSize) {
+    private VkComputePipeline(MemorySegment handle, MemorySegment layout, VkDevice device, int[] workgroupSize) {
         this.handle = handle;
         this.layout = layout;
         this.device = device;
@@ -68,8 +68,8 @@ public class VkComputePipeline implements AutoCloseable {
      * Records a compute dispatch command to the command buffer.
      */
     public void dispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, handle);
-        VulkanExtensions.cmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, handle);
+        Vulkan.cmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
     }
     
     /**
@@ -89,7 +89,7 @@ public class VkComputePipeline implements AutoCloseable {
             setsArray.setAtIndex(ValueLayout.ADDRESS, i, descriptorSets[i]);
         }
         
-        VulkanExtensions.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE,
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE,
             layout, firstSet, descriptorSets.length, setsArray, 0, MemorySegment.NULL);
     }
     
@@ -97,18 +97,18 @@ public class VkComputePipeline implements AutoCloseable {
      * Records push constants for compute pipeline.
      */
     public void pushConstants(MemorySegment commandBuffer, int offset, MemorySegment data) {
-        VulkanExtensions.cmdPushConstants(commandBuffer, layout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+        Vulkan.cmdPushConstants(commandBuffer, layout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
             offset, (int)data.byteSize(), data);
     }
     
     @Override
     public void close() {
-        VulkanExtensions.destroyPipeline(device, handle);
-        VulkanExtensions.destroyPipelineLayout(device, layout);
+        Vulkan.destroyPipeline(device.handle(), handle);
+        Vulkan.destroyPipelineLayout(device.handle(), layout);
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private byte[] computeShader;
         private MemorySegment[] descriptorSetLayouts;
         private List<PushConstantRange> pushConstantRanges = new ArrayList<>();
@@ -116,7 +116,7 @@ public class VkComputePipeline implements AutoCloseable {
         private MemorySegment basePipeline = MemorySegment.NULL;
         private int basePipelineIndex = -1;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -189,7 +189,7 @@ public class VkComputePipeline implements AutoCloseable {
                 }
                 
                 MemorySegment pipelineLayoutPtr = arena.allocate(ValueLayout.ADDRESS);
-                VulkanExtensions.createPipelineLayout(device, pipelineLayoutInfo, pipelineLayoutPtr).check();
+                Vulkan.createPipelineLayout(device.handle(), pipelineLayoutInfo, pipelineLayoutPtr).check();
                 MemorySegment pipelineLayout = pipelineLayoutPtr.get(ValueLayout.ADDRESS, 0);
                 
                 // Create compute pipeline
@@ -209,7 +209,7 @@ public class VkComputePipeline implements AutoCloseable {
                 VkComputePipelineCreateInfo.basePipelineIndex(pipelineInfo, basePipelineIndex);
                 
                 MemorySegment pipelinePtr = arena.allocate(ValueLayout.ADDRESS);
-                VulkanExtensions.createComputePipelines(device, MemorySegment.NULL, 1, pipelineInfo, pipelinePtr).check();
+                Vulkan.createComputePipelines(device.handle(), MemorySegment.NULL, 1, pipelineInfo, pipelinePtr).check();
                 
                 return new VkComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device, workgroupSize);
             } finally {

@@ -10,13 +10,13 @@ import java.lang.foreign.*;
  */
 public class VulkanRenderTarget implements AutoCloseable {
     private final Arena arena;
-    private final MemorySegment device;
-    private final MemorySegment physicalDevice;
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     private final VkImage image;
     private final VkImageView imageView;
 
     
-    private VulkanRenderTarget(Arena arena, MemorySegment device, MemorySegment physicalDevice,
+    private VulkanRenderTarget(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice,
                               int format, int width, int height, int usage, int aspectMask) {
         this.arena = arena;
         this.device = device;
@@ -76,8 +76,8 @@ public class VulkanRenderTarget implements AutoCloseable {
     
     public static class Builder {
         private Arena arena;
-        private MemorySegment device;
-        private MemorySegment physicalDevice;
+        private VkDevice device;
+        private VkPhysicalDevice physicalDevice;
         private int format;
         private int width, height;
         private int usage;
@@ -88,19 +88,19 @@ public class VulkanRenderTarget implements AutoCloseable {
             return this;
         }
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
-        public Builder physicalDevice(MemorySegment physicalDevice) {
+        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
             this.physicalDevice = physicalDevice;
             return this;
         }
         
         public Builder context(VulkanContext context) {
             this.arena = context.arena();
-            this.device = context.device().handle();
+            this.device = context.device();
             this.physicalDevice = context.physicalDevice();
             return this;
         }

@@ -13,7 +13,7 @@ public class VkSyncManager implements AutoCloseable {
     private final VkFencePool fencePool;
     private final Arena arena;
     
-    private VkSyncManager(MemorySegment device, Arena arena) {
+    private VkSyncManager(VkDevice device, Arena arena) {
         this.arena = arena;
         this.semaphoreManager = VkSemaphoreManager.builder().device(device).build(arena);
         this.fencePool = VkFencePool.builder().device(device).build(arena);
@@ -167,7 +167,7 @@ public class VkSyncManager implements AutoCloseable {
             }
         }
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             memBarrierCount, memBarriersArray, bufBarrierCount, bufBarriersArray, imgBarrierCount, imgBarriersArray);
     }
     
@@ -256,9 +256,9 @@ public class VkSyncManager implements AutoCloseable {
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }

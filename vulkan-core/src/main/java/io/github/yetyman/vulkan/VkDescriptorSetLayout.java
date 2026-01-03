@@ -12,9 +12,9 @@ import java.util.List;
  */
 public class VkDescriptorSetLayout implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkDescriptorSetLayout(MemorySegment handle, MemorySegment device) {
+    private VkDescriptorSetLayout(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -29,21 +29,21 @@ public class VkDescriptorSetLayout implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyDescriptorSetLayout(device, handle);
+        Vulkan.destroyDescriptorSetLayout(device.handle(), handle);
     }
     
     /**
      * Builder for descriptor set layout creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private final List<BindingConfig> bindings = new ArrayList<>();
         private int flags = 0;
         
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -105,7 +105,7 @@ public class VkDescriptorSetLayout implements AutoCloseable {
             VkDescriptorSetLayoutCreateInfo.pBindings(createInfo, bindingsArray);
             
             MemorySegment layoutPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createDescriptorSetLayout(device, createInfo, layoutPtr).check();
+            Vulkan.createDescriptorSetLayout(device.handle(), createInfo, layoutPtr).check();
             return new VkDescriptorSetLayout(layoutPtr.get(ValueLayout.ADDRESS, 0), device);
         }
         

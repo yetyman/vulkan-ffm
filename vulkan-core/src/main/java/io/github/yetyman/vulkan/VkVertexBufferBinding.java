@@ -40,6 +40,6 @@ public class VkVertexBufferBinding {
             offsetArray.setAtIndex(ValueLayout.JAVA_LONG, i, offsets.get(i));
         }
         
-        VulkanExtensions.cmdBindVertexBuffers(commandBuffer, firstBinding, buffers.size(), bufferArray, offsetArray);
+        Vulkan.cmdBindVertexBuffers(commandBuffer, firstBinding, buffers.size(), bufferArray, offsetArray);
     }
 }

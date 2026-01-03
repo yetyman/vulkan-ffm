@@ -11,12 +11,12 @@ public class VkCommandBufferAlloc {
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private MemorySegment commandPool;
         private int level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         private int count = 1;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -50,7 +50,7 @@ public class VkCommandBufferAlloc {
             VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, count);
             
             MemorySegment commandBuffersArray = arena.allocate(ValueLayout.ADDRESS, count);
-            VulkanExtensions.allocateCommandBuffers(device, allocInfo, commandBuffersArray).check();
+            Vulkan.allocateCommandBuffers(device.handle(), allocInfo, commandBuffersArray).check();
             
             MemorySegment[] result = new MemorySegment[count];
             for (int i = 0; i < count; i++) {

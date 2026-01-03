@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
@@ -29,10 +31,10 @@ public class AsyncGeometryStreamer {
 
     
     private final Arena arena;
-    private final MemorySegment device;
-    private final MemorySegment physicalDevice;
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     
-    public AsyncGeometryStreamer(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue) {
+    public AsyncGeometryStreamer(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, MemorySegment queue) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
@@ -235,8 +237,8 @@ public class AsyncGeometryStreamer {
     
     public void shutdown() {
         // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+        if (device != null && !device.handle().equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device.handle()).check();
             Logger.info("Device idle - starting AsyncGeometryStreamer cleanup");
         }
         

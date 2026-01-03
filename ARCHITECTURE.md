@@ -11,7 +11,7 @@ You have a **working Vulkan foundation** with:
 - **Queue**: Graphics queue for command submission
 - **Surface**: Window surface for presenting
 - **Shaders**: SPIR-V bytecode for vertex/fragment shaders (RGB triangle)
-- **Extensions**: All rendering functions wrapped (VulkanExtensions.java)
+- **Extensions**: All rendering functions wrapped (Vulkan.java)
 - **Constants**: Vulkan enums and flags (VkConstants.java)
 
 ### 🚧 Framework Ready (Needs Implementation)
@@ -27,7 +27,7 @@ You have a **working Vulkan foundation** with:
 ```
 vulkan-core/          # Reusable Vulkan wrapper (zero overhead FFM)
 ├── Vulkan.java       # Core functions (instance, device, buffers)
-├── VulkanExtensions.java  # Rendering functions (pipeline, commands, sync)
+├── Vulkan.java  # Rendering functions (pipeline, commands, sync)
 ├── VulkanLibrary.java     # Native library loader
 ├── VulkanSurface.java     # GLFW surface integration
 ├── VkConstants.java       # All Vulkan constants

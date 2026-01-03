@@ -23,14 +23,14 @@ public class LODRenderer {
     private final List<StaticBatch> staticBatches = new ArrayList<>();
     private final ModelData[] modelDataArray; // Global array for pointer resolution
     private final BatchState batchState;
-    private final MemorySegment device; // For GPU resource management
+    private final VkDevice device; // For GPU resource management
     private MemorySegment commandPool;
     private MemorySegment renderPass;
     private final AsyncGeometryStreamer geometryStreamer;
     private final GLTFLoader gltfLoader;
     private MainThreadWorkQueue mainThreadWorkQueue;
     
-    public LODRenderer(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue, int maxInstances, int maxModelData) {
+    public LODRenderer(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, MemorySegment queue, int maxInstances, int maxModelData) {
         // Use shared arena for instance data to allow multi-thread access
         Arena sharedArena = Arena.ofShared();
         this.instanceData = new InstanceData(sharedArena, maxInstances, device, physicalDevice);
@@ -50,7 +50,7 @@ public class LODRenderer {
      */
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
         // Bind glTF pipeline
-        VulkanExtensions.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline);
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS, gltfPipeline);
         Logger.lod("Using glTF pipeline: " + gltfPipeline);
         if (staticBatches.isEmpty()) return;
         
@@ -71,7 +71,7 @@ public class LODRenderer {
             
             if (hasEnabled && hasBuffers) {
                 if (!batch.getCommandBuffer().equals(MemorySegment.NULL)) {
-                    VulkanExtensions.cmdExecuteCommands(commandBuffer, 1, batch.getCommandBuffer());
+                    Vulkan.cmdExecuteCommands(commandBuffer, 1, batch.getCommandBuffer());
                 } else {
                     // Fallback to direct rendering for this batch
                     renderBatchDirectly(commandBuffer, batch, frameArena);
@@ -123,7 +123,7 @@ public class LODRenderer {
             .bind(commandBuffer, 1, frameArena);
         
         // Bind index buffer with encoded handle
-        VulkanExtensions.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+        Vulkan.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32);
         
         // Draw indexed for each enabled instance in this batch
         int enabledCount = getEnabledInstanceCount(batch);
@@ -140,7 +140,7 @@ public class LODRenderer {
             Logger.draw("Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
             Logger.draw("Vertex buffer: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", Index buffer: 0x" + Long.toHexString(encodedIndexBuffer.address()));
             Logger.draw("Matrix buffer: 0x" + Long.toHexString(matrixBuffer.address()));
-            VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
+            Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
             Logger.draw("Draw call completed");
         } else {
             Logger.draw("No enabled instances to draw");
@@ -301,15 +301,15 @@ public class LODRenderer {
             vertexBuffers.set(ValueLayout.ADDRESS, 0, lodLevel.vertexBuffer());
             MemorySegment offsets = cmdArena.allocate(ValueLayout.JAVA_LONG);
             offsets.set(ValueLayout.JAVA_LONG, 0, 0L);
-            VulkanExtensions.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+            Vulkan.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
             
             // Bind index buffer
-            VulkanExtensions.cmdBindIndexBuffer(commandBuffer, lodLevel.indexBuffer(), 0, VkIndexType.VK_INDEX_TYPE_UINT32);
+            Vulkan.cmdBindIndexBuffer(commandBuffer, lodLevel.indexBuffer(), 0, VkIndexType.VK_INDEX_TYPE_UINT32);
             
             // Draw indexed (instance count will be set during execution)
-            VulkanExtensions.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), 1, 0, 0, 0);
+            Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), 1, 0, 0, 0);
             
-            VulkanExtensions.endCommandBuffer(commandBuffer).check();
+            Vulkan.endCommandBuffer(commandBuffer).check();
             
             Logger.lod("Created command buffer for LOD level with " + lodLevel.indexCount() + " indices");
             return commandBuffer;
@@ -360,8 +360,8 @@ public class LODRenderer {
 
     public void cleanup() {
         // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            Vulkan.deviceWaitIdle(device).check();
+        if (device != null && !device.handle().equals(MemorySegment.NULL)) {
+            Vulkan.deviceWaitIdle(device.handle()).check();
             Logger.info("Device idle - starting LODRenderer cleanup");
         }
         
@@ -426,7 +426,7 @@ public class LODRenderer {
                 .buffer(staticInstanceBuffer)
                 .bind(commandBuffer, 0, frameArena);
             
-            VulkanExtensions.cmdDraw(commandBuffer, 3, 1, 0, 0);
+            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
             Logger.debug("Drew glTF test triangle with buffers");
         } else {
             Logger.debug("glTF test triangle buffers are NULL");

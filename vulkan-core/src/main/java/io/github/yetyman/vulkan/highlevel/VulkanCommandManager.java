@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class VulkanCommandManager implements AutoCloseable {
     private final Arena arena;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final int queueFamilyIndex;
     private final boolean threaded;
     
@@ -17,7 +17,7 @@ public class VulkanCommandManager implements AutoCloseable {
     private final ConcurrentHashMap<Thread, VkCommandPool> threadPools = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Thread, Arena> threadArenas = new ConcurrentHashMap<>();
     
-    private VulkanCommandManager(Arena arena, MemorySegment device, int queueFamilyIndex, boolean threaded) {
+    private VulkanCommandManager(Arena arena, VkDevice device, int queueFamilyIndex, boolean threaded) {
         this.arena = arena;
         this.device = device;
         this.queueFamilyIndex = queueFamilyIndex;
@@ -82,7 +82,7 @@ public class VulkanCommandManager implements AutoCloseable {
     
     public static class Builder {
         private Arena arena;
-        private MemorySegment device;
+        private VkDevice device;
         private int queueFamilyIndex = 0;
         private boolean threaded = false;
         
@@ -91,14 +91,14 @@ public class VulkanCommandManager implements AutoCloseable {
             return this;
         }
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
         public Builder context(VulkanContext context) {
             this.arena = context.arena();
-            this.device = context.device().handle();
+            this.device = context.device();
             return this;
         }
         

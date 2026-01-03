@@ -54,7 +54,7 @@ public class VkDebugMessenger implements AutoCloseable {
     @Override
     public void close() {
         if (handle != null && !handle.equals(MemorySegment.NULL)) {
-            VulkanExtensions.destroyDebugUtilsMessengerEXT(instance, handle);
+            Vulkan.destroyDebugUtilsMessengerEXT(instance, handle);
         }
     }
     
@@ -166,7 +166,7 @@ public class VkDebugMessenger implements AutoCloseable {
             VkDebugUtilsMessengerCreateInfoEXT.pfnUserCallback(createInfo, callback);
             
             MemorySegment messengerPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createDebugUtilsMessengerEXT(instance, createInfo, messengerPtr).check();
+            Vulkan.createDebugUtilsMessengerEXT(instance, createInfo, messengerPtr).check();
             
             return new VkDebugMessenger(messengerPtr.get(ValueLayout.ADDRESS, 0), instance, messageHandler);
         }

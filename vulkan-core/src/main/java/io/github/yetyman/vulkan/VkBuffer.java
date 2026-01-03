@@ -11,10 +11,10 @@ import java.lang.foreign.*;
 public class VkBuffer implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment memory;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final long size;
     
-    private VkBuffer(MemorySegment handle, MemorySegment memory, MemorySegment device, long size) {
+    private VkBuffer(MemorySegment handle, MemorySegment memory, VkDevice device, long size) {
         this.handle = handle;
         this.memory = memory;
         this.device = device;
@@ -36,7 +36,7 @@ public class VkBuffer implements AutoCloseable {
     public long size() { return size; }
     
     /** @return the device handle */
-    public MemorySegment device() { return device; }
+    public VkDevice device() { return device; }
     
     /**
      * Maps buffer memory for CPU access
@@ -45,7 +45,7 @@ public class VkBuffer implements AutoCloseable {
      */
     public MemorySegment map(Arena arena) {
         MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.mapMemory(device, memory, 0, size, 0, mappedPtr).check();
+        Vulkan.mapMemory(device.handle(), memory, 0, size, 0, mappedPtr).check();
         MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
         return mappedAddress.reinterpret(size, arena, null);
     }
@@ -54,23 +54,23 @@ public class VkBuffer implements AutoCloseable {
      * Unmaps buffer memory
      */
     public void unmap() {
-        VulkanExtensions.unmapMemory(device, memory);
+        Vulkan.unmapMemory(device.handle(), memory);
     }
     
     @Override
     public void close() {
         if (memory != null && !memory.equals(MemorySegment.NULL)) {
-            VulkanExtensions.freeMemory(device, memory);
+            Vulkan.freeMemory(device.handle(), memory);
         }
-        VulkanExtensions.destroyBuffer(device, handle);
+        Vulkan.destroyBuffer(device.handle(), handle);
     }
     
     /**
      * Builder for buffer creation with memory allocation.
      */
     public static class Builder {
-        private MemorySegment device;
-        private MemorySegment physicalDevice;
+        private VkDevice device;
+        private VkPhysicalDevice physicalDevice;
         private long size;
         private int usage;
         private int sharingMode = VkSharingMode.VK_SHARING_MODE_EXCLUSIVE;
@@ -82,13 +82,13 @@ public class VkBuffer implements AutoCloseable {
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
         /** Sets the physical device (needed for memory allocation) */
-        public Builder physicalDevice(MemorySegment physicalDevice) {
+        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
             this.physicalDevice = physicalDevice;
             return this;
         }
@@ -216,18 +216,18 @@ public class VkBuffer implements AutoCloseable {
             }
             
             MemorySegment bufferPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createBuffer(device, bufferInfo, bufferPtr).check();
+            Vulkan.createBuffer(device.handle(), bufferInfo, bufferPtr).check();
             MemorySegment buffer = bufferPtr.get(ValueLayout.ADDRESS, 0);
             
             // Get memory requirements
             MemorySegment memRequirements = VkMemoryRequirements.allocate(arena);
-            VulkanExtensions.getBufferMemoryRequirements(device, buffer, memRequirements);
+            Vulkan.getBufferMemoryRequirements(device.handle(), buffer, memRequirements);
             long memSize = VkMemoryRequirements.size(memRequirements);
             int memTypeBits = VkMemoryRequirements.memoryTypeBits(memRequirements);
             
             // Find suitable memory type
             MemorySegment memProperties = VkPhysicalDeviceMemoryProperties.allocate(arena);
-            VulkanExtensions.getPhysicalDeviceMemoryProperties(physicalDevice, memProperties);
+            Vulkan.getPhysicalDeviceMemoryProperties(physicalDevice.handle(), memProperties);
             
             int memoryTypeIndex = -1;
             int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(memProperties);
@@ -254,23 +254,23 @@ public class VkBuffer implements AutoCloseable {
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
             
             MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.allocateMemory(device, allocInfo, memoryPtr).check();
+            Vulkan.allocateMemory(device.handle(), allocInfo, memoryPtr).check();
             MemorySegment memory = memoryPtr.get(ValueLayout.ADDRESS, 0);
             
             // Bind buffer memory
-            VulkanExtensions.bindBufferMemory(device, buffer, memory, 0).check();
+            Vulkan.bindBufferMemory(device.handle(), buffer, memory, 0).check();
             
             // Upload initial data if provided
             if (initialData != null && !initialData.equals(MemorySegment.NULL) && initialData.byteSize() > 0) {
                 // Map memory, copy data, unmap
                 MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
-                VulkanExtensions.mapMemory(device, memory, 0, size, 0, mappedPtr).check();
+                Vulkan.mapMemory(device.handle(), memory, 0, size, 0, mappedPtr).check();
                 MemorySegment mapped = mappedPtr.get(ValueLayout.ADDRESS, 0);
                 
                 long copySize = Math.min(size, initialData.byteSize());
                 MemorySegment.copy(initialData, 0, mapped, 0, copySize);
                 
-                VulkanExtensions.unmapMemory(device, memory);
+                Vulkan.unmapMemory(device.handle(), memory);
             }
             
             return new VkBuffer(buffer, memory, device, size);

@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.highlevel;
 
-import io.github.yetyman.vulkan.VulkanExtensions;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
@@ -25,11 +26,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * ```
  */
 public class VkSemaphoreManager implements AutoCloseable {
-    private final MemorySegment device;
+    private final VkDevice device;
     private final Arena arena;
     private final Map<String, TimelineSemaphore> semaphores = new ConcurrentHashMap<>();
     
-    private VkSemaphoreManager(MemorySegment device, Arena arena) {
+    private VkSemaphoreManager(VkDevice device, Arena arena) {
         this.device = device;
         this.arena = arena;
     }
@@ -53,7 +54,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
         
         MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createSemaphore(device, semaphoreInfo, semaphorePtr).check();
+        Vulkan.createSemaphore(device.handle(), semaphoreInfo, semaphorePtr).check();
         return semaphorePtr.get(ValueLayout.ADDRESS, 0);
     }
     
@@ -68,7 +69,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         VkSemaphoreCreateInfo.pNext(semaphoreInfo, typeInfo);
         
         MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createSemaphore(device, semaphoreInfo, semaphorePtr).check();
+        Vulkan.createSemaphore(device.handle(), semaphoreInfo, semaphorePtr).check();
         
         return new TimelineSemaphore(semaphorePtr.get(ValueLayout.ADDRESS, 0), device, arena);
     }
@@ -86,11 +87,11 @@ public class VkSemaphoreManager implements AutoCloseable {
      */
     public static class TimelineSemaphore implements AutoCloseable {
         private final MemorySegment handle;
-        private final MemorySegment device;
+        private final VkDevice device;
         private final Arena arena;
         private volatile long currentValue = 0;
         
-        TimelineSemaphore(MemorySegment handle, MemorySegment device, Arena arena) {
+        TimelineSemaphore(MemorySegment handle, VkDevice device, Arena arena) {
             this.handle = handle;
             this.device = device;
             this.arena = arena;
@@ -100,7 +101,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         
         public long getCurrentValue() {
             MemorySegment valuePtr = arena.allocate(ValueLayout.JAVA_LONG);
-            VulkanExtensions.getSemaphoreCounterValue(device, handle, valuePtr).check();
+            Vulkan.getSemaphoreCounterValue(device.handle(), handle, valuePtr).check();
             return valuePtr.get(ValueLayout.JAVA_LONG, 0);
         }
         
@@ -121,7 +122,7 @@ public class VkSemaphoreManager implements AutoCloseable {
             valueArray.set(ValueLayout.JAVA_LONG, 0, value);
             VkSemaphoreWaitInfo.pValues(waitInfo, valueArray);
             
-            VulkanExtensions.waitSemaphores(device, waitInfo, timeoutNs).check();
+            Vulkan.waitSemaphores(device.handle(), waitInfo, timeoutNs).check();
         }
         
         public void signalValue(long value) {
@@ -130,19 +131,19 @@ public class VkSemaphoreManager implements AutoCloseable {
             VkSemaphoreSignalInfo.semaphore(signalInfo, handle);
             VkSemaphoreSignalInfo.value(signalInfo, value);
             
-            VulkanExtensions.signalSemaphore(device, signalInfo).check();
+            Vulkan.signalSemaphore(device.handle(), signalInfo).check();
         }
         
         @Override
         public void close() {
-            VulkanExtensions.destroySemaphore(device, handle);
+            Vulkan.destroySemaphore(device.handle(), handle);
         }
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }

@@ -42,7 +42,7 @@ public class VkPresent {
             VkPresentInfoKHR.pImageIndices(presentInfo, imageIndexArray);
             VkPresentInfoKHR.pResults(presentInfo, MemorySegment.NULL);
             
-            return VulkanExtensions.queuePresentKHR(queue, presentInfo);
+            return Vulkan.queuePresentKHR(queue, presentInfo);
         }
     }
 }

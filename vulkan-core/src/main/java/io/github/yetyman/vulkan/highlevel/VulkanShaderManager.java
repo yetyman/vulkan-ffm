@@ -9,11 +9,11 @@ import java.util.*;
  */
 public class VulkanShaderManager implements AutoCloseable {
     private final Arena arena;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final Map<String, byte[]> shaderCache = new HashMap<>();
     private final List<MemorySegment> shaderModules = new ArrayList<>();
     
-    private VulkanShaderManager(Arena arena, MemorySegment device) {
+    private VulkanShaderManager(Arena arena, VkDevice device) {
         this.arena = arena;
         this.device = device;
     }
@@ -40,7 +40,7 @@ public class VulkanShaderManager implements AutoCloseable {
     @Override
     public void close() {
         for (MemorySegment module : shaderModules) {
-            VulkanExtensions.destroyShaderModule(device, module);
+            Vulkan.destroyShaderModule(device.handle(), module);
         }
         shaderModules.clear();
         shaderCache.clear();
@@ -114,21 +114,21 @@ public class VulkanShaderManager implements AutoCloseable {
     
     public static class Builder {
         private Arena arena;
-        private MemorySegment device;
+        private VkDevice device;
         
         public Builder arena(Arena arena) {
             this.arena = arena;
             return this;
         }
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
         public Builder context(VulkanContext context) {
             this.arena = context.arena();
-            this.device = context.device().handle();
+            this.device = context.device();
             return this;
         }
         

@@ -1,11 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
-import io.github.yetyman.vulkan.VkBuffer;
-import io.github.yetyman.vulkan.VkBufferCopy;
-import io.github.yetyman.vulkan.Vulkan;
-import io.github.yetyman.vulkan.VulkanExtensions;
+import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -22,15 +18,15 @@ public class StagingSystem {
     private final ConcurrentLinkedQueue<CopyRequest> pendingCopies = new ConcurrentLinkedQueue<>();
     private final BufferManager bufferManager;
     private final Arena arena;
-    private final MemorySegment device;
-    private final MemorySegment physicalDevice;
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     private final MemorySegment queue;
     private final VkCommandPool commandPool;
     private final AtomicInteger nextRequestId = new AtomicInteger(0);
     
     private static final long STAGING_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB staging buffers
     
-    public StagingSystem(Arena arena, MemorySegment device, MemorySegment physicalDevice, MemorySegment queue) {
+    public StagingSystem(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, MemorySegment queue) {
         this.arena = Arena.ofShared(); // Use shared arena for cross-thread access
         this.device = device;
         this.physicalDevice = physicalDevice;
@@ -214,8 +210,8 @@ public class StagingSystem {
     
     public void cleanup() {
         // Wait for device to be idle before cleanup
-        if (device != null && !device.equals(MemorySegment.NULL)) {
-            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device).check();
+        if (device != null && !device.handle().equals(MemorySegment.NULL)) {
+            io.github.yetyman.vulkan.Vulkan.deviceWaitIdle(device.handle()).check();
             Logger.debug("Device idle - starting StagingSystem cleanup");
         }
         

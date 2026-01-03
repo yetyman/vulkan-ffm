@@ -10,9 +10,9 @@ import java.lang.foreign.*;
  */
 public class VkFence implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkFence(MemorySegment handle, MemorySegment device) {
+    private VkFence(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -20,7 +20,7 @@ public class VkFence implements AutoCloseable {
     /**
      * Creates a fence with optional initial signaled state.
      */
-    public static VkFence create(Arena arena, MemorySegment device, boolean signaled) {
+    public static VkFence create(Arena arena, VkDevice device, boolean signaled) {
         return builder().device(device).signaled(signaled).build(arena);
     }
     
@@ -34,21 +34,21 @@ public class VkFence implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroyFence(device, handle);
+        Vulkan.destroyFence(device.handle(), handle);
     }
     
     /**
      * Builder for fence creation.
      */
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private boolean signaled = false;
         private int flags = 0;
         
         private Builder() {}
         
         /** Sets the logical device */
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -80,7 +80,7 @@ public class VkFence implements AutoCloseable {
             VkFenceCreateInfo.flags(fenceInfo, finalFlags);
             
             MemorySegment fencePtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createFence(device, fenceInfo, fencePtr).check();
+            Vulkan.createFence(device.handle(), fenceInfo, fencePtr).check();
             return new VkFence(fencePtr.get(ValueLayout.ADDRESS, 0), device);
         }
     }

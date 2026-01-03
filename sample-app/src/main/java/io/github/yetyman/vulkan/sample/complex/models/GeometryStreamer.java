@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.VkDevice;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -13,9 +15,9 @@ public class GeometryStreamer {
     private final AtomicLong currentGPUUsage = new AtomicLong(0);
     private final ConcurrentLinkedQueue<ModelData> streamingQueue = new ConcurrentLinkedQueue<>();
     private final Arena arena;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    public GeometryStreamer(Arena arena, MemorySegment device) {
+    public GeometryStreamer(Arena arena, VkDevice device) {
         this.arena = arena;
         this.device = device;
     }

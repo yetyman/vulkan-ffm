@@ -40,8 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * }</pre>
  */
 public class VkMemoryAllocator implements AutoCloseable {
-    private final MemorySegment device;
-    private final MemorySegment physicalDevice;
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     private final Arena arena;
     private final Map<Integer, MemoryPool> memoryPools = new ConcurrentHashMap<>();
     private final Map<MemorySegment, AllocationInfo> allocations = new ConcurrentHashMap<>();
@@ -50,12 +50,12 @@ public class VkMemoryAllocator implements AutoCloseable {
     private static final long DEFAULT_BLOCK_SIZE = 256 * 1024 * 1024; // 256MB
     private static final long MIN_ALLOCATION_SIZE = 1024; // 1KB
     
-    private VkMemoryAllocator(MemorySegment device, MemorySegment physicalDevice, Arena arena) {
+    private VkMemoryAllocator(VkDevice device, VkPhysicalDevice physicalDevice, Arena arena) {
         this.device = device;
         this.physicalDevice = physicalDevice;
         this.arena = arena;
         this.memoryProperties = VkPhysicalDeviceMemoryProperties.allocate(arena);
-        VulkanExtensions.getPhysicalDeviceMemoryProperties(physicalDevice, memoryProperties);
+        Vulkan.getPhysicalDeviceMemoryProperties(physicalDevice.handle(), memoryProperties);
     }
     
     public static Builder builder() {
@@ -86,7 +86,7 @@ public class VkMemoryAllocator implements AutoCloseable {
      */
     public VkAllocation allocateBuffer(MemorySegment buffer, int memoryProperties) {
         MemorySegment requirements = VkMemoryRequirements.allocate(arena);
-        VulkanExtensions.getBufferMemoryRequirements(device, buffer, requirements);
+        Vulkan.getBufferMemoryRequirements(device.handle(), buffer, requirements);
         return allocate(requirements, memoryProperties);
     }
     
@@ -95,7 +95,7 @@ public class VkMemoryAllocator implements AutoCloseable {
      */
     public VkAllocation allocateImage(MemorySegment image, int memoryProperties) {
         MemorySegment requirements = VkMemoryRequirements.allocate(arena);
-        VulkanExtensions.getImageMemoryRequirements(device, image, requirements);
+        Vulkan.getImageMemoryRequirements(device.handle(), image, requirements);
         return allocate(requirements, memoryProperties);
     }
     
@@ -114,7 +114,7 @@ public class VkMemoryAllocator implements AutoCloseable {
      */
     public MemorySegment map(VkAllocation allocation) {
         MemorySegment mappedPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.mapMemory(device, allocation.memory(), allocation.offset(), 
+        Vulkan.mapMemory(device.handle(), allocation.memory(), allocation.offset(), 
             allocation.size(), 0, mappedPtr).check();
         MemorySegment mappedAddress = mappedPtr.get(ValueLayout.ADDRESS, 0);
         return mappedAddress.reinterpret(allocation.size(), arena, null);
@@ -124,7 +124,7 @@ public class VkMemoryAllocator implements AutoCloseable {
      * Unmaps previously mapped memory.
      */
     public void unmap(VkAllocation allocation) {
-        VulkanExtensions.unmapMemory(device, allocation.memory());
+        Vulkan.unmapMemory(device.handle(), allocation.memory());
     }
     
     /**
@@ -213,7 +213,7 @@ public class VkMemoryAllocator implements AutoCloseable {
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
             
             MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.allocateMemory(device, allocInfo, memoryPtr).check();
+            Vulkan.allocateMemory(device.handle(), allocInfo, memoryPtr).check();
             MemorySegment memory = memoryPtr.get(ValueLayout.ADDRESS, 0);
             
             return new MemoryBlock(memory, size);
@@ -297,7 +297,7 @@ public class VkMemoryAllocator implements AutoCloseable {
         
         @Override
         public void close() {
-            VulkanExtensions.freeMemory(device, memory);
+            Vulkan.freeMemory(device.handle(), memory);
         }
     }
     
@@ -305,15 +305,15 @@ public class VkMemoryAllocator implements AutoCloseable {
     private record AllocationInfo(MemoryPool pool, MemoryBlock block) {}
     
     public static class Builder {
-        private MemorySegment device;
-        private MemorySegment physicalDevice;
+        private VkDevice device;
+        private VkPhysicalDevice physicalDevice;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
-        public Builder physicalDevice(MemorySegment physicalDevice) {
+        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
             this.physicalDevice = physicalDevice;
             return this;
         }

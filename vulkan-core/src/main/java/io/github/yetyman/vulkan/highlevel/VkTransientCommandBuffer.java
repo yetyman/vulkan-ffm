@@ -31,13 +31,13 @@ public class VkTransientCommandBuffer implements AutoCloseable {
     private final MemorySegment commandBuffer;
     private final VkCommandPool commandPool;
     private final MemorySegment queue;
-    private final MemorySegment device;
+    private final VkDevice device;
     private final Arena arena;
     private boolean recorded = false;
     private boolean submitted = false;
     
     private VkTransientCommandBuffer(MemorySegment commandBuffer, VkCommandPool commandPool, 
-                                   MemorySegment queue, MemorySegment device, Arena arena) {
+                                   MemorySegment queue, VkDevice device, Arena arena) {
         this.commandBuffer = commandBuffer;
         this.commandPool = commandPool;
         this.queue = queue;
@@ -49,7 +49,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
      * Creates a transient command buffer and begins recording.
      */
     public static VkTransientCommandBuffer begin(VkCommandPool commandPool, MemorySegment queue, Arena arena) {
-        MemorySegment device = commandPool.device();
+        VkDevice device = commandPool.device();
         
         // Allocate command buffer
         MemorySegment allocInfo = VkCommandBufferAllocateInfo.allocate(arena);
@@ -59,7 +59,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, 1);
         
         MemorySegment commandBufferPtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.allocateCommandBuffers(device, allocInfo, commandBufferPtr).check();
+        Vulkan.allocateCommandBuffers(device.handle(), allocInfo, commandBufferPtr).check();
         MemorySegment commandBuffer = commandBufferPtr.get(ValueLayout.ADDRESS, 0);
         
         // Begin recording
@@ -67,7 +67,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
         VkCommandBufferBeginInfo.flags(beginInfo, VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         
-        VulkanExtensions.beginCommandBuffer(commandBuffer, beginInfo).check();
+        Vulkan.beginCommandBuffer(commandBuffer, beginInfo).check();
         
         VkTransientCommandBuffer transient1 = new VkTransientCommandBuffer(commandBuffer, commandPool, queue, device, arena);
         transient1.recorded = true;
@@ -97,14 +97,14 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         }
         
         // End recording
-        VulkanExtensions.endCommandBuffer(commandBuffer).check();
+        Vulkan.endCommandBuffer(commandBuffer).check();
         
         // Create fence for synchronization
         MemorySegment fenceInfo = VkFenceCreateInfo.allocate(arena);
         VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
         
         MemorySegment fencePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createFence(device, fenceInfo, fencePtr).check();
+        Vulkan.createFence(device.handle(), fenceInfo, fencePtr).check();
         MemorySegment fence = fencePtr.get(ValueLayout.ADDRESS, 0);
         
         try {
@@ -117,16 +117,16 @@ public class VkTransientCommandBuffer implements AutoCloseable {
             commandBuffers.set(ValueLayout.ADDRESS, 0, commandBuffer);
             VkSubmitInfo.pCommandBuffers(submitInfo, commandBuffers);
             
-            VulkanExtensions.queueSubmit(queue, 1, submitInfo, fence).check();
+            Vulkan.queueSubmit(queue, 1, submitInfo, fence).check();
             
             // Wait for completion
             MemorySegment fences = arena.allocate(ValueLayout.ADDRESS);
             fences.set(ValueLayout.ADDRESS, 0, fence);
-            VulkanExtensions.waitForFences(device, 1, fences, 1, Long.MAX_VALUE).check();
+            Vulkan.waitForFences(device.handle(), 1, fences, 1, Long.MAX_VALUE).check();
             
             submitted = true;
         } finally {
-            VulkanExtensions.destroyFence(device, fence);
+            Vulkan.destroyFence(device.handle(), fence);
         }
     }
     
@@ -182,7 +182,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkExtent3D.height(imageExtent, height);
         VkExtent3D.depth(imageExtent, depth);
         
-        VulkanExtensions.cmdCopyBufferToImage(commandBuffer, buffer, image, 
+        Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image, 
             VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, region);
     }
     
@@ -208,7 +208,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
@@ -221,7 +221,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         
-        VulkanExtensions.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             1, barrier, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
     }
     
@@ -229,7 +229,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
     public void close() {
         if (recorded && !submitted) {
             try {
-                VulkanExtensions.endCommandBuffer(commandBuffer);
+                Vulkan.endCommandBuffer(commandBuffer);
             } catch (Exception e) {
                 // Ignore errors during cleanup
             }
@@ -238,6 +238,6 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         // Free command buffer
         MemorySegment commandBuffers = arena.allocate(ValueLayout.ADDRESS);
         commandBuffers.set(ValueLayout.ADDRESS, 0, commandBuffer);
-        VulkanExtensions.freeCommandBuffers(device, commandPool.handle(), 1, commandBuffers);
+        Vulkan.freeCommandBuffers(device.handle(), commandPool.handle(), 1, commandBuffers);
     }
 }

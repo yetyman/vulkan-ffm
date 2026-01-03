@@ -77,6 +77,6 @@ public class VkPushConstants {
     }
     
     public void push(MemorySegment commandBuffer, MemorySegment pipelineLayout) {
-        VulkanExtensions.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
+        Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
     }
 }

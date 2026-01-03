@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
@@ -18,7 +20,7 @@ public class InstanceData {
     private final int capacity;
     private int count = 0;
     
-    public InstanceData(Arena arena, int maxInstances, MemorySegment device, MemorySegment physicalDevice) {
+    public InstanceData(Arena arena, int maxInstances, VkDevice device, VkPhysicalDevice physicalDevice) {
         this.capacity = maxInstances;
         this.modelDataPtrs = arena.allocate(maxInstances * Long.BYTES);
         
@@ -37,7 +39,7 @@ public class InstanceData {
         this.activeInstances = new boolean[maxInstances];
     }
     
-    private MemorySegment mapBufferMemory(MemorySegment device, VkBuffer buffer, long size) {
+    private MemorySegment mapBufferMemory(VkDevice device, VkBuffer buffer, long size) {
         try {
             return buffer.map(Arena.ofShared());
         } catch (Exception e) {

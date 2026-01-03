@@ -1,7 +1,8 @@
 package io.github.yetyman.vulkan.highlevel;
 
+import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkResult;
-import io.github.yetyman.vulkan.VulkanExtensions;
+import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkFenceCreateInfo;
 import java.lang.foreign.*;
@@ -23,13 +24,13 @@ import java.util.*;
  * ```
  */
 public class VkFencePool implements AutoCloseable {
-    private final MemorySegment device;
+    private final VkDevice device;
     private final Arena arena;
     private final Queue<MemorySegment> availableFences = new ArrayDeque<>();
     private final Set<MemorySegment> allFences = new HashSet<>();
     private final int maxPoolSize;
     
-    private VkFencePool(MemorySegment device, Arena arena, int maxPoolSize) {
+    private VkFencePool(VkDevice device, Arena arena, int maxPoolSize) {
         this.device = device;
         this.arena = arena;
         this.maxPoolSize = maxPoolSize;
@@ -53,7 +54,7 @@ public class VkFencePool implements AutoCloseable {
         VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
         
         MemorySegment fencePtr = arena.allocate(ValueLayout.ADDRESS);
-        VulkanExtensions.createFence(device, fenceInfo, fencePtr).check();
+        Vulkan.createFence(device.handle(), fenceInfo, fencePtr).check();
         MemorySegment fence = fencePtr.get(ValueLayout.ADDRESS, 0);
         
         allFences.add(fence);
@@ -75,13 +76,13 @@ public class VkFencePool implements AutoCloseable {
     public VkResult waitForFence(MemorySegment fence, long timeoutNs) {
         MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS);
         fenceArray.set(ValueLayout.ADDRESS, 0, fence);
-        return VulkanExtensions.waitForFences(device, 1, fenceArray, 1, timeoutNs);
+        return Vulkan.waitForFences(device.handle(), 1, fenceArray, 1, timeoutNs);
     }
     
     private void resetFence(MemorySegment fence) {
         MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS);
         fenceArray.set(ValueLayout.ADDRESS, 0, fence);
-        VulkanExtensions.resetFences(device, 1, fenceArray).check();
+        Vulkan.resetFences(device.handle(), 1, fenceArray).check();
     }
     
     /**
@@ -94,7 +95,7 @@ public class VkFencePool implements AutoCloseable {
     @Override
     public synchronized void close() {
         for (MemorySegment fence : allFences) {
-            VulkanExtensions.destroyFence(device, fence);
+            Vulkan.destroyFence(device.handle(), fence);
         }
         allFences.clear();
         availableFences.clear();
@@ -113,10 +114,10 @@ public class VkFencePool implements AutoCloseable {
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int maxPoolSize = 32;
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }

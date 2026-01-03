@@ -9,9 +9,9 @@ import java.lang.foreign.*;
  */
 public class VkSampler implements AutoCloseable {
     private final MemorySegment handle;
-    private final MemorySegment device;
+    private final VkDevice device;
     
-    private VkSampler(MemorySegment handle, MemorySegment device) {
+    private VkSampler(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -26,11 +26,11 @@ public class VkSampler implements AutoCloseable {
     
     @Override
     public void close() {
-        VulkanExtensions.destroySampler(device, handle);
+        Vulkan.destroySampler(device.handle(), handle);
     }
     
     public static class Builder {
-        private MemorySegment device;
+        private VkDevice device;
         private int magFilter = VkFilter.VK_FILTER_LINEAR;
         private int minFilter = VkFilter.VK_FILTER_LINEAR;
         private int mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR;
@@ -49,7 +49,7 @@ public class VkSampler implements AutoCloseable {
         
         private Builder() {}
         
-        public Builder device(MemorySegment device) {
+        public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
@@ -108,7 +108,7 @@ public class VkSampler implements AutoCloseable {
             VkSamplerCreateInfo.maxLod(samplerInfo, maxLod);
             
             MemorySegment samplerPtr = arena.allocate(ValueLayout.ADDRESS);
-            VulkanExtensions.createSampler(device, samplerInfo, samplerPtr).check();
+            Vulkan.createSampler(device.handle(), samplerInfo, samplerPtr).check();
             return new VkSampler(samplerPtr.get(ValueLayout.ADDRESS, 0), device);
         }
     }
