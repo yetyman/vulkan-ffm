@@ -471,4 +471,17 @@ public class Vulkan {
     public static void getPhysicalDeviceFormatProperties(MemorySegment physicalDevice, int format, MemorySegment formatProperties) {
         VulkanFFM.vkGetPhysicalDeviceFormatProperties(physicalDevice, format, formatProperties);
     }
+
+    public static void cmdDrawIndirect(MemorySegment commandBuffer, MemorySegment buffer, long offset, int drawCount, int stride) {
+        VulkanFFM.vkCmdDrawIndirect(commandBuffer, buffer, offset, drawCount, stride);
+    }
+
+    public static void cmdDrawIndexedIndirect(MemorySegment commandBuffer, MemorySegment buffer, long offset, int drawCount, int stride) {
+        VulkanFFM.vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
+    }
+
+    public static VkResult enumerateDeviceExtensionProperties(MemorySegment physicalDevice, MemorySegment layerName, MemorySegment propertyCount, MemorySegment properties) {
+        int result = VulkanFFM.vkEnumerateDeviceExtensionProperties(physicalDevice, layerName, propertyCount, properties);
+        return VkResult.fromInt(result);
+    }
 }

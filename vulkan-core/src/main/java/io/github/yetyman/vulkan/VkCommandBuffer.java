@@ -38,7 +38,7 @@ public class VkCommandBuffer {
         }
         
         public Builder oneTimeSubmit() {
-            this.flags |= VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+            this.flags |= VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.value();
             return this;
         }
         
@@ -55,14 +55,14 @@ public class VkCommandBuffer {
         
         public void execute(Arena arena) {
             MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(arena);
-            VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
+            VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO.value());
             VkCommandBufferBeginInfo.pNext(beginInfo, MemorySegment.NULL);
             VkCommandBufferBeginInfo.flags(beginInfo, flags);
             
             MemorySegment inheritanceInfo = MemorySegment.NULL;
             if (inheritanceRenderPass != null) {
                 inheritanceInfo = VkCommandBufferInheritanceInfo.allocate(arena);
-                VkCommandBufferInheritanceInfo.sType(inheritanceInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO);
+                VkCommandBufferInheritanceInfo.sType(inheritanceInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO.value());
                 VkCommandBufferInheritanceInfo.pNext(inheritanceInfo, MemorySegment.NULL);
                 VkCommandBufferInheritanceInfo.renderPass(inheritanceInfo, inheritanceRenderPass);
                 VkCommandBufferInheritanceInfo.subpass(inheritanceInfo, inheritanceSubpass);
@@ -86,7 +86,7 @@ public class VkCommandBuffer {
         private final MemorySegment framebuffer;
         private int x = 0, y = 0, width = 800, height = 600;
         private final VkClearValues clearValues = VkClearValues.create();
-        private int subpassContents = VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE;
+        private int subpassContents = VkSubpassContents.VK_SUBPASS_CONTENTS_INLINE.value();
         
         private RenderPassBuilder(MemorySegment commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {
             this.commandBuffer = commandBuffer;
@@ -121,7 +121,7 @@ public class VkCommandBuffer {
             MemorySegment clearValuesArray = clearValues.build(arena);
             
             MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(arena);
-            VkRenderPassBeginInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
+            VkRenderPassBeginInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO.value());
             VkRenderPassBeginInfo.pNext(renderPassInfo, MemorySegment.NULL);
             VkRenderPassBeginInfo.renderPass(renderPassInfo, renderPass);
             VkRenderPassBeginInfo.framebuffer(renderPassInfo, framebuffer);

@@ -42,7 +42,6 @@ public abstract class VulkanApplication implements AutoCloseable {
     private MemorySegment callbackStub;
     private boolean framebufferResized = false;
     private InputManager inputManager;
-    private Object renderer;
     
     protected VulkanApplication(String title, int width, int height, WindowSystem windowSystem, io.github.yetyman.vulkan.input.InputSystem inputSystem) {
         this(title, width, height, Config.development(windowSystem, inputSystem));
@@ -67,7 +66,6 @@ public abstract class VulkanApplication implements AutoCloseable {
         initVulkan();
         if (config.enableInput) initInput();
         initialize();
-        renderer = createRenderer();
         mainLoop();
         cleanup();
     }
@@ -208,10 +206,8 @@ public abstract class VulkanApplication implements AutoCloseable {
     protected VulkanContext vulkanContext() { return vulkanContext; }
     protected MemorySegment surface() { return surface; }
     protected InputManager inputManager() { return inputManager; }
-    protected <T> T renderer() { return (T) renderer; }
     
     // Abstract methods for subclasses
-    protected abstract Object createRenderer();
     protected abstract void initialize();
     protected abstract void render();
     protected abstract void onResize(int width, int height);

@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sample.simple;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.highlevel.BaseRenderer;
+import io.github.yetyman.vulkan.highlevel.DrawCommand;
 import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
@@ -86,7 +87,8 @@ public class SimpleRenderer extends BaseRenderer {
             .build(frameArena);
         Vulkan.cmdSetScissor(commandBuffer, 0, 1, scissor);
         
-        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        // Draw triangle using DrawCommand abstraction
+        DrawCommand.direct(3, 1).execute(commandBuffer);
         Vulkan.cmdEndRenderPass(commandBuffer);
         Vulkan.endCommandBuffer(commandBuffer).check();
     }

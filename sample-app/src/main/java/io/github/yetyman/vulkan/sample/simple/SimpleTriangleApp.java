@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.VulkanApplication;
+import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
 import io.github.yetyman.vulkan.util.Logger;
@@ -10,6 +11,7 @@ import io.github.yetyman.vulkan.util.Logger;
  * Eliminates ~100 lines of boilerplate compared to the original.
  */
 public class SimpleTriangleApp extends VulkanApplication {
+    private SimpleRenderer renderer;
     
     public SimpleTriangleApp() {
         super("Simple Triangle", 800, 600, new GLFWWindowSystem(), new GLFWInputSystem());
@@ -17,34 +19,31 @@ public class SimpleTriangleApp extends VulkanApplication {
     
     @Override
     protected void initialize() {
+        // Initialize Vulkan capabilities first
+        Logger.info("Initializing VulkanCapabilities...");
+        VulkanCapabilities.initialize(vulkanContext().physicalDevice());
+        
         // Context is fully ready - can query device capabilities here
         Logger.info("Context ready for renderer creation");
-    }
-    
-    @Override
-    protected Object createRenderer() {
-        SimpleRenderer renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device(),
+        
+        renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device(),
                                         vulkanContext().graphicsQueue(), surface(), 800, 600);
         renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
         Logger.info("New simple renderer initialized");
-        return renderer;
     }
     
     @Override
     protected void render() {
-        SimpleRenderer renderer = renderer();
         renderer.drawFrame();
     }
     
     @Override
     protected void onResize(int width, int height) {
-        SimpleRenderer renderer = renderer();
         renderer.resize(width, height);
     }
     
     @Override
     protected void shutdown() {
-        SimpleRenderer renderer = renderer();
         if (renderer != null) {
             renderer.close();
         }

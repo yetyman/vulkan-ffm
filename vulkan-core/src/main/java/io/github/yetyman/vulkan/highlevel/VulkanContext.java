@@ -239,6 +239,9 @@ public class VulkanContext implements AutoCloseable {
                 
                 VkDevice device = deviceBuilder.build(arena);
                 
+                // Initialize capabilities after device creation
+                VulkanCapabilities.initialize(physicalDevice);
+                
                 // Get queues
                 MemorySegment graphicsQueue = device.getQueue(graphicsFamily, 0);
                 MemorySegment presentQueue = device.getQueue(presentFamily, 0);

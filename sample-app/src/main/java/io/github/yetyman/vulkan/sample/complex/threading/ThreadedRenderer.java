@@ -32,6 +32,9 @@ public class ThreadedRenderer extends BaseRenderer {
     private ThreadManager threadManager;
     private Mode mode = Mode.ADAPTIVE;
     
+    // Rendering
+    private RenderGraph renderGraph;
+    
     // Performance tracking
     private long lastFrameTime = System.nanoTime();
     private final ArrayDeque<Long> frameTimes = new ArrayDeque<>();
@@ -77,7 +80,8 @@ public class ThreadedRenderer extends BaseRenderer {
         // Set Vulkan resources after managers are created
         lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass);
         createGraphicsPipeline();
-        Logger.info("Threaded renderer initialized with " + TRIANGLES_COUNT + " triangles (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
+        createRenderGraph();
+        Logger.info("Threaded renderer initialized with RenderGraph (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
     
 
@@ -154,6 +158,55 @@ public class ThreadedRenderer extends BaseRenderer {
             .build(arena);
     }
     
+    private void createRenderGraph() {
+        renderGraph = RenderGraph.builder()
+            .resource("colorTarget", RenderGraph.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
+            .resource("sceneDepth", RenderGraph.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
+            .resource("geometryBuffer", RenderGraph.ResourceDesc.buffer(1024 * 1024))
+            
+            // Main triangle pass
+            .graphicsPass("triangle")
+                .write("colorTarget", RenderGraph.ResourceUsage.COLOR_ATTACHMENT)
+                .write("sceneDepth", RenderGraph.ResourceUsage.DEPTH_ATTACHMENT)
+                .execute((cmd, resources, frameArena) -> {
+                    Logger.debug("Executing triangle pass");
+                    Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
+                    
+                    // Push time constant for rotation
+                    VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
+                        VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
+                        .push(cmd, pipeline.layout());
+                    
+                    Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
+                    Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
+                    
+                    DrawCommand.direct(3, 1).execute(cmd);
+                })
+            
+            // glTF geometry pass
+            .graphicsPass("gltfGeometry")
+                .read("geometryBuffer", RenderGraph.ResourceUsage.VERTEX_BUFFER)
+                .write("colorTarget", RenderGraph.ResourceUsage.COLOR_ATTACHMENT)
+                .write("sceneDepth", RenderGraph.ResourceUsage.DEPTH_ATTACHMENT)
+                .execute((cmd, resources, frameArena) -> {
+                    Logger.debug("Executing glTF geometry pass");
+                    
+                    Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
+                    Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
+                    Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
+                    
+                    // Render LOD models if any exist
+                    int instanceCount = lodRenderer.getInstanceCount();
+                    if (instanceCount > 0) {
+                        lodRenderer.renderModels(cmd, cameraPosition, frameArena, gltfPipeline.handle());
+                    }
+                })
+            
+            .build();
+        
+        Logger.info("RenderGraph created - replaced manual rendering");
+    }
+    
     private void createDirectRenderPass() {
         directRenderPass = createRenderPassImpl();
         Logger.info("Direct render pass created");
@@ -180,7 +233,6 @@ public class ThreadedRenderer extends BaseRenderer {
         pipeline = VkPipeline.builder()
             .device(device)
             .renderPass(targetRenderPass)
-            .viewport(0, 0, width, height)
             .vertexShader(triangleShaders.vertex())
             .fragmentShader(triangleShaders.fragment())
             .triangleTopology()
@@ -196,7 +248,6 @@ public class ThreadedRenderer extends BaseRenderer {
         gltfPipeline = VkPipeline.builder()
             .device(device)
             .renderPass(targetRenderPass)
-            .viewport(0, 0, width, height)
             .vertexShader(gltfShaders.vertex())
             .fragmentShader(gltfShaders.fragment())
             .triangleTopology()
@@ -334,36 +385,8 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
-        
-        // Push time constant for rotation
-        VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
-            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
-            .push(commandBuffer, pipeline.layout());
-        
-        Vulkan.cmdSetViewport(commandBuffer, 0, 1, cachedViewport);
-        Vulkan.cmdSetScissor(commandBuffer, 0, 1, cachedScissor);
-        
-        // TEST: Manual triangle with simple triangle pipeline (no vertex buffers needed)
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
-        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        
-        // Test glTF pipeline with vertex and instance buffers
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
-        Logger.debug("Rendering glTF test triangle with vertex buffers");
-        
-        // Bind both vertex and instance buffers
-//        lodRenderer.renderTestTriangle(commandBuffer, frameArena);
-//        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        
-        // Render LOD models if any exist
-        int instanceCount = lodRenderer.getInstanceCount();
-        if (instanceCount > 0) {
-            Logger.debug("Attempting model rendering with debug logging");
-            lodRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline.handle());
-        }
-        
-
+        // EXECUTE RENDER GRAPH - replaces all manual rendering
+        renderGraph.execute(commandBuffer, frameArena);
     }
     
 
@@ -554,6 +577,9 @@ public class ThreadedRenderer extends BaseRenderer {
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
         }
+        
+        // Clean up render graph
+        if (renderGraph != null) renderGraph.close();
         
         Logger.info("Threaded renderer cleanup complete");
     }
