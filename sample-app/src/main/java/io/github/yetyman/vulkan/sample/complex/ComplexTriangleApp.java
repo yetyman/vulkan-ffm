@@ -1,11 +1,9 @@
 package io.github.yetyman.vulkan.sample.complex;
 
-import io.github.yetyman.glfw.enums.GLFWAction;
 import io.github.yetyman.glfw.enums.GLFWKey;
-import io.github.yetyman.vulkan.VulkanApplication;
+import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import io.github.yetyman.vulkan.input.InputManager;
-import io.github.yetyman.vulkan.input.events.KeyEvent;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
 import io.github.yetyman.vulkan.sample.complex.threading.ThreadedRenderer;

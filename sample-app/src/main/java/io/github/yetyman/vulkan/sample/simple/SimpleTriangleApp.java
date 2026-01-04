@@ -1,6 +1,6 @@
 package io.github.yetyman.vulkan.sample.simple;
 
-import io.github.yetyman.vulkan.VulkanApplication;
+import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;

@@ -20,7 +20,7 @@ import java.util.function.Consumer;
  *     .build(arena);
  * 
  * // Custom message handler with filtering
- * VkDebugMessenger debugMessenger = VkDebugMessenger.builder()
+ * DebugMessageDistributor debugMessenger = DebugMessageDistributor.builder()
  *     .instance(vulkanInstance)
  *     .allMessages()
  *     .messageHandler(msg -> {
@@ -33,12 +33,12 @@ import java.util.function.Consumer;
  *     .build(arena);
  * }</pre>
  */
-public class VkDebugMessenger implements AutoCloseable {
+public class DebugMessageDistributor implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment instance;
     private final Consumer<DebugMessage> messageHandler;
     
-    private VkDebugMessenger(MemorySegment handle, MemorySegment instance, Consumer<DebugMessage> messageHandler) {
+    private DebugMessageDistributor(MemorySegment handle, MemorySegment instance, Consumer<DebugMessage> messageHandler) {
         this.handle = handle;
         this.instance = instance;
         this.messageHandler = messageHandler;
@@ -101,7 +101,7 @@ public class VkDebugMessenger implements AutoCloseable {
         private int messageType = VkDebugUtilsMessageTypeFlagBitsEXT.VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT.value() |
                                  VkDebugUtilsMessageTypeFlagBitsEXT.VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT.value() |
                                  VkDebugUtilsMessageTypeFlagBitsEXT.VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT.value();
-        private Consumer<DebugMessage> messageHandler = VkDebugMessenger::defaultMessageHandler;
+        private Consumer<DebugMessage> messageHandler = DebugMessageDistributor::defaultMessageHandler;
         
         public Builder instance(MemorySegment instance) {
             this.instance = instance;
@@ -152,7 +152,7 @@ public class VkDebugMessenger implements AutoCloseable {
             return this;
         }
         
-        public VkDebugMessenger build(Arena arena) {
+        public DebugMessageDistributor build(Arena arena) {
             if (instance == null) throw new IllegalStateException("instance not set");
             
             // Create debug callback function
@@ -168,7 +168,7 @@ public class VkDebugMessenger implements AutoCloseable {
             MemorySegment messengerPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createDebugUtilsMessengerEXT(instance, createInfo, messengerPtr).check();
             
-            return new VkDebugMessenger(messengerPtr.get(ValueLayout.ADDRESS, 0), instance, messageHandler);
+            return new DebugMessageDistributor(messengerPtr.get(ValueLayout.ADDRESS, 0), instance, messageHandler);
         }
         
         private MemorySegment createDebugCallback(Arena arena, Consumer<DebugMessage> handler) {
@@ -183,7 +183,7 @@ public class VkDebugMessenger implements AutoCloseable {
             // Create method handle for static callback method
             try {
                 MethodHandle callbackHandle = MethodHandles.lookup().findStatic(
-                    VkDebugMessenger.class, "debugCallbackImpl",
+                    DebugMessageDistributor.class, "debugCallbackImpl",
                     MethodType.methodType(int.class, int.class, int.class, MemorySegment.class, MemorySegment.class)
                 );
                 

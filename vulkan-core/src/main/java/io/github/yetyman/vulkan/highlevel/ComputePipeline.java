@@ -27,13 +27,13 @@ import java.util.*;
  * pipeline.dispatchWorkItems(commandBuffer, 1024, 1, 1); // Process 1024 particles
  * }</pre>
  */
-public class VkComputePipeline implements AutoCloseable {
+public class ComputePipeline implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment layout;
     private final VkDevice device;
     private final int[] workgroupSize;
     
-    private VkComputePipeline(MemorySegment handle, MemorySegment layout, VkDevice device, int[] workgroupSize) {
+    private ComputePipeline(MemorySegment handle, MemorySegment layout, VkDevice device, int[] workgroupSize) {
         this.handle = handle;
         this.layout = layout;
         this.device = device;
@@ -151,7 +151,7 @@ public class VkComputePipeline implements AutoCloseable {
             return this;
         }
         
-        public VkComputePipeline build(Arena arena) {
+        public ComputePipeline build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (computeShader == null) throw new IllegalStateException("compute shader not set");
             
@@ -211,7 +211,7 @@ public class VkComputePipeline implements AutoCloseable {
                 MemorySegment pipelinePtr = arena.allocate(ValueLayout.ADDRESS);
                 Vulkan.createComputePipelines(device.handle(), MemorySegment.NULL, 1, pipelineInfo, pipelinePtr).check();
                 
-                return new VkComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device, workgroupSize);
+                return new ComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device, workgroupSize);
             } finally {
                 shaderModule.close();
             }

@@ -2,7 +2,7 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,15 +38,15 @@ import java.util.Map;
  * mesh.draw(commandBuffer); // Draws instanceCount instances
  * }</pre>
  */
-public class VkMesh implements AutoCloseable {
+public class VulkanMesh implements AutoCloseable {
     private final Map<Integer, VertexBufferBinding> vertexBuffers = new HashMap<>();
     private final VkBuffer indexBuffer;
     private final VkVertexFormat vertexFormat;
     private final int indexCount;
     private final int indexType;
     
-    private VkMesh(Map<Integer, VertexBufferBinding> vertexBuffers, VkBuffer indexBuffer,
-                   VkVertexFormat vertexFormat, int indexCount, int indexType) {
+    private VulkanMesh(Map<Integer, VertexBufferBinding> vertexBuffers, VkBuffer indexBuffer,
+                       VkVertexFormat vertexFormat, int indexCount, int indexType) {
         this.vertexBuffers.putAll(vertexBuffers);
         this.indexBuffer = indexBuffer;
         this.vertexFormat = vertexFormat;
@@ -230,7 +230,7 @@ public class VkMesh implements AutoCloseable {
             return this;
         }
         
-        public VkMesh build(Arena arena) {
+        public VulkanMesh build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (physicalDevice == null) throw new IllegalStateException("physicalDevice not set");
             if (vertexFormat == null) throw new IllegalStateException("vertexFormat not set");
@@ -264,7 +264,7 @@ public class VkMesh implements AutoCloseable {
                     .build(arena);
             }
             
-            return new VkMesh(bufferBindings, indexBuffer, vertexFormat, indexCount, indexType);
+            return new VulkanMesh(bufferBindings, indexBuffer, vertexFormat, indexCount, indexType);
         }
         
         private record VertexBufferData(MemorySegment data, int count) {}

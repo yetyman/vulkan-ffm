@@ -12,8 +12,8 @@ public class SwapchainImage implements AutoCloseable {
     private final VkSemaphore imageAvailableSemaphore;
     private final VkSemaphore renderFinishedSemaphore;
     
-    public SwapchainImage(MemorySegment image, VkImageView imageView, 
-                         VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore) {
+    public SwapchainImage(MemorySegment image, VkImageView imageView,
+                          VkSemaphore imageAvailableSemaphore, VkSemaphore renderFinishedSemaphore) {
         this.image = image;
         this.imageView = imageView;
         this.imageAvailableSemaphore = imageAvailableSemaphore;

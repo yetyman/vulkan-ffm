@@ -1,6 +1,9 @@
-package io.github.yetyman.vulkan;
+package io.github.yetyman.vulkan.highlevel;
 
-import io.github.yetyman.vulkan.highlevel.VulkanContext;
+import io.github.yetyman.vulkan.VkSurface;
+import io.github.yetyman.vulkan.Vulkan;
+import io.github.yetyman.vulkan.VulkanLibrary;
+import io.github.yetyman.vulkan.WindowSystem;
 import io.github.yetyman.vulkan.input.InputManager;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;

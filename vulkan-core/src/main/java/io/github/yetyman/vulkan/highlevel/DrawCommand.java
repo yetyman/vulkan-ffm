@@ -56,8 +56,8 @@ public abstract class DrawCommand {
     /**
      * Create a mesh shader draw command.
      */
-    public static MeshDraw mesh(int taskCount) {
-        return new MeshDraw(taskCount, 0, 0);
+    public static MeshDraw mesh(int groupCountX) {
+        return new MeshDraw(groupCountX, 1, 1);
     }
     
     // Implementation classes
@@ -209,33 +209,28 @@ public abstract class DrawCommand {
     }
     
     public static class MeshDraw extends DrawCommand {
-        private final int taskCount, firstTask, groupCountX;
+        private final int groupCountX, groupCountY, groupCountZ;
         
-        private MeshDraw(int taskCount, int firstTask, int groupCountX) {
-            this.taskCount = taskCount;
-            this.firstTask = firstTask;
+        private MeshDraw(int groupCountX, int groupCountY, int groupCountZ) {
             this.groupCountX = groupCountX;
+            this.groupCountY = groupCountY;
+            this.groupCountZ = groupCountZ;
         }
         
-        public MeshDraw firstTask(int firstTask) {
-            return new MeshDraw(taskCount, firstTask, groupCountX);
+        public MeshDraw groupCountY(int groupCountY) {
+            return new MeshDraw(groupCountX, groupCountY, groupCountZ);
         }
         
-        public MeshDraw groupCount(int groupCountX) {
-            return new MeshDraw(taskCount, firstTask, groupCountX);
+        public MeshDraw groupCountZ(int groupCountZ) {
+            return new MeshDraw(groupCountX, groupCountY, groupCountZ);
         }
         
         @Override
         public void execute(MemorySegment commandBuffer) {
             if (VulkanCapabilities.meshShaders) {
-                // TODO: actual mesh shader binding
-//                io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdDrawMeshTasksEXT(commandBuffer, taskCount, firstTask);
-                
-                // Fallback for now
-                Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+                io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
             } else {
-                // Fallback to regular draw
-                Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+                throw new UnsupportedOperationException("Mesh shaders not supported on this device");
             }
         }
     }
