@@ -28,7 +28,7 @@ void main() {
     // Front-to-back depth ordering for early Z rejection
     float depth = float(gl_InstanceIndex) / 1000.0 * 0.8;  // 0.0 to 0.8 depth range
     
-    vec2 pos = positions[gl_VertexIndex] * 0.03;
+    vec2 pos = positions[gl_VertexIndex] * 0.06;
     
     // Rotate only half the triangles (even instance indices)
     if (gl_InstanceIndex % 2 == 0) {

@@ -40,6 +40,9 @@ public class ThreadedRenderer extends BaseRenderer {
     private final ArrayDeque<Long> frameTimes = new ArrayDeque<>();
     private final int FRAME_HISTORY = 60;
     
+    // Animation timing
+    private final long startTime = System.nanoTime();
+    
     // Cached layouts to avoid FFM overhead
     private MemorySegment cachedViewport;
     private MemorySegment cachedScissor;
@@ -173,7 +176,8 @@ public class ThreadedRenderer extends BaseRenderer {
                     Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
                     
                     // Push time constant for rotation
-                    VkPushConstants.floatValue((float)(System.nanoTime() / 1_000_000_000.0), 
+                    float elapsedTime = (System.nanoTime() - startTime) / 1_000_000_000.0f;
+                    VkPushConstants.floatValue(elapsedTime, 
                         VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
                         .push(cmd, pipeline.layout());
                     
@@ -334,7 +338,7 @@ public class ThreadedRenderer extends BaseRenderer {
         if (adaptiveAAEnabled) {
             VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
@@ -345,7 +349,7 @@ public class ThreadedRenderer extends BaseRenderer {
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
@@ -362,7 +366,7 @@ public class ThreadedRenderer extends BaseRenderer {
         if (adaptiveAAEnabled) {
             VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
@@ -373,7 +377,7 @@ public class ThreadedRenderer extends BaseRenderer {
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
