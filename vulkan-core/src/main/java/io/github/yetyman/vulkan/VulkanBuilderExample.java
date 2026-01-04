@@ -39,16 +39,16 @@ public class VulkanBuilderExample {
             // Create render pass with complex configuration
             VkRenderPass renderPass = VkRenderPass.builder()
                 .device(context.device())
-                .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, 
-                               VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
-                               VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
-                .depthAttachment(VkFormat.VK_FORMAT_D32_SFLOAT,
-                               VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
-                               VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
+                .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), 
+                               VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                               VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+                .depthAttachment(VkFormat.VK_FORMAT_D32_SFLOAT.value(),
+                               VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                               VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
                 .externalDependency(0,
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                    0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                    0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
                 .build(arena);
             Logger.info("✓ VkRenderPass created");
             
@@ -58,8 +58,8 @@ public class VulkanBuilderExample {
             // Create descriptor set layout
             VkDescriptorSetLayout descriptorLayout = VkDescriptorSetLayout.builder()
                 .device(context.device())
-                .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT)
-                .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT)
+                .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value())
+                .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
                 .build(arena);
             Logger.info("✓ VkDescriptorSetLayout created");
             

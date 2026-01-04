@@ -24,7 +24,7 @@ public class VkQueueFamily {
             MemorySegment queueFamily = queueFamilies.asSlice(i * VkQueueFamilyProperties.layout().byteSize(), VkQueueFamilyProperties.layout());
             int queueFlags = VkQueueFamilyProperties.queueFlags(queueFamily);
             
-            if ((queueFlags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT) != 0) {
+            if ((queueFlags & VkQueueFlagBits.VK_QUEUE_GRAPHICS_BIT.value()) != 0) {
                 return i;
             }
         }

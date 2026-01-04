@@ -139,7 +139,7 @@ public class VkMesh implements AutoCloseable {
     private int calculateInstanceCount() {
         // Find per-instance bindings and return their count
         for (var binding : vertexFormat.getBindings()) {
-            if (binding.inputRate() == VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE) {
+            if (binding.inputRate() == VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE.value()) {
                 VertexBufferBinding vbb = vertexBuffers.get(binding.binding());
                 if (vbb != null) {
                     return vbb.count;
@@ -152,7 +152,7 @@ public class VkMesh implements AutoCloseable {
     private int calculateVertexCount() {
         // Find per-vertex bindings and return their count
         for (var binding : vertexFormat.getBindings()) {
-            if (binding.inputRate() == VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX) {
+            if (binding.inputRate() == VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value()) {
                 VertexBufferBinding vbb = vertexBuffers.get(binding.binding());
                 if (vbb != null) {
                     return vbb.count;
@@ -193,7 +193,7 @@ public class VkMesh implements AutoCloseable {
         private VkVertexFormat vertexFormat;
         private final Map<Integer, VertexBufferData> vertexBuffers = new HashMap<>();
         private MemorySegment indexData;
-        private int indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
+        private int indexType = VkIndexType.VK_INDEX_TYPE_UINT32.value();
         private int indexCount;
         
         public Builder device(VkDevice device) {
@@ -219,14 +219,14 @@ public class VkMesh implements AutoCloseable {
         public Builder indexBuffer(MemorySegment data, int count) {
             this.indexData = data;
             this.indexCount = count;
-            this.indexType = VkIndexType.VK_INDEX_TYPE_UINT32;
+            this.indexType = VkIndexType.VK_INDEX_TYPE_UINT32.value();
             return this;
         }
         
         public Builder indexBuffer16(MemorySegment data, int count) {
             this.indexData = data;
             this.indexCount = count;
-            this.indexType = VkIndexType.VK_INDEX_TYPE_UINT16;
+            this.indexType = VkIndexType.VK_INDEX_TYPE_UINT16.value();
             return this;
         }
         

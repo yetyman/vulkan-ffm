@@ -31,20 +31,20 @@ public class VkSampler implements AutoCloseable {
     
     public static class Builder {
         private VkDevice device;
-        private int magFilter = VkFilter.VK_FILTER_LINEAR;
-        private int minFilter = VkFilter.VK_FILTER_LINEAR;
-        private int mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        private int addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        private int addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        private int addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        private int magFilter = VkFilter.VK_FILTER_LINEAR.value();
+        private int minFilter = VkFilter.VK_FILTER_LINEAR.value();
+        private int mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR.value();
+        private int addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+        private int addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+        private int addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
         private float mipLodBias = 0.0f;
         private boolean anisotropyEnable = false;
         private float maxAnisotropy = 1.0f;
         private boolean compareEnable = false;
-        private int compareOp = VkCompareOp.VK_COMPARE_OP_ALWAYS;
+        private int compareOp = VkCompareOp.VK_COMPARE_OP_ALWAYS.value();
         private float minLod = 0.0f;
         private float maxLod = 0.0f;
-        private int borderColor = VkBorderColor.VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        private int borderColor = VkBorderColor.VK_BORDER_COLOR_INT_OPAQUE_BLACK.value();
         private boolean unnormalizedCoordinates = false;
         
         private Builder() {}
@@ -55,28 +55,28 @@ public class VkSampler implements AutoCloseable {
         }
         
         public Builder nearest() {
-            this.magFilter = VkFilter.VK_FILTER_NEAREST;
-            this.minFilter = VkFilter.VK_FILTER_NEAREST;
+            this.magFilter = VkFilter.VK_FILTER_NEAREST.value();
+            this.minFilter = VkFilter.VK_FILTER_NEAREST.value();
             return this;
         }
         
         public Builder linear() {
-            this.magFilter = VkFilter.VK_FILTER_LINEAR;
-            this.minFilter = VkFilter.VK_FILTER_LINEAR;
+            this.magFilter = VkFilter.VK_FILTER_LINEAR.value();
+            this.minFilter = VkFilter.VK_FILTER_LINEAR.value();
             return this;
         }
         
         public Builder clampToEdge() {
-            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
+            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
+            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
             return this;
         }
         
         public Builder repeat() {
-            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
             return this;
         }
         
@@ -90,7 +90,7 @@ public class VkSampler implements AutoCloseable {
             if (device == null) throw new IllegalStateException("device not set");
             
             MemorySegment samplerInfo = VkSamplerCreateInfo.allocate(arena);
-            VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
+            VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO.value());
             VkSamplerCreateInfo.magFilter(samplerInfo, magFilter);
             VkSamplerCreateInfo.minFilter(samplerInfo, minFilter);
             VkSamplerCreateInfo.addressModeU(samplerInfo, addressModeU);

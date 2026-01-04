@@ -99,7 +99,7 @@ public class VkMappedBuffer implements AutoCloseable {
      */
     public void flush(long offset, long size) {
         MemorySegment flushRange = Arena.ofAuto().allocate(VkMappedMemoryRange.layout());
-        VkMappedMemoryRange.sType(flushRange, VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE);
+        VkMappedMemoryRange.sType(flushRange, VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE.value());
         VkMappedMemoryRange.memory(flushRange, allocation.memory());
         VkMappedMemoryRange.offset(flushRange, allocation.offset() + offset);
         VkMappedMemoryRange.size(flushRange, size);
@@ -120,7 +120,7 @@ public class VkMappedBuffer implements AutoCloseable {
      */
     public void invalidate(long offset, long size) {
         MemorySegment invalidateRange = Arena.ofAuto().allocate(VkMappedMemoryRange.layout());
-        VkMappedMemoryRange.sType(invalidateRange, VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE);
+        VkMappedMemoryRange.sType(invalidateRange, VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE.value());
         VkMappedMemoryRange.memory(invalidateRange, allocation.memory());
         VkMappedMemoryRange.offset(invalidateRange, allocation.offset() + offset);
         VkMappedMemoryRange.size(invalidateRange, size);
@@ -143,9 +143,9 @@ public class VkMappedBuffer implements AutoCloseable {
         private VkDevice device;
         private VkMemoryAllocator allocator;
         private long size;
-        private int usage = VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-                                      VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        private int usage = VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT.value();
+        private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | 
+                                      VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
         private MemorySegment initialData;
         
         public Builder device(VkDevice device) {
@@ -169,44 +169,44 @@ public class VkMappedBuffer implements AutoCloseable {
         }
         
         public Builder vertexBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT.value();
             return this;
         }
         
         public Builder indexBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT.value();
             return this;
         }
         
         public Builder uniformBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.value();
             return this;
         }
         
         public Builder storageBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.value();
             return this;
         }
         
         public Builder transferSrc() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT.value();
             return this;
         }
         
         public Builder transferDst() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT.value();
             return this;
         }
         
         public Builder hostVisible() {
-            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | 
+                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
             return this;
         }
         
         public Builder hostCached() {
-            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | 
+                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_CACHED_BIT.value();
             return this;
         }
         

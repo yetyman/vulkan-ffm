@@ -51,7 +51,7 @@ public class VkSemaphoreManager implements AutoCloseable {
      */
     public MemorySegment createBinarySemaphore() {
         MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
-        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
         
         MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createSemaphore(device.handle(), semaphoreInfo, semaphorePtr).check();
@@ -60,12 +60,12 @@ public class VkSemaphoreManager implements AutoCloseable {
     
     private TimelineSemaphore createTimelineSemaphore() {
         MemorySegment typeInfo = VkSemaphoreTypeCreateInfo.allocate(arena);
-        VkSemaphoreTypeCreateInfo.sType(typeInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO);
-        VkSemaphoreTypeCreateInfo.semaphoreType(typeInfo, VkSemaphoreType.VK_SEMAPHORE_TYPE_TIMELINE);
+        VkSemaphoreTypeCreateInfo.sType(typeInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO.value());
+        VkSemaphoreTypeCreateInfo.semaphoreType(typeInfo, VkSemaphoreType.VK_SEMAPHORE_TYPE_TIMELINE.value());
         VkSemaphoreTypeCreateInfo.initialValue(typeInfo, 0);
         
         MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
-        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
         VkSemaphoreCreateInfo.pNext(semaphoreInfo, typeInfo);
         
         MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
@@ -111,7 +111,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         
         public void waitForValue(long value, long timeoutNs) {
             MemorySegment waitInfo = VkSemaphoreWaitInfo.allocate(arena);
-            VkSemaphoreWaitInfo.sType(waitInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO);
+            VkSemaphoreWaitInfo.sType(waitInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO.value());
             VkSemaphoreWaitInfo.semaphoreCount(waitInfo, 1);
             
             MemorySegment semaphoreArray = arena.allocate(ValueLayout.ADDRESS);
@@ -127,7 +127,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         
         public void signalValue(long value) {
             MemorySegment signalInfo = VkSemaphoreSignalInfo.allocate(arena);
-            VkSemaphoreSignalInfo.sType(signalInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO);
+            VkSemaphoreSignalInfo.sType(signalInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO.value());
             VkSemaphoreSignalInfo.semaphore(signalInfo, handle);
             VkSemaphoreSignalInfo.value(signalInfo, value);
             

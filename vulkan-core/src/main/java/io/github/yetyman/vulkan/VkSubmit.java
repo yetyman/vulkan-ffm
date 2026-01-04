@@ -40,7 +40,7 @@ public class VkSubmit {
             MemorySegment signalSemArray = signalSemaphores.build(arena);
             
             MemorySegment submitInfo = VkSubmitInfo.allocate(arena);
-            VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO);
+            VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO.value());
             VkSubmitInfo.pNext(submitInfo, MemorySegment.NULL);
             VkSubmitInfo.waitSemaphoreCount(submitInfo, waitSemaphores.count());
             VkSubmitInfo.pWaitSemaphores(submitInfo, waitSemArray);

@@ -63,7 +63,7 @@ public class VkSemaphore implements AutoCloseable {
             if (device == null) throw new IllegalStateException("device not set");
             
             MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
-            VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+            VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
             VkSemaphoreCreateInfo.pNext(semaphoreInfo, MemorySegment.NULL);
             VkSemaphoreCreateInfo.flags(semaphoreInfo, flags);
             

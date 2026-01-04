@@ -53,9 +53,9 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         
         // Allocate command buffer
         MemorySegment allocInfo = VkCommandBufferAllocateInfo.allocate(arena);
-        VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
+        VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO.value());
         VkCommandBufferAllocateInfo.commandPool(allocInfo, commandPool.handle());
-        VkCommandBufferAllocateInfo.level(allocInfo, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+        VkCommandBufferAllocateInfo.level(allocInfo, VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY.value());
         VkCommandBufferAllocateInfo.commandBufferCount(allocInfo, 1);
         
         MemorySegment commandBufferPtr = arena.allocate(ValueLayout.ADDRESS);
@@ -64,8 +64,8 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         
         // Begin recording
         MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(arena);
-        VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
-        VkCommandBufferBeginInfo.flags(beginInfo, VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO.value());
+        VkCommandBufferBeginInfo.flags(beginInfo, VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.value());
         
         Vulkan.beginCommandBuffer(commandBuffer, beginInfo).check();
         
@@ -101,7 +101,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         
         // Create fence for synchronization
         MemorySegment fenceInfo = VkFenceCreateInfo.allocate(arena);
-        VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
+        VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO.value());
         
         MemorySegment fencePtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createFence(device.handle(), fenceInfo, fencePtr).check();
@@ -110,7 +110,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         try {
             // Submit command buffer
             MemorySegment submitInfo = VkSubmitInfo.allocate(arena);
-            VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO);
+            VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO.value());
             VkSubmitInfo.commandBufferCount(submitInfo, 1);
             
             MemorySegment commandBuffers = arena.allocate(ValueLayout.ADDRESS);
@@ -167,7 +167,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkBufferImageCopy.bufferImageHeight(region, 0);
         
         MemorySegment imageSubresource = VkBufferImageCopy.imageSubresource(region);
-        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceLayers.mipLevel(imageSubresource, 0);
         VkImageSubresourceLayers.baseArrayLayer(imageSubresource, 0);
         VkImageSubresourceLayers.layerCount(imageSubresource, 1);
@@ -183,7 +183,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkExtent3D.depth(imageExtent, depth);
         
         Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image, 
-            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, region);
+            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, region);
     }
     
     /**
@@ -192,7 +192,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
     public void transitionImageLayout(MemorySegment image, int oldLayout, int newLayout,
                                      int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
         MemorySegment barrier = VkImageMemoryBarrier.allocate(arena);
-        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
         VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
         VkImageMemoryBarrier.newLayout(barrier, newLayout);
         VkImageMemoryBarrier.srcQueueFamilyIndex(barrier, 0xFFFFFFFF);
@@ -202,7 +202,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         VkImageMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         
         MemorySegment subresourceRange = VkImageMemoryBarrier.subresourceRange(barrier);
-        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
         VkImageSubresourceRange.levelCount(subresourceRange, 1);
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
@@ -217,7 +217,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
      */
     public void memoryBarrier(int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
         MemorySegment barrier = io.github.yetyman.vulkan.generated.VkMemoryBarrier.allocate(arena);
-        io.github.yetyman.vulkan.generated.VkMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_BARRIER);
+        io.github.yetyman.vulkan.generated.VkMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_BARRIER.value());
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         

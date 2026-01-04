@@ -79,7 +79,7 @@ public class VkInstance implements AutoCloseable {
         
         public VkInstance build(Arena arena) {
             MemorySegment appInfo = VkApplicationInfo.allocate(arena);
-            VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO);
+            VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO.value());
             VkApplicationInfo.pNext(appInfo, MemorySegment.NULL);
             VkApplicationInfo.pApplicationName(appInfo, arena.allocateFrom(applicationName));
             VkApplicationInfo.applicationVersion(appInfo, applicationVersion);
@@ -88,7 +88,7 @@ public class VkInstance implements AutoCloseable {
             VkApplicationInfo.apiVersion(appInfo, apiVersion);
             
             MemorySegment createInfo = VkInstanceCreateInfo.allocate(arena);
-            VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
+            VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO.value());
             VkInstanceCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkInstanceCreateInfo.flags(createInfo, flags);
             VkInstanceCreateInfo.pApplicationInfo(createInfo, appInfo);

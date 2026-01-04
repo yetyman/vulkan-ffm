@@ -29,9 +29,9 @@ public class VkImageView implements AutoCloseable {
         return builder()
             .device(device)
             .image(image)
-            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
-            .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+            .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
             .build(arena);
     }
     
@@ -54,9 +54,9 @@ public class VkImageView implements AutoCloseable {
     public static class Builder {
         private VkDevice device;
         private MemorySegment image;
-        private int viewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_2D;
-        private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB;
-        private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT;
+        private int viewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value();
+        private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value();
+        private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value();
         private int baseMipLevel = 0;
         private int levelCount = 1;
         private int baseArrayLayer = 0;
@@ -128,7 +128,7 @@ public class VkImageView implements AutoCloseable {
             if (image == null) throw new IllegalStateException("image not set");
             
             MemorySegment createInfo = VkImageViewCreateInfo.allocate(arena);
-            VkImageViewCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
+            VkImageViewCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO.value());
             VkImageViewCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkImageViewCreateInfo.flags(createInfo, flags);
             VkImageViewCreateInfo.image(createInfo, image);

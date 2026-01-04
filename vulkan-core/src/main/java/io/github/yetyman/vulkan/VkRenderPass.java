@@ -28,10 +28,10 @@ public class VkRenderPass implements AutoCloseable {
     public static VkRenderPass create(Arena arena, VkDevice device) {
         return builder()
             .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE)
+            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
             .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
             .build(arena);
     }
     
@@ -68,21 +68,21 @@ public class VkRenderPass implements AutoCloseable {
         
         /** Adds a color attachment */
         public Builder colorAttachment(int format, int loadOp, int storeOp) {
-            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp, 
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE, VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE, 
-                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0));
+            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(), loadOp, storeOp, 
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
             return this;
         }
         
         /** Adds a depth attachment */
         public Builder depthAttachment(int format, int loadOp, int storeOp) {
             // For depth+stencil formats, use the same ops for stencil
-            int stencilLoadOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT) ? 
-                loadOp : VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            int stencilStoreOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT) ? 
-                storeOp : VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT, loadOp, storeOp,
-                stencilLoadOp, stencilStoreOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 0));
+            int stencilLoadOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ? 
+                loadOp : VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value();
+            int stencilStoreOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ? 
+                storeOp : VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value();
+            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(), loadOp, storeOp,
+                stencilLoadOp, stencilStoreOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), 0));
             return this;
         }
         
@@ -143,15 +143,15 @@ public class VkRenderPass implements AutoCloseable {
                 int depthAttachment = ~0;
                 
                 for (AttachmentConfig att : attachments) {
-                    if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR ||
-                        att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+                    if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value() ||
+                        att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value()) {
                         colorAttachments.add(att.index());
-                    } else if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+                    } else if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value()) {
                         depthAttachment = att.index();
                     }
                 }
                 
-                subpasses.add(new SubpassConfig(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS,
+                subpasses.add(new SubpassConfig(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
                     new int[0], colorAttachments.stream().mapToInt(i -> i).toArray(),
                     new int[0], depthAttachment, new int[0], 0));
             }
@@ -189,7 +189,7 @@ public class VkRenderPass implements AutoCloseable {
                     for (int j = 0; j < cfg.inputAttachments().length; j++) {
                         MemorySegment ref = inputRefs.asSlice(j * VkAttachmentReference.layout().byteSize(), VkAttachmentReference.layout());
                         VkAttachmentReference.attachment(ref, cfg.inputAttachments()[j]);
-                        VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                        VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
                     }
                     VkSubpassDescription.inputAttachmentCount(subpass, cfg.inputAttachments().length);
                     VkSubpassDescription.pInputAttachments(subpass, inputRefs);
@@ -204,7 +204,7 @@ public class VkRenderPass implements AutoCloseable {
                     for (int j = 0; j < cfg.colorAttachments().length; j++) {
                         MemorySegment ref = colorRefs.asSlice(j * VkAttachmentReference.layout().byteSize(), VkAttachmentReference.layout());
                         VkAttachmentReference.attachment(ref, cfg.colorAttachments()[j]);
-                        VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                        VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value());
                     }
                     VkSubpassDescription.colorAttachmentCount(subpass, cfg.colorAttachments().length);
                     VkSubpassDescription.pColorAttachments(subpass, colorRefs);
@@ -215,7 +215,7 @@ public class VkRenderPass implements AutoCloseable {
                         for (int j = 0; j < cfg.resolveAttachments().length; j++) {
                             MemorySegment ref = resolveRefs.asSlice(j * VkAttachmentReference.layout().byteSize(), VkAttachmentReference.layout());
                             VkAttachmentReference.attachment(ref, cfg.resolveAttachments()[j]);
-                            VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                            VkAttachmentReference.layout(ref, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value());
                         }
                         VkSubpassDescription.pResolveAttachments(subpass, resolveRefs);
                     } else {
@@ -231,7 +231,7 @@ public class VkRenderPass implements AutoCloseable {
                 if (cfg.depthStencilAttachment() != ~0) {
                     MemorySegment depthRef = VkAttachmentReference.allocate(arena);
                     VkAttachmentReference.attachment(depthRef, cfg.depthStencilAttachment());
-                    VkAttachmentReference.layout(depthRef, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+                    VkAttachmentReference.layout(depthRef, VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value());
                     VkSubpassDescription.pDepthStencilAttachment(subpass, depthRef);
                 } else {
                     VkSubpassDescription.pDepthStencilAttachment(subpass, MemorySegment.NULL);
@@ -268,7 +268,7 @@ public class VkRenderPass implements AutoCloseable {
             
             // Create render pass
             MemorySegment renderPassInfo = VkRenderPassCreateInfo.allocate(arena);
-            VkRenderPassCreateInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO);
+            VkRenderPassCreateInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO.value());
             VkRenderPassCreateInfo.pNext(renderPassInfo, MemorySegment.NULL);
             VkRenderPassCreateInfo.flags(renderPassInfo, flags);
             VkRenderPassCreateInfo.attachmentCount(renderPassInfo, attachments.size());
@@ -299,7 +299,7 @@ public class VkRenderPass implements AutoCloseable {
          */
         public static class SubpassBuilder {
             private final Builder parent;
-            private int pipelineBindPoint = VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS;
+            private int pipelineBindPoint = VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value();
             private final List<Integer> inputAttachments = new ArrayList<>();
             private final List<Integer> colorAttachments = new ArrayList<>();
             private final List<Integer> resolveAttachments = new ArrayList<>();

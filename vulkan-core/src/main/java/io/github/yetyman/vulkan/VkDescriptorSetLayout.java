@@ -50,22 +50,22 @@ public class VkDescriptorSetLayout implements AutoCloseable {
         
         /** Adds a uniform buffer binding */
         public Builder uniformBuffer(int binding, int stageFlags) {
-            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, stageFlags);
+            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 1, stageFlags);
         }
         
         /** Adds a combined image sampler binding */
         public Builder combinedImageSampler(int binding, int stageFlags) {
-            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, stageFlags);
+            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value(), 1, stageFlags);
         }
         
         /** Adds a storage buffer binding */
         public Builder storageBuffer(int binding, int stageFlags) {
-            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, stageFlags);
+            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(), 1, stageFlags);
         }
         
         /** Adds a storage image binding */
         public Builder storageImage(int binding, int stageFlags) {
-            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, stageFlags);
+            return binding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE.value(), 1, stageFlags);
         }
         
         /** Adds a custom descriptor binding */
@@ -98,7 +98,7 @@ public class VkDescriptorSetLayout implements AutoCloseable {
             }
             
             MemorySegment createInfo = VkDescriptorSetLayoutCreateInfo.allocate(arena);
-            VkDescriptorSetLayoutCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
+            VkDescriptorSetLayoutCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO.value());
             VkDescriptorSetLayoutCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkDescriptorSetLayoutCreateInfo.flags(createInfo, flags);
             VkDescriptorSetLayoutCreateInfo.bindingCount(createInfo, bindings.size());

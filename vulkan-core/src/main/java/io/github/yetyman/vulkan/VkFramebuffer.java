@@ -161,7 +161,7 @@ public class VkFramebuffer implements AutoCloseable {
             }
             
             MemorySegment framebufferInfo = VkFramebufferCreateInfo.allocate(arena);
-            VkFramebufferCreateInfo.sType(framebufferInfo, VkStructureType.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
+            VkFramebufferCreateInfo.sType(framebufferInfo, VkStructureType.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO.value());
             VkFramebufferCreateInfo.pNext(framebufferInfo, MemorySegment.NULL);
             VkFramebufferCreateInfo.flags(framebufferInfo, flags);
             VkFramebufferCreateInfo.renderPass(framebufferInfo, renderPass);

@@ -76,9 +76,9 @@ public class VulkanSwapchainManager implements AutoCloseable {
             VkImageView imageView = VkImageView.builder()
                 .device(device)
                 .image(images[i])
-                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
-                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
                 .build(arena);
             
             VkSemaphore imageAvailable = VkSemaphore.builder()
@@ -110,7 +110,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
         private int width, height;
         private boolean vsync = true;
         private int minImageCount = 3;
-        private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB;
+        private int format = VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value();
         
         private Builder() {}
         
@@ -178,7 +178,7 @@ public class VulkanSwapchainManager implements AutoCloseable {
                 .extent(width, height)
                 .vsync(vsync)
                 .minImageCount(minImageCount)
-                .format(format, VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                .format(format, VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR.value())
                 .build(arena);
             
             // Create swapchain images with semaphores
@@ -188,9 +188,9 @@ public class VulkanSwapchainManager implements AutoCloseable {
                 VkImageView imageView = VkImageView.builder()
                     .device(device)
                     .image(images[i])
-                    .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
+                    .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
                     .format(format)
-                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
                     .build(arena);
                 
                 VkSemaphore imageAvailable = VkSemaphore.builder()

@@ -73,9 +73,9 @@ public class VkBuffer implements AutoCloseable {
         private VkPhysicalDevice physicalDevice;
         private long size;
         private int usage;
-        private int sharingMode = VkSharingMode.VK_SHARING_MODE_EXCLUSIVE;
+        private int sharingMode = VkSharingMode.VK_SHARING_MODE_EXCLUSIVE.value();
         private int[] queueFamilyIndices = null;
-        private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
         private int flags = 0;
         private MemorySegment initialData = null;
         
@@ -107,37 +107,37 @@ public class VkBuffer implements AutoCloseable {
         
         /** Configures as vertex buffer */
         public Builder vertexBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT.value();
             return this;
         }
         
         /** Configures as index buffer */
         public Builder indexBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_INDEX_BUFFER_BIT.value();
             return this;
         }
         
         /** Configures as uniform buffer */
         public Builder uniformBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.value();
             return this;
         }
         
         /** Configures as storage buffer */
         public Builder storageBuffer() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.value();
             return this;
         }
         
         /** Configures as transfer source */
         public Builder transferSrc() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT.value();
             return this;
         }
         
         /** Configures as transfer destination */
         public Builder transferDst() {
-            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            this.usage |= VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT.value();
             return this;
         }
         
@@ -149,14 +149,14 @@ public class VkBuffer implements AutoCloseable {
         
         /** Configures memory as host visible and coherent (CPU accessible) */
         public Builder hostVisible() {
-            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | 
+                                   VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
             return this;
         }
         
         /** Configures memory as device local (GPU only) */
         public Builder deviceLocal() {
-            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+            this.memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
             return this;
         }
         
@@ -170,7 +170,7 @@ public class VkBuffer implements AutoCloseable {
         public Builder queueFamilyIndices(int... indices) {
             this.queueFamilyIndices = indices;
             if (indices.length > 1) {
-                this.sharingMode = VkSharingMode.VK_SHARING_MODE_CONCURRENT;
+                this.sharingMode = VkSharingMode.VK_SHARING_MODE_CONCURRENT.value();
             }
             return this;
         }
@@ -196,7 +196,7 @@ public class VkBuffer implements AutoCloseable {
             
             // Create buffer
             MemorySegment bufferInfo = VkBufferCreateInfo.allocate(arena);
-            VkBufferCreateInfo.sType(bufferInfo, VkStructureType.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
+            VkBufferCreateInfo.sType(bufferInfo, VkStructureType.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO.value());
             VkBufferCreateInfo.pNext(bufferInfo, MemorySegment.NULL);
             VkBufferCreateInfo.flags(bufferInfo, flags);
             VkBufferCreateInfo.size(bufferInfo, size);
@@ -248,7 +248,7 @@ public class VkBuffer implements AutoCloseable {
             
             // Allocate memory
             MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
-            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
+            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
             VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
             VkMemoryAllocateInfo.allocationSize(allocInfo, memSize);
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);

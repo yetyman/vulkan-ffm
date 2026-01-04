@@ -146,7 +146,7 @@ public class VkDevice implements AutoCloseable {
             MemorySegment queueCreateInfos = arena.allocate(VkDeviceQueueCreateInfo.layout(), queueFamilyIndices.length);
             for (int i = 0; i < queueFamilyIndices.length; i++) {
                 MemorySegment queueCreateInfo = queueCreateInfos.asSlice(i * VkDeviceQueueCreateInfo.layout().byteSize());
-                VkDeviceQueueCreateInfo.sType(queueCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO);
+                VkDeviceQueueCreateInfo.sType(queueCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO.value());
                 VkDeviceQueueCreateInfo.queueFamilyIndex(queueCreateInfo, queueFamilyIndices[i]);
                 VkDeviceQueueCreateInfo.queueCount(queueCreateInfo, 1);
                 
@@ -157,7 +157,7 @@ public class VkDevice implements AutoCloseable {
             
             // Create device create info
             MemorySegment createInfo = VkDeviceCreateInfo.allocate(arena);
-            VkDeviceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
+            VkDeviceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO.value());
             VkDeviceCreateInfo.queueCreateInfoCount(createInfo, queueFamilyIndices.length);
             VkDeviceCreateInfo.pQueueCreateInfos(createInfo, queueCreateInfos);
             

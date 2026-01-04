@@ -68,9 +68,9 @@ public abstract class BaseRenderer implements AutoCloseable {
             swapchainImageViews[i] = VkImageView.builder()
                 .device(device)
                 .image(images[i])
-                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
-                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB)
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT)
+                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
                 .build(arena);
         }
     }
@@ -136,7 +136,7 @@ public abstract class BaseRenderer implements AutoCloseable {
             // Submit commands
             VkSubmit.builder()
                 .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(), 
-                              VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                              VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
                 .commandBuffer(commandBuffers[currentFrame])
                 .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
                 .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();

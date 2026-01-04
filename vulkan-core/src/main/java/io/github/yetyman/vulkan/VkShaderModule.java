@@ -18,7 +18,7 @@ public class VkShaderModule implements AutoCloseable {
         MemorySegment.copy(code, 0, codeSegment, ValueLayout.JAVA_BYTE, 0, code.length);
         
         MemorySegment createInfo = VkShaderModuleCreateInfo.allocate(arena);
-        VkShaderModuleCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
+        VkShaderModuleCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO.value());
         VkShaderModuleCreateInfo.pNext(createInfo, MemorySegment.NULL);
         VkShaderModuleCreateInfo.flags(createInfo, 0);
         VkShaderModuleCreateInfo.codeSize(createInfo, code.length);

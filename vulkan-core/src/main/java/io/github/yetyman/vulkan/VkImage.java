@@ -40,10 +40,10 @@ public class VkImage implements AutoCloseable {
     public static class Builder {
         private VkDevice device;
         private int width, height, depth = 1;
-        private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
-        private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        private int tiling = VkImageTiling.VK_IMAGE_TILING_OPTIMAL;
-        private int samples = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT;
+        private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value();
+        private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value();
+        private int tiling = VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value();
+        private int samples = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
         private int mipLevels = 1;
         private int arrayLayers = 1;
         
@@ -106,12 +106,12 @@ public class VkImage implements AutoCloseable {
             
             // Create image
             MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
-            VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
+            VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
             VkImageCreateInfo.pNext(imageInfo, MemorySegment.NULL);
             VkImageCreateInfo.flags(imageInfo, 0);
-            VkImageCreateInfo.imageType(imageInfo, depth > 1 ? VkImageType.VK_IMAGE_TYPE_3D : 
-                                                   height > 1 ? VkImageType.VK_IMAGE_TYPE_2D : 
-                                                                VkImageType.VK_IMAGE_TYPE_1D);
+            VkImageCreateInfo.imageType(imageInfo, depth > 1 ? VkImageType.VK_IMAGE_TYPE_3D.value() : 
+                                                   height > 1 ? VkImageType.VK_IMAGE_TYPE_2D.value() : 
+                                                                VkImageType.VK_IMAGE_TYPE_1D.value());
             VkImageCreateInfo.format(imageInfo, format);
             
             MemorySegment extent = VkImageCreateInfo.extent(imageInfo);
@@ -124,10 +124,10 @@ public class VkImage implements AutoCloseable {
             VkImageCreateInfo.samples(imageInfo, samples);
             VkImageCreateInfo.tiling(imageInfo, tiling);
             VkImageCreateInfo.usage(imageInfo, usage);
-            VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE);
+            VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE.value());
             VkImageCreateInfo.queueFamilyIndexCount(imageInfo, 0);
             VkImageCreateInfo.pQueueFamilyIndices(imageInfo, MemorySegment.NULL);
-            VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED);
+            VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
             
             MemorySegment imagePtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createImage(device.handle(), imageInfo, imagePtr).check();
@@ -139,7 +139,7 @@ public class VkImage implements AutoCloseable {
             
             // Allocate memory
             MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
-            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
+            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
             VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
             VkMemoryAllocateInfo.allocationSize(allocInfo, VkMemoryRequirements.size(memReqs));
             

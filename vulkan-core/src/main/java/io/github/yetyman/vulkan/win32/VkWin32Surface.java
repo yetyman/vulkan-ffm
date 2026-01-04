@@ -37,7 +37,7 @@ public class VkWin32Surface {
         
         public MemorySegment build(Arena arena) {
             MemorySegment surfaceCreateInfo = VkWin32SurfaceCreateInfoKHR.allocate(arena);
-            VkWin32SurfaceCreateInfoKHR.sType(surfaceCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR);
+            VkWin32SurfaceCreateInfoKHR.sType(surfaceCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR.value());
             VkWin32SurfaceCreateInfoKHR.pNext(surfaceCreateInfo, MemorySegment.NULL);
             VkWin32SurfaceCreateInfoKHR.flags(surfaceCreateInfo, flags);
             VkWin32SurfaceCreateInfoKHR.hinstance(surfaceCreateInfo, hinstance);

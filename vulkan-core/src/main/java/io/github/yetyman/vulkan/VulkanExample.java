@@ -11,7 +11,7 @@ public class VulkanExample {
     public static void main(String[] args) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment appInfo = VkApplicationInfo.allocate(arena);
-            VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO);
+            VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO.value());
             VkApplicationInfo.pNext(appInfo, MemorySegment.NULL);
             VkApplicationInfo.pApplicationName(appInfo, arena.allocateFrom("VulkanApp"));
             VkApplicationInfo.applicationVersion(appInfo, 1);
@@ -20,7 +20,7 @@ public class VulkanExample {
             VkApplicationInfo.apiVersion(appInfo, Vulkan.VK_API_VERSION_1_0);
             
             MemorySegment createInfo = VkInstanceCreateInfo.allocate(arena);
-            VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
+            VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO.value());
             VkInstanceCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkInstanceCreateInfo.flags(createInfo, 0);
             VkInstanceCreateInfo.pApplicationInfo(createInfo, appInfo);

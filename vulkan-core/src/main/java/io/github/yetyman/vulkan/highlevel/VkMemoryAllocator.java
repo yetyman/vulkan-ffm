@@ -208,7 +208,7 @@ public class VkMemoryAllocator implements AutoCloseable {
         
         private MemoryBlock createBlock(long size) {
             MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
-            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
+            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
             VkMemoryAllocateInfo.allocationSize(allocInfo, size);
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
             

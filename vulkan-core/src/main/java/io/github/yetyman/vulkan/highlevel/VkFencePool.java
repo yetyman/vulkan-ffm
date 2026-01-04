@@ -51,7 +51,7 @@ public class VkFencePool implements AutoCloseable {
         }
         
         MemorySegment fenceInfo = VkFenceCreateInfo.allocate(arena);
-        VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
+        VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO.value());
         
         MemorySegment fencePtr = arena.allocate(ValueLayout.ADDRESS);
         Vulkan.createFence(device.handle(), fenceInfo, fencePtr).check();

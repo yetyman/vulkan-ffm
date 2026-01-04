@@ -33,7 +33,7 @@ public class VkPresent {
             MemorySegment imageIndexArray = imageIndices.build(arena);
             
             MemorySegment presentInfo = VkPresentInfoKHR.allocate(arena);
-            VkPresentInfoKHR.sType(presentInfo, VkStructureType.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
+            VkPresentInfoKHR.sType(presentInfo, VkStructureType.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR.value());
             VkPresentInfoKHR.pNext(presentInfo, MemorySegment.NULL);
             VkPresentInfoKHR.waitSemaphoreCount(presentInfo, waitSemaphores.count());
             VkPresentInfoKHR.pWaitSemaphores(presentInfo, waitSemArray);

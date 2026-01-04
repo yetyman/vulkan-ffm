@@ -67,13 +67,13 @@ public class VkCommandPool implements AutoCloseable {
         
         /** Enables transient command buffers (short-lived, frequently reset) */
         public Builder transientBit() {
-            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT.value();
             return this;
         }
         
         /** Allows command buffers to be reset individually */
         public Builder resetCommandBufferBit() {
-            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+            this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT.value();
             return this;
         }
         
@@ -88,7 +88,7 @@ public class VkCommandPool implements AutoCloseable {
             if (device == null) throw new IllegalStateException("device not set");
             
             MemorySegment poolInfo = VkCommandPoolCreateInfo.allocate(arena);
-            VkCommandPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO);
+            VkCommandPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO.value());
             VkCommandPoolCreateInfo.pNext(poolInfo, MemorySegment.NULL);
             VkCommandPoolCreateInfo.flags(poolInfo, flags);
             VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, queueFamilyIndex);

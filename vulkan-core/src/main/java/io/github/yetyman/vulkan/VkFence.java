@@ -71,11 +71,11 @@ public class VkFence implements AutoCloseable {
             
             int finalFlags = flags;
             if (signaled) {
-                finalFlags |= VkFenceCreateFlagBits.VK_FENCE_CREATE_SIGNALED_BIT;
+                finalFlags |= VkFenceCreateFlagBits.VK_FENCE_CREATE_SIGNALED_BIT.value();
             }
             
             MemorySegment fenceInfo = VkFenceCreateInfo.allocate(arena);
-            VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
+            VkFenceCreateInfo.sType(fenceInfo, VkStructureType.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO.value());
             VkFenceCreateInfo.pNext(fenceInfo, MemorySegment.NULL);
             VkFenceCreateInfo.flags(fenceInfo, finalFlags);
             

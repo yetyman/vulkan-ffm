@@ -33,7 +33,7 @@ public class VkDescriptorPool implements AutoCloseable {
     public VkDescriptorSet allocateDescriptorSet(VkDescriptorSetLayout descriptorSetLayout) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment allocInfo = VkDescriptorSetAllocateInfo.allocate(arena);
-            VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO);
+            VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO.value());
             VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, handle);
             VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
             
@@ -77,22 +77,22 @@ public class VkDescriptorPool implements AutoCloseable {
         
         /** Adds uniform buffer descriptors to the pool */
         public Builder uniformBuffers(int count) {
-            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, count);
+            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), count);
         }
         
         /** Adds combined image sampler descriptors to the pool */
         public Builder combinedImageSamplers(int count) {
-            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, count);
+            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value(), count);
         }
         
         /** Adds storage buffer descriptors to the pool */
         public Builder storageBuffers(int count) {
-            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, count);
+            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(), count);
         }
         
         /** Adds storage image descriptors to the pool */
         public Builder storageImages(int count) {
-            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, count);
+            return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE.value(), count);
         }
         
         /** Adds a custom descriptor type to the pool */
@@ -103,7 +103,7 @@ public class VkDescriptorPool implements AutoCloseable {
         
         /** Enables free descriptor set flag */
         public Builder freeDescriptorSet() {
-            this.flags |= VkDescriptorPoolCreateFlagBits.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+            this.flags |= VkDescriptorPoolCreateFlagBits.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT.value();
             return this;
         }
         
@@ -128,7 +128,7 @@ public class VkDescriptorPool implements AutoCloseable {
             }
             
             MemorySegment createInfo = VkDescriptorPoolCreateInfo.allocate(arena);
-            VkDescriptorPoolCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+            VkDescriptorPoolCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO.value());
             VkDescriptorPoolCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkDescriptorPoolCreateInfo.flags(createInfo, flags);
             VkDescriptorPoolCreateInfo.maxSets(createInfo, maxSets);

@@ -68,7 +68,7 @@ public class VkComputePipeline implements AutoCloseable {
      * Records a compute dispatch command to the command buffer.
      */
     public void dispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE, handle);
+        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(), handle);
         Vulkan.cmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
     }
     
@@ -89,7 +89,7 @@ public class VkComputePipeline implements AutoCloseable {
             setsArray.setAtIndex(ValueLayout.ADDRESS, i, descriptorSets[i]);
         }
         
-        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE,
+        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(),
             layout, firstSet, descriptorSets.length, setsArray, 0, MemorySegment.NULL);
     }
     
@@ -97,7 +97,7 @@ public class VkComputePipeline implements AutoCloseable {
      * Records push constants for compute pipeline.
      */
     public void pushConstants(MemorySegment commandBuffer, int offset, MemorySegment data) {
-        Vulkan.cmdPushConstants(commandBuffer, layout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+        Vulkan.cmdPushConstants(commandBuffer, layout, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(),
             offset, (int)data.byteSize(), data);
     }
     
@@ -164,7 +164,7 @@ public class VkComputePipeline implements AutoCloseable {
                 
                 // Create pipeline layout
                 MemorySegment pipelineLayoutInfo = VkPipelineLayoutCreateInfo.allocate(arena);
-                VkPipelineLayoutCreateInfo.sType(pipelineLayoutInfo, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
+                VkPipelineLayoutCreateInfo.sType(pipelineLayoutInfo, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO.value());
                 
                 if (descriptorSetLayouts != null && descriptorSetLayouts.length > 0) {
                     MemorySegment layoutsArray = arena.allocate(ValueLayout.ADDRESS, descriptorSetLayouts.length);
@@ -194,13 +194,13 @@ public class VkComputePipeline implements AutoCloseable {
                 
                 // Create compute pipeline
                 MemorySegment pipelineInfo = VkComputePipelineCreateInfo.allocate(arena);
-                VkComputePipelineCreateInfo.sType(pipelineInfo, VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
+                VkComputePipelineCreateInfo.sType(pipelineInfo, VkStructureType.VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO.value());
                 VkComputePipelineCreateInfo.flags(pipelineInfo, flags);
                 
                 // Shader stage
                 MemorySegment stage = VkComputePipelineCreateInfo.stage(pipelineInfo);
-                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO);
-                VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT);
+                VkPipelineShaderStageCreateInfo.sType(stage, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO.value());
+                VkPipelineShaderStageCreateInfo.stage(stage, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value());
                 VkPipelineShaderStageCreateInfo.module(stage, shaderModule.handle());
                 VkPipelineShaderStageCreateInfo.pName(stage, arena.allocateFrom("main"));
                 

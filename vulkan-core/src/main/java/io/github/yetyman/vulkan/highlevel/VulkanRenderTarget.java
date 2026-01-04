@@ -24,8 +24,8 @@ public class VulkanRenderTarget implements AutoCloseable {
         
         // Create image
         MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
-        VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
-        VkImageCreateInfo.imageType(imageInfo, VkImageType.VK_IMAGE_TYPE_2D);
+        VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
+        VkImageCreateInfo.imageType(imageInfo, VkImageType.VK_IMAGE_TYPE_2D.value());
         VkImageCreateInfo.format(imageInfo, format);
         MemorySegment extent = VkImageCreateInfo.extent(imageInfo);
         VkExtent3D.width(extent, width);
@@ -33,11 +33,11 @@ public class VulkanRenderTarget implements AutoCloseable {
         VkExtent3D.depth(extent, 1);
         VkImageCreateInfo.mipLevels(imageInfo, 1);
         VkImageCreateInfo.arrayLayers(imageInfo, 1);
-        VkImageCreateInfo.samples(imageInfo, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT);
-        VkImageCreateInfo.tiling(imageInfo, VkImageTiling.VK_IMAGE_TILING_OPTIMAL);
+        VkImageCreateInfo.samples(imageInfo, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
+        VkImageCreateInfo.tiling(imageInfo, VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value());
         VkImageCreateInfo.usage(imageInfo, usage);
-        VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE);
-        VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED);
+        VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE.value());
+        VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
         
         // Create image using builder
         image = VkImage.builder()
@@ -53,7 +53,7 @@ public class VulkanRenderTarget implements AutoCloseable {
         imageView = VkImageView.builder()
             .device(device)
             .image(image.handle())
-            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D)
+            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
             .format(format)
             .aspectMask(aspectMask)
             .build(arena);
@@ -81,7 +81,7 @@ public class VulkanRenderTarget implements AutoCloseable {
         private int format;
         private int width, height;
         private int usage;
-        private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT;
+        private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value();
         
         public Builder arena(Arena arena) {
             this.arena = arena;

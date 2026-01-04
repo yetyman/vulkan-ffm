@@ -15,7 +15,7 @@ import java.lang.foreign.*;
  *     .device(device)
  *     .allocator(allocator)
  *     .size(512, 512)
- *     .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM)
+ *     .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value())
  *     .generateMipmaps()
  *     .linear()
  *     .repeat()
@@ -87,7 +87,7 @@ public class VkTexture implements AutoCloseable {
     public void transitionLayout(MemorySegment commandBuffer, int oldLayout, int newLayout, 
                                 int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
         MemorySegment barrier = VkImageMemoryBarrier.allocate(Arena.ofAuto());
-        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
         VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
         VkImageMemoryBarrier.newLayout(barrier, newLayout);
         VkImageMemoryBarrier.srcQueueFamilyIndex(barrier, VkQueueFamily.VK_QUEUE_FAMILY_IGNORED);
@@ -97,7 +97,7 @@ public class VkTexture implements AutoCloseable {
         VkImageMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         
         MemorySegment subresourceRange = VkImageMemoryBarrier.subresourceRange(barrier);
-        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
         VkImageSubresourceRange.levelCount(subresourceRange, mipLevels);
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
@@ -117,7 +117,7 @@ public class VkTexture implements AutoCloseable {
         VkBufferImageCopy.bufferImageHeight(region, 0);
         
         MemorySegment imageSubresource = VkBufferImageCopy.imageSubresource(region);
-        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceLayers.mipLevel(imageSubresource, mipLevel);
         VkImageSubresourceLayers.baseArrayLayer(imageSubresource, 0);
         VkImageSubresourceLayers.layerCount(imageSubresource, 1);
@@ -133,7 +133,7 @@ public class VkTexture implements AutoCloseable {
         VkExtent3D.depth(imageExtent, Math.max(1, depth >> mipLevel));
         
         Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image.handle(),
-            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, region);
+            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, region);
     }
     
     /**
@@ -145,40 +145,40 @@ public class VkTexture implements AutoCloseable {
         for (int i = 1; i < mipLevels; i++) {
             // Transition previous mip level to transfer src
             transitionMipLevel(commandBuffer, i - 1, 
-                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VkAccessFlagBits.VK_ACCESS_TRANSFER_WRITE_BIT,
-                VkAccessFlagBits.VK_ACCESS_TRANSFER_READ_BIT);
+                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value(),
+                VkAccessFlagBits.VK_ACCESS_TRANSFER_WRITE_BIT.value(),
+                VkAccessFlagBits.VK_ACCESS_TRANSFER_READ_BIT.value());
             
             // Blit from previous mip level to current
             blitMipLevel(commandBuffer, i - 1, i);
             
             // Transition previous mip level to shader read
             transitionMipLevel(commandBuffer, i - 1,
-                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                VkAccessFlagBits.VK_ACCESS_TRANSFER_READ_BIT,
-                VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT);
+                VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value(),
+                VkAccessFlagBits.VK_ACCESS_TRANSFER_READ_BIT.value(),
+                VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value());
         }
         
         // Transition last mip level to shader read
         transitionMipLevel(commandBuffer, mipLevels - 1,
-            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VkAccessFlagBits.VK_ACCESS_TRANSFER_WRITE_BIT,
-            VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT);
+            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(),
+            VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(),
+            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value(),
+            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value(),
+            VkAccessFlagBits.VK_ACCESS_TRANSFER_WRITE_BIT.value(),
+            VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value());
     }
     
     private void transitionMipLevel(MemorySegment commandBuffer, int mipLevel, int oldLayout, int newLayout,
                                    int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
         MemorySegment barrier = VkImageMemoryBarrier.allocate(Arena.ofAuto());
-        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
         VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
         VkImageMemoryBarrier.newLayout(barrier, newLayout);
         VkImageMemoryBarrier.srcQueueFamilyIndex(barrier, VkQueueFamily.VK_QUEUE_FAMILY_IGNORED);
@@ -188,7 +188,7 @@ public class VkTexture implements AutoCloseable {
         VkImageMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         
         MemorySegment subresourceRange = VkImageMemoryBarrier.subresourceRange(barrier);
-        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceRange.aspectMask(subresourceRange, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceRange.baseMipLevel(subresourceRange, mipLevel);
         VkImageSubresourceRange.levelCount(subresourceRange, 1);
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
@@ -202,7 +202,7 @@ public class VkTexture implements AutoCloseable {
         MemorySegment blit = VkImageBlit.allocate(Arena.ofAuto());
         
         MemorySegment srcSubresource = VkImageBlit.srcSubresource(blit);
-        VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceLayers.mipLevel(srcSubresource, srcMip);
         VkImageSubresourceLayers.baseArrayLayer(srcSubresource, 0);
         VkImageSubresourceLayers.layerCount(srcSubresource, 1);
@@ -216,7 +216,7 @@ public class VkTexture implements AutoCloseable {
         VkOffset3D.z(srcOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, depth >> srcMip));
         
         MemorySegment dstSubresource = VkImageBlit.dstSubresource(blit);
-        VkImageSubresourceLayers.aspectMask(dstSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageSubresourceLayers.aspectMask(dstSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
         VkImageSubresourceLayers.mipLevel(dstSubresource, dstMip);
         VkImageSubresourceLayers.baseArrayLayer(dstSubresource, 0);
         VkImageSubresourceLayers.layerCount(dstSubresource, 1);
@@ -229,8 +229,8 @@ public class VkTexture implements AutoCloseable {
         VkOffset3D.y(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, height >> dstMip));
         VkOffset3D.z(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, depth >> dstMip));
         
-        Vulkan.cmdBlitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, blit, VkFilter.VK_FILTER_LINEAR);
+        Vulkan.cmdBlitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.value(),
+            image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, blit, VkFilter.VK_FILTER_LINEAR.value());
     }
     
     @Override
@@ -250,21 +250,21 @@ public class VkTexture implements AutoCloseable {
         private VkDevice device;
         private VkMemoryAllocator allocator;
         private int width = 1, height = 1, depth = 1;
-        private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM;
-        private int imageType = VkImageType.VK_IMAGE_TYPE_2D;
-        private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT;
+        private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value();
+        private int imageType = VkImageType.VK_IMAGE_TYPE_2D.value();
+        private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value();
         private int mipLevels = 1;
         private int arrayLayers = 1;
-        private int samples = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT;
+        private int samples = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
         private boolean generateMipmaps = false;
         
         // Sampler properties
-        private int magFilter = VkFilter.VK_FILTER_LINEAR;
-        private int minFilter = VkFilter.VK_FILTER_LINEAR;
-        private int mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        private int addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        private int addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        private int addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        private int magFilter = VkFilter.VK_FILTER_LINEAR.value();
+        private int minFilter = VkFilter.VK_FILTER_LINEAR.value();
+        private int mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_LINEAR.value();
+        private int addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+        private int addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+        private int addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
         private float maxAnisotropy = 1.0f;
         private boolean anisotropyEnable = false;
         
@@ -288,7 +288,7 @@ public class VkTexture implements AutoCloseable {
             this.width = width;
             this.height = height;
             this.depth = depth;
-            this.imageType = VkImageType.VK_IMAGE_TYPE_3D;
+            this.imageType = VkImageType.VK_IMAGE_TYPE_3D.value();
             return this;
         }
         
@@ -310,7 +310,7 @@ public class VkTexture implements AutoCloseable {
         public Builder generateMipmaps() {
             this.generateMipmaps = true;
             this.mipLevels = calculateMipLevels(width, height);
-            this.usage |= VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            this.usage |= VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_SRC_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT.value();
             return this;
         }
         
@@ -325,28 +325,28 @@ public class VkTexture implements AutoCloseable {
         }
         
         public Builder linear() {
-            this.magFilter = VkFilter.VK_FILTER_LINEAR;
-            this.minFilter = VkFilter.VK_FILTER_LINEAR;
+            this.magFilter = VkFilter.VK_FILTER_LINEAR.value();
+            this.minFilter = VkFilter.VK_FILTER_LINEAR.value();
             return this;
         }
         
         public Builder nearest() {
-            this.magFilter = VkFilter.VK_FILTER_NEAREST;
-            this.minFilter = VkFilter.VK_FILTER_NEAREST;
+            this.magFilter = VkFilter.VK_FILTER_NEAREST.value();
+            this.minFilter = VkFilter.VK_FILTER_NEAREST.value();
             return this;
         }
         
         public Builder repeat() {
-            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT;
+            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
+            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
             return this;
         }
         
         public Builder clampToEdge() {
-            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
+            this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
+            this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
             return this;
         }
         
@@ -361,10 +361,10 @@ public class VkTexture implements AutoCloseable {
         }
         
         private boolean isDepthFormat(int format) {
-            return format == VkFormat.VK_FORMAT_D16_UNORM ||
-                   format == VkFormat.VK_FORMAT_D32_SFLOAT ||
-                   format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT ||
-                   format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT;
+            return format == VkFormat.VK_FORMAT_D16_UNORM.value() ||
+                   format == VkFormat.VK_FORMAT_D32_SFLOAT.value() ||
+                   format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() ||
+                   format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value();
         }
         
         public VkTexture build(Arena arena) {
@@ -386,15 +386,15 @@ public class VkTexture implements AutoCloseable {
             
             // Create image view
             MemorySegment imageViewInfo = VkImageViewCreateInfo.allocate(arena);
-            VkImageViewCreateInfo.sType(imageViewInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
+            VkImageViewCreateInfo.sType(imageViewInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO.value());
             VkImageViewCreateInfo.image(imageViewInfo, image.handle());
-            VkImageViewCreateInfo.viewType(imageViewInfo, imageType == VkImageType.VK_IMAGE_TYPE_3D ? 
-                VkImageViewType.VK_IMAGE_VIEW_TYPE_3D : VkImageViewType.VK_IMAGE_VIEW_TYPE_2D);
+            VkImageViewCreateInfo.viewType(imageViewInfo, imageType == VkImageType.VK_IMAGE_TYPE_3D.value() ? 
+                VkImageViewType.VK_IMAGE_VIEW_TYPE_3D.value() : VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value());
             VkImageViewCreateInfo.format(imageViewInfo, format);
             
             MemorySegment subresourceRange = VkImageViewCreateInfo.subresourceRange(imageViewInfo);
             // Use correct aspect mask based on format
-            int aspectMask = isDepthFormat(format) ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT;
+            int aspectMask = isDepthFormat(format) ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value() : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value();
             VkImageSubresourceRange.aspectMask(subresourceRange, aspectMask);
             VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
             VkImageSubresourceRange.levelCount(subresourceRange, mipLevels);
@@ -407,7 +407,7 @@ public class VkTexture implements AutoCloseable {
             
             // Create sampler
             MemorySegment samplerInfo = VkSamplerCreateInfo.allocate(arena);
-            VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
+            VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO.value());
             VkSamplerCreateInfo.magFilter(samplerInfo, magFilter);
             VkSamplerCreateInfo.minFilter(samplerInfo, minFilter);
             VkSamplerCreateInfo.mipmapMode(samplerInfo, mipmapMode);

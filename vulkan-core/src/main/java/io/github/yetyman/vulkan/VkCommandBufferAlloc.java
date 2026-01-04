@@ -13,7 +13,7 @@ public class VkCommandBufferAlloc {
     public static class Builder {
         private VkDevice device;
         private MemorySegment commandPool;
-        private int level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        private int level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY.value();
         private int count = 1;
         
         public Builder device(VkDevice device) {
@@ -27,12 +27,12 @@ public class VkCommandBufferAlloc {
         }
         
         public Builder primary() {
-            this.level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            this.level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_PRIMARY.value();
             return this;
         }
         
         public Builder secondary() {
-            this.level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+            this.level = VkCommandBufferLevel.VK_COMMAND_BUFFER_LEVEL_SECONDARY.value();
             return this;
         }
         
@@ -43,7 +43,7 @@ public class VkCommandBufferAlloc {
         
         public MemorySegment[] allocate(Arena arena) {
             MemorySegment allocInfo = VkCommandBufferAllocateInfo.allocate(arena);
-            VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO);
+            VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO.value());
             VkCommandBufferAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
             VkCommandBufferAllocateInfo.commandPool(allocInfo, commandPool);
             VkCommandBufferAllocateInfo.level(allocInfo, level);

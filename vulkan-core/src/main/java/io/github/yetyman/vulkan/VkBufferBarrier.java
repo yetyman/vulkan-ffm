@@ -62,7 +62,7 @@ public class VkBufferBarrier extends VkBarrier {
             if (buffer == null) throw new IllegalStateException("buffer not set");
             
             MemorySegment barrier = VkBufferMemoryBarrier.allocate(arena);
-            VkBufferMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER);
+            VkBufferMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER.value());
             VkBufferMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
             VkBufferMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
             VkBufferMemoryBarrier.srcQueueFamilyIndex(barrier, srcQueueFamily);

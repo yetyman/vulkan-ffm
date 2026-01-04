@@ -68,15 +68,15 @@ public class VkSwapchain implements AutoCloseable {
         private MemorySegment surface;
         private int width, height;
         private int minImageCount = 3;
-        private int imageFormat = VkFormat.VK_FORMAT_B8G8R8A8_SRGB;
-        private int colorSpace = VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+        private int imageFormat = VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value();
+        private int colorSpace = VkColorSpaceKHR.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR.value();
         private int imageArrayLayers = 1;
-        private int imageUsage = VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        private int imageUsage = VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value();
         private int imageSharingMode = 0;
         private int[] queueFamilyIndices = null;
-        private int preTransform = VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-        private int compositeAlpha = VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        private int presentMode = VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR;
+        private int preTransform = VkSurfaceTransformFlagBitsKHR.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR.value();
+        private int compositeAlpha = VkCompositeAlphaFlagBitsKHR.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.value();
+        private int presentMode = VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR.value();
         private boolean clipped = true;
         private MemorySegment oldSwapchain = MemorySegment.NULL;
         private int flags = 0;
@@ -123,7 +123,7 @@ public class VkSwapchain implements AutoCloseable {
         
         /** Enables VSync (FIFO present mode) */
         public Builder vsync(boolean enable) {
-            this.presentMode = enable ? VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR : VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR;
+            this.presentMode = enable ? VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR.value() : VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR.value();
             return this;
         }
         

@@ -84,7 +84,7 @@ public class VkImageBarrier extends VkBarrier {
             if (image == null) throw new IllegalStateException("image not set");
             
             MemorySegment barrier = VkImageMemoryBarrier.allocate(arena);
-            VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER);
+            VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
             VkImageMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
             VkImageMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
             VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
