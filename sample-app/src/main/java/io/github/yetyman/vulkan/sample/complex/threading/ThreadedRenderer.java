@@ -23,6 +23,7 @@ public class ThreadedRenderer extends BaseRenderer {
     // AA toggle
     private boolean adaptiveAAEnabled = true;
     private AdaptiveAA adaptiveAA;
+    private volatile boolean pendingAAToggle = false;
     
     private VkRenderPass directRenderPass;
     private VkPipeline pipeline;
@@ -96,8 +97,9 @@ public class ThreadedRenderer extends BaseRenderer {
         }
         
         // Set Vulkan resources after managers are created
-        lodRenderer.setVulkanResources(commandManager.getCommandPool(), directRenderPass);
-        createGraphicsPipeline();
+        MemorySegment renderPassForPipeline = adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
+        lodRenderer.setVulkanResources(commandManager.getCommandPool(), adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass() : directRenderPass);
+        createGraphicsPipeline(renderPassForPipeline);
         createRenderGraph();
         Logger.info("Threaded renderer initialized with RenderGraph (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
@@ -251,7 +253,7 @@ public class ThreadedRenderer extends BaseRenderer {
         Logger.info("Direct render pass created");
     }
     
-    private void createGraphicsPipeline() {
+    private void createGraphicsPipeline(MemorySegment renderPass) {
         // Original triangle pipeline
         VulkanShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
             .vertex("/shaders/triangle.vert")
@@ -293,14 +295,10 @@ public class ThreadedRenderer extends BaseRenderer {
         descriptorSet.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 
             cameraUniformBuffer.handle(), 0, cameraUniformBuffer.size(), arena);
         
-        // Use appropriate render pass based on AA setting
-        MemorySegment targetRenderPass = adaptiveAAEnabled ? 
-            adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
-        
         // Original triangle pipeline
         pipeline = VkPipeline.builder()
             .device(device)
-            .renderPass(targetRenderPass)
+            .renderPass(renderPass)
             .vertexShader(triangleShaders.vertex())
             .fragmentShader(triangleShaders.fragment())
             .triangleTopology()
@@ -315,7 +313,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // glTF pipeline with vertex input descriptions and descriptor set layout
         gltfPipeline = VkPipeline.builder()
             .device(device)
-            .renderPass(targetRenderPass)
+            .renderPass(renderPass)
             .vertexShader(gltfShaders.vertex())
             .fragmentShader(gltfShaders.fragment())
             .triangleTopology()
@@ -369,6 +367,12 @@ public class ThreadedRenderer extends BaseRenderer {
     
     public void drawFrame() {
         long frameStart = System.nanoTime();
+        
+        // Handle pending AA toggle on main thread
+        if (pendingAAToggle) {
+            pendingAAToggle = false;
+            toggleAAImmediate();
+        }
         
         // Process main thread work during spare time
         int workProcessed = mainThreadWork.processWork(frameStart);
@@ -485,9 +489,30 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     public void setAdaptiveAAEnabled(boolean enabled) {
-        this.adaptiveAAEnabled = enabled;
-        Logger.info("Adaptive AA " + (enabled ? "enabled" : "disabled"));
-        // Note: Requires renderer recreation to take effect
+        if (this.adaptiveAAEnabled != enabled) {
+            pendingAAToggle = true;
+        }
+    }
+    
+    private void toggleAAImmediate() {
+        adaptiveAAEnabled = !adaptiveAAEnabled;
+        Logger.info("Adaptive AA " + (adaptiveAAEnabled ? "enabled" : "disabled"));
+        
+        // Wait for device idle before recreating pipelines
+        Vulkan.deviceWaitIdle(device.handle()).check();
+        
+        // Cleanup old pipelines
+        if (pipeline != null) pipeline.close();
+        if (gltfPipeline != null) gltfPipeline.close();
+        
+        // Recreate AA resources if enabling
+        if (adaptiveAAEnabled && adaptiveAA == null) {
+            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
+        }
+        
+        // Recreate pipelines with correct render pass
+        MemorySegment renderPassForPipeline = adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
+        createGraphicsPipeline(renderPassForPipeline);
     }
     
     public boolean isAdaptiveAAEnabled() {
