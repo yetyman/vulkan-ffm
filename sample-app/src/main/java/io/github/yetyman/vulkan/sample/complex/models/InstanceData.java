@@ -14,8 +14,8 @@ import java.lang.foreign.ValueLayout;
  */
 public class InstanceData {
     private final MemorySegment modelDataPtrs; // 1 long per instance (pointer to ModelData)
-    private final VkBuffer matricesBuffer;     // VkBuffer for GPU-ready matrices
-    private final MemorySegment matrices;      // Host-visible memory for matrices
+    private VkBuffer matricesBuffer;     // VkBuffer for GPU-ready matrices
+    private MemorySegment matrices;      // Host-visible memory for matrices
     private final boolean[] activeInstances;   // Track which instances are active
     private final int capacity;
     private int count = 0;
@@ -24,19 +24,35 @@ public class InstanceData {
         this.capacity = maxInstances;
         this.modelDataPtrs = arena.allocate(maxInstances * Long.BYTES);
         
-        // Create proper VkBuffer for matrices
-        long bufferSize = maxInstances * 16 * Float.BYTES;
-        this.matricesBuffer = VkBuffer.builder()
-            .device(device)
-            .physicalDevice(physicalDevice)
-            .size(bufferSize)
-            .vertexBuffer()
-            .hostVisible()
-            .build(arena);
-        
-        // Map the buffer memory for CPU access
-        this.matrices = mapBufferMemory(device, matricesBuffer, bufferSize);
+        if (device != null && physicalDevice != null) {
+            long bufferSize = maxInstances * 16 * Float.BYTES;
+            this.matricesBuffer = VkBuffer.builder()
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .size(bufferSize)
+                .vertexBuffer()
+                .hostVisible()
+                .build(arena);
+            this.matrices = mapBufferMemory(device, matricesBuffer, bufferSize);
+        } else {
+            this.matricesBuffer = null;
+            this.matrices = null;
+        }
         this.activeInstances = new boolean[maxInstances];
+    }
+    
+    public void setDevice(VkDevice device, VkPhysicalDevice physicalDevice) {
+        if (matricesBuffer == null && device != null && physicalDevice != null) {
+            long bufferSize = capacity * 16 * Float.BYTES;
+            this.matricesBuffer = VkBuffer.builder()
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .size(bufferSize)
+                .vertexBuffer()
+                .hostVisible()
+                .build(Arena.ofShared());
+            this.matrices = mapBufferMemory(device, matricesBuffer, bufferSize);
+        }
     }
     
     private MemorySegment mapBufferMemory(VkDevice device, VkBuffer buffer, long size) {

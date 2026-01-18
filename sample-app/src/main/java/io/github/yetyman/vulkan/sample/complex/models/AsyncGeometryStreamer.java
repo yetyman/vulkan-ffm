@@ -63,7 +63,7 @@ public class AsyncGeometryStreamer {
         }
         
         if (loadRequests > 0 || unloadRequests > 0) {
-            Logger.load("Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
+            Logger.debug("Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
         }
     }
     
@@ -80,7 +80,7 @@ public class AsyncGeometryStreamer {
                 // Process loads if we have budget
                 ModelData toLoad = loadQueue.poll();
                 if (toLoad != null && currentGPUUsage.get() < GPU_MEMORY_BUDGET) {
-                    Logger.load("Processing GPU load for model " + toLoad.getModelId());
+                    Logger.debug("Processing GPU load for model " + toLoad.getModelId());
                     loadToGPU(toLoad);
                     toLoad.setPendingGPULoad(false);
                 }
@@ -106,7 +106,7 @@ public class AsyncGeometryStreamer {
             Arena tempArena = Arena.ofShared();
             
             // Get actual geometry data from the loaded glTF model
-            Logger.load("Using actual glTF geometry data for model " + modelData.getModelId());
+            Logger.debug("Using actual glTF geometry data for model " + modelData.getModelId());
             
             // Get vertex and index data from the model
             float[] vertices = modelData.getVertices();
@@ -117,9 +117,9 @@ public class AsyncGeometryStreamer {
                 return;
             }
             
-            Logger.load("Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
-            Logger.load("First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
-            Logger.load("First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
+            Logger.debug("Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
+            Logger.debug("First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
+            Logger.debug("First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
             
             // Create vertex data buffer using VkDataCopy utility
             MemorySegment vertexData = io.github.yetyman.vulkan.util.VkDataCopy.copyFloatArray(vertices, tempArena);
@@ -131,7 +131,7 @@ public class AsyncGeometryStreamer {
             int requestId = stagingSystem.stageVertexData(vertexData, indexData);
             if (requestId != -1) {
                 modelToRequestMap.put(modelData.getModelId(), requestId);
-                Logger.load("Staged model " + modelData.getModelId() + " with request " + requestId);
+                Logger.debug("Staged model " + modelData.getModelId() + " with request " + requestId);
             }
             
         } catch (Exception e) {
@@ -148,7 +148,7 @@ public class AsyncGeometryStreamer {
         if (!modelData.isGPUResident()) return;
         
         try {
-            Logger.load("Unloading model ID " + modelData.getModelId() + " from GPU");
+            Logger.debug("Unloading model ID " + modelData.getModelId() + " from GPU");
             
             LODModel lodModel = modelData.getLodModel();
             if (lodModel != null) {
@@ -193,7 +193,7 @@ public class AsyncGeometryStreamer {
             StagingSystem.CopyRequest request = stagingSystem.getCompletedRequest(requestId);
             if (request != null && request.completed) {
                 updateModelGPUBuffers(modelId, request, modelDataArray);
-                Logger.load("Completed GPU load for model " + modelId);
+                Logger.debug("Completed GPU load for model " + modelId);
                 return true; // Remove from map
             }
             return false; // Keep in map
@@ -203,22 +203,22 @@ public class AsyncGeometryStreamer {
     private void updateModelGPUBuffers(int modelId, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
         ModelData modelData = modelDataArray[modelId];
         if (modelData != null && modelData.getLodModel() != null) {
-            Logger.load("Getting handles from VkBuffer objects:");
-            Logger.load("request.deviceVertexBuffer: " + request.deviceVertexBuffer);
-            Logger.load("request.deviceIndexBuffer: " + request.deviceIndexBuffer);
+            Logger.debug("Getting handles from VkBuffer objects:");
+            Logger.debug("request.deviceVertexBuffer: " + request.deviceVertexBuffer);
+            Logger.debug("request.deviceIndexBuffer: " + request.deviceIndexBuffer);
             
             MemorySegment vertexBuffer = request.deviceVertexBuffer.handle();
             MemorySegment indexBuffer = request.deviceIndexBuffer.handle();
-            Logger.load("VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
+            Logger.debug("VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
             
             // Set GPU buffers on ALL LOD levels (they all use the same geometry for now)
             LODModel lodModel = modelData.getLodModel();
             for (int i = 0; i < lodModel.getLODCount(); i++) {
                 LODLevel lodLevel = lodModel.getLOD(i);
-                Logger.load("Calling setGPUBuffers on LOD level " + i);
+                Logger.debug("Calling setGPUBuffers on LOD level " + i);
                 lodLevel.setGPUBuffers(vertexBuffer, indexBuffer);
             }
-            Logger.load("Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
+            Logger.debug("Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
         }
     }
     
