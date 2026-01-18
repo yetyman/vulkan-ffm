@@ -139,7 +139,7 @@ public class AdaptiveAA {
             .attachment(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(), VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
-                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0)
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), 0)
             .attachment(depthFormat, sampleCount,
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
@@ -342,15 +342,17 @@ public class AdaptiveAA {
     public VkFramebuffer getSceneFramebuffer() { return sceneFramebuffer; }
     
     public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
+        performAA(commandBuffer, finalFramebuffer, frameArena, 0.0f, 0.0f, 0.0f, 1.0f);
+    }
+    
+    public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena, float clearR, float clearG, float clearB, float clearA) {
         boolean useMSAA = (mode == Mode.MSAA);
         
         if (useMSAA) {
-            // MSAA mode - simple blit of resolved image
-            transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
-            
+            // MSAA mode - blit resolved image (already in correct layout from render pass)
             VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(clearR, clearG, clearB, clearA)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
@@ -379,7 +381,7 @@ public class AdaptiveAA {
             // Adaptive AA pass to swapchain
             VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearColor(clearR, clearG, clearB, clearA)
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             

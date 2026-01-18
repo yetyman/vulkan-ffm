@@ -448,7 +448,7 @@ public class ThreadedRenderer extends BaseRenderer {
             renderScene(commandBuffer, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer);
             
-            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
+            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
                 .renderArea(0, 0, width, height)
@@ -480,7 +480,7 @@ public class ThreadedRenderer extends BaseRenderer {
             renderScene(commandBuffer, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer);
             
-            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena);
+            adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
                 .renderArea(0, 0, width, height)
