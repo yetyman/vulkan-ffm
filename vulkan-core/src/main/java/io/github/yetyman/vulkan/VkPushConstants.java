@@ -3,6 +3,8 @@ package io.github.yetyman.vulkan;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Type-safe push constants abstraction
@@ -44,6 +46,10 @@ public class VkPushConstants {
         return this;
     }
     
+    public static Builder builder(Arena arena) {
+        return new Builder(arena);
+    }
+    
     public static VkPushConstants floatValue(float value, int stageFlags, Arena arena) {
         return floatValue(value, stageFlags, 0, arena);
     }
@@ -78,5 +84,58 @@ public class VkPushConstants {
     
     public void push(MemorySegment commandBuffer, MemorySegment pipelineLayout) {
         Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
+    }
+    
+    public void push(MemorySegment commandBuffer, MemorySegment pipelineLayout, int stageFlags, int offset) {
+        Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
+    }
+    
+    public static class Builder {
+        private final Arena arena;
+        private final List<Float> floats = new ArrayList<>();
+        private final List<Integer> ints = new ArrayList<>();
+        private int stageFlags = 0;
+        private int offset = 0;
+        
+        private Builder(Arena arena) {
+            this.arena = arena;
+        }
+        
+        public Builder floatValue(float value) {
+            floats.add(value);
+            return this;
+        }
+        
+        public Builder intValue(int value) {
+            ints.add(value);
+            return this;
+        }
+        
+        public Builder stageFlags(int flags) {
+            this.stageFlags = flags;
+            return this;
+        }
+        
+        public Builder offset(int offset) {
+            this.offset = offset;
+            return this;
+        }
+        
+        public VkPushConstants build() {
+            int totalSize = floats.size() * 4 + ints.size() * 4;
+            MemorySegment data = arena.allocate(totalSize);
+            
+            int byteOffset = 0;
+            for (float f : floats) {
+                data.set(ValueLayout.JAVA_FLOAT, byteOffset, f);
+                byteOffset += 4;
+            }
+            for (int i : ints) {
+                data.set(ValueLayout.JAVA_INT, byteOffset, i);
+                byteOffset += 4;
+            }
+            
+            return new VkPushConstants(data, stageFlags, offset);
+        }
     }
 }

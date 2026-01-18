@@ -21,6 +21,20 @@ public abstract class VkBarrier {
     /** @return the barrier type for pipeline barrier arrays */
     public abstract BarrierType getType();
     
+    /**
+     * Executes this barrier in a pipeline barrier command
+     */
+    public void execute(MemorySegment commandBuffer, int srcStage, int dstStage) {
+        switch (getType()) {
+            case MEMORY -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+                0, 1, handle, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
+            case BUFFER -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+                0, 0, MemorySegment.NULL, 1, handle, 0, MemorySegment.NULL);
+            case IMAGE -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+                0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, handle);
+        }
+    }
+    
     public enum BarrierType {
         MEMORY, BUFFER, IMAGE
     }

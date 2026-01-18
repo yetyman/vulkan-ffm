@@ -177,126 +177,30 @@ public class AdaptiveAA {
     
 
     private VkDescriptorSetLayout createDescriptorSetLayout() {
-        // Create 4 bindings including depth texture
-        MemorySegment bindings = arena.allocate(VkDescriptorSetLayoutBinding.layout(), 4);
-        
-        for (int i = 0; i < 4; i++) {
-            MemorySegment binding = bindings.asSlice(i * VkDescriptorSetLayoutBinding.layout().byteSize(), VkDescriptorSetLayoutBinding.layout());
-            VkDescriptorSetLayoutBinding.binding(binding, i);
-            VkDescriptorSetLayoutBinding.descriptorType(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-            VkDescriptorSetLayoutBinding.descriptorCount(binding, 1);
-            VkDescriptorSetLayoutBinding.stageFlags(binding, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value());
-            VkDescriptorSetLayoutBinding.pImmutableSamplers(binding, MemorySegment.NULL);
-        }
-        
-        MemorySegment layoutInfo = VkDescriptorSetLayoutCreateInfo.allocate(arena);
-        VkDescriptorSetLayoutCreateInfo.sType(layoutInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO.value());
-        VkDescriptorSetLayoutCreateInfo.pNext(layoutInfo, MemorySegment.NULL);
-        VkDescriptorSetLayoutCreateInfo.flags(layoutInfo, 0);
-        VkDescriptorSetLayoutCreateInfo.bindingCount(layoutInfo, 4);
-        VkDescriptorSetLayoutCreateInfo.pBindings(layoutInfo, bindings);
-        
-        MemorySegment layoutPtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.createDescriptorSetLayout(device.handle(), layoutInfo, layoutPtr).check();
-        descriptorSetLayout = new VkDescriptorSetLayout(layoutPtr.get(ValueLayout.ADDRESS, 0), device);
-        return descriptorSetLayout;
+        return VkDescriptorSetLayout.builder()
+            .device(device)
+            .combinedImageSampler(0, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+            .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+            .combinedImageSampler(2, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+            .combinedImageSampler(3, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+            .build(arena);
     }
     
     private void createDescriptorSets() {
-        // Create descriptor pool for 4 textures including depth
-        MemorySegment poolSize = VkDescriptorPoolSize.allocate(arena);
-        VkDescriptorPoolSize.type(poolSize, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-        VkDescriptorPoolSize.descriptorCount(poolSize, 4);
+        descriptorPool = VkDescriptorPool.builder()
+            .device(device)
+            .maxSets(1)
+            .combinedImageSamplers(4)
+            .build(arena);
         
-        MemorySegment poolInfo = VkDescriptorPoolCreateInfo.allocate(arena);
-        VkDescriptorPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO.value());
-        VkDescriptorPoolCreateInfo.flags(poolInfo, 0);
-        VkDescriptorPoolCreateInfo.maxSets(poolInfo, 1);
-        VkDescriptorPoolCreateInfo.poolSizeCount(poolInfo, 1);
-        VkDescriptorPoolCreateInfo.pPoolSizes(poolInfo, poolSize);
+        descriptorSet = descriptorPool.allocateDescriptorSet(descriptorSetLayout);
         
-        MemorySegment poolPtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.createDescriptorPool(device.handle(), poolInfo, poolPtr).check();
-        descriptorPool = new VkDescriptorPool(poolPtr.get(ValueLayout.ADDRESS, 0), device);
-        
-        // Allocate descriptor set
-        MemorySegment allocInfo = VkDescriptorSetAllocateInfo.allocate(arena);
-        VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO.value());
-        VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, descriptorPool.handle());
-        VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
-        MemorySegment layoutArray = arena.allocate(ValueLayout.ADDRESS);
-        layoutArray.set(ValueLayout.ADDRESS, 0, descriptorSetLayout.handle());
-        VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layoutArray);
-        
-        MemorySegment setPtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.allocateDescriptorSets(device.handle(), allocInfo, setPtr).check();
-        descriptorSet = new VkDescriptorSet(setPtr.get(ValueLayout.ADDRESS, 0));
-        
-        // Update descriptor set with 4 textures including depth
-        MemorySegment imageInfos = arena.allocate(VkDescriptorImageInfo.layout(), 4);
-        MemorySegment writeDescriptorSets = arena.allocate(VkWriteDescriptorSet.layout(), 4);
-        
-        // Binding 0: currentFrame
-        MemorySegment imageInfo0 = imageInfos.asSlice(0, VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo0, colorTarget.sampler());
-        VkDescriptorImageInfo.imageView(imageInfo0, colorTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo0, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
-        
-        MemorySegment write0 = writeDescriptorSets.asSlice(0, VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write0, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
-        VkWriteDescriptorSet.dstSet(write0, descriptorSet.handle());
-        VkWriteDescriptorSet.dstBinding(write0, 0);
-        VkWriteDescriptorSet.dstArrayElement(write0, 0);
-        VkWriteDescriptorSet.descriptorType(write0, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-        VkWriteDescriptorSet.descriptorCount(write0, 1);
-        VkWriteDescriptorSet.pImageInfo(write0, imageInfo0);
-        
-        // Binding 1: depthTexture (for edge detection shader)
-        MemorySegment imageInfo1 = imageInfos.asSlice(VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo1, depthTarget.sampler());
-        VkDescriptorImageInfo.imageView(imageInfo1, depthTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo1, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
-        
-        MemorySegment write1 = writeDescriptorSets.asSlice(VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write1, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
-        VkWriteDescriptorSet.dstSet(write1, descriptorSet.handle());
-        VkWriteDescriptorSet.dstBinding(write1, 1);
-        VkWriteDescriptorSet.dstArrayElement(write1, 0);
-        VkWriteDescriptorSet.descriptorType(write1, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-        VkWriteDescriptorSet.descriptorCount(write1, 1);
-        VkWriteDescriptorSet.pImageInfo(write1, imageInfo1);
-        
-        // Binding 2: previousFrame
-        MemorySegment imageInfo2 = imageInfos.asSlice(2 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo2, previousFrame.sampler());
-        VkDescriptorImageInfo.imageView(imageInfo2, previousFrame.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo2, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
-        
-        MemorySegment write2 = writeDescriptorSets.asSlice(2 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write2, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
-        VkWriteDescriptorSet.dstSet(write2, descriptorSet.handle());
-        VkWriteDescriptorSet.dstBinding(write2, 2);
-        VkWriteDescriptorSet.dstArrayElement(write2, 0);
-        VkWriteDescriptorSet.descriptorType(write2, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-        VkWriteDescriptorSet.descriptorCount(write2, 1);
-        VkWriteDescriptorSet.pImageInfo(write2, imageInfo2);
-        
-        // Binding 3: edgeTexture
-        MemorySegment imageInfo3 = imageInfos.asSlice(3 * VkDescriptorImageInfo.layout().byteSize(), VkDescriptorImageInfo.layout());
-        VkDescriptorImageInfo.sampler(imageInfo3, edgeTarget.sampler());
-        VkDescriptorImageInfo.imageView(imageInfo3, edgeTarget.imageView());
-        VkDescriptorImageInfo.imageLayout(imageInfo3, VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value());
-        
-        MemorySegment write3 = writeDescriptorSets.asSlice(3 * VkWriteDescriptorSet.layout().byteSize(), VkWriteDescriptorSet.layout());
-        VkWriteDescriptorSet.sType(write3, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
-        VkWriteDescriptorSet.dstSet(write3, descriptorSet.handle());
-        VkWriteDescriptorSet.dstBinding(write3, 3);
-        VkWriteDescriptorSet.dstArrayElement(write3, 0);
-        VkWriteDescriptorSet.descriptorType(write3, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
-        VkWriteDescriptorSet.descriptorCount(write3, 1);
-        VkWriteDescriptorSet.pImageInfo(write3, imageInfo3);
-        
-        Vulkan.updateDescriptorSets(device.handle(), 4, writeDescriptorSets, 0, MemorySegment.NULL);
+        // Update descriptor set with 4 textures
+        VkTexture[] textures = {colorTarget, depthTarget, previousFrame, edgeTarget};
+        for (int i = 0; i < 4; i++) {
+            descriptorSet.updateImageSampler(i, textures[i].sampler(), textures[i].imageView(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+        }
     }
     
     private void createFramebuffers() {
@@ -322,7 +226,7 @@ public class AdaptiveAA {
     public VkFramebuffer getSceneFramebuffer() { return sceneFramebuffer; }
     
     public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
-        // Transition color and depth textures for edge detection sampling - use actual current layouts
+        // Transition color and depth textures for edge detection sampling
         transitionImageLayout(commandBuffer, colorTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
         transitionImageLayout(commandBuffer, depthTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), true);
         transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
@@ -334,17 +238,14 @@ public class AdaptiveAA {
             .execute(frameArena);
         
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
-        MemorySegment edgeDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
-        edgeDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
-        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
-            edgePipeline.layout(), 0, 1, edgeDescriptorSets, 0, MemorySegment.NULL);
+        descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         Vulkan.cmdEndRenderPass(commandBuffer);
         
-        // Transition edge texture to shader read layout after edge detection
+        // Transition edge texture to shader read layout
         transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
         
-        // 2. Adaptive AA pass - need to create compatible framebuffer or use direct rendering
+        // 2. Adaptive AA pass
         VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
             .renderArea(0, 0, width, height)
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
@@ -352,17 +253,14 @@ public class AdaptiveAA {
             .execute(frameArena);
         
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
-        MemorySegment aaDescriptorSets = frameArena.allocate(ValueLayout.ADDRESS);
-        aaDescriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet.handle());
-        Vulkan.cmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
-            aaPipeline.layout(), 0, 1, aaDescriptorSets, 0, MemorySegment.NULL);
+        descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
         
         // Push constants for frame info
-        MemorySegment pushConstants = frameArena.allocate(8); // float frameIndex + float deltaTime
-        pushConstants.set(ValueLayout.JAVA_FLOAT, 0, (float)frameIndex);
-        pushConstants.set(ValueLayout.JAVA_FLOAT, 4, 16.67f); // ~60fps
-        Vulkan.cmdPushConstants(commandBuffer, aaPipeline.layout(), 
-            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8, pushConstants);
+        VkPushConstants.builder(frameArena)
+            .floatValue((float)frameIndex)
+            .floatValue(16.67f)
+            .build()
+            .push(commandBuffer, aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
         
         Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
         Vulkan.cmdEndRenderPass(commandBuffer);
@@ -378,12 +276,8 @@ public class AdaptiveAA {
         }
         
         // Clean up descriptor resources
-        if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorPool(device != null ? device.handle() : MemorySegment.NULL, descriptorPool.handle());
-        }
-        if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorSetLayout(device != null ? device.handle() : MemorySegment.NULL, descriptorSetLayout.handle());
-        }
+        if (descriptorPool != null) descriptorPool.close();
+        if (descriptorSetLayout != null) descriptorSetLayout.close();
         
         // Clean up other resources
         if (sceneFramebuffer != null) sceneFramebuffer.close();
@@ -416,12 +310,10 @@ public class AdaptiveAA {
         
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
-                MemorySegment formatProps = tempArena.allocate(VkFormatProperties.sizeof());
-                Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
-                
-                int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
-                int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT.value();
-                if ((optimalFeatures & requiredFeatures) == requiredFeatures) {
+                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = physicalDevice.getFormatProperties(format, tempArena);
+                int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | 
+                                      VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT.value();
+                if ((formatProps.optimalTilingFeatures() & requiredFeatures) == requiredFeatures) {
                     return format;
                 }
             }
@@ -431,39 +323,24 @@ public class AdaptiveAA {
     }
     
     private void transitionImageLayout(MemorySegment commandBuffer, MemorySegment image, int oldLayout, int newLayout, boolean isDepth) {
-        MemorySegment barrier = VkImageMemoryBarrier.allocate(arena);
-        VkImageMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER.value());
-        VkImageMemoryBarrier.oldLayout(barrier, oldLayout);
-        VkImageMemoryBarrier.newLayout(barrier, newLayout);
-        VkImageMemoryBarrier.srcQueueFamilyIndex(barrier, ~0);
-        VkImageMemoryBarrier.dstQueueFamilyIndex(barrier, ~0);
-        VkImageMemoryBarrier.image(barrier, image);
-        
-        MemorySegment subresourceRange = VkImageMemoryBarrier.subresourceRange(barrier);
-        VkImageSubresourceRange.aspectMask(subresourceRange, 
-            isDepth ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value() : VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-        VkImageSubresourceRange.baseMipLevel(subresourceRange, 0);
-        VkImageSubresourceRange.levelCount(subresourceRange, 1);
-        VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
-        VkImageSubresourceRange.layerCount(subresourceRange, 1);
-        
-        // When transitioning from UNDEFINED, no source access mask is needed
-        if (oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value()) {
-            VkImageMemoryBarrier.srcAccessMask(barrier, 0);
-        } else if (isDepth) {
-            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value());
-        } else {
-            VkImageMemoryBarrier.srcAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value());
-        }
-        VkImageMemoryBarrier.dstAccessMask(barrier, VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value());
+        int srcAccessMask = oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value() ? 0 :
+            (isDepth ? VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value() : 
+                      VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value());
         
         int srcStage = oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value() ? 
             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value() :
-            (isDepth ? VkPipelineStageFlagBits.VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT.value() : VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
+            (isDepth ? VkPipelineStageFlagBits.VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT.value() : 
+                      VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, 
-            srcStage,
-            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value(),
-            0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
+        VkImageBarrier barrier = VkImageBarrier.builder()
+            .image(image)
+            .transition(oldLayout, newLayout)
+            .srcAccess(srcAccessMask)
+            .dstAccess(VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value())
+            .aspectMask(isDepth ? VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value() : 
+                                 VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+            .build(arena);
+        
+        barrier.execute(commandBuffer, srcStage, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value());
     }
 }

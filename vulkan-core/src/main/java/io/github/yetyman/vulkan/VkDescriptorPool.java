@@ -43,7 +43,7 @@ public class VkDescriptorPool implements AutoCloseable {
             
             MemorySegment descriptorSet = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.allocateDescriptorSets(device.handle(), allocInfo, descriptorSet).check();
-            return new VkDescriptorSet(descriptorSet.get(ValueLayout.ADDRESS, 0));
+            return new VkDescriptorSet(descriptorSet.get(ValueLayout.ADDRESS, 0), device);
         }
     }
     

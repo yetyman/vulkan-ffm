@@ -33,9 +33,9 @@ public class ThreadedRenderer extends BaseRenderer {
     
     // Camera uniform buffer
     private VkBuffer cameraUniformBuffer;
-    private MemorySegment descriptorSetLayout;
-    private MemorySegment descriptorPool;
-    private MemorySegment descriptorSet;
+    private VkDescriptorSetLayout descriptorSetLayout;
+    private VkDescriptorPool descriptorPool;
+    private VkDescriptorSet descriptorSet;
     
     // Threading
     private ThreadManager threadManager;
@@ -149,11 +149,8 @@ public class ThreadedRenderer extends BaseRenderer {
         
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
-                MemorySegment formatProps = tempArena.allocate(VkFormatProperties.sizeof());
-                Vulkan.getPhysicalDeviceFormatProperties(physicalDevice.handle(), format, formatProps);
-                
-                int optimalFeatures = VkFormatProperties.optimalTilingFeatures(formatProps);
-                if ((optimalFeatures & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value()) != 0) {
+                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = physicalDevice.getFormatProperties(format, tempArena);
+                if ((formatProps.optimalTilingFeatures() & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value()) != 0) {
                     return format;
                 }
             }
@@ -223,12 +220,8 @@ public class ThreadedRenderer extends BaseRenderer {
                     Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
                     
                     // Bind descriptor set with camera uniform
-                    try (Arena bindArena = Arena.ofConfined()) {
-                        MemorySegment descriptorSets = bindArena.allocate(ValueLayout.ADDRESS);
-                        descriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
-                        Vulkan.cmdBindDescriptorSets(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
-                            gltfPipeline.layout(), 0, 1, descriptorSets, 0, MemorySegment.NULL);
-                    }
+                    descriptorSet.bind(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
+                        gltfPipeline.layout(), 0, frameArena);
                     
                     Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
                     Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
@@ -281,45 +274,24 @@ public class ThreadedRenderer extends BaseRenderer {
             .build(arena);
         
         // Create descriptor set layout
-        VkDescriptorSetLayout layout = VkDescriptorSetLayout.builder()
+        descriptorSetLayout = VkDescriptorSetLayout.builder()
             .device(device)
             .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value())
             .build(arena);
-        descriptorSetLayout = layout.handle();
         
         // Create descriptor pool
-        VkDescriptorPool pool = VkDescriptorPool.builder()
+        descriptorPool = VkDescriptorPool.builder()
             .device(device)
             .maxSets(1)
             .uniformBuffers(1)
             .build(arena);
-        descriptorPool = pool.handle();
         
         // Allocate descriptor set
-        VkDescriptorSet set = pool.allocateDescriptorSet(layout);
-        descriptorSet = set.handle();
+        descriptorSet = descriptorPool.allocateDescriptorSet(descriptorSetLayout);
         
         // Update descriptor set to point to uniform buffer
-        try (Arena tempArena = Arena.ofConfined()) {
-            MemorySegment bufferInfo = VkDescriptorBufferInfo.allocate(tempArena);
-            VkDescriptorBufferInfo.buffer(bufferInfo, cameraUniformBuffer.handle());
-            VkDescriptorBufferInfo.offset(bufferInfo, 0);
-            VkDescriptorBufferInfo.range(bufferInfo, 64);
-            
-            MemorySegment writeDescriptorSet = VkWriteDescriptorSet.allocate(tempArena);
-            VkWriteDescriptorSet.sType(writeDescriptorSet, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
-            VkWriteDescriptorSet.pNext(writeDescriptorSet, MemorySegment.NULL);
-            VkWriteDescriptorSet.dstSet(writeDescriptorSet, descriptorSet);
-            VkWriteDescriptorSet.dstBinding(writeDescriptorSet, 0);
-            VkWriteDescriptorSet.dstArrayElement(writeDescriptorSet, 0);
-            VkWriteDescriptorSet.descriptorCount(writeDescriptorSet, 1);
-            VkWriteDescriptorSet.descriptorType(writeDescriptorSet, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value());
-            VkWriteDescriptorSet.pBufferInfo(writeDescriptorSet, bufferInfo);
-            VkWriteDescriptorSet.pImageInfo(writeDescriptorSet, MemorySegment.NULL);
-            VkWriteDescriptorSet.pTexelBufferView(writeDescriptorSet, MemorySegment.NULL);
-            
-            Vulkan.updateDescriptorSets(device.handle(), 1, writeDescriptorSet, 0, MemorySegment.NULL);
-        }
+        descriptorSet.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 
+            cameraUniformBuffer.handle(), 0, cameraUniformBuffer.size(), arena);
         
         // Use appropriate render pass based on AA setting
         MemorySegment targetRenderPass = adaptiveAAEnabled ? 
@@ -353,7 +325,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
-            .descriptorSetLayouts(descriptorSetLayout)
+            .descriptorSetLayouts(descriptorSetLayout.handle())
             .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value()) // 3*4 + 3*4 + 2*4 = 32 bytes
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)  // position
@@ -677,12 +649,8 @@ public class ThreadedRenderer extends BaseRenderer {
         if (gltfPipeline != null) gltfPipeline.close();
         
         // Clean up descriptor resources
-        if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorPool(device.handle(), descriptorPool);
-        }
-        if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
-            Vulkan.destroyDescriptorSetLayout(device.handle(), descriptorSetLayout);
-        }
+        if (descriptorPool != null) descriptorPool.close();
+        if (descriptorSetLayout != null) descriptorSetLayout.close();
         if (cameraUniformBuffer != null) cameraUniformBuffer.close();
         
         if (directRenderPass != null) {
