@@ -7,6 +7,9 @@ import java.util.function.Consumer;
 
 /**
  * Manages threaded execution for Vulkan operations.
+ * 
+ * Thread Safety: This class is thread-safe. All public methods can be called from any thread.
+ * The internal thread pool is managed safely with atomic operations and proper synchronization.
  */
 public class ThreadManager implements AutoCloseable {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }

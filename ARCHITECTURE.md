@@ -2,135 +2,166 @@
 
 ## Current State
 
-You have a **working Vulkan foundation** with:
+This is a **mature, multi-module Vulkan wrapper** with complete rendering capabilities:
 
-### ✅ Complete
-- **Window**: GLFW window with Vulkan support
-- **Instance**: Vulkan instance with required extensions
-- **Device**: Physical device selection + logical device
-- **Queue**: Graphics queue for command submission
-- **Surface**: Window surface for presenting
-- **Shaders**: SPIR-V bytecode for vertex/fragment shaders (RGB triangle)
-- **Extensions**: All rendering functions wrapped (Vulkan.java)
-- **Constants**: Vulkan enums and flags (VkConstants.java)
+### ✅ Complete Infrastructure
+- **Multi-module Maven structure** with clean separation of concerns
+- **Auto-generated FFM bindings** for both Vulkan and GLFW
+- **High-level application framework** eliminating boilerplate
+- **Complete rendering pipeline** with triangle and GLTF model support
+- **Advanced features**: threading, anti-aliasing, input handling, resource management
 
-### 🚧 Framework Ready (Needs Implementation)
-- **Swapchain**: Structure exists, needs creation logic
-- **Render Pass**: Structure exists, needs setup
-- **Pipeline**: Layout ready, needs full pipeline creation
-- **Command Buffers**: Allocation ready, needs recording
-- **Sync Objects**: Semaphores/fences ready, needs proper usage
-- **Render Loop**: Framework in Renderer.java, needs completion
+### ✅ Working Applications
+- **SimpleTriangleApp**: Basic triangle rendering with ~50 lines of application code
+- **ComplexTriangleApp**: Advanced rendering with threading, AA, GLTF models, input controls
+- **Resource management**: Automatic cleanup, memory pools, sync objects
+- **Performance monitoring**: FPS tracking, frame time analysis
 
-## Architecture
+## Multi-Module Architecture
 
 ```
-vulkan-core/          # Reusable Vulkan wrapper (zero overhead FFM)
-├── Vulkan.java       # Core functions (instance, device, buffers)
-├── Vulkan.java  # Rendering functions (pipeline, commands, sync)
-├── VulkanLibrary.java     # Native library loader
-├── VulkanSurface.java     # GLFW surface integration
-├── VkConstants.java       # All Vulkan constants
-├── Vk*CreateInfo.java     # Structure wrappers
-└── VkResult.java          # Error handling
-
-sample-app/           # Your application
-├── TriangleApp.java  # Main application (window + Vulkan init)
-├── Renderer.java     # Rendering system (framework ready)
-└── ShaderCompiler.java    # Embedded SPIR-V shaders
+VulkanFFM/                    # Root project (multi-module Maven)
+├── vulkan-bindings/          # Auto-generated Vulkan FFM bindings
+│   ├── generate-vulkan-bindings.bat
+│   ├── generate-vulkan-win32-bindings.bat
+│   ├── vulkan_win32_wrapper.h
+│   └── src/main/java/io/github/yetyman/vulkan/generated/
+│
+├── glfw-bindings/            # Auto-generated GLFW FFM bindings
+│   ├── generate-glfw-bindings.bat
+│   ├── glfw3_wrapper.h
+│   ├── src/main/resources/natives/  # Bundled GLFW DLLs
+│   └── src/main/java/io/github/yetyman/glfw/generated/
+│
+├── vulkan-core/              # High-level Vulkan wrapper
+│   ├── src/main/java/io/github/yetyman/vulkan/
+│   │   ├── highlevel/        # Application framework
+│   │   │   ├── VulkanApplication.java     # Base app class
+│   │   │   ├── VulkanContext.java         # Vulkan state management
+│   │   │   ├── BaseRenderer.java          # Renderer base class
+│   │   │   ├── VulkanCapabilities.java    # Device capability queries
+│   │   │   ├── VkMemoryAllocator.java     # Memory management
+│   │   │   ├── VkResourcePool.java        # Resource pooling
+│   │   │   └── ShaderLoader.java          # Shader compilation
+│   │   ├── Vk*.java          # Type-safe structure wrappers
+│   │   ├── Vulkan.java       # Core Vulkan functions
+│   │   └── VulkanLibrary.java # Native library loading
+│   └── src/test/             # Unit tests
+│
+└── sample-app/               # Example applications
+    ├── src/main/java/io/github/yetyman/vulkan/sample/
+    │   ├── simple/
+    │   │   ├── SimpleTriangleApp.java     # Basic triangle (50 lines)
+    │   │   └── SimpleRenderer.java        # Simple rendering
+    │   ├── complex/
+    │   │   ├── ComplexTriangleApp.java    # Advanced features
+    │   │   ├── threading/ThreadedRenderer.java
+    │   │   ├── models/         # GLTF model loading
+    │   │   └── postprocessing/ # Anti-aliasing effects
+    │   └── windowing/
+    │       ├── GLFWWindowSystem.java      # Window management
+    │       └── GLFWInputSystem.java       # Input handling
+    ├── src/main/resources/
+    │   ├── shaders/            # GLSL shaders
+    │   └── sample-models/      # GLTF test models
+    └── dependency-reduced-pom.xml  # Shaded JAR for distribution
 ```
 
 ## Design Philosophy
 
-### Meaningful Abstraction
-- **Low-level**: Direct FFM calls, no JNI overhead
-- **Type-safe**: Java types map to Vulkan structures
-- **Explicit**: You control memory, sync, and resources
-- **Extensible**: Add new Vulkan functions as needed
+### Layered Abstraction
+- **Generated bindings**: Zero-overhead FFM calls to native APIs
+- **Core wrappers**: Type-safe Java structures with memory management
+- **High-level framework**: Application lifecycle, resource management, utilities
+- **Sample applications**: Complete examples showing best practices
 
-### Triple Buffering
-- Configured for 3 frames in flight (MAX_FRAMES_IN_FLIGHT = 3)
-- Reduces latency vs double buffering
-- Requires proper fence/semaphore management
+### Key Features
+- **Memory safety**: Arena-based allocation with automatic cleanup
+- **Performance**: Direct FFM calls, resource pooling, multi-threading
+- **Extensibility**: Easy to add new Vulkan functions and features
+- **Maintainability**: Clean separation between generated and hand-written code
 
-## Next Steps to Render Triangle
+## Build Profiles
 
-The remaining work is ~300-400 lines to complete the render loop:
-
-1. **Swapchain Creation** (~50 lines)
-   - Query surface capabilities
-   - Choose format, present mode
-   - Create swapchain with 3 images
-
-2. **Render Pass** (~40 lines)
-   - Define color attachment
-   - Setup subpass dependencies
-   - Configure load/store ops
-
-3. **Graphics Pipeline** (~150 lines)
-   - Shader stage creation
-   - Vertex input state (hardcoded vertices)
-   - Input assembly, rasterization
-   - Color blending, dynamic state
-   - Pipeline creation
-
-4. **Framebuffers** (~20 lines)
-   - One per swapchain image
-   - Attach image views
-
-5. **Command Buffer Recording** (~60 lines)
-   - Begin command buffer
-   - Begin render pass
-   - Bind pipeline
-   - Draw 3 vertices
-   - End render pass/command buffer
-
-6. **Render Loop** (~80 lines)
-   - Wait for fence
-   - Acquire next image
-   - Submit command buffer
-   - Present image
-   - Handle frame index
-
-## Why This Approach?
-
-### You Asked For
-- ✅ Meaningful abstraction
-- ✅ Minimal overhead (FFM = zero-cost)
-- ✅ Triangle as first step (correct choice)
-- ✅ Extensible foundation
-
-### What You Got
-- Clean separation (core vs app)
-- All Vulkan functions wrapped
-- Triple buffering configured
-- Shaders ready
-- Type-safe structures
-
-### What's Left
-The "boring but necessary" parts:
-- Filling in structure fields
-- Proper error checking
-- Synchronization logic
-
-## Running
-
+### Default Profile
 ```bash
-mvn clean install
-mvn exec:java -pl sample-app
+mvn clean install          # Builds vulkan-core + sample-app
+mvn exec:java -pl sample-app  # Runs ComplexTriangleApp
 ```
 
-You'll see a window with Vulkan initialized. The foundation is solid - adding the remaining rendering code is straightforward but verbose.
+### With Bindings Profile
+```bash
+mvn clean install -Pwith-bindings  # Includes binding generation
+```
 
-## Recommendation
+### Binding Regeneration
+```bash
+# Regenerate Vulkan bindings
+cd vulkan-bindings
+generate-vulkan-bindings.bat
 
-The triangle IS the right first step. Every line of "boilerplate" you're adding is reusable:
-- Swapchain → Used for everything
-- Render pass → Reused across pipelines
-- Pipeline → Template for future pipelines
-- Command buffers → Core of all rendering
-- Sync → Required for correctness
+# Regenerate GLFW bindings  
+cd glfw-bindings
+generate-glfw-bindings.bat
+```
 
-Once you have the triangle, adding more geometry is trivial. The hard part is the setup, which you've mostly completed.
+## Application Examples
 
-Want me to finish the remaining ~300 lines to get the triangle rendering?
+### Simple Triangle (50 lines)
+```java
+public class SimpleTriangleApp extends VulkanApplication {
+    private SimpleRenderer renderer;
+    
+    public SimpleTriangleApp() {
+        super("Simple Triangle", 800, 600, new GLFWWindowSystem(), new GLFWInputSystem());
+    }
+    
+    @Override
+    protected void initialize() {
+        VulkanCapabilities.initialize(vulkanContext().physicalDevice());
+        renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device(),
+                                    vulkanContext().graphicsQueue(), surface(), 800, 600);
+        renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
+    }
+    
+    @Override
+    protected void render() {
+        renderer.drawFrame();
+    }
+    
+    // ... cleanup methods
+}
+```
+
+### Complex Features
+- **Multi-threading**: Parallel command buffer recording
+- **Anti-aliasing**: Adaptive edge detection and smoothing
+- **GLTF loading**: Complete 3D model pipeline
+- **Input system**: Configurable key bindings
+- **Performance monitoring**: FPS and frame time tracking
+
+## System Requirements
+
+- **Java 25+** with FFM API
+- **Vulkan 1.0+** runtime
+- **Maven 3.6+**
+- **Windows**: Vulkan drivers (usually included with GPU drivers)
+- **Linux**: `vulkan-tools libvulkan-dev`
+- **macOS**: MoltenVK for Vulkan-on-Metal
+
+## Architecture Benefits
+
+### Separation of Concerns
+- Generated bindings isolated from application code
+- Core wrapper evolves independently of native APIs
+- Sample applications demonstrate best practices
+- Easy to update for new Vulkan versions
+
+### Developer Experience
+- **Minimal boilerplate**: VulkanApplication handles 90% of setup
+- **Type safety**: Compile-time validation of Vulkan usage
+- **Memory safety**: Automatic resource cleanup with Arena
+- **Performance**: Zero-overhead FFM, resource pooling, multi-threading
+- **Debugging**: Comprehensive logging and validation layers
+
+This architecture successfully delivers on the original goals: meaningful abstraction with minimal overhead, extensible foundation, and working triangle rendering - now expanded into a complete Vulkan application framework.

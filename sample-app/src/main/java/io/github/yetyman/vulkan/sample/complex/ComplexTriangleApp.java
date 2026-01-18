@@ -19,9 +19,6 @@ public class ComplexTriangleApp extends VulkanApplication {
     
     public ComplexTriangleApp() {
         super("Complex Triangle", 800, 600, new GLFWWindowSystem(), new GLFWInputSystem());
-        
-        // Configure logging levels - disable verbose debug output by default
-        Logger.setLevels(Logger.Level.INFO, Logger.Level.INPUT, Logger.Level.AA, Logger.Level.LOAD);
     }
     
     @Override
@@ -64,7 +61,7 @@ public class ComplexTriangleApp extends VulkanApplication {
         // Toggle adaptive AA with spacebar
         input.onKeyPress(GLFWKey.GLFW_KEY_SPACE, () -> {
             renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
-            Logger.input("AA toggled: " + (renderer.isAdaptiveAAEnabled() ? "ON" : "OFF"));
+            Logger.info("AA toggled: " + (renderer.isAdaptiveAAEnabled() ? "ON" : "OFF"));
         });
         
         // Adjust thread count with number keys
@@ -73,7 +70,7 @@ public class ComplexTriangleApp extends VulkanApplication {
             GLFWKey key = GLFWKey.fromValue(GLFWKey.GLFW_KEY_1.value() + i - 1);
             input.onKeyPress(key, () -> {
                 renderer.setThreadCount(threadCount);
-                Logger.input("Thread count set to: " + threadCount);
+                Logger.info("Thread count set to: " + threadCount);
             });
         }
         
@@ -81,23 +78,13 @@ public class ComplexTriangleApp extends VulkanApplication {
         input.onKeyPress(GLFWKey.GLFW_KEY_D, () -> {
             if (Logger.isEnabled(Logger.Level.DEBUG)) {
                 Logger.disable(Logger.Level.DEBUG);
-                Logger.input("Debug logging disabled");
+                Logger.info("Debug logging disabled");
             } else {
                 Logger.enable(Logger.Level.DEBUG);
-                Logger.input("Debug logging enabled");
+                Logger.info("Debug logging enabled");
             }
         });
-        
-        // Toggle LOD logging with L key
-        input.onKeyPress(GLFWKey.GLFW_KEY_L, () -> {
-            if (Logger.isEnabled(Logger.Level.LOD)) {
-                Logger.disable(Logger.Level.LOD, Logger.Level.RENDER, Logger.Level.DRAW, Logger.Level.MATRIX);
-                Logger.input("LOD/Render logging disabled");
-            } else {
-                Logger.enable(Logger.Level.LOD, Logger.Level.RENDER, Logger.Level.DRAW, Logger.Level.MATRIX);
-                Logger.input("LOD/Render logging enabled");
-            }
-        });
+
     }
     
     @Override
@@ -112,7 +99,6 @@ public class ComplexTriangleApp extends VulkanApplication {
         Logger.info("  SPACE - Toggle Anti-Aliasing");
         Logger.info("  1-8   - Set thread count");
         Logger.info("  D     - Toggle debug logging");
-        Logger.info("  L     - Toggle LOD/render logging");
         Logger.info("");
         
         try (ComplexTriangleApp app = new ComplexTriangleApp()) {

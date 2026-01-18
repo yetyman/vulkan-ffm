@@ -11,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * High-level Vulkan memory allocator with pooling, suballocation, and automatic defragmentation.
  * Manages device memory efficiently by grouping small allocations into larger blocks.
  * 
+ * Thread Safety: This class is thread-safe. All public methods can be called from any thread.
+ * Internal data structures use ConcurrentHashMap for safe concurrent access.
+ * 
  * Example usage:
  * <pre>{@code
  * // Create allocator
@@ -326,7 +329,3 @@ public class VkMemoryAllocator implements AutoCloseable {
     }
 }
 
-/**
- * Represents an allocated memory region.
- */
-record VkAllocation(MemorySegment memory, long offset, long size) {}

@@ -8,6 +8,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.lang.foreign.Arena;
 
+/**
+ * Input manager that processes input events on a dedicated thread.
+ * 
+ * Thread Safety: This class is thread-safe. All public methods can be called from any thread.
+ * Events are queued using ConcurrentLinkedQueue and processed on a dedicated input thread.
+ */
 public class InputManager implements AutoCloseable {
     private final ConcurrentLinkedQueue<InputEvent> inputQueue = new ConcurrentLinkedQueue<>();
     private final Thread inputThread;

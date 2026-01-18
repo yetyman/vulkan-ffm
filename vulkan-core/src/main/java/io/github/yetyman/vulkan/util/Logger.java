@@ -9,22 +9,16 @@ import java.util.Set;
 public class Logger {
     
     public enum Level {
-        DEBUG,    // Detailed debug information
+        ERROR,    // Errors (always enabled)
+        WARN,     // Warnings
         INFO,     // General information
-        WORK,     // Work queue and threading info
-        LOD,      // LOD rendering details
-        RENDER,   // Rendering operations
-        MATRIX,   // Matrix calculations
-        DRAW,     // Draw calls
-        INPUT,    // Input events
-        AA,       // Anti-aliasing
-        LOAD,     // Model loading
-        ERROR     // Errors (always enabled)
+        DEBUG     // Detailed debug information
     }
     
     private static final Set<Level> enabledLevels = EnumSet.of(
-        Level.INFO,   // Keep general info
-        Level.ERROR   // Always show errors
+        Level.ERROR,
+        Level.WARN,
+        Level.INFO
     );
     
     public static void enable(Level... levels) {
@@ -59,15 +53,8 @@ public class Logger {
         }
     }
     
-    public static void debug(String message) { log(Level.DEBUG, message); }
-    public static void info(String message) { log(Level.INFO, message); }
-    public static void work(String message) { log(Level.WORK, message); }
-    public static void lod(String message) { log(Level.LOD, message); }
-    public static void render(String message) { log(Level.RENDER, message); }
-    public static void matrix(String message) { log(Level.MATRIX, message); }
-    public static void draw(String message) { log(Level.DRAW, message); }
-    public static void input(String message) { log(Level.INPUT, message); }
-    public static void aa(String message) { log(Level.AA, message); }
-    public static void load(String message) { log(Level.LOAD, message); }
     public static void error(String message) { log(Level.ERROR, message); }
+    public static void warn(String message) { log(Level.WARN, message); }
+    public static void info(String message) { log(Level.INFO, message); }
+    public static void debug(String message) { log(Level.DEBUG, message); }
 }

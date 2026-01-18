@@ -11,7 +11,7 @@ jextract ^
   --include-dir %GLFW_INCLUDE% ^
   --library glfw3 ^
   --header-class-name GLFWFFM ^
-  %~dp0glfw3_wrapper.h
+  glfw3_wrapper.h
 
 if %ERRORLEVEL% GEQ 5 (
     echo GLFW bindings generation failed with error %ERRORLEVEL%

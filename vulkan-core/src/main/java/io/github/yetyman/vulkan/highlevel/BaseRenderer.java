@@ -7,6 +7,16 @@ import java.lang.foreign.*;
 /**
  * Base renderer providing common Vulkan rendering pipeline functionality.
  * Handles swapchain, render pass, command buffers, and synchronization.
+ * 
+ * Thread Safety: This class is NOT thread-safe. All methods must be called from the same thread.
+ * Subclasses should document their own thread safety guarantees.
+ * 
+ * Resource Lifecycle:
+ * 1. Construction - stores references, no Vulkan resources allocated
+ * 2. init() - creates all Vulkan resources (swapchain, render pass, sync objects)
+ * 3. drawFrame() - renders frames, uses frame-local Arena for temporary allocations
+ * 4. resize() - recreates swapchain and framebuffers
+ * 5. close() - destroys all Vulkan resources in reverse order
  */
 public abstract class BaseRenderer implements AutoCloseable {
     
@@ -165,7 +175,7 @@ public abstract class BaseRenderer implements AutoCloseable {
         width = newWidth;
         height = newHeight;
         
-        // Recreate resources
+        // Recreate resources (physicalDevice not needed for recreation)
         createSwapchain(null);
         createImageViews();
         

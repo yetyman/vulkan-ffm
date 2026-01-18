@@ -11,7 +11,10 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
 /**
- * Async glTF model loader with promise-based API
+ * Async glTF model loader with promise-based API.
+ * 
+ * Thread Safety: This class is thread-safe. loadModel() can be called from any thread.
+ * All loading operations are queued and executed on a dedicated background thread.
  */
 public class GLTFLoader {
     private final ExecutorService loadingThread = Executors.newSingleThreadExecutor(r -> {
@@ -32,15 +35,15 @@ public class GLTFLoader {
      * @return CompletableFuture that resolves to ModelData when loaded
      */
     public CompletableFuture<ModelData> loadModel(String filePath) {
-        Logger.load("Queuing load for: " + filePath);
+        Logger.debug("Queuing load for: " + filePath);
         CompletableFuture<ModelData> promise = new CompletableFuture<>();
         
         // Queue loading on background thread
         loadingThread.submit(() -> {
             try {
-                Logger.load("Starting load: " + filePath);
+                Logger.debug("Starting load: " + filePath);
                 ModelData modelData = loadModelSync(filePath);
-                Logger.load("Load complete: " + filePath);
+                Logger.debug("Load complete: " + filePath);
                 promise.complete(modelData);
             } catch (Exception e) {
                 Logger.error("Load failed: " + filePath + " - " + e.getMessage());
@@ -56,26 +59,26 @@ public class GLTFLoader {
         // Create ModelData with unique ID
         int modelId = nextModelId.getAndIncrement();
         ModelData modelData = new ModelData(modelId);
-        Logger.load("Created ModelData with ID: " + modelId);
+        Logger.debug("Created ModelData with ID: " + modelId);
         
         // Parse glTF file
-        Logger.load("Parsing glTF file: " + filePath);
+        Logger.debug("Parsing glTF file: " + filePath);
         GLTFData gltfData = parseGLTF(filePath);
-        Logger.load("Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
+        Logger.debug("Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
         
         // Convert to LOD model using background thread arena
-        Logger.load("Generating LOD levels...");
+        Logger.debug("Generating LOD levels...");
         try (Arena backgroundArena = Arena.ofConfined()) {
             LODConverter lodConverter = new LODConverter(backgroundArena);
             LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
-            Logger.load("Generated " + lodModel.getLODCount() + " LOD levels");
+            Logger.debug("Generated " + lodModel.getLODCount() + " LOD levels");
             
             // Create initial transform
             TransformationMatrix transform = new TransformationMatrix();
             
             // Load into ModelData with geometry data
             modelData.loadModel(lodModel, transform, gltfData.vertices, gltfData.indices);
-            Logger.load("ModelData loaded and ready");
+            Logger.debug("ModelData loaded and ready");
         }
         
         return modelData;
@@ -95,7 +98,7 @@ public class GLTFLoader {
         
         // Extract first mesh data (robust parsing)
         SceneModel scene = gltfModel.getSceneModels().get(0);
-        Logger.load("Scene has " + scene.getNodeModels().size() + " nodes");
+        Logger.debug("Scene has " + scene.getNodeModels().size() + " nodes");
         
         // Find first node with a mesh
         MeshModel meshModel = null;
@@ -118,14 +121,14 @@ public class GLTFLoader {
             throw new RuntimeException("No mesh found in glTF file");
         }
         
-        Logger.load("Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
+        Logger.debug("Found mesh with " + meshModel.getMeshPrimitiveModels().size() + " primitives");
         MeshPrimitiveModel primitive = meshModel.getMeshPrimitiveModels().get(0);
         
         // Debug: Check what attributes are available
-        Logger.load("Available attributes: " + primitive.getAttributes().keySet());
+        Logger.debug("Available attributes: " + primitive.getAttributes().keySet());
         boolean hasNormals = primitive.getAttributes().containsKey("NORMAL");
         boolean hasTexCoords = primitive.getAttributes().containsKey("TEXCOORD_0");
-        Logger.load("Has normals: " + hasNormals + ", has texcoords: " + hasTexCoords);
+        Logger.debug("Has normals: " + hasNormals + ", has texcoords: " + hasTexCoords);
         
         // TODO: Refactor to separate vertex attribute arrays (SoA) instead of interleaved (AoS) for better cache efficiency and flexibility
         // Get vertex data (position + normal + texcoord)
@@ -194,7 +197,7 @@ public class GLTFLoader {
             minZ = Math.min(minZ, vertices[i+2]);
             maxZ = Math.max(maxZ, vertices[i+2]);
         }
-        Logger.load("Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
+        Logger.debug("Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
         
         // Get indices
         AccessorModel indicesAccessor = primitive.getIndices();

@@ -308,7 +308,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // Process main thread work during spare time
         int workProcessed = mainThreadWork.processWork(frameStart);
         if (workProcessed > 0) {
-            Logger.work("Processed " + workProcessed + " main thread tasks");
+            Logger.debug("Processed " + workProcessed + " main thread tasks");
         }
         
         // Use BaseRenderer's drawFrame implementation
@@ -421,7 +421,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
     public void setAdaptiveAAEnabled(boolean enabled) {
         this.adaptiveAAEnabled = enabled;
-        Logger.aa("Adaptive AA " + (enabled ? "enabled" : "disabled"));
+        Logger.info("Adaptive AA " + (enabled ? "enabled" : "disabled"));
         // Note: Requires renderer recreation to take effect
     }
     
@@ -481,7 +481,7 @@ public class ThreadedRenderer extends BaseRenderer {
      * Load sample models at adjacent positions for testing
      */
     public void loadSampleModels() {
-        Logger.load("Starting to load sample models...");
+        Logger.info("Starting to load sample models...");
         
         // Load only Box for debugging
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
@@ -490,7 +490,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(-5.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                Logger.load("Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.info("Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Box: " + throwable.getMessage());
@@ -503,7 +503,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(1.0f, 1.0f, 1.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                Logger.load("Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.info("Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Duck: " + throwable.getMessage());
@@ -516,7 +516,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 transform.setPosition(5.0f, 0.0f, -2.0f); // Move closer to camera
                 transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
                 int instanceId = addLODInstance(modelData);
-                Logger.load("Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.info("Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Suzanne: " + throwable.getMessage());

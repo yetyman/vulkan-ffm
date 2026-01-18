@@ -40,12 +40,12 @@ public enum VkResult {
     }
     
     /**
-     * Throws a RuntimeException if this result indicates an error (value < 0).
-     * @throws RuntimeException if the result is an error
+     * Throws a VulkanException if this result indicates an error (value < 0).
+     * @throws VulkanException if the result is an error
      */
     public void check() {
         if (value < 0) {
-            throw new RuntimeException("Vulkan error: " + this);
+            throw new VulkanException("Vulkan error: " + this);
         }
     }
 }
