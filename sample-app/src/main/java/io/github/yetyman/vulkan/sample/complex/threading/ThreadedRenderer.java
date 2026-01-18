@@ -1,9 +1,12 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.generated.VkDescriptorBufferInfo;
 import io.github.yetyman.vulkan.generated.VkFormatProperties;
+import io.github.yetyman.vulkan.generated.VkWriteDescriptorSet;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.sample.complex.culling.Camera;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
 import io.github.yetyman.vulkan.util.Logger;
@@ -28,6 +31,12 @@ public class ThreadedRenderer extends BaseRenderer {
     private VulkanRenderTarget depthTarget;
     private VulkanShaderManager shaderManager;
     
+    // Camera uniform buffer
+    private VkBuffer cameraUniformBuffer;
+    private MemorySegment descriptorSetLayout;
+    private MemorySegment descriptorPool;
+    private MemorySegment descriptorSet;
+    
     // Threading
     private ThreadManager threadManager;
     private Mode mode = Mode.ADAPTIVE;
@@ -49,7 +58,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
     // LOD rendering
     private LODRenderer lodRenderer;
-    private float[] cameraPosition = {0.0f, 0.0f, 5.0f};
+    private Camera camera;
     private MainThreadWorkQueue mainThreadWork;
     
     public ThreadedRenderer(Arena arena, VkDevice device, MemorySegment queue, 
@@ -68,9 +77,15 @@ public class ThreadedRenderer extends BaseRenderer {
     protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
         this.physicalDevice = physicalDevice;
         
+        // Initialize camera
+        camera = new Camera();
+        camera.setPosition(0.0f, 0.0f, 10.0f);
+        camera.setTarget(0.0f, 0.0f, 0.0f);
+        camera.setAspectRatio((float)width / (float)height);
+        
         // Initialize LOD renderer now that we have physicalDevice
         lodRenderer = new LODRenderer(arena, device, physicalDevice, queue, 10000, 1000);
-        mainThreadWork = new MainThreadWorkQueue(60.0); // Target 60 FPS
+        mainThreadWork = new MainThreadWorkQueue(60.0);
         lodRenderer.setMainThreadWorkQueue(mainThreadWork);
         
         createManagers(queueFamilyIndex);
@@ -195,14 +210,41 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing glTF geometry pass");
                     
+                    // Update camera uniform buffer
+                    float[] vpMatrix = camera.getViewProjectionMatrix();
+                    try (Arena mapArena = Arena.ofConfined()) {
+                        MemorySegment mapped = cameraUniformBuffer.map(mapArena);
+                        for (int i = 0; i < 16; i++) {
+                            mapped.setAtIndex(ValueLayout.JAVA_FLOAT, i, vpMatrix[i]);
+                        }
+                        cameraUniformBuffer.unmap();
+                    }
+                    
                     Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
+                    
+                    // Bind descriptor set with camera uniform
+                    try (Arena bindArena = Arena.ofConfined()) {
+                        MemorySegment descriptorSets = bindArena.allocate(ValueLayout.ADDRESS);
+                        descriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
+                        Vulkan.cmdBindDescriptorSets(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
+                            gltfPipeline.layout(), 0, 1, descriptorSets, 0, MemorySegment.NULL);
+                    }
+                    
                     Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
                     Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
                     
                     // Render LOD models if any exist
                     int instanceCount = lodRenderer.getInstanceCount();
                     if (instanceCount > 0) {
-                        lodRenderer.renderModels(cmd, cameraPosition, frameArena, gltfPipeline.handle());
+                        lodRenderer.updateFrustum(camera.getViewProjectionMatrix());
+                        lodRenderer.setFrustumCullingEnabled(true);
+                        
+                        // Debug: Log camera and frustum info
+                        float[] camPos = camera.getPosition();
+                        Logger.debug("Camera at (" + camPos[0] + "," + camPos[1] + "," + camPos[2] + ")");
+                        Logger.debug("VP Matrix[0-3]: " + vpMatrix[0] + "," + vpMatrix[1] + "," + vpMatrix[2] + "," + vpMatrix[3]);
+                        
+                        lodRenderer.renderModels(cmd, camera.getPosition(), frameArena, gltfPipeline.handle());
                     }
                 })
             
@@ -229,6 +271,56 @@ public class ThreadedRenderer extends BaseRenderer {
             .fragment("/shaders/gltf.frag")
             .build();
         
+        // Create camera uniform buffer
+        cameraUniformBuffer = VkBuffer.builder()
+            .device(device)
+            .physicalDevice(physicalDevice)
+            .size(64) // mat4 = 16 floats * 4 bytes
+            .uniformBuffer()
+            .hostVisible()
+            .build(arena);
+        
+        // Create descriptor set layout
+        VkDescriptorSetLayout layout = VkDescriptorSetLayout.builder()
+            .device(device)
+            .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value())
+            .build(arena);
+        descriptorSetLayout = layout.handle();
+        
+        // Create descriptor pool
+        VkDescriptorPool pool = VkDescriptorPool.builder()
+            .device(device)
+            .maxSets(1)
+            .uniformBuffers(1)
+            .build(arena);
+        descriptorPool = pool.handle();
+        
+        // Allocate descriptor set
+        VkDescriptorSet set = pool.allocateDescriptorSet(layout);
+        descriptorSet = set.handle();
+        
+        // Update descriptor set to point to uniform buffer
+        try (Arena tempArena = Arena.ofConfined()) {
+            MemorySegment bufferInfo = VkDescriptorBufferInfo.allocate(tempArena);
+            VkDescriptorBufferInfo.buffer(bufferInfo, cameraUniformBuffer.handle());
+            VkDescriptorBufferInfo.offset(bufferInfo, 0);
+            VkDescriptorBufferInfo.range(bufferInfo, 64);
+            
+            MemorySegment writeDescriptorSet = VkWriteDescriptorSet.allocate(tempArena);
+            VkWriteDescriptorSet.sType(writeDescriptorSet, VkStructureType.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET.value());
+            VkWriteDescriptorSet.pNext(writeDescriptorSet, MemorySegment.NULL);
+            VkWriteDescriptorSet.dstSet(writeDescriptorSet, descriptorSet);
+            VkWriteDescriptorSet.dstBinding(writeDescriptorSet, 0);
+            VkWriteDescriptorSet.dstArrayElement(writeDescriptorSet, 0);
+            VkWriteDescriptorSet.descriptorCount(writeDescriptorSet, 1);
+            VkWriteDescriptorSet.descriptorType(writeDescriptorSet, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value());
+            VkWriteDescriptorSet.pBufferInfo(writeDescriptorSet, bufferInfo);
+            VkWriteDescriptorSet.pImageInfo(writeDescriptorSet, MemorySegment.NULL);
+            VkWriteDescriptorSet.pTexelBufferView(writeDescriptorSet, MemorySegment.NULL);
+            
+            Vulkan.updateDescriptorSets(device.handle(), 1, writeDescriptorSet, 0, MemorySegment.NULL);
+        }
+        
         // Use appropriate render pass based on AA setting
         MemorySegment targetRenderPass = adaptiveAAEnabled ? 
             adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
@@ -248,7 +340,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
         
-        // glTF pipeline with vertex input descriptions
+        // glTF pipeline with vertex input descriptions and descriptor set layout
         gltfPipeline = VkPipeline.builder()
             .device(device)
             .renderPass(targetRenderPass)
@@ -261,6 +353,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
+            .descriptorSetLayouts(descriptorSetLayout)
             .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value()) // 3*4 + 3*4 + 2*4 = 32 bytes
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)  // position
@@ -274,7 +367,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 .build()
             .build(arena);
         
-        Logger.info("Graphics pipelines created (triangle + glTF)");
+        Logger.info("Graphics pipelines created (triangle + glTF with camera UBO)");
     }
     
     @Override
@@ -455,13 +548,19 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     public void setCameraPosition(float x, float y, float z) {
-        cameraPosition[0] = x;
-        cameraPosition[1] = y;
-        cameraPosition[2] = z;
+        camera.setPosition(x, y, z);
+    }
+    
+    public void setCameraTarget(float x, float y, float z) {
+        camera.setTarget(x, y, z);
     }
     
     public int getActiveTriangleCount() {
-        return lodRenderer.getActiveTriangleCount(cameraPosition);
+        return lodRenderer.getActiveTriangleCount(camera.getPosition());
+    }
+    
+    public int getCulledInstanceCount() {
+        return lodRenderer.getCulledCount();
     }
     
     /**
@@ -487,8 +586,8 @@ public class ThreadedRenderer extends BaseRenderer {
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(-5.0f, 0.0f, -2.0f); // Move closer to camera
-                transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
+                transform.setPosition(-5.0f, 0.0f, 0.0f);
+                transform.setScale(2.0f, 2.0f, 2.0f);
                 int instanceId = addLODInstance(modelData);
                 Logger.info("Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
@@ -500,8 +599,8 @@ public class ThreadedRenderer extends BaseRenderer {
         loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(0.0f, 0.0f, -2.0f); // Move closer to camera
-                transform.setScale(1.0f, 1.0f, 1.0f); // Make it bigger
+                transform.setPosition(0.0f, 0.0f, 0.0f);
+                transform.setScale(1.0f, 1.0f, 1.0f);
                 int instanceId = addLODInstance(modelData);
                 Logger.info("Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
@@ -513,8 +612,8 @@ public class ThreadedRenderer extends BaseRenderer {
         loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
             .thenAcceptAsync(modelData -> {
                 TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(5.0f, 0.0f, -2.0f); // Move closer to camera
-                transform.setScale(2.0f, 2.0f, 2.0f); // Make it bigger
+                transform.setPosition(5.0f, 0.0f, 0.0f);
+                transform.setScale(2.0f, 2.0f, 2.0f);
                 int instanceId = addLODInstance(modelData);
                 Logger.info("Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
             })
@@ -530,6 +629,9 @@ public class ThreadedRenderer extends BaseRenderer {
         // Update dimensions first
         this.width = width;
         this.height = height;
+        
+        // Update camera aspect ratio
+        camera.setAspectRatio((float)width / (float)height);
         
         // Clean up depth target
         if (depthTarget != null) {
@@ -573,6 +675,15 @@ public class ThreadedRenderer extends BaseRenderer {
         // Clean up main resources
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
+        
+        // Clean up descriptor resources
+        if (descriptorPool != null && !descriptorPool.equals(MemorySegment.NULL)) {
+            Vulkan.destroyDescriptorPool(device.handle(), descriptorPool);
+        }
+        if (descriptorSetLayout != null && !descriptorSetLayout.equals(MemorySegment.NULL)) {
+            Vulkan.destroyDescriptorSetLayout(device.handle(), descriptorSetLayout);
+        }
+        if (cameraUniformBuffer != null) cameraUniformBuffer.close();
         
         if (directRenderPass != null) {
             directRenderPass.close();

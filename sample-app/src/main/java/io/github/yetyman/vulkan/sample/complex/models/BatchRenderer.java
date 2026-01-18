@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
+import io.github.yetyman.vulkan.sample.complex.culling.FrustumCuller;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
@@ -11,7 +12,7 @@ import java.lang.foreign.ValueLayout;
 import java.util.*;
 
 /**
- * Handles batch rendering with LOD selection - independent of model management
+ * Handles batch rendering with LOD selection and frustum culling
  */
 public class BatchRenderer {
     private final List<StaticBatch> staticBatches = new ArrayList<>();
@@ -20,6 +21,9 @@ public class BatchRenderer {
     private VkCommandPool commandPool;
     private VkRenderPass renderPass;
     private MainThreadWorkQueue mainThreadWorkQueue;
+    private final FrustumCuller frustumCuller = new FrustumCuller();
+    private boolean frustumCullingEnabled = true;
+    private int culledCount = 0;
     
     public BatchRenderer(VkDevice device, int maxInstances) {
         this.device = device;
@@ -33,6 +37,14 @@ public class BatchRenderer {
     
     public void setMainThreadWorkQueue(MainThreadWorkQueue workQueue) {
         this.mainThreadWorkQueue = workQueue;
+    }
+    
+    public void setFrustumCullingEnabled(boolean enabled) {
+        this.frustumCullingEnabled = enabled;
+    }
+    
+    public void updateFrustum(float[] viewProjMatrix) {
+        frustumCuller.updateFromMatrix(viewProjMatrix);
     }
     
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, 
@@ -112,10 +124,28 @@ public class BatchRenderer {
     }
     
     private void batchValidateAndUpload(float[] cameraPosition, InstanceData instanceData, ModelData[] modelDataArray) {
+        culledCount = 0;
         for (int i = 0; i < instanceData.getCount(); i++) {
             if (instanceData.isActive(i)) {
                 ModelData modelData = instanceData.getModelData(i, modelDataArray);
-                boolean enabled = modelData != null && modelData.isGPUResident();
+                boolean gpuResident = modelData != null && modelData.isGPUResident();
+                boolean visible = true;
+                
+                if (gpuResident && frustumCullingEnabled && modelData.isLoaded()) {
+                    float[] pos = modelData.getTransform().getPosition();
+                    float[] scale = modelData.getTransform().getScale();
+                    float maxScale = Math.max(Math.max(scale[0], scale[1]), scale[2]);
+                    float radius = modelData.getBoundingRadius() * maxScale;
+                    visible = frustumCuller.testSphere(pos[0], pos[1], pos[2], radius);
+                    if (!visible) {
+                        culledCount++;
+                        Logger.debug("Culled instance " + i + " at (" + pos[0] + "," + pos[1] + "," + pos[2] + ") radius=" + radius);
+                    } else {
+                        Logger.debug("Visible instance " + i + " at (" + pos[0] + "," + pos[1] + "," + pos[2] + ") radius=" + radius);
+                    }
+                }
+                
+                boolean enabled = gpuResident && visible;
                 batchState.markInstanceEnabled(i, enabled);
                 if (enabled) {
                     batchState.markMatrixDirty(i);
@@ -237,5 +267,9 @@ public class BatchRenderer {
     
     public void cleanup() {
         Logger.info("BatchRenderer cleanup complete");
+    }
+    
+    public int getCulledCount() {
+        return culledCount;
     }
 }

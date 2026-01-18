@@ -89,9 +89,10 @@ public class ComplexTriangleApp extends VulkanApplication {
     
     @Override
     protected void onFPSUpdate(int fps) {
-        Logger.info(String.format("FPS: %d | Threads: %d | Avg Frame Time: %.2fms | AA: %s", 
+        int culled = renderer.getCulledInstanceCount();
+        Logger.info(String.format("FPS: %d | Threads: %d | Avg Frame Time: %.2fms | AA: %s | Culled: %d", 
             fps, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
-            renderer.isAdaptiveAAEnabled() ? "ON" : "OFF"));
+            renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", culled));
     }
     
     public static void main(String[] args) {

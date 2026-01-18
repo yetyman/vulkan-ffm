@@ -6,7 +6,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
 /**
- * Wrapper for 4x4 transformation matrix with independent position/scale/rotation fields
+ * Wrapper for 4x4 transformation matrix (column-major, Vulkan standard)
  */
 public class TransformationMatrix {
     private final float[] position = new float[3];
@@ -74,17 +74,17 @@ public class TransformationMatrix {
         float cos = (float)Math.cos(rotation);
         float sin = (float)Math.sin(rotation);
         
-        // Scale + Rotation
-        matrix[0] = scale[0] * cos;   // [0,0]
-        matrix[1] = scale[0] * sin;   // [0,1]
-        matrix[4] = scale[1] * -sin;  // [1,0]
-        matrix[5] = scale[1] * cos;   // [1,1]
-        matrix[10] = scale[2];        // [2,2]
-        matrix[15] = 1.0f;            // [3,3]
+        // Column-major layout: Scale + Rotation
+        matrix[0] = scale[0] * cos;   // col0, row0
+        matrix[1] = scale[0] * sin;   // col0, row1
+        matrix[4] = scale[1] * -sin;  // col1, row0
+        matrix[5] = scale[1] * cos;   // col1, row1
+        matrix[10] = scale[2];        // col2, row2
+        matrix[15] = 1.0f;            // col3, row3
         
-        // Translation
-        matrix[12] = position[0];     // [3,0]
-        matrix[13] = position[1];     // [3,1]
-        matrix[14] = position[2];     // [3,2]
+        // Translation (column 3)
+        matrix[12] = position[0];     // col3, row0
+        matrix[13] = position[1];     // col3, row1
+        matrix[14] = position[2];     // col3, row2
     }
 }

@@ -70,6 +70,18 @@ public class LODRenderer {
         cameraPosition[2] = z;
     }
     
+    public void updateFrustum(float[] viewProjMatrix) {
+        batchRenderer.updateFrustum(viewProjMatrix);
+    }
+    
+    public void setFrustumCullingEnabled(boolean enabled) {
+        batchRenderer.setFrustumCullingEnabled(enabled);
+    }
+    
+    public int getCulledCount() {
+        return batchRenderer.getCulledCount();
+    }
+    
     public int getActiveTriangleCount(float[] cameraPosition) {
         return batchRenderer.getActiveTriangleCount(cameraPosition, modelRegistry.getInstanceData(), 
                                                    modelRegistry.getModelDataArray());
@@ -77,6 +89,14 @@ public class LODRenderer {
     
     public CompletableFuture<ModelData> loadGLTFModel(String filePath) {
         return modelRegistry.loadGLTFModel(filePath);
+    }
+    
+    public void addStaticBatch(LODLevel lodLevel, MemorySegment preRecordedCommandBuffer, int[] instanceIds) {
+        batchRenderer.addStaticBatch(lodLevel, preRecordedCommandBuffer, instanceIds);
+    }
+    
+    public void clearStaticBatches() {
+        batchRenderer.clearStaticBatches();
     }
     
     public void renderTestTriangle(MemorySegment commandBuffer, Arena frameArena) {
