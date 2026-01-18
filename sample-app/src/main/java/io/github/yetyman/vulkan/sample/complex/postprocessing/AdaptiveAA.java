@@ -10,11 +10,15 @@ import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
 public class AdaptiveAA {
+    public enum Mode { NONE, MSAA, POST_PROCESS }
+    
     private final Arena arena;
     private final VkDevice device;
     private final VkPhysicalDevice physicalDevice;
     private final VkMemoryAllocator allocator;
     private final int width, height;
+    private final Mode mode;
+    private final int samples;
     
     // Render targets using VkTexture
     private VkTexture colorTarget;
@@ -40,7 +44,7 @@ public class AdaptiveAA {
     
     private int frameIndex = 0;
     
-    public AdaptiveAA(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, int width, int height) {
+    private AdaptiveAA(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, int width, int height, Mode mode, int samples) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
@@ -50,6 +54,8 @@ public class AdaptiveAA {
             .build(arena);
         this.width = width;
         this.height = height;
+        this.mode = mode;
+        this.samples = samples;
         
         createRenderTargets();
         createRenderPasses();
@@ -59,18 +65,21 @@ public class AdaptiveAA {
     }
     
     private void createRenderTargets() {
-        // Color target (RGBA8)
+        boolean useMSAA = (mode == Mode.MSAA);
+        
+        // Color target
         colorTarget = VkTexture.builder()
             .device(device)
             .allocator(allocator)
             .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value())
+            .format(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value())
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
-            .nearest()
+            .samples(useMSAA ? samples : 1)
+            .linear()
             .clampToEdge()
             .build(arena);
         
-        // Depth target - use supported format with sampling for AA
+        // Depth target
         int depthFormat = findSupportedDepthFormat();
         depthTarget = VkTexture.builder()
             .device(device)
@@ -78,54 +87,105 @@ public class AdaptiveAA {
             .size(width, height)
             .format(depthFormat)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
+            .samples(useMSAA ? samples : 1)
             .nearest()
             .clampToEdge()
             .build(arena);
         
-        // Edge detection target (R8)
+        // Resolved/edge target
         edgeTarget = VkTexture.builder()
             .device(device)
             .allocator(allocator)
             .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8_UNORM.value())
+            .format(useMSAA ? VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value() : VkFormat.VK_FORMAT_R8_UNORM.value())
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
-            .nearest()
+            .linear()
             .clampToEdge()
             .build(arena);
         
-        // Previous frame for TAA
-        previousFrame = VkTexture.builder()
-            .device(device)
-            .allocator(allocator)
-            .size(width, height)
-            .format(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value())
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
-            .nearest()
-            .clampToEdge()
-            .build(arena);
+        // Previous frame for post-process AA
+        if (!useMSAA) {
+            previousFrame = VkTexture.builder()
+                .device(device)
+                .allocator(allocator)
+                .size(width, height)
+                .format(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value())
+                .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value() | VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value())
+                .linear()
+                .clampToEdge()
+                .build(arena);
+        }
     }
     
     private void createRenderPasses() {
+        boolean useMSAA = (mode == Mode.MSAA);
         int depthFormat = findSupportedDepthFormat();
+        int sampleCount = samples == 2 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_2_BIT.value() :
+                          samples == 4 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_4_BIT.value() :
+                          samples == 8 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_8_BIT.value() :
+                          samples == 16 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_16_BIT.value() :
+                          samples == 32 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_32_BIT.value() :
+                          samples == 64 ? VkSampleCountFlagBits.VK_SAMPLE_COUNT_64_BIT.value() :
+                          VkSampleCountFlagBits.VK_SAMPLE_COUNT_4_BIT.value();
         
-        // Scene render pass (color + depth) - transition color to shader read optimal for sampling
-        sceneRenderPass = VkRenderPass.builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
-            .build(arena);
+        if (useMSAA) {
+            // MSAA render pass with resolve
+            sceneRenderPass = VkRenderPass.builder()
+                .device(device)
+                .attachment(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(), sampleCount,
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(), 0)
+            .attachment(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(), VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0)
+            .attachment(depthFormat, sampleCount,
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), 0)
+                .beginSubpass()
+                    .colorAttachment(0)
+                    .resolveAttachment(1)
+                    .depthStencilAttachment(2)
+                .endSubpass()
+                .build(arena);
+        } else {
+            // Post-process AA render pass (single sample) - transition to shader read layout
+            sceneRenderPass = VkRenderPass.builder()
+                .device(device)
+                .attachment(VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(), VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), 0)
+                .attachment(depthFormat, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), 0)
+                .beginSubpass()
+                    .colorAttachment(0)
+                    .depthStencilAttachment(1)
+                .endSubpass()
+                .build(arena);
+            
+            // Edge detection render pass - output to shader read layout
+            edgeRenderPass = VkRenderPass.builder()
+                .device(device)
+                .attachment(VkFormat.VK_FORMAT_R8_UNORM.value(), VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), 0)
+                .beginSubpass()
+                    .colorAttachment(0)
+                .endSubpass()
+                .build(arena);
+        }
         
-        // Edge detection render pass - transition to shader read optimal
-        edgeRenderPass = VkRenderPass.builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_R8_UNORM.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .build(arena);
-        
-        // Final AA render pass (to swapchain) - must match swapchain framebuffer structure
+        // Final pass to swapchain - must match swapchain framebuffer (color + depth)
         aaRenderPass = VkRenderPass.builder()
             .device(device)
             .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
+            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
             .subpassDependency(~0, 0, 
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(), 
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
@@ -134,138 +194,210 @@ public class AdaptiveAA {
     }
     
     private void createPipelines() {
-        // Create descriptor set layout for texture sampling
+        boolean useMSAA = (mode == Mode.MSAA);
+        
+        // Create descriptor set layout
         descriptorSetLayout = createDescriptorSetLayout();
         
         try {
-            // Edge detection pipeline
-            byte[] edgeVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
-            byte[] edgeFragCode = ShaderLoader.compileShader("/shaders/edge_detect.frag");
-            
-            edgePipeline = VkPipeline.builder()
-                .device(device)
-                .renderPass(edgeRenderPass.handle())
-                .viewport(0, 0, width, height)
-                .vertexShader(edgeVertCode)
-                .fragmentShader(edgeFragCode)
-                .triangleTopology()
-                .descriptorSetLayouts(descriptorSetLayout.handle())
-                .build(arena);
-            
-            // Adaptive AA pipeline
-            byte[] aaVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
-            byte[] aaFragCode = ShaderLoader.compileShader("/shaders/adaptive_aa.frag");
-            
-            aaPipeline = VkPipeline.builder()
-                .device(device)
-                .renderPass(aaRenderPass.handle())
-                .viewport(0, 0, width, height)
-                .vertexShader(aaVertCode)
-                .fragmentShader(aaFragCode)
-                .triangleTopology()
-                .descriptorSetLayouts(descriptorSetLayout.handle())
-                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8)
-                .depthTest(true)
-                .depthWrite(false)
-                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_ALWAYS.value())
-                .build(arena);
+            if (useMSAA) {
+                // Simple blit pipeline for MSAA final output
+                byte[] vertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
+                byte[] fragCode = ShaderLoader.compileShader("/shaders/blit.frag");
+                
+                aaPipeline = VkPipeline.builder()
+                    .device(device)
+                    .renderPass(aaRenderPass.handle())
+                    .viewport(0, 0, width, height)
+                    .vertexShader(vertCode)
+                    .fragmentShader(fragCode)
+                    .triangleTopology()
+                    .descriptorSetLayouts(descriptorSetLayout.handle())
+                    .depthTest(true)
+                    .depthWrite(false)
+                    .depthCompareOp(VkCompareOp.VK_COMPARE_OP_ALWAYS.value())
+                    .build(arena);
+            } else {
+                // Post-process AA pipelines
+                byte[] edgeVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
+                byte[] edgeFragCode = ShaderLoader.compileShader("/shaders/edge_detect.frag");
+                
+                edgePipeline = VkPipeline.builder()
+                    .device(device)
+                    .renderPass(edgeRenderPass.handle())
+                    .viewport(0, 0, width, height)
+                    .vertexShader(edgeVertCode)
+                    .fragmentShader(edgeFragCode)
+                    .triangleTopology()
+                    .descriptorSetLayouts(descriptorSetLayout.handle())
+                    .build(arena);
+                
+                byte[] aaVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
+                byte[] aaFragCode = ShaderLoader.compileShader("/shaders/adaptive_aa.frag");
+                
+                aaPipeline = VkPipeline.builder()
+                    .device(device)
+                    .renderPass(aaRenderPass.handle())
+                    .viewport(0, 0, width, height)
+                    .vertexShader(aaVertCode)
+                    .fragmentShader(aaFragCode)
+                    .triangleTopology()
+                    .descriptorSetLayouts(descriptorSetLayout.handle())
+                    .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8)
+                    .depthTest(true)
+                    .depthWrite(false)
+                    .depthCompareOp(VkCompareOp.VK_COMPARE_OP_ALWAYS.value())
+                    .build(arena);
+            }
         } catch (Exception e) {
-            System.err.println("[ERROR] Failed to create AA pipelines: " + e.getMessage());
+            System.err.println("[ERROR] Failed to create AA pipeline: " + e.getMessage());
             throw new RuntimeException("AdaptiveAA pipeline creation failed", e);
         }
     }
     
 
     private VkDescriptorSetLayout createDescriptorSetLayout() {
-        return VkDescriptorSetLayout.builder()
-            .device(device)
-            .combinedImageSampler(0, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
-            .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
-            .combinedImageSampler(2, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
-            .combinedImageSampler(3, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
-            .build(arena);
+        boolean useMSAA = (mode == Mode.MSAA);
+        
+        if (useMSAA) {
+            // MSAA mode - only need 1 sampler for blit
+            return VkDescriptorSetLayout.builder()
+                .device(device)
+                .combinedImageSampler(0, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+                .build(arena);
+        } else {
+            // Post-process mode - need 4 samplers
+            return VkDescriptorSetLayout.builder()
+                .device(device)
+                .combinedImageSampler(0, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+                .combinedImageSampler(1, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+                .combinedImageSampler(2, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+                .combinedImageSampler(3, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value())
+                .build(arena);
+        }
     }
     
     private void createDescriptorSets() {
+        boolean useMSAA = (mode == Mode.MSAA);
+        
         descriptorPool = VkDescriptorPool.builder()
             .device(device)
             .maxSets(1)
-            .combinedImageSamplers(4)
+            .combinedImageSamplers(useMSAA ? 1 : 4)
             .build(arena);
         
         descriptorSet = descriptorPool.allocateDescriptorSet(descriptorSetLayout);
         
-        // Update descriptor set with 4 textures
-        VkTexture[] textures = {colorTarget, depthTarget, previousFrame, edgeTarget};
-        for (int i = 0; i < 4; i++) {
-            descriptorSet.updateImageSampler(i, textures[i].sampler(), textures[i].imageView(), 
+        if (useMSAA) {
+            // MSAA mode - only need resolved color target
+            descriptorSet.updateImageSampler(0, edgeTarget.sampler(), edgeTarget.imageView(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+        } else {
+            // Post-process mode - need all 4 textures
+            descriptorSet.updateImageSampler(0, colorTarget.sampler(), colorTarget.imageView(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+            descriptorSet.updateImageSampler(1, depthTarget.sampler(), depthTarget.imageView(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+            descriptorSet.updateImageSampler(2, previousFrame.sampler(), previousFrame.imageView(), 
+                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+            descriptorSet.updateImageSampler(3, edgeTarget.sampler(), edgeTarget.imageView(), 
                 VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
         }
     }
     
     private void createFramebuffers() {
-        // Scene framebuffer
-        sceneFramebuffer = VkFramebuffer.builder()
-            .device(device)
-            .renderPass(sceneRenderPass.handle())
-            .attachment(new VkFramebufferAttachment(colorTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
-            .attachment(new VkFramebufferAttachment(depthTarget, VkFramebufferAttachment.AttachmentType.DEPTH, 1))
-            .dimensions(width, height)
-            .build(arena);
+        boolean useMSAA = (mode == Mode.MSAA);
         
-        // Edge framebuffer
-        edgeFramebuffer = VkFramebuffer.builder()
-            .device(device)
-            .renderPass(edgeRenderPass.handle())
-            .attachment(new VkFramebufferAttachment(edgeTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
-            .dimensions(width, height)
-            .build(arena);
+        if (useMSAA) {
+            // MSAA framebuffer with resolve
+            sceneFramebuffer = VkFramebuffer.builder()
+                .device(device)
+                .renderPass(sceneRenderPass.handle())
+                .attachment(new VkFramebufferAttachment(colorTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
+                .attachment(new VkFramebufferAttachment(edgeTarget, VkFramebufferAttachment.AttachmentType.COLOR, 1))
+                .attachment(new VkFramebufferAttachment(depthTarget, VkFramebufferAttachment.AttachmentType.DEPTH, 2))
+                .dimensions(width, height)
+                .build(arena);
+        } else {
+            // Post-process AA framebuffer
+            sceneFramebuffer = VkFramebuffer.builder()
+                .device(device)
+                .renderPass(sceneRenderPass.handle())
+                .attachment(new VkFramebufferAttachment(colorTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
+                .attachment(new VkFramebufferAttachment(depthTarget, VkFramebufferAttachment.AttachmentType.DEPTH, 1))
+                .dimensions(width, height)
+                .build(arena);
+            
+            // Edge detection framebuffer
+            edgeFramebuffer = VkFramebuffer.builder()
+                .device(device)
+                .renderPass(edgeRenderPass.handle())
+                .attachment(new VkFramebufferAttachment(edgeTarget, VkFramebufferAttachment.AttachmentType.COLOR, 0))
+                .dimensions(width, height)
+                .build(arena);
+        }
     }
     
     public VkRenderPass getSceneRenderPass() { return sceneRenderPass; }
     public VkFramebuffer getSceneFramebuffer() { return sceneFramebuffer; }
     
     public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
-        // Transition color and depth textures for edge detection sampling
-        transitionImageLayout(commandBuffer, colorTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
-        transitionImageLayout(commandBuffer, depthTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), true);
-        transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
+        boolean useMSAA = (mode == Mode.MSAA);
         
-        // 1. Edge detection pass
-        VkCommandBuffer.beginRenderPass(commandBuffer, edgeRenderPass.handle(), edgeFramebuffer.handle())
-            .renderArea(0, 0, width, height)
-            .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-            .execute(frameArena);
-        
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
-        descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
-        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        Vulkan.cmdEndRenderPass(commandBuffer);
-        
-        // Transition edge texture to shader read layout
-        transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
-        
-        // 2. Adaptive AA pass
-        VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
-            .renderArea(0, 0, width, height)
-            .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-            .clearDepth(1.0f, 0)
-            .execute(frameArena);
-        
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
-        descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
-        
-        // Push constants for frame info
-        VkPushConstants.builder(frameArena)
-            .floatValue((float)frameIndex)
-            .floatValue(16.67f)
-            .build()
-            .push(commandBuffer, aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
-        
-        Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-        Vulkan.cmdEndRenderPass(commandBuffer);
-        
-        frameIndex++;
+        if (useMSAA) {
+            // MSAA mode - simple blit of resolved image
+            transitionImageLayout(commandBuffer, edgeTarget.image(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
+            
+            VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
+            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer);
+        } else {
+            // Post-process AA mode - edge detection + adaptive AA
+            // Transition previous frame for sampling (only if first frame)
+            if (frameIndex == 0) {
+                transitionImageLayout(commandBuffer, previousFrame.image(), VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), false);
+            }
+            
+            // Edge detection pass
+            VkCommandBuffer.beginRenderPass(commandBuffer, edgeRenderPass.handle(), edgeFramebuffer.handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .execute(frameArena);
+            
+            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
+            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
+            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer);
+            
+            // Adaptive AA pass to swapchain
+            VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
+                .renderArea(0, 0, width, height)
+                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                .clearDepth(1.0f, 0)
+                .execute(frameArena);
+            
+            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
+            
+            // Push constants for frame info
+            VkPushConstants.builder(frameArena)
+                .floatValue((float)frameIndex)
+                .floatValue(16.67f)
+                .build()
+                .push(commandBuffer, aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
+            
+            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer);
+            
+            frameIndex++;
+        }
     }
     
     public void cleanup() {
@@ -288,7 +420,7 @@ public class AdaptiveAA {
         if (edgeRenderPass != null) edgeRenderPass.close();
         if (aaRenderPass != null) aaRenderPass.close();
         
-        // Clean up textures (includes image, imageView, and sampler)
+        // Clean up textures
         if (colorTarget != null) colorTarget.close();
         if (depthTarget != null) depthTarget.close();
         if (edgeTarget != null) edgeTarget.close();
@@ -297,6 +429,34 @@ public class AdaptiveAA {
         if (allocator != null) allocator.close();
         
         Logger.debug("AdaptiveAA cleanup complete");
+    }
+    
+    // Public API for renderer integration
+    public int getSampleCount() { return mode == Mode.MSAA ? samples : 1; }
+    public Mode getMode() { return mode; }
+    public int getClearColorCount() { return mode == Mode.MSAA ? 2 : 1; }
+    
+    // Builder for clean construction
+    public static Builder builder() { return new Builder(); }
+    
+    public static class Builder {
+        private Mode mode = Mode.MSAA;
+        private int samples = 4;
+        private int width, height;
+        private Arena arena;
+        private VkDevice device;
+        private VkPhysicalDevice physicalDevice;
+        
+        public Builder mode(Mode mode) { this.mode = mode; return this; }
+        public Builder samples(int samples) { this.samples = samples; return this; }
+        public Builder dimensions(int width, int height) { this.width = width; this.height = height; return this; }
+        public Builder arena(Arena arena) { this.arena = arena; return this; }
+        public Builder device(VkDevice device) { this.device = device; return this; }
+        public Builder physicalDevice(VkPhysicalDevice physicalDevice) { this.physicalDevice = physicalDevice; return this; }
+        
+        public AdaptiveAA build() {
+            return new AdaptiveAA(arena, device, physicalDevice, width, height, mode, samples);
+        }
     }
     
     private int findSupportedDepthFormat() {

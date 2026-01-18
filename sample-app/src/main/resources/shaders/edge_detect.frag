@@ -9,12 +9,17 @@ layout(binding = 1) uniform sampler2D depthTexture;
 void main() {
     vec2 texelSize = 1.0 / textureSize(colorTexture, 0);
     
-    // Sample neighbors for edge detection
+    // Sample neighbors for edge detection with clamped coordinates
+    vec2 leftCoord  = clamp(texCoord + vec2(-texelSize.x, 0), vec2(0), vec2(1));
+    vec2 rightCoord = clamp(texCoord + vec2( texelSize.x, 0), vec2(0), vec2(1));
+    vec2 upCoord    = clamp(texCoord + vec2(0, -texelSize.y), vec2(0), vec2(1));
+    vec2 downCoord  = clamp(texCoord + vec2(0,  texelSize.y), vec2(0), vec2(1));
+    
     vec3 center = texture(colorTexture, texCoord).rgb;
-    vec3 left   = texture(colorTexture, texCoord + vec2(-texelSize.x, 0)).rgb;
-    vec3 right  = texture(colorTexture, texCoord + vec2( texelSize.x, 0)).rgb;
-    vec3 up     = texture(colorTexture, texCoord + vec2(0, -texelSize.y)).rgb;
-    vec3 down   = texture(colorTexture, texCoord + vec2(0,  texelSize.y)).rgb;
+    vec3 left   = texture(colorTexture, leftCoord).rgb;
+    vec3 right  = texture(colorTexture, rightCoord).rgb;
+    vec3 up     = texture(colorTexture, upCoord).rgb;
+    vec3 down   = texture(colorTexture, downCoord).rgb;
     
     // Combined luminance and color edge detection
     float centerLum = dot(center, vec3(0.299, 0.587, 0.114));
@@ -31,15 +36,18 @@ void main() {
     vec3 colorEdgeY = abs(-up + down);
     float colorEdge = length(colorEdgeX) + length(colorEdgeY);
     
-    // Use the stronger of the two edge signals, amplified
-    float combinedEdge = max(lumEdge, colorEdge) * 3.0;
+    // Boost edge detection in dark areas
+    float brightness = max(centerLum, 0.01);
+    float darkBoost = 1.0 / sqrt(brightness);
+    
+    float combinedEdge = max(lumEdge, colorEdge) * 5.0 * darkBoost;
     
     // Depth edge detection
     float centerDepth = texture(depthTexture, texCoord).r;
-    float leftDepth   = texture(depthTexture, texCoord + vec2(-texelSize.x, 0)).r;
-    float rightDepth  = texture(depthTexture, texCoord + vec2( texelSize.x, 0)).r;
-    float upDepth     = texture(depthTexture, texCoord + vec2(0, -texelSize.y)).r;
-    float downDepth   = texture(depthTexture, texCoord + vec2(0,  texelSize.y)).r;
+    float leftDepth   = texture(depthTexture, leftCoord).r;
+    float rightDepth  = texture(depthTexture, rightCoord).r;
+    float upDepth     = texture(depthTexture, upCoord).r;
+    float downDepth   = texture(depthTexture, downCoord).r;
     
     float depthEdgeX = abs(-leftDepth + rightDepth);
     float depthEdgeY = abs(-upDepth + downDepth);

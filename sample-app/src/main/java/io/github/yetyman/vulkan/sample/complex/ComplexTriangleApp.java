@@ -64,6 +64,22 @@ public class ComplexTriangleApp extends VulkanApplication {
             Logger.info("AA toggled: " + (renderer.isAdaptiveAAEnabled() ? "ON" : "OFF"));
         });
         
+        // Increase AA Mode with M key
+        input.onKeyPress(GLFWKey.GLFW_KEY_M, () -> {
+            renderer.cycleAAModeKey();
+            Logger.info("AA Mode: " + renderer.getAAMode());
+        });
+        
+        // Increase MSAA samples with + key
+        input.onKeyPress(GLFWKey.GLFW_KEY_EQUAL, () -> {
+            renderer.increaseMSAAKey();
+        });
+        
+        // Decrease MSAA samples with - key
+        input.onKeyPress(GLFWKey.GLFW_KEY_MINUS, () -> {
+            renderer.decreaseMSAAKey();
+        });
+        
         // Adjust thread count with number keys
         for (int i = 1; i <= 8; i++) {
             final int threadCount = i;
@@ -98,6 +114,8 @@ public class ComplexTriangleApp extends VulkanApplication {
     public static void main(String[] args) {
         Logger.info("Complex Triangle App Controls:");
         Logger.info("  SPACE - Toggle Anti-Aliasing");
+        Logger.info("  M     - Cycle AA Mode (NONE/MSAA/POST_PROCESS)");
+        Logger.info("  +/-   - Increase/Decrease MSAA samples (when in MSAA mode)");
         Logger.info("  1-8   - Set thread count");
         Logger.info("  D     - Toggle debug logging");
         Logger.info("");

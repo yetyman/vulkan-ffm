@@ -24,6 +24,11 @@ public class ThreadedRenderer extends BaseRenderer {
     private boolean adaptiveAAEnabled = true;
     private AdaptiveAA adaptiveAA;
     private volatile boolean pendingAAToggle = false;
+    private int msaaSamples = 4;
+    private volatile boolean pendingMSAAIncrease = false;
+    private volatile boolean pendingMSAADecrease = false;
+    private AdaptiveAA.Mode aaMode = AdaptiveAA.Mode.MSAA;
+    private volatile boolean pendingAAModeChange = false;
     
     private VkRenderPass directRenderPass;
     private VkPipeline pipeline;
@@ -93,7 +98,14 @@ public class ThreadedRenderer extends BaseRenderer {
         createDepthTarget();
         createDirectRenderPass();
         if (adaptiveAAEnabled) {
-            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
+            adaptiveAA = AdaptiveAA.builder()
+                .arena(arena)
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .dimensions(width, height)
+                .mode(aaMode)
+                .samples(msaaSamples)
+                .build();
         }
         
         // Set Vulkan resources after managers are created
@@ -307,6 +319,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .depthTest(true)
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+            .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
         
@@ -322,6 +335,7 @@ public class ThreadedRenderer extends BaseRenderer {
             .depthTest(true)
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+            .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .descriptorSetLayouts(descriptorSetLayout.handle())
             .vertexInput()
@@ -374,6 +388,22 @@ public class ThreadedRenderer extends BaseRenderer {
             toggleAAImmediate();
         }
         
+        // Handle pending AA mode change on main thread
+        if (pendingAAModeChange) {
+            pendingAAModeChange = false;
+            cycleAAMode();
+        }
+        
+        // Handle pending MSAA level changes
+        if (pendingMSAAIncrease) {
+            pendingMSAAIncrease = false;
+            increaseMSAA();
+        }
+        if (pendingMSAADecrease) {
+            pendingMSAADecrease = false;
+            decreaseMSAA();
+        }
+        
         // Process main thread work during spare time
         int workProcessed = mainThreadWork.processWork(frameStart);
         if (workProcessed > 0) {
@@ -404,12 +434,16 @@ public class ThreadedRenderer extends BaseRenderer {
     private void recordSingleThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        if (adaptiveAAEnabled) {
-            VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+        if (aaMode != AdaptiveAA.Mode.NONE) {
+            var builder = VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+            
+            if (adaptiveAA.getClearColorCount() == 2) {
+                builder.clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+            }
+            
+            builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer);
@@ -432,12 +466,16 @@ public class ThreadedRenderer extends BaseRenderer {
     private void recordMultiThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        if (adaptiveAAEnabled) {
-            VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+        if (aaMode != AdaptiveAA.Mode.NONE) {
+            var builder = VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
+                .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+            
+            if (adaptiveAA.getClearColorCount() == 2) {
+                builder.clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+            }
+            
+            builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer);
@@ -507,7 +545,14 @@ public class ThreadedRenderer extends BaseRenderer {
         
         // Recreate AA resources if enabling
         if (adaptiveAAEnabled && adaptiveAA == null) {
-            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
+            adaptiveAA = AdaptiveAA.builder()
+                .arena(arena)
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .dimensions(width, height)
+                .mode(aaMode)
+                .samples(msaaSamples)
+                .build();
         }
         
         // Recreate pipelines with correct render pass
@@ -517,6 +562,105 @@ public class ThreadedRenderer extends BaseRenderer {
     
     public boolean isAdaptiveAAEnabled() {
         return adaptiveAAEnabled;
+    }
+    
+    public void cycleAAModeKey() {
+        pendingAAModeChange = true;
+    }
+    
+    private void cycleAAMode() {
+        aaMode = switch(aaMode) {
+            case NONE -> AdaptiveAA.Mode.MSAA;
+            case MSAA -> AdaptiveAA.Mode.POST_PROCESS;
+            case POST_PROCESS -> AdaptiveAA.Mode.NONE;
+        };
+        Logger.info("AA Mode: " + aaMode);
+        recreateAAResources();
+    }
+    
+    public AdaptiveAA.Mode getAAMode() {
+        return aaMode;
+    }
+    
+    public void increaseMSAAKey() {
+        pendingMSAAIncrease = true;
+    }
+    
+    public void decreaseMSAAKey() {
+        pendingMSAADecrease = true;
+    }
+    
+    private void increaseMSAA() {
+        if (aaMode != AdaptiveAA.Mode.MSAA) return;
+        int maxMSAA = getMaxSupportedMSAA();
+        if (msaaSamples < maxMSAA) {
+            msaaSamples = Math.min(msaaSamples * 2, maxMSAA);
+            Logger.info("MSAA samples: " + msaaSamples);
+            recreateAAResources();
+        }
+    }
+    
+    private void decreaseMSAA() {
+        if (aaMode != AdaptiveAA.Mode.MSAA) return;
+        if (msaaSamples > 2) {
+            msaaSamples = msaaSamples / 2;
+            Logger.info("MSAA samples: " + msaaSamples);
+            recreateAAResources();
+        }
+    }
+    
+    public int getMSAASamples() {
+        return msaaSamples;
+    }
+    
+    private void recreateAAResources() {
+        Vulkan.deviceWaitIdle(device.handle()).check();
+        
+        if (pipeline != null) pipeline.close();
+        if (gltfPipeline != null) gltfPipeline.close();
+        if (adaptiveAA != null) {
+            adaptiveAA.cleanup();
+            adaptiveAA = null;
+        }
+        
+        if (aaMode != AdaptiveAA.Mode.NONE) {
+            adaptiveAA = AdaptiveAA.builder()
+                .arena(arena)
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .dimensions(width, height)
+                .mode(aaMode)
+                .samples(msaaSamples)
+                .build();
+            createGraphicsPipeline(adaptiveAA.getSceneRenderPass().handle());
+        } else {
+            createGraphicsPipeline(directRenderPass.handle());
+        }
+    }
+    
+    private int getMaxSupportedMSAA() {
+        try (Arena tempArena = Arena.ofConfined()) {
+            MemorySegment imageFormatProps = tempArena.allocate(io.github.yetyman.vulkan.generated.VkImageFormatProperties.layout());
+            
+            io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceImageFormatProperties(
+                physicalDevice.handle(),
+                VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(),
+                VkImageType.VK_IMAGE_TYPE_2D.value(),
+                VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value(),
+                VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value(),
+                0,
+                imageFormatProps
+            );
+            
+            int sampleCounts = io.github.yetyman.vulkan.generated.VkImageFormatProperties.sampleCounts(imageFormatProps);
+            
+            if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_64_BIT.value()) != 0) return 64;
+            if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_32_BIT.value()) != 0) return 32;
+            if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_16_BIT.value()) != 0) return 16;
+            if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_8_BIT.value()) != 0) return 8;
+            if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_4_BIT.value()) != 0) return 4;
+            return 2;
+        }
     }
     
     public int getActiveThreads() {
@@ -639,7 +783,14 @@ public class ThreadedRenderer extends BaseRenderer {
         createDepthTarget();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
-            adaptiveAA = new AdaptiveAA(arena, device, physicalDevice, width, height);
+            adaptiveAA = AdaptiveAA.builder()
+                .arena(arena)
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .dimensions(width, height)
+                .mode(aaMode)
+                .samples(msaaSamples)
+                .build();
         }
         
         // Update cached layouts with new dimensions
