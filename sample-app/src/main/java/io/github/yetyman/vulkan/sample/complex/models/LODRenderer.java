@@ -20,11 +20,9 @@ public class LODRenderer {
     
     public LODRenderer(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, MemorySegment queue, int maxInstances, int maxModelData) {
         this.device = device;
-        this.modelRegistry = new ModelRegistry(arena, maxInstances, maxModelData);
+        this.modelRegistry = new ModelRegistry(arena, maxInstances, maxModelData, device, physicalDevice);
         this.geometryManager = new GeometryManager(arena, device, physicalDevice, queue);
         this.batchRenderer = new BatchRenderer(device, maxInstances);
-        
-        modelRegistry.setVulkanDevice(device, physicalDevice);
     }
     
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
@@ -40,6 +38,13 @@ public class LODRenderer {
     
     public int addInstance(ModelData modelData) {
         int instanceId = modelRegistry.addInstance(modelData);
+        
+        // Mark as GPU resident immediately since geometry is in LODLevel
+        if (modelData.isLoaded()) {
+            modelData.setGPUResident(true);
+            Logger.info("Marked instance " + instanceId + " as GPU resident");
+        }
+        
         batchRenderer.createStaticBatchesForModel(modelData, instanceId);
         return instanceId;
     }

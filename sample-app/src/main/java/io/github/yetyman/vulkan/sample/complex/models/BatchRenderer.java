@@ -56,8 +56,11 @@ public class BatchRenderer {
         
         batchValidateAndUpload(cameraPosition, instanceData, modelDataArray);
         
+        // Create snapshot to avoid ConcurrentModificationException
+        List<StaticBatch> batchSnapshot = new ArrayList<>(staticBatches);
+        
         int totalTriangles = 0;
-        for (StaticBatch batch : staticBatches) {
+        for (StaticBatch batch : batchSnapshot) {
             boolean hasEnabled = hasEnabledInstancesInBatch(batch);
             boolean hasBuffers = batch.getLodLevel().hasGPUBuffers();
             
@@ -78,31 +81,24 @@ public class BatchRenderer {
         LODLevel lodLevel = batch.getLodLevel();
         
         if (!lodLevel.hasGPUBuffers()) {
-            Logger.debug("LODLevel has no GPU buffers, skipping");
             return;
         }
         
         BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
         BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
         
-        Logger.debug("Got BufferHandles - vertex id=" + (vertexHandle != null ? vertexHandle.getHandleId() : "null") + ", index id=" + (indexHandle != null ? indexHandle.getHandleId() : "null"));
-        
         if (vertexHandle == null || indexHandle == null || !vertexHandle.isReady() || !indexHandle.isReady()) {
-            Logger.debug("Buffers not ready - vertex ready=" + (vertexHandle != null ? vertexHandle.isReady() : "null") + ", index ready=" + (indexHandle != null ? indexHandle.isReady() : "null"));
             return;
         }
         
-        Logger.debug("Getting handles from BufferHandle objects:");
         MemorySegment encodedVertexBuffer = vertexHandle.handle();
         MemorySegment encodedIndexBuffer = indexHandle.handle();
-        Logger.debug("Final encoded handles - vertex: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", index: 0x" + Long.toHexString(encodedIndexBuffer.address()));
         
         VkVertexBufferBinding.create()
             .buffer(MemorySegment.ofAddress(encodedVertexBuffer.address()))
             .bind(commandBuffer, 0, frameArena);
         
         MemorySegment matrixBuffer = instanceData.getMatricesBuffer();
-        Logger.debug("Matrix buffer handle: 0x" + Long.toHexString(matrixBuffer.address()) + " (now encoded VkBuffer handle)");
         
         VkVertexBufferBinding.create()
             .buffer(matrixBuffer)
@@ -111,24 +107,34 @@ public class BatchRenderer {
         Vulkan.cmdBindIndexBuffer(commandBuffer, encodedIndexBuffer, 0, VkIndexType.VK_INDEX_TYPE_UINT32.value());
         
         int enabledCount = getEnabledInstanceCount(batch);
-        Logger.debug("About to draw - enabledCount: " + enabledCount + ", indexCount: " + lodLevel.indexCount());
         if (enabledCount > 0) {
-            Logger.debug("Calling cmdDrawIndexed with indexCount=" + lodLevel.indexCount() + ", instanceCount=" + enabledCount);
-            Logger.debug("Vertex buffer: 0x" + Long.toHexString(encodedVertexBuffer.address()) + ", Index buffer: 0x" + Long.toHexString(encodedIndexBuffer.address()));
-            Logger.debug("Matrix buffer: 0x" + Long.toHexString(matrixBuffer.address()));
-            Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, 0);
-            Logger.debug("Draw call completed");
-        } else {
-            Logger.debug("No enabled instances to draw");
+            int[] batchInstances = batch.getInstanceIds();
+            int[] enabledInstances = batchState.getEnabledInstances();
+            int firstInstanceId = -1;
+            for (int batchInstance : batchInstances) {
+                for (int j = 0; j < batchState.getEnabledCount(); j++) {
+                    if (enabledInstances[j] == batchInstance) {
+                        firstInstanceId = batchInstance;
+                        break;
+                    }
+                }
+                if (firstInstanceId != -1) break;
+            }
+            
+            Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), enabledCount, 0, 0, firstInstanceId);
         }
     }
     
+
+    
     private void batchValidateAndUpload(float[] cameraPosition, InstanceData instanceData, ModelData[] modelDataArray) {
         culledCount = 0;
+        int gpuResidentCount = 0;
         for (int i = 0; i < instanceData.getCount(); i++) {
             if (instanceData.isActive(i)) {
                 ModelData modelData = instanceData.getModelData(i, modelDataArray);
                 boolean gpuResident = modelData != null && modelData.isGPUResident();
+                if (gpuResident) gpuResidentCount++;
                 boolean visible = true;
                 
                 if (gpuResident && frustumCullingEnabled && modelData.isLoaded()) {
@@ -139,9 +145,6 @@ public class BatchRenderer {
                     visible = frustumCuller.testSphere(pos[0], pos[1], pos[2], radius);
                     if (!visible) {
                         culledCount++;
-                        Logger.debug("Culled instance " + i + " at (" + pos[0] + "," + pos[1] + "," + pos[2] + ") radius=" + radius);
-                    } else {
-                        Logger.debug("Visible instance " + i + " at (" + pos[0] + "," + pos[1] + "," + pos[2] + ") radius=" + radius);
                     }
                 }
                 
@@ -153,21 +156,24 @@ public class BatchRenderer {
             }
         }
         
+        if (gpuResidentCount == 0) {
+            Logger.info("WARNING: No GPU resident models found!");
+        }
+        
         batchState.buildBatches();
         
-        int[] dirtyInstances = batchState.getDirtyInstances();
-        for (int i = 0; i < batchState.getDirtyCount(); i++) {
-            int instanceId = dirtyInstances[i];
-            instanceData.syncMatrixFromModelData(instanceId, modelDataArray);
+        // Compact matrices: copy enabled instances to consecutive buffer positions
+        int[] enabledInstances = batchState.getEnabledInstances();
+        int enabledCount = batchState.getEnabledCount();
+        
+        for (int compactIndex = 0; compactIndex < enabledCount; compactIndex++) {
+            int originalInstanceId = enabledInstances[compactIndex];
+            instanceData.syncMatrixFromModelData(originalInstanceId, modelDataArray);
             
-            MemorySegment matrix = instanceData.getMatrix(instanceId);
-            float m00 = matrix.get(ValueLayout.JAVA_FLOAT, 0);
-            float m11 = matrix.get(ValueLayout.JAVA_FLOAT, 5 * 4);
-            float m22 = matrix.get(ValueLayout.JAVA_FLOAT, 10 * 4);
-            float m03 = matrix.get(ValueLayout.JAVA_FLOAT, 3 * 4);
-            float m13 = matrix.get(ValueLayout.JAVA_FLOAT, 7 * 4);
-            float m23 = matrix.get(ValueLayout.JAVA_FLOAT, 11 * 4);
-            Logger.debug("Instance " + instanceId + " scale=[" + m00 + "," + m11 + "," + m22 + "] pos=[" + m03 + "," + m13 + "," + m23 + "]");
+            // Copy to compact position
+            if (originalInstanceId != compactIndex) {
+                instanceData.copyMatrix(originalInstanceId, compactIndex);
+            }
         }
     }
     
@@ -212,21 +218,24 @@ public class BatchRenderer {
         for (int i = 0; i < lodModel.getLODCount(); i++) {
             LODLevel lodLevel = lodModel.getLOD(i);
             
-            boolean batchExists = staticBatches.stream()
-                .anyMatch(batch -> batch.getLodLevel() == lodLevel);
+            // Find existing batch for this LODLevel
+            StaticBatch existingBatch = staticBatches.stream()
+                .filter(batch -> batch.getLodLevel() == lodLevel)
+                .findFirst()
+                .orElse(null);
             
-            if (!batchExists) {
-                if (mainThreadWorkQueue != null) {
-                    final int lodIndex = i;
-                    mainThreadWorkQueue.enqueue(() -> createCommandBufferForLOD(lodLevel))
-                        .thenAccept(commandBuffer -> {
-                            addStaticBatch(lodLevel, commandBuffer, new int[]{instanceId});
-                            Logger.debug("Created static batch for LOD level " + lodIndex + " of model " + modelData.getModelId());
-                        });
-                } else {
-                    addStaticBatch(lodLevel, MemorySegment.NULL, new int[]{instanceId});
-                    Logger.debug("Created placeholder batch for LOD level " + i + " of model " + modelData.getModelId());
-                }
+            if (existingBatch != null) {
+                // Add instance to existing batch
+                int[] oldIds = existingBatch.getInstanceIds();
+                int[] newIds = Arrays.copyOf(oldIds, oldIds.length + 1);
+                newIds[oldIds.length] = instanceId;
+                staticBatches.remove(existingBatch);
+                addStaticBatch(lodLevel, existingBatch.getCommandBuffer(), newIds);
+                Logger.debug("Added instance " + instanceId + " to existing batch for LOD level " + i);
+            } else {
+                // Create new batch
+                addStaticBatch(lodLevel, MemorySegment.NULL, new int[]{instanceId});
+                Logger.debug("Created new batch for LOD level " + i + " with instance " + instanceId);
             }
         }
     }

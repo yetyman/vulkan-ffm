@@ -15,15 +15,21 @@ public class LODLevel {
     private final int indexCount;
     private final float maxDistance;
     private final int triangleCount;
+    private final float detailFactor; // 1.0 = full detail, 0.5 = 50%, etc.
     
-    public LODLevel(MemorySegment vertexBuffer, MemorySegment indexBuffer, int indexCount, float maxDistance, int triangleCount) {
+    public LODLevel(MemorySegment vertexBuffer, MemorySegment indexBuffer, int indexCount, float maxDistance, int triangleCount, float detailFactor) {
         this.vertexBuffer = vertexBuffer;
         this.indexBuffer = indexBuffer;
         this.indexCount = indexCount;
         this.maxDistance = maxDistance;
         this.triangleCount = triangleCount;
+        this.detailFactor = detailFactor;
         this.vertexBufferHandle = new BufferHandle(System.identityHashCode(this) * 2);
         this.indexBufferHandle = new BufferHandle(System.identityHashCode(this) * 2 + 1);
+        
+        // Set the buffers in the handles
+        this.vertexBufferHandle.setVkBuffer(vertexBuffer);
+        this.indexBufferHandle.setVkBuffer(indexBuffer);
     }
     
     public boolean isValidForDistance(float distance) {
@@ -35,6 +41,7 @@ public class LODLevel {
     public int indexCount() { return indexCount; }
     public float maxDistance() { return maxDistance; }
     public int triangleCount() { return triangleCount; }
+    public float detailFactor() { return detailFactor; }
     
     public boolean hasGPUBuffers() {
         return vertexBuffer != null && indexBuffer != null && 
@@ -42,10 +49,8 @@ public class LODLevel {
     }
     
     public void setGPUBuffers(MemorySegment vertexBuf, MemorySegment indexBuf) {
-        Logger.debug("setGPUBuffers called with vertex: 0x" + Long.toHexString(vertexBuf.address()) + ", index: 0x" + Long.toHexString(indexBuf.address()));
         this.vertexBuffer = vertexBuf;
         this.indexBuffer = indexBuf;
-        Logger.debug("Setting BufferHandle vertex (id=" + vertexBufferHandle.getHandleId() + ") and index (id=" + indexBufferHandle.getHandleId() + ")");
         this.vertexBufferHandle.setVkBuffer(vertexBuf);
         this.indexBufferHandle.setVkBuffer(indexBuf);
     }

@@ -72,13 +72,13 @@ public class InstanceData {
                 break;
             }
         }
-        if (instanceId == -1) return -1; // No free slots
+        if (instanceId == -1) return -1;
         
         activeInstances[instanceId] = true;
         if (instanceId >= count) count = instanceId + 1;
         
-        // Store pointer to ModelData (using modelId as simple pointer)
-        modelDataPtrs.setAtIndex(ValueLayout.JAVA_LONG, instanceId, modelData.getModelId());
+        // Store pointer to ModelData using instanceId as the key
+        modelDataPtrs.setAtIndex(ValueLayout.JAVA_LONG, instanceId, instanceId);
         
         return instanceId;
     }
@@ -125,7 +125,16 @@ public class InstanceData {
     
     public void updateInstance(int instanceId, ModelData newModelData) {
         if (!isActive(instanceId)) return;
-        modelDataPtrs.setAtIndex(ValueLayout.JAVA_LONG, instanceId, newModelData.getModelId());
+        modelDataPtrs.setAtIndex(ValueLayout.JAVA_LONG, instanceId, instanceId);
+    }
+    
+    public void copyMatrix(int sourceInstanceId, int destInstanceId) {
+        int srcOffset = sourceInstanceId * 16;
+        int dstOffset = destInstanceId * 16;
+        for (int i = 0; i < 16; i++) {
+            float value = matrices.getAtIndex(ValueLayout.JAVA_FLOAT, srcOffset + i);
+            matrices.setAtIndex(ValueLayout.JAVA_FLOAT, dstOffset + i, value);
+        }
     }
     
     public int getCount() { return count; }

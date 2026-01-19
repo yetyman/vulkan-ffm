@@ -11,8 +11,7 @@ public class LODModel {
     private final List<LODLevel> lodLevels;
     private final float[] lodDistances;
     private final Arena arena;
-    
-
+    private int currentLODIndex = -1;
     
     public LODModel(Arena arena, List<LODLevel> lodLevels) {
         this.arena = arena;
@@ -28,14 +27,23 @@ public class LODModel {
      * Select optimal LOD level based on distance only
      */
     public LODLevel selectLOD(float distance) {
+        int newIndex = lodLevels.size() - 1;
         for (int i = 0; i < lodLevels.size(); i++) {
             if (lodLevels.get(i).isValidForDistance(distance)) {
-                return lodLevels.get(i);
+                newIndex = i;
+                break;
             }
         }
         
-        // Fallback to lowest detail
-        return lodLevels.get(lodLevels.size() - 1);
+        if (newIndex != currentLODIndex) {
+            currentLODIndex = newIndex;
+            LODLevel lod = lodLevels.get(newIndex);
+            io.github.yetyman.vulkan.util.Logger.info("LOD changed to level " + newIndex + 
+                " (" + (int)(lod.detailFactor() * 100) + "% detail, " + 
+                lod.triangleCount() + " tris, max dist: " + lod.maxDistance() + ")");
+        }
+        
+        return lodLevels.get(currentLODIndex);
     }
     
 

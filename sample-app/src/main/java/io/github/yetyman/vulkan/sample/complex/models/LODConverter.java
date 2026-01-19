@@ -1,5 +1,8 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.VkBuffer;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -11,47 +14,87 @@ import java.util.List;
  */
 public class LODConverter {
     private final Arena arena;
+    private VkDevice device;
+    private VkPhysicalDevice physicalDevice;
     
     public LODConverter(Arena arena) {
         this.arena = arena;
     }
     
-    /**
-     * Generate LOD levels from base geometry using progressive mesh decimation
-     */
+    public void setVulkanDevice(VkDevice device, VkPhysicalDevice physicalDevice) {
+        this.device = device;
+        this.physicalDevice = physicalDevice;
+    }
+    
     public LODModel generateLODModel(float[] vertices, int[] indices) {
         List<LODLevel> lodLevels = new ArrayList<>();
         
-        // LOD 0: Full detail (100%)
-        lodLevels.add(createLODLevel(vertices, indices, 5.0f));
+        LODLevel lod0 = createLODLevel(vertices, indices, 10.0f, 1.0f);
+        lodLevels.add(lod0);
         
-        // LOD 1: High detail (75%)
-        float[] vertices1 = decimateVertices(vertices, 0.75f);
-        int[] indices1 = decimateIndices(indices, vertices1.length / 8);
-        lodLevels.add(createLODLevel(vertices1, indices1, 15.0f));
+        LODLevel lod1 = createDecimatedLOD(vertices, indices, 0.90f, 25.0f, lod0);
+        lodLevels.add(lod1);
         
-        // LOD 2: Medium detail (30%)
-        float[] vertices2 = decimateVertices(vertices, 0.30f);
-        int[] indices2 = decimateIndices(indices, vertices2.length / 8);
-        lodLevels.add(createLODLevel(vertices2, indices2, 50.0f));
+        LODLevel lod2 = createDecimatedLOD(vertices, indices, 0.70f, 50.0f, lod1);
+        lodLevels.add(lod2);
         
-        // LOD 3: Low detail (10%)
-        float[] vertices3 = decimateVertices(vertices, 0.10f);
-        int[] indices3 = decimateIndices(indices, vertices3.length / 8);
-        lodLevels.add(createLODLevel(vertices3, indices3, 150.0f));
+        LODLevel lod3 = createDecimatedLOD(vertices, indices, 0.50f, 100.0f, lod2);
+        lodLevels.add(lod3);
         
-        // LOD 4: Minimal detail (1%)
-        float[] vertices4 = decimateVertices(vertices, 0.01f);
-        int[] indices4 = decimateIndices(indices, vertices4.length / 8);
-        lodLevels.add(createLODLevel(vertices4, indices4, Float.MAX_VALUE));
+        LODLevel lod4 = createDecimatedLOD(vertices, indices, 0.30f, Float.MAX_VALUE, lod3);
+        lodLevels.add(lod4);
         
         return new LODModel(arena, lodLevels);
     }
     
-    private LODLevel createLODLevel(float[] vertices, int[] indices, float maxDistance) {
-        // Don't create GPU buffers here - they'll be created later by the streaming system
-        // Just store the geometry data for later GPU upload
-        return new LODLevel(MemorySegment.NULL, MemorySegment.NULL, indices.length, maxDistance, indices.length / 3);
+    private LODLevel createDecimatedLOD(float[] vertices, int[] indices, float detailFactor, float maxDistance, LODLevel fallback) {
+        float[] decimatedVertices = decimateVertices(vertices, detailFactor);
+        int[] decimatedIndices = decimateIndices(indices, decimatedVertices.length / 8);
+        
+        if (decimatedVertices.length == 0 || decimatedIndices.length == 0) {
+            return new LODLevel(fallback.vertexBuffer(), fallback.indexBuffer(), 
+                              fallback.indexCount(), maxDistance, fallback.triangleCount(), detailFactor);
+        }
+        
+        return createLODLevel(decimatedVertices, decimatedIndices, maxDistance, detailFactor);
+    }
+    
+    private LODLevel createLODLevel(float[] vertices, int[] indices, float maxDistance, float detailFactor) {
+        if (device == null || physicalDevice == null || vertices.length == 0 || indices.length == 0) {
+            return new LODLevel(MemorySegment.NULL, MemorySegment.NULL, indices.length, maxDistance, indices.length / 3, detailFactor);
+        }
+        
+        VkBuffer vertexBuffer = VkBuffer.builder()
+            .device(device)
+            .physicalDevice(physicalDevice)
+            .size(vertices.length * Float.BYTES)
+            .vertexBuffer()
+            .hostVisible()
+            .build(arena);
+        
+        VkBuffer indexBuffer = VkBuffer.builder()
+            .device(device)
+            .physicalDevice(physicalDevice)
+            .size(indices.length * Integer.BYTES)
+            .indexBuffer()
+            .hostVisible()
+            .build(arena);
+        
+        try (Arena tempArena = Arena.ofConfined()) {
+            MemorySegment vertexMapped = vertexBuffer.map(tempArena);
+            for (int i = 0; i < vertices.length; i++) {
+                vertexMapped.setAtIndex(ValueLayout.JAVA_FLOAT, i, vertices[i]);
+            }
+            vertexBuffer.unmap();
+            
+            MemorySegment indexMapped = indexBuffer.map(tempArena);
+            for (int i = 0; i < indices.length; i++) {
+                indexMapped.setAtIndex(ValueLayout.JAVA_INT, i, indices[i]);
+            }
+            indexBuffer.unmap();
+        }
+        
+        return new LODLevel(vertexBuffer.handle(), indexBuffer.handle(), indices.length, maxDistance, indices.length / 3, detailFactor);
     }
     
     /**

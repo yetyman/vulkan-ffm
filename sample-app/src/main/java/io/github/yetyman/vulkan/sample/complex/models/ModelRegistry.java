@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.sample.complex.models;
 
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.util.Logger;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -14,15 +16,15 @@ public class ModelRegistry {
     private final ModelData[] modelDataArray;
     private final GLTFLoader gltfLoader;
     
-    public ModelRegistry(Arena arena, int maxInstances, int maxModelData) {
+    public ModelRegistry(Arena arena, int maxInstances, int maxModelData, VkDevice device, VkPhysicalDevice physicalDevice) {
         Arena sharedArena = Arena.ofShared();
-        this.instanceData = new InstanceData(sharedArena, maxInstances, null, null);
+        this.instanceData = new InstanceData(sharedArena, maxInstances, device, physicalDevice);
         this.modelDataArray = new ModelData[maxModelData];
-        this.gltfLoader = new GLTFLoader(arena);
+        this.gltfLoader = new GLTFLoader(arena, device, physicalDevice);
     }
     
     public void setVulkanDevice(io.github.yetyman.vulkan.VkDevice device, io.github.yetyman.vulkan.VkPhysicalDevice physicalDevice) {
-        instanceData.setDevice(device, physicalDevice);
+        // Device is now set in constructor
     }
     
     public int addModel(LODModel model) {
@@ -31,8 +33,9 @@ public class ModelRegistry {
     }
     
     public int addInstance(ModelData modelData) {
-        modelDataArray[modelData.getModelId()] = modelData;
-        return instanceData.addInstance(modelData);
+        int instanceId = instanceData.addInstance(modelData);
+        modelDataArray[instanceId] = modelData;
+        return instanceId;
     }
     
     public void removeInstance(int instanceId) {
@@ -40,7 +43,7 @@ public class ModelRegistry {
     }
     
     public void updateInstance(int instanceId, ModelData newModelData) {
-        modelDataArray[newModelData.getModelId()] = newModelData;
+        modelDataArray[instanceId] = newModelData;
         instanceData.updateInstance(instanceId, newModelData);
     }
     

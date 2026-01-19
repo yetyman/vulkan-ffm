@@ -723,44 +723,56 @@ public class ThreadedRenderer extends BaseRenderer {
     public void loadSampleModels() {
         Logger.info("Starting to load sample models...");
         
-        // Load only Box for debugging
+        // Load Box once, create 4 instances
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
-            .thenAcceptAsync(modelData -> {
-                TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(-5.0f, 0.0f, 0.0f);
-                transform.setScale(2.0f, 2.0f, 2.0f);
-                int instanceId = addLODInstance(modelData);
-                Logger.info("Box loaded at (-5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            .thenAcceptAsync(boxModel -> {
+                for (int i = 0; i < 4; i++) {
+                    TransformationMatrix transform = new TransformationMatrix();
+                    transform.setPosition(-6.0f + i * 2.0f, 0.0f, 0.0f);
+                    transform.setScale(1.5f, 1.5f, 1.5f);
+                    transform.setRotation(i * 0.5f);
+                    
+                    ModelData instance = new ModelData(boxModel.getModelId());
+                    instance.loadModel(boxModel.getLodModel(), transform, boxModel.getVertices(), boxModel.getIndices());
+                    int instanceId = addLODInstance(instance);
+                    Logger.info("Box " + i + " loaded, instanceId: " + instanceId);
+                }
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Box: " + throwable.getMessage());
-                throwable.printStackTrace();
                 return null;
             });
+        
+        // Load Duck
         loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
             .thenAcceptAsync(modelData -> {
-                TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(0.0f, 0.0f, 0.0f);
-                transform.setScale(1.0f, 1.0f, 1.0f);
+                modelData.getTransform().setPosition(0.0f, 0.0f, 0.0f);
+                modelData.getTransform().setScale(1.0f, 1.0f, 1.0f);
                 int instanceId = addLODInstance(modelData);
-                Logger.info("Duck loaded at (0, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+                Logger.info("Duck loaded, instanceId: " + instanceId);
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Duck: " + throwable.getMessage());
-                throwable.printStackTrace();
                 return null;
             });
+        
+        // Load Suzanne once, create 3 instances
         loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
-            .thenAcceptAsync(modelData -> {
-                TransformationMatrix transform = modelData.getTransform();
-                transform.setPosition(5.0f, 0.0f, 0.0f);
-                transform.setScale(2.0f, 2.0f, 2.0f);
-                int instanceId = addLODInstance(modelData);
-                Logger.info("Suzanne loaded at (5, 0, 0), instanceId: " + instanceId + ", total instances: " + lodRenderer.getInstanceCount());
+            .thenAcceptAsync(suzanneModel -> {
+                for (int i = 0; i < 3; i++) {
+                    TransformationMatrix transform = new TransformationMatrix();
+                    transform.setPosition(3.0f + i * 2.5f, 0.0f, 0.0f);
+                    transform.setScale(2.0f, 2.0f, 2.0f);
+                    transform.setRotation(i * 0.7f);
+                    
+                    ModelData instance = new ModelData(suzanneModel.getModelId());
+                    instance.loadModel(suzanneModel.getLodModel(), transform, suzanneModel.getVertices(), suzanneModel.getIndices());
+                    int instanceId = addLODInstance(instance);
+                    Logger.info("Suzanne " + i + " loaded, instanceId: " + instanceId);
+                }
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Suzanne: " + throwable.getMessage());
-                throwable.printStackTrace();
                 return null;
             });
     }

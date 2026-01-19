@@ -2,6 +2,8 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import de.javagl.jgltf.model.*;
 import de.javagl.jgltf.model.io.GltfModelReader;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.nio.file.Paths;
@@ -25,9 +27,13 @@ public class GLTFLoader {
     
     private final AtomicInteger nextModelId = new AtomicInteger(0);
     
-    public GLTFLoader(Arena arena) {
-        // Don't store the arena - create new ones in background thread
+    public GLTFLoader(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice) {
+        this.device = device;
+        this.physicalDevice = physicalDevice;
     }
+    
+    private final VkDevice device;
+    private final VkPhysicalDevice physicalDevice;
     
     /**
      * Load glTF model from file path - can be called from any thread
@@ -70,6 +76,7 @@ public class GLTFLoader {
         Logger.debug("Generating LOD levels...");
         try (Arena backgroundArena = Arena.ofConfined()) {
             LODConverter lodConverter = new LODConverter(backgroundArena);
+            lodConverter.setVulkanDevice(device, physicalDevice);
             LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
             Logger.debug("Generated " + lodModel.getLODCount() + " LOD levels");
             
