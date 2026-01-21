@@ -25,10 +25,10 @@ public class LODRenderer {
         this.batchRenderer = new BatchRenderer(device, maxInstances);
     }
     
-    public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline) {
+    public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, MemorySegment gltfPipeline, MemorySegment pipelineLayout) {
         geometryManager.updateStreaming(modelRegistry.getModelDataArray(), cameraPosition);
         geometryManager.processPendingCopies(2, modelRegistry.getModelDataArray());
-        batchRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline, 
+        batchRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline, pipelineLayout,
                                   modelRegistry.getInstanceData(), modelRegistry.getModelDataArray());
     }
     

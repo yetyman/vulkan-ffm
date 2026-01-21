@@ -27,32 +27,8 @@ public class LODModel {
                     (a1, a2) -> {});
     }
     
-    /**
-     * Select optimal LOD level with blend factor for geomorphing
-     */
     public LODSelection selectLODWithBlend(float distance) {
-        for (int i = 0; i < lodLevels.size() - 1; i++) {
-            LODLevel current = lodLevels.get(i);
-            LODLevel next = lodLevels.get(i + 1);
-            
-            if (distance < current.maxDistance() - TRANSITION_RANGE) {
-                return new LODSelection(current, 0.0f);
-            }
-            
-            if (distance <= current.maxDistance() + TRANSITION_RANGE) {
-                float transitionStart = current.maxDistance() - TRANSITION_RANGE;
-                float transitionEnd = current.maxDistance() + TRANSITION_RANGE;
-                float blend = smoothstep(transitionStart, transitionEnd, distance);
-                return new LODSelection(current, blend);
-            }
-        }
-        
-        return new LODSelection(lodLevels.get(lodLevels.size() - 1), 0.0f);
-    }
-    
-    private float smoothstep(float edge0, float edge1, float x) {
-        float t = Math.max(0.0f, Math.min(1.0f, (x - edge0) / (edge1 - edge0)));
-        return t * t * (3.0f - 2.0f * t);
+        return new LODSelection(selectLOD(distance), 0.0f);
     }
     
     public LODLevel selectLOD(float distance) {

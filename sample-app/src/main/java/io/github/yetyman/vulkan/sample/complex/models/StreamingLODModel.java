@@ -17,7 +17,6 @@ public class StreamingLODModel {
     private final boolean[] loaded = new boolean[5];
     private final float[][] vertexData;
     private final int[][] indexData;
-    private final float[][] morphData;
     private final float[] distances;
     private final float[] detailFactors;
     
@@ -26,14 +25,13 @@ public class StreamingLODModel {
     private final Arena arena;
     
     public StreamingLODModel(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice,
-                            float[][] vertexData, int[][] indexData, float[][] morphData,
+                            float[][] vertexData, int[][] indexData,
                             float[] distances, float[] detailFactors) {
         this.arena = arena;
         this.device = device;
         this.physicalDevice = physicalDevice;
         this.vertexData = vertexData;
         this.indexData = indexData;
-        this.morphData = morphData;
         this.distances = distances;
         this.detailFactors = detailFactors;
     }
@@ -93,7 +91,6 @@ public class StreamingLODModel {
         
         float[] verts = vertexData[index];
         int[] inds = indexData[index];
-        float[] morph = (index < 4) ? morphData[index] : null;
         
         VkBuffer vertexBuffer = VkBuffer.builder()
             .device(device)
@@ -111,17 +108,6 @@ public class StreamingLODModel {
             .hostVisible()
             .build(arena);
         
-        VkBuffer morphBuffer = null;
-        if (morph != null) {
-            morphBuffer = VkBuffer.builder()
-                .device(device)
-                .physicalDevice(physicalDevice)
-                .size(morph.length * Float.BYTES)
-                .vertexBuffer()
-                .hostVisible()
-                .build(arena);
-        }
-        
         try (Arena tempArena = Arena.ofConfined()) {
             MemorySegment vertexMapped = vertexBuffer.map(tempArena);
             for (int i = 0; i < verts.length; i++) {
@@ -134,20 +120,11 @@ public class StreamingLODModel {
                 indexMapped.setAtIndex(ValueLayout.JAVA_INT, i, inds[i]);
             }
             indexBuffer.unmap();
-            
-            if (morphBuffer != null) {
-                MemorySegment morphMapped = morphBuffer.map(tempArena);
-                for (int i = 0; i < morph.length; i++) {
-                    morphMapped.setAtIndex(ValueLayout.JAVA_FLOAT, i, morph[i]);
-                }
-                morphBuffer.unmap();
-            }
         }
         
         levels[index] = new LODLevel(
             vertexBuffer.handle(),
             indexBuffer.handle(),
-            morphBuffer != null ? morphBuffer.handle() : MemorySegment.NULL,
             inds.length,
             distances[index],
             inds.length / 3,

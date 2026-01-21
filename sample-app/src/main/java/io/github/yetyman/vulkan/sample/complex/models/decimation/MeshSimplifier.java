@@ -19,7 +19,6 @@ public class MeshSimplifier {
             
             performCollapse(collapse);
             
-            // Re-evaluate affected edges
             Vertex v = vertices.get(collapse.v1);
             for (int faceId : v.faces) {
                 Triangle t = triangles.get(faceId);
@@ -30,6 +29,30 @@ public class MeshSimplifier {
         }
         
         return extractMesh();
+    }
+    
+    public SimplifiedMesh simplifyWithMorphTargets(float[] vertexData, int[] indices, float targetRatio) {
+        buildMesh(vertexData, indices);
+        calculateQuadrics();
+        
+        int targetTriCount = Math.max(1, (int)(triangles.size() * targetRatio));
+        PriorityQueue<EdgeCollapse> queue = buildCollapseQueue();
+        
+        while (countActiveTriangles() > targetTriCount && !queue.isEmpty()) {
+            EdgeCollapse collapse = queue.poll();
+            if (vertices.get(collapse.v1).removed || vertices.get(collapse.v2).removed) continue;
+            performCollapse(collapse);
+            
+            Vertex v = vertices.get(collapse.v1);
+            for (int faceId : v.faces) {
+                Triangle t = triangles.get(faceId);
+                if (!t.removed) {
+                    addEdgeCollapses(t, queue);
+                }
+            }
+        }
+        
+        return extractMeshWithMorphTargets();
     }
     
     private void buildMesh(float[] vertexData, int[] indices) {
@@ -174,6 +197,35 @@ public class MeshSimplifier {
         int[] inds = outIndices.stream().mapToInt(Integer::intValue).toArray();
         
         return new SimplifiedMesh(verts, inds);
+    }
+    
+    private SimplifiedMesh extractMeshWithMorphTargets() {
+        float[] outVertices = new float[vertices.size() * 8];
+        
+        for (int i = 0; i < vertices.size(); i++) {
+            Vertex v = vertices.get(i);
+            int offset = i * 8;
+            outVertices[offset] = (float)v.x;
+            outVertices[offset + 1] = (float)v.y;
+            outVertices[offset + 2] = (float)v.z;
+            outVertices[offset + 3] = (float)v.nx;
+            outVertices[offset + 4] = (float)v.ny;
+            outVertices[offset + 5] = (float)v.nz;
+            outVertices[offset + 6] = (float)v.u;
+            outVertices[offset + 7] = (float)v.v;
+        }
+        
+        List<Integer> outIndices = new ArrayList<>();
+        for (Triangle t : triangles) {
+            if (!t.removed) {
+                outIndices.add(t.v0);
+                outIndices.add(t.v1);
+                outIndices.add(t.v2);
+            }
+        }
+        
+        int[] inds = outIndices.stream().mapToInt(Integer::intValue).toArray();
+        return new SimplifiedMesh(outVertices, inds);
     }
     
     private int remapVertex(int oldId, Map<Integer, Integer> remap, List<Float> outVertices) {

@@ -48,7 +48,7 @@ public class BatchRenderer {
     }
     
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, 
-                            MemorySegment gltfPipeline, InstanceData instanceData, ModelData[] modelDataArray) {
+                            MemorySegment gltfPipeline, MemorySegment pipelineLayout, InstanceData instanceData, ModelData[] modelDataArray) {
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline);
         Logger.debug("BatchRenderer.renderModels called with " + instanceData.getCount() + " instances");
         
@@ -72,10 +72,12 @@ public class BatchRenderer {
                 continue;
             }
             
-            // Calculate distance and select LOD
+            // Calculate distance and select LOD with blend
             float[] pos = modelData.getTransform().getPosition();
             float distance = calculateDistance(cameraPosition, pos);
-            LODLevel selectedLOD = modelData.getLodModel().selectLOD(distance);
+            LODModel.LODSelection selection = modelData.getLodModel().selectLODWithBlend(distance);
+            LODLevel selectedLOD = selection.level();
+            float blendFactor = selection.blendFactor();
             
             // Frustum culling
             boolean visible = true;
@@ -92,7 +94,7 @@ public class BatchRenderer {
             
             // Render this instance with selected LOD
             if (selectedLOD.hasGPUBuffers()) {
-                renderInstance(commandBuffer, selectedLOD, i, frameArena, instanceData);
+                renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData);
                 rendered++;
             }
         }
@@ -101,7 +103,7 @@ public class BatchRenderer {
     }
     
     private void renderInstance(MemorySegment commandBuffer, LODLevel lodLevel, int instanceId,
-                               Arena frameArena, InstanceData instanceData) {
+                               float blendFactor, MemorySegment pipelineLayout, Arena frameArena, InstanceData instanceData) {
         BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
         BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
         
@@ -109,20 +111,16 @@ public class BatchRenderer {
             return;
         }
         
-        // Bind vertex buffer
         VkVertexBufferBinding.create()
             .buffer(vertexHandle.handle())
             .bind(commandBuffer, 0, frameArena);
         
-        // Bind instance matrix buffer
         VkVertexBufferBinding.create()
             .buffer(instanceData.getMatricesBuffer())
             .bind(commandBuffer, 1, frameArena);
         
-        // Bind index buffer
         Vulkan.cmdBindIndexBuffer(commandBuffer, indexHandle.handle(), 0, VkIndexType.VK_INDEX_TYPE_UINT32.value());
         
-        // Draw
         Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), 1, 0, 0, instanceId);
     }
     

@@ -253,7 +253,7 @@ public class ThreadedRenderer extends BaseRenderer {
                         Logger.debug("VP Matrix[0-3]: " + vpMatrix[0] + "," + vpMatrix[1] + "," + vpMatrix[2] + "," + vpMatrix[3]);
                         Logger.debug("Calling lodRenderer.renderModels...");
                         
-                        lodRenderer.renderModels(cmd, camera.getPosition(), frameArena, gltfPipeline.handle());
+                        lodRenderer.renderModels(cmd, camera.getPosition(), frameArena, gltfPipeline.handle(), gltfPipeline.layout());
                     }
                 })
             
@@ -341,15 +341,17 @@ public class ThreadedRenderer extends BaseRenderer {
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .descriptorSetLayouts(descriptorSetLayout.handle())
             .vertexInput()
-                .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value()) // 3*4 + 3*4 + 2*4 = 32 bytes
-                .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)  // position
-                .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 12) // normal
-                .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT.value(), 24)    // texcoord
-                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE.value()) // 16*4 = 64 bytes per matrix
-                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 0)  // matrix row 0
-                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 16) // matrix row 1
-                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 32) // matrix row 2
-                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 48) // matrix row 3
+                .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
+                .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)
+                .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 12)
+                .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT.value(), 24)
+                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE.value())
+                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 0)
+                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 16)
+                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 32)
+                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 48)
+                .binding(2, 12, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
+                .attribute(7, 2, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)
                 .build()
             .build(arena);
         

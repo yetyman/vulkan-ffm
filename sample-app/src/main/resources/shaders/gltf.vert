@@ -9,10 +9,6 @@ layout(binding = 0) uniform CameraUBO {
     mat4 viewProj;
 } camera;
 
-layout(push_constant) uniform PushConstants {
-    float time;
-} pc;
-
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 
