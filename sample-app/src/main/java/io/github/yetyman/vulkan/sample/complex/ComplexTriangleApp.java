@@ -58,6 +58,14 @@ public class ComplexTriangleApp extends VulkanApplication {
     protected void configureInput(InputManager inputManager) {
         SimpleInputHelper input = new SimpleInputHelper(inputManager);
 
+        // Camera controls
+        input.onKeyHold(GLFWKey.GLFW_KEY_W, () -> renderer.moveCameraForward(1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_S, () -> renderer.moveCameraForward(-1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_A, () -> renderer.moveCameraRight(-1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_D, () -> renderer.moveCameraRight(1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_Q, () -> renderer.moveCameraUp(-1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_E, () -> renderer.moveCameraUp(1.0f));
+
         // Toggle adaptive AA with spacebar
         input.onKeyPress(GLFWKey.GLFW_KEY_SPACE, () -> {
             renderer.setAdaptiveAAEnabled(!renderer.isAdaptiveAAEnabled());
@@ -106,18 +114,25 @@ public class ComplexTriangleApp extends VulkanApplication {
     @Override
     protected void onFPSUpdate(int fps) {
         int culled = renderer.getCulledInstanceCount();
-        Logger.info(String.format("FPS: %d | Threads: %d | Avg Frame Time: %.2fms | AA: %s | Culled: %d", 
-            fps, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
+        float[] camPos = renderer.getCamera().getPosition();
+        float camDist = (float)Math.sqrt(camPos[0]*camPos[0] + camPos[1]*camPos[1] + camPos[2]*camPos[2]);
+        Logger.info(String.format("FPS: %d | Cam Dist: %.1fm | Threads: %d | Frame: %.2fms | AA: %s | Culled: %d", 
+            fps, camDist, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
             renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", culled));
     }
     
     public static void main(String[] args) {
         Logger.info("Complex Triangle App Controls:");
+        Logger.info("  W/S   - Move camera forward/backward (hold for smooth movement)");
+        Logger.info("  A/D   - Move camera left/right (hold for smooth movement)");
+        Logger.info("  Q/E   - Move camera down/up (hold for smooth movement)");
         Logger.info("  SPACE - Toggle Anti-Aliasing");
         Logger.info("  M     - Cycle AA Mode (NONE/MSAA/POST_PROCESS)");
         Logger.info("  +/-   - Increase/Decrease MSAA samples (when in MSAA mode)");
         Logger.info("  1-8   - Set thread count");
         Logger.info("  D     - Toggle debug logging");
+        Logger.info("");
+        Logger.info("Move the camera to test LOD transitions!");
         Logger.info("");
         
         try (ComplexTriangleApp app = new ComplexTriangleApp()) {

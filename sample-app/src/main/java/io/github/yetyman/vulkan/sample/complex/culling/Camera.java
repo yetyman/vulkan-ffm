@@ -25,6 +25,44 @@ public class Camera {
         dirty = true;
     }
     
+    public void move(float dx, float dy, float dz) {
+        position[0] += dx;
+        position[1] += dy;
+        position[2] += dz;
+        dirty = true;
+    }
+    
+    public void moveForward(float amount) {
+        float fx = target[0] - position[0];
+        float fy = target[1] - position[1];
+        float fz = target[2] - position[2];
+        float len = (float)Math.sqrt(fx*fx + fy*fy + fz*fz);
+        fx /= len; fy /= len; fz /= len;
+        position[0] += fx * amount;
+        position[1] += fy * amount;
+        position[2] += fz * amount;
+        dirty = true;
+    }
+    
+    public void moveRight(float amount) {
+        float fx = target[0] - position[0];
+        float fy = target[1] - position[1];
+        float fz = target[2] - position[2];
+        float flen = (float)Math.sqrt(fx*fx + fy*fy + fz*fz);
+        fx /= flen; fy /= flen; fz /= flen;
+        
+        float rx = up[1]*fz - up[2]*fy;
+        float ry = up[2]*fx - up[0]*fz;
+        float rz = up[0]*fy - up[1]*fx;
+        float rlen = (float)Math.sqrt(rx*rx + ry*ry + rz*rz);
+        rx /= rlen; ry /= rlen; rz /= rlen;
+        
+        position[0] += rx * amount;
+        position[1] += ry * amount;
+        position[2] += rz * amount;
+        dirty = true;
+    }
+    
     public void setTarget(float x, float y, float z) {
         target[0] = x;
         target[1] = y;

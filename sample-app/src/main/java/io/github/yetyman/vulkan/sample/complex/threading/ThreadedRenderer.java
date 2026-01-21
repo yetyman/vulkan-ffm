@@ -242,6 +242,7 @@ public class ThreadedRenderer extends BaseRenderer {
                     
                     // Render LOD models if any exist
                     int instanceCount = lodRenderer.getInstanceCount();
+                    Logger.debug("Rendering LOD models: instanceCount=" + instanceCount);
                     if (instanceCount > 0) {
                         lodRenderer.updateFrustum(camera.getViewProjectionMatrix());
                         lodRenderer.setFrustumCullingEnabled(true);
@@ -250,6 +251,7 @@ public class ThreadedRenderer extends BaseRenderer {
                         float[] camPos = camera.getPosition();
                         Logger.debug("Camera at (" + camPos[0] + "," + camPos[1] + "," + camPos[2] + ")");
                         Logger.debug("VP Matrix[0-3]: " + vpMatrix[0] + "," + vpMatrix[1] + "," + vpMatrix[2] + "," + vpMatrix[3]);
+                        Logger.debug("Calling lodRenderer.renderModels...");
                         
                         lodRenderer.renderModels(cmd, camera.getPosition(), frameArena, gltfPipeline.handle());
                     }
@@ -692,6 +694,22 @@ public class ThreadedRenderer extends BaseRenderer {
         camera.setPosition(x, y, z);
     }
     
+    public void moveCameraForward(float amount) {
+        camera.moveForward(amount);
+    }
+    
+    public void moveCameraRight(float amount) {
+        camera.moveRight(amount);
+    }
+    
+    public void moveCameraUp(float amount) {
+        camera.move(0, amount, 0);
+    }
+    
+    public Camera getCamera() {
+        return camera;
+    }
+    
     public void setCameraTarget(float x, float y, float z) {
         camera.setTarget(x, y, z);
     }
@@ -726,6 +744,7 @@ public class ThreadedRenderer extends BaseRenderer {
         // Load Box once, create 4 instances
         loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
             .thenAcceptAsync(boxModel -> {
+                Logger.info("[MODEL LOADED] Box model ready, creating 4 instances");
                 for (int i = 0; i < 4; i++) {
                     TransformationMatrix transform = new TransformationMatrix();
                     transform.setPosition(-6.0f + i * 2.0f, 0.0f, 0.0f);
@@ -735,30 +754,34 @@ public class ThreadedRenderer extends BaseRenderer {
                     ModelData instance = new ModelData(boxModel.getModelId());
                     instance.loadModel(boxModel.getLodModel(), transform, boxModel.getVertices(), boxModel.getIndices());
                     int instanceId = addLODInstance(instance);
-                    Logger.info("Box " + i + " loaded, instanceId: " + instanceId);
+                    Logger.info("Box " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
                 }
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Box: " + throwable.getMessage());
+                throwable.printStackTrace();
                 return null;
             });
         
         // Load Duck
         loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
             .thenAcceptAsync(modelData -> {
+                Logger.info("[MODEL LOADED] Duck model ready");
                 modelData.getTransform().setPosition(0.0f, 0.0f, 0.0f);
                 modelData.getTransform().setScale(1.0f, 1.0f, 1.0f);
                 int instanceId = addLODInstance(modelData);
-                Logger.info("Duck loaded, instanceId: " + instanceId);
+                Logger.info("Duck loaded, instanceId: " + instanceId + ", LOD levels: " + modelData.getLodModel().getLODCount());
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Duck: " + throwable.getMessage());
+                throwable.printStackTrace();
                 return null;
             });
         
         // Load Suzanne once, create 3 instances
         loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
             .thenAcceptAsync(suzanneModel -> {
+                Logger.info("[MODEL LOADED] Suzanne model ready, creating 3 instances");
                 for (int i = 0; i < 3; i++) {
                     TransformationMatrix transform = new TransformationMatrix();
                     transform.setPosition(3.0f + i * 2.5f, 0.0f, 0.0f);
@@ -768,11 +791,12 @@ public class ThreadedRenderer extends BaseRenderer {
                     ModelData instance = new ModelData(suzanneModel.getModelId());
                     instance.loadModel(suzanneModel.getLodModel(), transform, suzanneModel.getVertices(), suzanneModel.getIndices());
                     int instanceId = addLODInstance(instance);
-                    Logger.info("Suzanne " + i + " loaded, instanceId: " + instanceId);
+                    Logger.info("Suzanne " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
                 }
             })
             .exceptionally(throwable -> {
                 Logger.error("Failed to load Suzanne: " + throwable.getMessage());
+                throwable.printStackTrace();
                 return null;
             });
     }

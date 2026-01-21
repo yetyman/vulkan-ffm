@@ -57,4 +57,19 @@ public class SimpleInputHelper {
             handler
         );
     }
+    
+    /**
+     * Register a handler for key hold events (press + repeat).
+     * @param key GLFW key constant
+     * @param handler Action to execute when key is held
+     */
+    public void onKeyHold(GLFWKey key, Runnable handler) {
+        inputManager.registerHandler(
+            event -> event instanceof KeyEvent ke && 
+                     ke.key() == key.value() && 
+                     (ke.action() == GLFWAction.GLFW_PRESS.value() ||
+                      ke.action() == GLFWAction.GLFW_REPEAT.value()),
+            handler
+        );
+    }
 }

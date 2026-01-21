@@ -50,31 +50,80 @@ public class BatchRenderer {
     public void renderModels(MemorySegment commandBuffer, float[] cameraPosition, Arena frameArena, 
                             MemorySegment gltfPipeline, InstanceData instanceData, ModelData[] modelDataArray) {
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline);
-        Logger.debug("Using glTF pipeline: " + gltfPipeline);
+        Logger.debug("BatchRenderer.renderModels called with " + instanceData.getCount() + " instances");
         
-        if (staticBatches.isEmpty()) return;
-        
-        batchValidateAndUpload(cameraPosition, instanceData, modelDataArray);
-        
-        // Create snapshot to avoid ConcurrentModificationException
-        List<StaticBatch> batchSnapshot = new ArrayList<>(staticBatches);
-        
-        int totalTriangles = 0;
-        for (StaticBatch batch : batchSnapshot) {
-            boolean hasEnabled = hasEnabledInstancesInBatch(batch);
-            boolean hasBuffers = batch.getLodLevel().hasGPUBuffers();
-            
-            if (hasEnabled && hasBuffers) {
-                if (!batch.getCommandBuffer().equals(MemorySegment.NULL)) {
-                    Vulkan.cmdExecuteCommands(commandBuffer, 1, batch.getCommandBuffer());
-                } else {
-                    renderBatchDirectly(commandBuffer, batch, frameArena, instanceData);
-                }
-                totalTriangles += batch.getLodLevel().triangleCount() * getEnabledInstanceCount(batch);
+        // Sync matrices first
+        for (int i = 0; i < instanceData.getCount(); i++) {
+            if (instanceData.isActive(i)) {
+                instanceData.syncMatrixFromModelData(i, modelDataArray);
             }
         }
         
-        Logger.debug("Executed batches, " + totalTriangles + " triangles");
+        // Dynamic LOD selection per instance
+        culledCount = 0;
+        int rendered = 0;
+        for (int i = 0; i < instanceData.getCount(); i++) {
+            if (!instanceData.isActive(i)) continue;
+            
+            ModelData modelData = instanceData.getModelData(i, modelDataArray);
+            if (modelData == null || !modelData.isLoaded() || !modelData.isGPUResident()) {
+                Logger.debug("Skipping instance " + i + ": loaded=" + (modelData != null && modelData.isLoaded()) + 
+                           ", gpuResident=" + (modelData != null && modelData.isGPUResident()));
+                continue;
+            }
+            
+            // Calculate distance and select LOD
+            float[] pos = modelData.getTransform().getPosition();
+            float distance = calculateDistance(cameraPosition, pos);
+            LODLevel selectedLOD = modelData.getLodModel().selectLOD(distance);
+            
+            // Frustum culling
+            boolean visible = true;
+            if (frustumCullingEnabled) {
+                float[] scale = modelData.getTransform().getScale();
+                float maxScale = Math.max(Math.max(scale[0], scale[1]), scale[2]);
+                float radius = modelData.getBoundingRadius() * maxScale;
+                visible = frustumCuller.testSphere(pos[0], pos[1], pos[2], radius);
+                if (!visible) {
+                    culledCount++;
+                    continue;
+                }
+            }
+            
+            // Render this instance with selected LOD
+            if (selectedLOD.hasGPUBuffers()) {
+                renderInstance(commandBuffer, selectedLOD, i, frameArena, instanceData);
+                rendered++;
+            }
+        }
+        
+        Logger.debug("Rendered " + rendered + " instances, culled " + culledCount);
+    }
+    
+    private void renderInstance(MemorySegment commandBuffer, LODLevel lodLevel, int instanceId,
+                               Arena frameArena, InstanceData instanceData) {
+        BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
+        BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
+        
+        if (vertexHandle == null || indexHandle == null || !vertexHandle.isReady() || !indexHandle.isReady()) {
+            return;
+        }
+        
+        // Bind vertex buffer
+        VkVertexBufferBinding.create()
+            .buffer(vertexHandle.handle())
+            .bind(commandBuffer, 0, frameArena);
+        
+        // Bind instance matrix buffer
+        VkVertexBufferBinding.create()
+            .buffer(instanceData.getMatricesBuffer())
+            .bind(commandBuffer, 1, frameArena);
+        
+        // Bind index buffer
+        Vulkan.cmdBindIndexBuffer(commandBuffer, indexHandle.handle(), 0, VkIndexType.VK_INDEX_TYPE_UINT32.value());
+        
+        // Draw
+        Vulkan.cmdDrawIndexed(commandBuffer, lodLevel.indexCount(), 1, 0, 0, instanceId);
     }
     
     private void renderBatchDirectly(MemorySegment commandBuffer, StaticBatch batch, Arena frameArena, InstanceData instanceData) {

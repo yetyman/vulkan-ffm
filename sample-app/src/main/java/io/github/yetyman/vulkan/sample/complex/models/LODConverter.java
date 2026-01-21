@@ -3,6 +3,10 @@ package io.github.yetyman.vulkan.sample.complex.models;
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkPhysicalDevice;
+import io.github.yetyman.vulkan.sample.complex.models.decimation.MeshSimplifier;
+import io.github.yetyman.vulkan.sample.complex.models.decimation.MorphTargetGenerator;
+import io.github.yetyman.vulkan.sample.complex.models.decimation.SimplifiedMesh;
+import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -10,7 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Converts base geometry to LOD models with automatic LOD generation
+ * Converts base geometry to LOD models with QEM-based decimation
+ * Supports both eager loading (LODModel) and streaming (StreamingLODModel)
  */
 public class LODConverter {
     private final Arena arena;
@@ -27,43 +32,75 @@ public class LODConverter {
     }
     
     public LODModel generateLODModel(float[] vertices, int[] indices) {
+        Logger.debug("Generating LOD levels with QEM decimation and morph targets...");
         List<LODLevel> lodLevels = new ArrayList<>();
+        MeshSimplifier simplifier = new MeshSimplifier();
         
-        LODLevel lod0 = createLODLevel(vertices, indices, 10.0f, 1.0f);
-        lodLevels.add(lod0);
+        // Generate all LOD geometries first
+        float[] ratios = {1.0f, 0.75f, 0.50f, 0.25f, 0.10f};
+        float[] distances = {10.0f, 25.0f, 50.0f, 100.0f, Float.MAX_VALUE};
+        SimplifiedMesh[] meshes = new SimplifiedMesh[5];
         
-        LODLevel lod1 = createDecimatedLOD(vertices, indices, 0.90f, 25.0f, lod0);
-        lodLevels.add(lod1);
+        meshes[0] = new SimplifiedMesh(vertices, indices);
+        for (int i = 1; i < 5; i++) {
+            meshes[i] = simplifier.simplify(vertices, indices, ratios[i]);
+        }
         
-        LODLevel lod2 = createDecimatedLOD(vertices, indices, 0.70f, 50.0f, lod1);
-        lodLevels.add(lod2);
-        
-        LODLevel lod3 = createDecimatedLOD(vertices, indices, 0.50f, 100.0f, lod2);
-        lodLevels.add(lod3);
-        
-        LODLevel lod4 = createDecimatedLOD(vertices, indices, 0.30f, Float.MAX_VALUE, lod3);
-        lodLevels.add(lod4);
+        // Create LOD levels with morph targets
+        for (int i = 0; i < 5; i++) {
+            SimplifiedMesh current = meshes[i];
+            SimplifiedMesh next = (i < 4) ? meshes[i + 1] : null;
+            
+            LODLevel lod = createLODLevelWithMorph(current.vertices(), current.indices(), 
+                                                   next != null ? next.vertices() : null,
+                                                   distances[i], ratios[i]);
+            lodLevels.add(lod);
+            Logger.debug("LOD" + i + ": " + current.triangleCount() + " triangles" +
+                        (next != null ? " (with morph targets)" : ""));
+        }
         
         return new LODModel(arena, lodLevels);
     }
     
-    private LODLevel createDecimatedLOD(float[] vertices, int[] indices, float detailFactor, float maxDistance, LODLevel fallback) {
-        float[] decimatedVertices = decimateVertices(vertices, detailFactor);
-        int[] decimatedIndices = decimateIndices(indices, decimatedVertices.length / 8);
+    public StreamingLODModel generateStreamingLODModel(float[] vertices, int[] indices) {
+        Logger.debug("Generating streaming LOD model with QEM decimation...");
+        MeshSimplifier simplifier = new MeshSimplifier();
         
-        if (decimatedVertices.length == 0 || decimatedIndices.length == 0) {
-            return new LODLevel(fallback.vertexBuffer(), fallback.indexBuffer(), 
-                              fallback.indexCount(), maxDistance, fallback.triangleCount(), detailFactor);
+        float[] ratios = {1.0f, 0.75f, 0.50f, 0.25f, 0.10f};
+        float[] distances = {10.0f, 25.0f, 50.0f, 100.0f, Float.MAX_VALUE};
+        
+        float[][] vertexData = new float[5][];
+        int[][] indexData = new int[5][];
+        float[][] morphData = new float[4][];
+        
+        SimplifiedMesh[] meshes = new SimplifiedMesh[5];
+        meshes[0] = new SimplifiedMesh(vertices, indices);
+        for (int i = 1; i < 5; i++) {
+            meshes[i] = simplifier.simplify(vertices, indices, ratios[i]);
         }
         
-        return createLODLevel(decimatedVertices, decimatedIndices, maxDistance, detailFactor);
-    }
-    
-    private LODLevel createLODLevel(float[] vertices, int[] indices, float maxDistance, float detailFactor) {
+        for (int i = 0; i < 5; i++) {
+            vertexData[i] = meshes[i].vertices();
+            indexData[i] = meshes[i].indices();
+            if (i < 4) {
+                morphData[i] = MorphTargetGenerator.generateMorphTargets(
+                    meshes[i].vertices(), meshes[i + 1].vertices());
+            }
+            Logger.debug("LOD" + i + ": " + meshes[i].triangleCount() + " triangles (cached)");
+        }
+        
+        return new StreamingLODModel(arena, device, physicalDevice,
+                                    vertexData, indexData, morphData,
+                                    distances, ratios);
+    }    
+    private LODLevel createLODLevelWithMorph(float[] vertices, int[] indices, float[] nextVertices,
+                                            float maxDistance, float detailFactor) {
         if (device == null || physicalDevice == null || vertices.length == 0 || indices.length == 0) {
-            return new LODLevel(MemorySegment.NULL, MemorySegment.NULL, indices.length, maxDistance, indices.length / 3, detailFactor);
+            return new LODLevel(MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL,
+                              indices.length, maxDistance, indices.length / 3, detailFactor);
         }
         
+        // Create vertex and index buffers
         VkBuffer vertexBuffer = VkBuffer.builder()
             .device(device)
             .physicalDevice(physicalDevice)
@@ -80,6 +117,28 @@ public class LODConverter {
             .hostVisible()
             .build(arena);
         
+        // Create morph target buffer if next LOD exists
+        VkBuffer morphBuffer = null;
+        if (nextVertices != null) {
+            float[] morphTargets = MorphTargetGenerator.generateMorphTargets(vertices, nextVertices);
+            morphBuffer = VkBuffer.builder()
+                .device(device)
+                .physicalDevice(physicalDevice)
+                .size(morphTargets.length * Float.BYTES)
+                .vertexBuffer()
+                .hostVisible()
+                .build(arena);
+            
+            try (Arena tempArena = Arena.ofConfined()) {
+                MemorySegment morphMapped = morphBuffer.map(tempArena);
+                for (int i = 0; i < morphTargets.length; i++) {
+                    morphMapped.setAtIndex(ValueLayout.JAVA_FLOAT, i, morphTargets[i]);
+                }
+                morphBuffer.unmap();
+            }
+        }
+        
+        // Upload vertex and index data
         try (Arena tempArena = Arena.ofConfined()) {
             MemorySegment vertexMapped = vertexBuffer.map(tempArena);
             for (int i = 0; i < vertices.length; i++) {
@@ -94,50 +153,10 @@ public class LODConverter {
             indexBuffer.unmap();
         }
         
-        return new LODLevel(vertexBuffer.handle(), indexBuffer.handle(), indices.length, maxDistance, indices.length / 3, detailFactor);
+        return new LODLevel(vertexBuffer.handle(), indexBuffer.handle(),
+                          morphBuffer != null ? morphBuffer.handle() : MemorySegment.NULL,
+                          indices.length, maxDistance, indices.length / 3, detailFactor);
     }
     
-    /**
-     * Simple vertex decimation - removes every nth vertex based on detail factor
-     */
-    private float[] decimateVertices(float[] vertices, float detailFactor) {
-        int originalVertexCount = vertices.length / 8; // 8 components per vertex
-        int targetVertexCount = (int)(originalVertexCount * detailFactor);
-        
-        if (targetVertexCount >= originalVertexCount) {
-            return vertices.clone();
-        }
-        
-        float[] decimated = new float[targetVertexCount * 8];
-        float step = (float)originalVertexCount / targetVertexCount;
-        
-        for (int i = 0; i < targetVertexCount; i++) {
-            int sourceIndex = (int)(i * step) * 8;
-            for (int j = 0; j < 8; j++) {
-                decimated[i * 8 + j] = vertices[sourceIndex + j];
-            }
-        }
-        
-        return decimated;
-    }
-    
-    /**
-     * Simple index decimation - adjusts indices for decimated vertex count
-     */
-    private int[] decimateIndices(int[] indices, int newVertexCount) {
-        List<Integer> validIndices = new ArrayList<>();
-        
-        for (int i = 0; i < indices.length; i += 3) {
-            // Check if all three vertices of triangle are within new vertex count
-            if (indices[i] < newVertexCount && 
-                indices[i + 1] < newVertexCount && 
-                indices[i + 2] < newVertexCount) {
-                validIndices.add(indices[i]);
-                validIndices.add(indices[i + 1]);
-                validIndices.add(indices[i + 2]);
-            }
-        }
-        
-        return validIndices.stream().mapToInt(Integer::intValue).toArray();
-    }
+
 }
