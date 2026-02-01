@@ -8,9 +8,15 @@ public class MeshSimplifier {
     
     public SimplifiedMesh simplify(float[] vertexData, int[] indices, float targetRatio) {
         buildMesh(vertexData, indices);
+        
+        // Don't decimate small meshes (< 20 triangles)
+        if (triangles.size() < 20) {
+            return new SimplifiedMesh(vertexData, indices);
+        }
+        
         calculateQuadrics();
         
-        int targetTriCount = Math.max(1, (int)(triangles.size() * targetRatio));
+        int targetTriCount = Math.max(4, (int)(triangles.size() * targetRatio));
         PriorityQueue<EdgeCollapse> queue = buildCollapseQueue();
         
         while (countActiveTriangles() > targetTriCount && !queue.isEmpty()) {
@@ -33,9 +39,15 @@ public class MeshSimplifier {
     
     public SimplifiedMesh simplifyWithMorphTargets(float[] vertexData, int[] indices, float targetRatio) {
         buildMesh(vertexData, indices);
+        
+        // Don't decimate small meshes (< 20 triangles)
+        if (triangles.size() < 20) {
+            return new SimplifiedMesh(vertexData, indices);
+        }
+        
         calculateQuadrics();
         
-        int targetTriCount = Math.max(1, (int)(triangles.size() * targetRatio));
+        int targetTriCount = Math.max(4, (int)(triangles.size() * targetRatio));
         PriorityQueue<EdgeCollapse> queue = buildCollapseQueue();
         
         while (countActiveTriangles() > targetTriCount && !queue.isEmpty()) {
@@ -128,6 +140,11 @@ public class MeshSimplifier {
         Vertex v1 = vertices.get(id1), v2 = vertices.get(id2);
         if (v1.removed || v2.removed) return;
         
+        // Don't collapse boundary edges
+        Set<Integer> sharedFaces = new HashSet<>(v1.faces);
+        sharedFaces.retainAll(v2.faces);
+        if (sharedFaces.size() < 2) return; // Boundary edge
+        
         QuadricErrorMetrics q = v1.quadric.copy();
         q.add(v2.quadric);
         
@@ -153,17 +170,21 @@ public class MeshSimplifier {
         v1.u = collapse.targetU; v1.v = collapse.targetV;
         v1.quadric.add(v2.quadric);
         
-        // Update triangles
+        // Remove triangles containing both vertices (the edge)
+        Set<Integer> sharedFaces = new HashSet<>(v1.faces);
+        sharedFaces.retainAll(v2.faces);
+        for (int faceId : sharedFaces) {
+            triangles.get(faceId).removed = true;
+            v1.faces.remove(faceId);
+        }
+        
+        // Update remaining triangles that only contain v2
         for (int faceId : v2.faces) {
-            Triangle t = triangles.get(faceId);
-            if (t.removed) continue;
+            if (sharedFaces.contains(faceId)) continue;
             
+            Triangle t = triangles.get(faceId);
             t.replaceVertex(collapse.v2, collapse.v1);
-            if (t.isDegenerate()) {
-                t.removed = true;
-            } else {
-                v1.faces.add(faceId);
-            }
+            v1.faces.add(faceId);
         }
         
         v2.removed = true;
