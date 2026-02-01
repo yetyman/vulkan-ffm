@@ -225,6 +225,9 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing glTF geometry pass");
                     
+                    // Update camera for smooth movement
+                    camera.update();
+                    
                     // Update camera uniform buffer
                     float[] vpMatrix = camera.getViewProjectionMatrix();
                     try (Arena mapArena = Arena.ofConfined()) {

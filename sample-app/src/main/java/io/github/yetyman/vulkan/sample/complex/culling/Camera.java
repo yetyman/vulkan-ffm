@@ -18,6 +18,11 @@ public class Camera {
     private final float[] viewProjMatrix = new float[16];
     private boolean dirty = true;
     
+    // Smooth movement
+    private float[] velocity = {0.0f, 0.0f, 0.0f};
+    private float[] inputVelocity = {0.0f, 0.0f, 0.0f};
+    private static final float SMOOTHING = 0.2f;
+    
     public void setPosition(float x, float y, float z) {
         position[0] = x;
         position[1] = y;
@@ -26,9 +31,25 @@ public class Camera {
     }
     
     public void move(float dx, float dy, float dz) {
-        position[0] += dx;
-        position[1] += dy;
-        position[2] += dz;
+        inputVelocity[0] = dx;
+        inputVelocity[1] = dy;
+        inputVelocity[2] = dz;
+    }
+    
+    public void stopX() { inputVelocity[0] = 0; }
+    public void stopY() { inputVelocity[1] = 0; }
+    public void stopZ() { inputVelocity[2] = 0; }
+    
+    public void update() {
+        // Smooth interpolation
+        velocity[0] += (inputVelocity[0] - velocity[0]) * SMOOTHING;
+        velocity[1] += (inputVelocity[1] - velocity[1]) * SMOOTHING;
+        velocity[2] += (inputVelocity[2] - velocity[2]) * SMOOTHING;
+        
+        position[0] += velocity[0];
+        position[1] += velocity[1];
+        position[2] += velocity[2];
+        
         dirty = true;
     }
     
@@ -38,10 +59,7 @@ public class Camera {
         float fz = target[2] - position[2];
         float len = (float)Math.sqrt(fx*fx + fy*fy + fz*fz);
         fx /= len; fy /= len; fz /= len;
-        position[0] += fx * amount;
-        position[1] += fy * amount;
-        position[2] += fz * amount;
-        dirty = true;
+        move(fx * amount, fy * amount, fz * amount);
     }
     
     public void moveRight(float amount) {
@@ -57,10 +75,7 @@ public class Camera {
         float rlen = (float)Math.sqrt(rx*rx + ry*ry + rz*rz);
         rx /= rlen; ry /= rlen; rz /= rlen;
         
-        position[0] += rx * amount;
-        position[1] += ry * amount;
-        position[2] += rz * amount;
-        dirty = true;
+        move(rx * amount, ry * amount, rz * amount);
     }
     
     public void setTarget(float x, float y, float z) {

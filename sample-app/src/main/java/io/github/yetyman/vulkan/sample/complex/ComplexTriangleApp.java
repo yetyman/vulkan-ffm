@@ -60,12 +60,20 @@ public class ComplexTriangleApp extends VulkanApplication {
         SimpleInputHelper input = new SimpleInputHelper(inputManager);
 
         // Camera controls
-        input.onKeyHold(GLFWKey.GLFW_KEY_W, () -> renderer.moveCameraForward(1.0f));
-        input.onKeyHold(GLFWKey.GLFW_KEY_S, () -> renderer.moveCameraForward(-1.0f));
-        input.onKeyHold(GLFWKey.GLFW_KEY_A, () -> renderer.moveCameraRight(-1.0f));
-        input.onKeyHold(GLFWKey.GLFW_KEY_D, () -> renderer.moveCameraRight(1.0f));
-        input.onKeyHold(GLFWKey.GLFW_KEY_Q, () -> renderer.moveCameraUp(-1.0f));
-        input.onKeyHold(GLFWKey.GLFW_KEY_E, () -> renderer.moveCameraUp(1.0f));
+        input.onKeyHold(GLFWKey.GLFW_KEY_W, () -> renderer.getCamera().move(0, 0, -0.5f));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_W, () -> renderer.getCamera().stopZ());
+        input.onKeyHold(GLFWKey.GLFW_KEY_S, () -> renderer.getCamera().move(0, 0, 0.5f));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_S, () -> renderer.getCamera().stopZ());
+        
+        input.onKeyHold(GLFWKey.GLFW_KEY_A, () -> renderer.getCamera().move(-0.5f, 0, 0));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_A, () -> renderer.getCamera().stopX());
+        input.onKeyHold(GLFWKey.GLFW_KEY_D, () -> renderer.getCamera().move(0.5f, 0, 0));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_D, () -> renderer.getCamera().stopX());
+        
+        input.onKeyHold(GLFWKey.GLFW_KEY_Q, () -> renderer.getCamera().move(0, -0.5f, 0));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_Q, () -> renderer.getCamera().stopY());
+        input.onKeyHold(GLFWKey.GLFW_KEY_E, () -> renderer.getCamera().move(0, 0.5f, 0));
+        input.onKeyRelease(GLFWKey.GLFW_KEY_E, () -> renderer.getCamera().stopY());
 
         // Toggle adaptive AA with spacebar
         input.onKeyPress(GLFWKey.GLFW_KEY_SPACE, () -> {
