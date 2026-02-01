@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.models;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.VkIndexType;
+import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
@@ -30,6 +31,10 @@ public class LODRenderer {
         geometryManager.processPendingCopies(2, modelRegistry.getModelDataArray());
         batchRenderer.renderModels(commandBuffer, cameraPosition, frameArena, gltfPipeline, pipelineLayout,
                                   modelRegistry.getInstanceData(), modelRegistry.getModelDataArray());
+    }
+    
+    public void setLODVisualizer(LODVisualizer visualizer) {
+        batchRenderer.setLODVisualizer(visualizer);
     }
     
     public int addModel(LODModel model) {

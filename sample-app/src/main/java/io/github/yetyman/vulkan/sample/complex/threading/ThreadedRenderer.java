@@ -7,6 +7,7 @@ import io.github.yetyman.vulkan.generated.VkWriteDescriptorSet;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.culling.Camera;
+import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.sample.complex.models.*;
 import io.github.yetyman.vulkan.util.Logger;
@@ -66,6 +67,7 @@ public class ThreadedRenderer extends BaseRenderer {
     private LODRenderer lodRenderer;
     private Camera camera;
     private MainThreadWorkQueue mainThreadWork;
+    private LODVisualizer lodVisualizer;
     
     public ThreadedRenderer(Arena arena, VkDevice device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
@@ -93,6 +95,8 @@ public class ThreadedRenderer extends BaseRenderer {
         lodRenderer = new LODRenderer(arena, device, physicalDevice, queue, 10000, 1000);
         mainThreadWork = new MainThreadWorkQueue(60.0);
         lodRenderer.setMainThreadWorkQueue(mainThreadWork);
+        lodVisualizer = new LODVisualizer();
+        lodRenderer.setLODVisualizer(lodVisualizer);
         
         createManagers(queueFamilyIndex);
         createDepthTarget();
@@ -325,20 +329,21 @@ public class ThreadedRenderer extends BaseRenderer {
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
         
-        // glTF pipeline with vertex input descriptions and descriptor set layout
+            // glTF pipeline with vertex input descriptions and descriptor set layout
         gltfPipeline = VkPipeline.builder()
             .device(device)
             .renderPass(renderPass)
             .vertexShader(gltfShaders.vertex())
             .fragmentShader(gltfShaders.fragment())
             .triangleTopology()
+            .polygonMode(lodVisualizer.isWireframeEnabled() ? VkPolygonMode.VK_POLYGON_MODE_LINE.value() : VkPolygonMode.VK_POLYGON_MODE_FILL.value())
             .dynamicViewport()
             .dynamicScissor()
             .depthTest(true)
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
             .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 16)
             .descriptorSetLayouts(descriptorSetLayout.handle())
             .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
@@ -735,6 +740,10 @@ public class ThreadedRenderer extends BaseRenderer {
     
     public MainThreadWorkQueue getMainThreadWorkQueue() {
         return mainThreadWork;
+    }
+    
+    public LODVisualizer getLODVisualizer() {
+        return lodVisualizer;
     }
     
     /**

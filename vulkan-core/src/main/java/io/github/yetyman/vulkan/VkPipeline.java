@@ -163,6 +163,11 @@ public class VkPipeline implements AutoCloseable {
             return this;
         }
         
+        public Builder polygonMode(int mode) {
+            this.polygonMode = mode;
+            return this;
+        }
+        
         public Builder cullBack() {
             this.cullMode = VkCullModeFlagBits.VK_CULL_MODE_BACK_BIT.value();
             return this;

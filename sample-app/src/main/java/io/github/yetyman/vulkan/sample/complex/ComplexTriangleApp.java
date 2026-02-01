@@ -8,6 +8,7 @@ import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
 import io.github.yetyman.vulkan.sample.complex.threading.ThreadedRenderer;
 import io.github.yetyman.vulkan.sample.input.SimpleInputHelper;
+import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.util.Logger;
 
 /**
@@ -98,8 +99,8 @@ public class ComplexTriangleApp extends VulkanApplication {
             });
         }
         
-        // Toggle debug logging with D key
-        input.onKeyPress(GLFWKey.GLFW_KEY_D, () -> {
+        // Toggle debug logging with L key
+        input.onKeyPress(GLFWKey.GLFW_KEY_L, () -> {
             if (Logger.isEnabled(Logger.Level.DEBUG)) {
                 Logger.disable(Logger.Level.DEBUG);
                 Logger.info("Debug logging disabled");
@@ -107,6 +108,22 @@ public class ComplexTriangleApp extends VulkanApplication {
                 Logger.enable(Logger.Level.DEBUG);
                 Logger.info("Debug logging enabled");
             }
+        });
+        
+        // LOD Visualization controls
+        input.onKeyPress(GLFWKey.GLFW_KEY_V, () -> {
+            renderer.getLODVisualizer().toggleWireframe();
+            Logger.info("Wireframe: " + (renderer.getLODVisualizer().isWireframeEnabled() ? "ON" : "OFF"));
+        });
+        
+        input.onKeyPress(GLFWKey.GLFW_KEY_C, () -> {
+            renderer.getLODVisualizer().toggleColorCoding();
+            Logger.info("LOD Color-Coding: " + (renderer.getLODVisualizer().isColorCodingEnabled() ? "ON" : "OFF"));
+        });
+        
+        input.onKeyPress(GLFWKey.GLFW_KEY_B, () -> {
+            renderer.getLODVisualizer().toggleSplitScreen();
+            Logger.info("Split-Screen: " + (renderer.getLODVisualizer().isSplitScreenEnabled() ? "ON" : "OFF"));
         });
 
     }
@@ -130,7 +147,10 @@ public class ComplexTriangleApp extends VulkanApplication {
         Logger.info("  M     - Cycle AA Mode (NONE/MSAA/POST_PROCESS)");
         Logger.info("  +/-   - Increase/Decrease MSAA samples (when in MSAA mode)");
         Logger.info("  1-8   - Set thread count");
-        Logger.info("  D     - Toggle debug logging");
+        Logger.info("  L     - Toggle debug logging");
+        Logger.info("  V     - Toggle wireframe mode");
+        Logger.info("  C     - Toggle LOD color-coding");
+        Logger.info("  B     - Toggle split-screen LOD comparison");
         Logger.info("");
         Logger.info("Move the camera to test LOD transitions!");
         Logger.info("");

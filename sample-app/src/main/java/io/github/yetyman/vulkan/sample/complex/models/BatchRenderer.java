@@ -3,8 +3,10 @@ package io.github.yetyman.vulkan.sample.complex.models;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
+import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 import io.github.yetyman.vulkan.sample.complex.culling.FrustumCuller;
 import io.github.yetyman.vulkan.sample.complex.threading.MainThreadWorkQueue;
+import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -24,6 +26,7 @@ public class BatchRenderer {
     private final FrustumCuller frustumCuller = new FrustumCuller();
     private boolean frustumCullingEnabled = true;
     private int culledCount = 0;
+    private LODVisualizer lodVisualizer;
     
     public BatchRenderer(VkDevice device, int maxInstances) {
         this.device = device;
@@ -37,6 +40,10 @@ public class BatchRenderer {
     
     public void setMainThreadWorkQueue(MainThreadWorkQueue workQueue) {
         this.mainThreadWorkQueue = workQueue;
+    }
+    
+    public void setLODVisualizer(LODVisualizer visualizer) {
+        this.lodVisualizer = visualizer;
     }
     
     public void setFrustumCullingEnabled(boolean enabled) {
@@ -94,7 +101,8 @@ public class BatchRenderer {
             
             // Render this instance with selected LOD
             if (selectedLOD.hasGPUBuffers()) {
-                renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData);
+                int lodIndex = modelData.getLodModel().getLODIndex(selectedLOD);
+                renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData, lodIndex);
                 rendered++;
             }
         }
@@ -103,12 +111,29 @@ public class BatchRenderer {
     }
     
     private void renderInstance(MemorySegment commandBuffer, LODLevel lodLevel, int instanceId,
-                               float blendFactor, MemorySegment pipelineLayout, Arena frameArena, InstanceData instanceData) {
+                               float blendFactor, MemorySegment pipelineLayout, Arena frameArena, InstanceData instanceData, int lodIndex) {
         BufferHandle vertexHandle = lodLevel.getVertexBufferHandle();
         BufferHandle indexHandle = lodLevel.getIndexBufferHandle();
         
         if (vertexHandle == null || indexHandle == null || !vertexHandle.isReady() || !indexHandle.isReady()) {
             return;
+        }
+        
+        // Push constants for visualization
+        if (lodVisualizer != null) {
+            try (Arena pushArena = Arena.ofConfined()) {
+                MemorySegment pushData = pushArena.allocate(16); // 4 ints
+                int vizMode = lodVisualizer.isColorCodingEnabled() ? 2 : 
+                             (lodVisualizer.isSplitScreenEnabled() ? 3 : 0);
+                pushData.setAtIndex(ValueLayout.JAVA_INT, 0, vizMode);
+                pushData.setAtIndex(ValueLayout.JAVA_INT, 1, lodIndex);
+                pushData.setAtIndex(ValueLayout.JAVA_FLOAT, 2, lodVisualizer.getSplitScreenOffset(lodIndex));
+                pushData.setAtIndex(ValueLayout.JAVA_INT, 3, 0); // padding
+                
+                Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, 
+                    VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(),
+                    0, 16, pushData);
+            }
         }
         
         VkVertexBufferBinding.create()

@@ -35,7 +35,7 @@ public class LODConverter {
         List<LODLevel> lodLevels = new ArrayList<>();
         MeshSimplifier simplifier = new MeshSimplifier();
         
-        float[] ratios = {1.0f, 0.75f, 0.50f, 0.25f, 0.10f};
+        float[] ratios = {1.0f, 0.65f, 0.40f, 0.20f, 0.08f};
         float[] distances = {10.0f, 25.0f, 50.0f, 100.0f, Float.MAX_VALUE};
         
         for (int i = 0; i < 5; i++) {
@@ -53,7 +53,7 @@ public class LODConverter {
         Logger.debug("Generating streaming LOD model with QEM decimation...");
         MeshSimplifier simplifier = new MeshSimplifier();
         
-        float[] ratios = {1.0f, 0.75f, 0.50f, 0.25f, 0.10f};
+        float[] ratios = {1.0f, 0.65f, 0.40f, 0.20f, 0.08f};
         float[] distances = {10.0f, 25.0f, 50.0f, 100.0f, Float.MAX_VALUE};
         
         float[][] vertexData = new float[5][];

@@ -71,4 +71,8 @@ public class LODModel {
     public LODLevel getLOD(int index) {
         return lodLevels.get(index);
     }
+    
+    public int getLODIndex(LODLevel level) {
+        return lodLevels.indexOf(level);
+    }
 }
