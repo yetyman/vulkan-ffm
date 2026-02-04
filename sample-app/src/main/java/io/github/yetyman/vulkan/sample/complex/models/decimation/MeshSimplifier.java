@@ -14,16 +14,22 @@ public class MeshSimplifier {
             return new SimplifiedMesh(vertexData, indices);
         }
         
+        int originalTriCount = triangles.size();
         calculateQuadrics();
         
         int targetTriCount = Math.max(4, (int)(triangles.size() * targetRatio));
         PriorityQueue<EdgeCollapse> queue = buildCollapseQueue();
         
+        int collapseAttempts = 0;
+        int successfulCollapses = 0;
+        
         while (countActiveTriangles() > targetTriCount && !queue.isEmpty()) {
             EdgeCollapse collapse = queue.poll();
+            collapseAttempts++;
             if (vertices.get(collapse.v1).removed || vertices.get(collapse.v2).removed) continue;
             
             performCollapse(collapse);
+            successfulCollapses++;
             
             Vertex v = vertices.get(collapse.v1);
             for (int faceId : v.faces) {
@@ -32,6 +38,13 @@ public class MeshSimplifier {
                     addEdgeCollapses(t, queue);
                 }
             }
+        }
+        
+        int finalTriCount = countActiveTriangles();
+        if (finalTriCount != originalTriCount) {
+            io.github.yetyman.vulkan.util.Logger.debug(String.format(
+                "Simplify: %d -> %d tris (target: %d, ratio: %.2f, attempts: %d, success: %d)",
+                originalTriCount, finalTriCount, targetTriCount, targetRatio, collapseAttempts, successfulCollapses));
         }
         
         return extractMesh();
@@ -170,7 +183,7 @@ public class MeshSimplifier {
         v1.u = collapse.targetU; v1.v = collapse.targetV;
         v1.quadric.add(v2.quadric);
         
-        // Remove triangles containing both vertices (the edge)
+        // Find and remove triangles containing both vertices
         Set<Integer> sharedFaces = new HashSet<>(v1.faces);
         sharedFaces.retainAll(v2.faces);
         for (int faceId : sharedFaces) {
@@ -179,12 +192,20 @@ public class MeshSimplifier {
         }
         
         // Update remaining triangles that only contain v2
-        for (int faceId : v2.faces) {
+        for (int faceId : new ArrayList<>(v2.faces)) {
             if (sharedFaces.contains(faceId)) continue;
             
             Triangle t = triangles.get(faceId);
+            if (t.removed) continue;
+            
             t.replaceVertex(collapse.v2, collapse.v1);
-            v1.faces.add(faceId);
+            
+            // Check for degenerate after replacement
+            if (t.isDegenerate()) {
+                t.removed = true;
+            } else {
+                v1.faces.add(faceId);
+            }
         }
         
         v2.removed = true;
@@ -207,6 +228,12 @@ public class MeshSimplifier {
             int i1 = remapVertex(t.v1, vertexRemap, outVertices);
             int i2 = remapVertex(t.v2, vertexRemap, outVertices);
             
+            // Validate indices
+            if (i0 < 0 || i1 < 0 || i2 < 0) {
+                io.github.yetyman.vulkan.util.Logger.error("Invalid vertex indices in triangle: " + i0 + ", " + i1 + ", " + i2);
+                continue;
+            }
+            
             outIndices.add(i0);
             outIndices.add(i1);
             outIndices.add(i2);
@@ -216,6 +243,8 @@ public class MeshSimplifier {
         for (int i = 0; i < verts.length; i++) verts[i] = outVertices.get(i);
         
         int[] inds = outIndices.stream().mapToInt(Integer::intValue).toArray();
+        
+        io.github.yetyman.vulkan.util.Logger.debug("Extracted mesh: " + (verts.length/8) + " vertices, " + (inds.length/3) + " triangles");
         
         return new SimplifiedMesh(verts, inds);
     }

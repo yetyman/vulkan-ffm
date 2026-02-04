@@ -11,7 +11,7 @@ public class Camera {
     private float fov = 45.0f;
     private float aspectRatio = 800.0f / 600.0f;
     private float nearPlane = 0.1f;
-    private float farPlane = 100.0f;
+    private float farPlane = 1000.0f;
     
     private final float[] viewMatrix = new float[16];
     private final float[] projMatrix = new float[16];

@@ -12,7 +12,7 @@ public class LODModel {
     private final float[] lodDistances;
     private final Arena arena;
     private int currentLODIndex = -1;
-    private static final float HYSTERESIS = 1.5f; // Prevent thrashing between levels
+    private static final float HYSTERESIS = 0.5f; // Prevent thrashing between levels
     
     public record LODSelection(LODLevel level, float blendFactor) {}
     private static final float TRANSITION_RANGE = 5.0f;
@@ -32,6 +32,7 @@ public class LODModel {
     }
     
     public LODLevel selectLOD(float distance) {
+        // Find the appropriate LOD based on distance
         int targetIndex = lodLevels.size() - 1;
         for (int i = 0; i < lodLevels.size(); i++) {
             if (distance <= lodLevels.get(i).maxDistance()) {
@@ -40,18 +41,28 @@ public class LODModel {
             }
         }
         
+        // Apply hysteresis only if we have a current LOD
         if (currentLODIndex != -1 && currentLODIndex != targetIndex) {
-            float boundaryDist = (targetIndex < currentLODIndex) 
-                ? lodLevels.get(targetIndex).maxDistance()
-                : lodLevels.get(currentLODIndex).maxDistance();
-            
-            if (targetIndex < currentLODIndex && distance > boundaryDist - HYSTERESIS) {
-                targetIndex = currentLODIndex;
-            } else if (targetIndex > currentLODIndex && distance < boundaryDist + HYSTERESIS) {
-                targetIndex = currentLODIndex;
+            // Determine the boundary distance between current and target LOD
+            float boundaryDist;
+            if (targetIndex < currentLODIndex) {
+                // Moving to higher detail (closer)
+                boundaryDist = lodLevels.get(targetIndex).maxDistance();
+                // Only switch if we're clearly past the boundary
+                if (distance > boundaryDist - HYSTERESIS) {
+                    targetIndex = currentLODIndex;
+                }
+            } else {
+                // Moving to lower detail (farther)
+                boundaryDist = lodLevels.get(currentLODIndex).maxDistance();
+                // Only switch if we're clearly past the boundary
+                if (distance < boundaryDist + HYSTERESIS) {
+                    targetIndex = currentLODIndex;
+                }
             }
         }
         
+        // Update current LOD if changed
         if (targetIndex != currentLODIndex) {
             int oldIndex = currentLODIndex;
             currentLODIndex = targetIndex;

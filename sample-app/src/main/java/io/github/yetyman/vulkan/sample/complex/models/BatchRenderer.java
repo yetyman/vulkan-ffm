@@ -102,6 +102,11 @@ public class BatchRenderer {
             // Render this instance with selected LOD
             if (selectedLOD.hasGPUBuffers()) {
                 int lodIndex = modelData.getLodModel().getLODIndex(selectedLOD);
+                if (lodIndex == -1) {
+                    Logger.error("Failed to find LOD index for selected LOD!");
+                    lodIndex = 0;
+                }
+                Logger.debug("Rendering instance " + i + " with LOD " + lodIndex + " (distance: " + String.format("%.1f", distance) + ")");
                 renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData, lodIndex);
                 rendered++;
             }
