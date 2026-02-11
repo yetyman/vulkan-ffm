@@ -70,7 +70,6 @@ public class VkBuffer implements AutoCloseable {
      */
     public static class Builder {
         private VkDevice device;
-        private VkPhysicalDevice physicalDevice;
         private long size;
         private int usage;
         private int sharingMode = VkSharingMode.VK_SHARING_MODE_EXCLUSIVE.value();
@@ -84,12 +83,6 @@ public class VkBuffer implements AutoCloseable {
         /** Sets the logical device */
         public Builder device(VkDevice device) {
             this.device = device;
-            return this;
-        }
-        
-        /** Sets the physical device (needed for memory allocation) */
-        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
-            this.physicalDevice = physicalDevice;
             return this;
         }
         
@@ -190,7 +183,6 @@ public class VkBuffer implements AutoCloseable {
         /** Creates the buffer with allocated memory */
         public VkBuffer build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            if (physicalDevice == null) throw new IllegalStateException("physicalDevice not set");
             if (size <= 0) throw new IllegalStateException("invalid size");
             if (usage == 0) throw new IllegalStateException("usage not set");
             
@@ -227,7 +219,7 @@ public class VkBuffer implements AutoCloseable {
             
             // Find suitable memory type
             MemorySegment memProperties = VkPhysicalDeviceMemoryProperties.allocate(arena);
-            Vulkan.getPhysicalDeviceMemoryProperties(physicalDevice.handle(), memProperties);
+            Vulkan.getPhysicalDeviceMemoryProperties(device.physicalDevice().handle(), memProperties);
             
             int memoryTypeIndex = -1;
             int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(memProperties);

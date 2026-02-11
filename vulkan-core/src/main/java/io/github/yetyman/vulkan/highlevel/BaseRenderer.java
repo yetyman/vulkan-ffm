@@ -51,11 +51,11 @@ public abstract class BaseRenderer implements AutoCloseable {
         this.maxFramesInFlight = maxFramesInFlight;
     }
     
-    public final void init(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
+    public final void init(int queueFamilyIndex) {
         // Initialize subclass resources first
-        initializeResources(physicalDevice, queueFamilyIndex);
+        initializeResources(queueFamilyIndex);
         
-        createSwapchain(physicalDevice);
+        createSwapchain();
         createImageViews();
         createRenderPass();
         createFramebuffers();
@@ -67,7 +67,7 @@ public abstract class BaseRenderer implements AutoCloseable {
         postRenderPassInit();
     }
     
-    private void createSwapchain(VkPhysicalDevice physicalDevice) {
+    private void createSwapchain() {
         swapchain = VkSwapchain.create(arena, device, surface, width, height);
     }
     
@@ -176,7 +176,7 @@ public abstract class BaseRenderer implements AutoCloseable {
         height = newHeight;
         
         // Recreate resources (physicalDevice not needed for recreation)
-        createSwapchain(null);
+        createSwapchain();
         createImageViews();
         
         // Allow subclass to handle resize before creating framebuffers
@@ -215,7 +215,7 @@ public abstract class BaseRenderer implements AutoCloseable {
     protected abstract void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena);
     
     // Optional hooks
-    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {}
+    protected void initializeResources(int queueFamilyIndex) {}
     protected void postRenderPassInit() {}
     protected void onResize(int width, int height) {}
     protected void cleanupResources() {}

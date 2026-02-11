@@ -7,14 +7,12 @@ import io.github.yetyman.vulkan.generated.VkWriteDescriptorSet;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.culling.Camera;
-import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
-import io.github.yetyman.vulkan.sample.complex.models.*;
+import io.github.yetyman.vulkan.sample.complex.models.GLTFLoader;
 import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.*;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 public class ThreadedRenderer extends BaseRenderer {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
@@ -63,11 +61,10 @@ public class ThreadedRenderer extends BaseRenderer {
     private MemorySegment cachedViewport;
     private MemorySegment cachedScissor;
     
-    // LOD rendering
-    private LODRenderer lodRenderer;
+    // Model rendering
     private Camera camera;
     private MainThreadWorkQueue mainThreadWork;
-    private LODVisualizer lodVisualizer;
+    private final List<VulkanMesh> loadedMeshes = new ArrayList<>();
     
     public ThreadedRenderer(Arena arena, VkDevice device, MemorySegment queue, 
                            MemorySegment surface, int width, int height) {
@@ -75,28 +72,19 @@ public class ThreadedRenderer extends BaseRenderer {
         
         // Initialize thread manager
         threadManager = new ThreadManager();
-        
-        // Initialize LOD renderer with max instances
-        // Note: physicalDevice will be set in init()
-        lodRenderer = null; // Will be created in init() when physicalDevice is available
     }
     
     @Override
-    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
-        this.physicalDevice = physicalDevice;
-        
+    protected void initializeResources(int queueFamilyIndex) {
+
         // Initialize camera
         camera = new Camera();
         camera.setPosition(0.0f, 0.0f, 10.0f);
         camera.setTarget(0.0f, 0.0f, 0.0f);
         camera.setAspectRatio((float)width / (float)height);
         
-        // Initialize LOD renderer now that we have physicalDevice
-        lodRenderer = new LODRenderer(arena, device, physicalDevice, queue, 10000, 1000);
+        // Initialize GLTF loader
         mainThreadWork = new MainThreadWorkQueue(60.0);
-        lodRenderer.setMainThreadWorkQueue(mainThreadWork);
-        lodVisualizer = new LODVisualizer();
-        lodRenderer.setLODVisualizer(lodVisualizer);
         
         createManagers(queueFamilyIndex);
         createDepthTarget();
@@ -105,24 +93,18 @@ public class ThreadedRenderer extends BaseRenderer {
             adaptiveAA = AdaptiveAA.builder()
                 .arena(arena)
                 .device(device)
-                .physicalDevice(physicalDevice)
                 .dimensions(width, height)
                 .mode(aaMode)
                 .samples(msaaSamples)
                 .build();
         }
         
-        // Set Vulkan resources after managers are created
+        // Create graphics pipeline
         MemorySegment renderPassForPipeline = adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
-        lodRenderer.setVulkanResources(commandManager.getCommandPool(), adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass() : directRenderPass);
         createGraphicsPipeline(renderPassForPipeline);
         createRenderGraph();
         Logger.info("Threaded renderer initialized with RenderGraph (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
-    
-
-    
-    private VkPhysicalDevice physicalDevice;
     
     private void createManagers(int queueFamilyIndex) {
         commandManager = VulkanCommandManager.builder()
@@ -147,7 +129,6 @@ public class ThreadedRenderer extends BaseRenderer {
         depthTarget = VulkanRenderTarget.builder()
             .arena(arena)
             .device(device)
-            .physicalDevice(physicalDevice)
             .format(depthFormat)
             .extent(width, height)
             .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value())
@@ -167,7 +148,7 @@ public class ThreadedRenderer extends BaseRenderer {
         
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
-                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = physicalDevice.getFormatProperties(format, tempArena);
+                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = device.physicalDevice().getFormatProperties(format, tempArena);
                 if ((formatProps.optimalTilingFeatures() & VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value()) != 0) {
                     return format;
                 }
@@ -247,20 +228,12 @@ public class ThreadedRenderer extends BaseRenderer {
                     Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
                     Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
                     
-                    // Render LOD models if any exist
-                    int instanceCount = lodRenderer.getInstanceCount();
-                    Logger.debug("Rendering LOD models: instanceCount=" + instanceCount);
-                    if (instanceCount > 0) {
-                        lodRenderer.updateFrustum(camera.getViewProjectionMatrix());
-                        lodRenderer.setFrustumCullingEnabled(true);
-                        
-                        // Debug: Log camera and frustum info
-                        float[] camPos = camera.getPosition();
-                        Logger.debug("Camera at (" + camPos[0] + "," + camPos[1] + "," + camPos[2] + ")");
-                        Logger.debug("VP Matrix[0-3]: " + vpMatrix[0] + "," + vpMatrix[1] + "," + vpMatrix[2] + "," + vpMatrix[3]);
-                        Logger.debug("Calling lodRenderer.renderModels...");
-                        
-                        lodRenderer.renderModels(cmd, camera.getPosition(), frameArena, gltfPipeline.handle(), gltfPipeline.layout());
+                    // Render loaded meshes
+                    synchronized (loadedMeshes) {
+                        for (VulkanMesh mesh : loadedMeshes) {
+                            mesh.bind(cmd);
+                            mesh.draw(cmd);
+                        }
                     }
                 })
             
@@ -290,7 +263,6 @@ public class ThreadedRenderer extends BaseRenderer {
         // Create camera uniform buffer
         cameraUniformBuffer = VkBuffer.builder()
             .device(device)
-            .physicalDevice(physicalDevice)
             .size(64) // mat4 = 16 floats * 4 bytes
             .uniformBuffer()
             .hostVisible()
@@ -332,34 +304,31 @@ public class ThreadedRenderer extends BaseRenderer {
             .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
         
-            // glTF pipeline with vertex input descriptions and descriptor set layout
+        // glTF pipeline with vertex input descriptions and descriptor set layout
         gltfPipeline = VkPipeline.builder()
             .device(device)
             .renderPass(renderPass)
             .vertexShader(gltfShaders.vertex())
             .fragmentShader(gltfShaders.fragment())
             .triangleTopology()
-            .polygonMode(lodVisualizer.isWireframeEnabled() ? VkPolygonMode.VK_POLYGON_MODE_LINE.value() : VkPolygonMode.VK_POLYGON_MODE_FILL.value())
+            .polygonMode(VkPolygonMode.VK_POLYGON_MODE_FILL.value())
             .dynamicViewport()
             .dynamicScissor()
             .depthTest(true)
             .depthWrite(true)
             .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
             .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 16)
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 64)
             .descriptorSetLayouts(descriptorSetLayout.handle())
             .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)
                 .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 12)
                 .attribute(2, 0, VkFormat.VK_FORMAT_R32G32_SFLOAT.value(), 24)
-                .binding(1, 64, VkVertexInputRate.VK_VERTEX_INPUT_RATE_INSTANCE.value())
-                .attribute(3, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 0)
-                .attribute(4, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 16)
-                .attribute(5, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 32)
-                .attribute(6, 1, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 48)
-                .binding(2, 12, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
-                .attribute(7, 2, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)
+                .attribute(3, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 32)//matrix4
+                .attribute(4, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 48)//matrix4
+                .attribute(5, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 64)//matrix4
+                .attribute(6, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 80)//matrix4
                 .build()
             .build(arena);
         
@@ -560,7 +529,6 @@ public class ThreadedRenderer extends BaseRenderer {
             adaptiveAA = AdaptiveAA.builder()
                 .arena(arena)
                 .device(device)
-                .physicalDevice(physicalDevice)
                 .dimensions(width, height)
                 .mode(aaMode)
                 .samples(msaaSamples)
@@ -639,7 +607,6 @@ public class ThreadedRenderer extends BaseRenderer {
             adaptiveAA = AdaptiveAA.builder()
                 .arena(arena)
                 .device(device)
-                .physicalDevice(physicalDevice)
                 .dimensions(width, height)
                 .mode(aaMode)
                 .samples(msaaSamples)
@@ -655,7 +622,7 @@ public class ThreadedRenderer extends BaseRenderer {
             MemorySegment imageFormatProps = tempArena.allocate(io.github.yetyman.vulkan.generated.VkImageFormatProperties.layout());
             
             io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceImageFormatProperties(
-                physicalDevice.handle(),
+                device.physicalDevice().handle(),
                 VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(),
                 VkImageType.VK_IMAGE_TYPE_2D.value(),
                 VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value(),
@@ -683,21 +650,23 @@ public class ThreadedRenderer extends BaseRenderer {
         return frameTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0; // ms
     }
     
-    // LOD model management
-    public int addLODModel(LODModel model) {
-        return lodRenderer.addModel(model);
+    // Mesh management
+    public void addMesh(VulkanMesh mesh) {
+        synchronized (loadedMeshes) {
+            loadedMeshes.add(mesh);
+        }
     }
     
-    public int addLODInstance(ModelData modelData) {
-        return lodRenderer.addInstance(modelData);
+    public void removeMesh(VulkanMesh mesh) {
+        synchronized (loadedMeshes) {
+            loadedMeshes.remove(mesh);
+        }
     }
     
-    public void removeLODInstance(int instanceId) {
-        lodRenderer.removeInstance(instanceId);
-    }
-    
-    public void updateLODInstance(int instanceId, ModelData modelData) {
-        lodRenderer.updateInstance(instanceId, modelData);
+    public void clearMeshes() {
+        synchronized (loadedMeshes) {
+            loadedMeshes.clear();
+        }
     }
     
     public void setCameraPosition(float x, float y, float z) {
@@ -725,106 +694,15 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     public int getActiveTriangleCount() {
-        return lodRenderer.getActiveTriangleCount(camera.getPosition());
-    }
-    
-    public int getCulledInstanceCount() {
-        return lodRenderer.getCulledCount();
-    }
-    
-    /**
-     * Load glTF model from file path - can be called from any thread
-     * @param filePath Path to .gltf or .glb file
-     * @return CompletableFuture that resolves to ModelData when loaded
-     */
-    public CompletableFuture<ModelData> loadGLTFModel(String filePath) {
-        return lodRenderer.loadGLTFModel(filePath);
+        synchronized (loadedMeshes) {
+            return loadedMeshes.stream()
+                .mapToInt(mesh -> mesh.isIndexed() ? mesh.indexCount() / 3 : mesh.getVertexCount(0) / 3)
+                .sum();
+        }
     }
     
     public MainThreadWorkQueue getMainThreadWorkQueue() {
         return mainThreadWork;
-    }
-    
-    public LODVisualizer getLODVisualizer() {
-        return lodVisualizer;
-    }
-    
-    /**
-     * Load sample models at adjacent positions for testing
-     */
-    public void loadSampleModels() {
-        Logger.info("Starting to load sample models...");
-        
-        // Load Box once, create 4 instances
-        loadGLTFModel("/sample-models/Box/glTF/Box.gltf")
-            .thenAcceptAsync(boxModel -> {
-                Logger.info("[MODEL LOADED] Box model ready, creating 4 instances");
-                for (int i = 0; i < 4; i++) {
-                    TransformationMatrix transform = new TransformationMatrix();
-                    transform.setPosition(-6.0f + i * 2.0f, 0.0f, 0.0f);
-                    transform.setScale(1.5f, 1.5f, 1.5f);
-                    transform.setRotation(i * 0.5f);
-                    
-                    ModelData instance = new ModelData(boxModel.getModelId());
-                    float[][] lodVertices = new float[5][];
-                    int[][] lodIndices = new int[5][];
-                    for (int lod = 0; lod < 5; lod++) {
-                        lodVertices[lod] = boxModel.getLodVertices(lod);
-                        lodIndices[lod] = boxModel.getLodIndices(lod);
-                    }
-                    instance.loadModel(boxModel.getLodModel(), transform, lodVertices, lodIndices);
-                    int instanceId = addLODInstance(instance);
-                    Logger.info("Box " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
-                }
-            })
-            .exceptionally(throwable -> {
-                Logger.error("Failed to load Box: " + throwable.getMessage());
-                throwable.printStackTrace();
-                return null;
-            });
-        
-        // Load Duck
-        loadGLTFModel("/sample-models/Duck/glTF/Duck.gltf")
-            .thenAcceptAsync(modelData -> {
-                Logger.info("[MODEL LOADED] Duck model ready");
-                modelData.getTransform().setPosition(0.0f, 0.0f, 0.0f);
-                modelData.getTransform().setScale(1.0f, 1.0f, 1.0f);
-                int instanceId = addLODInstance(modelData);
-                Logger.info("Duck loaded, instanceId: " + instanceId + ", LOD levels: " + modelData.getLodModel().getLODCount());
-            })
-            .exceptionally(throwable -> {
-                Logger.error("Failed to load Duck: " + throwable.getMessage());
-                throwable.printStackTrace();
-                return null;
-            });
-        
-        // Load Suzanne once, create 3 instances
-        loadGLTFModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
-            .thenAcceptAsync(suzanneModel -> {
-                Logger.info("[MODEL LOADED] Suzanne model ready, creating 3 instances");
-                for (int i = 0; i < 3; i++) {
-                    TransformationMatrix transform = new TransformationMatrix();
-                    transform.setPosition(3.0f + i * 2.5f, 0.0f, 0.0f);
-                    transform.setScale(2.0f, 2.0f, 2.0f);
-                    transform.setRotation(i * 0.7f);
-                    
-                    ModelData instance = new ModelData(suzanneModel.getModelId());
-                    float[][] lodVertices = new float[5][];
-                    int[][] lodIndices = new int[5][];
-                    for (int lod = 0; lod < 5; lod++) {
-                        lodVertices[lod] = suzanneModel.getLodVertices(lod);
-                        lodIndices[lod] = suzanneModel.getLodIndices(lod);
-                    }
-                    instance.loadModel(suzanneModel.getLodModel(), transform, lodVertices, lodIndices);
-                    int instanceId = addLODInstance(instance);
-                    Logger.info("Suzanne " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
-                }
-            })
-            .exceptionally(throwable -> {
-                Logger.error("Failed to load Suzanne: " + throwable.getMessage());
-                throwable.printStackTrace();
-                return null;
-            });
     }
     
     @Override
@@ -848,7 +726,6 @@ public class ThreadedRenderer extends BaseRenderer {
             adaptiveAA = AdaptiveAA.builder()
                 .arena(arena)
                 .device(device)
-                .physicalDevice(physicalDevice)
                 .dimensions(width, height)
                 .mode(aaMode)
                 .samples(msaaSamples)
@@ -874,8 +751,13 @@ public class ThreadedRenderer extends BaseRenderer {
         // Clean up thread manager
         if (threadManager != null) threadManager.close();
         
-        // Clean up LOD renderer first (it has GPU resources)
-        if (lodRenderer != null) lodRenderer.cleanup();
+        // Clean up loaded meshes
+        synchronized (loadedMeshes) {
+            for (VulkanMesh mesh : loadedMeshes) {
+                mesh.close();
+            }
+            loadedMeshes.clear();
+        }
         
         // Clean up managers
         if (commandManager != null) commandManager.close();

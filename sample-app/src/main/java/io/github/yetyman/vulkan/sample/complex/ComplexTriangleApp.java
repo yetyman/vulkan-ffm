@@ -4,12 +4,14 @@ import io.github.yetyman.glfw.enums.GLFWKey;
 import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import io.github.yetyman.vulkan.input.InputManager;
+import io.github.yetyman.vulkan.sample.complex.models.GLTFLoader;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
 import io.github.yetyman.vulkan.sample.complex.threading.ThreadedRenderer;
 import io.github.yetyman.vulkan.sample.input.SimpleInputHelper;
-import io.github.yetyman.vulkan.sample.complex.debug.LODVisualizer;
 import io.github.yetyman.vulkan.util.Logger;
+
+import java.lang.foreign.Arena;
 
 /**
  * Complex triangle app using the enhanced VulkanApplication framework.
@@ -17,6 +19,7 @@ import io.github.yetyman.vulkan.util.Logger;
  */
 public class ComplexTriangleApp extends VulkanApplication {
     private ThreadedRenderer renderer;
+    private GLTFLoader gltfLoader;
     
     public ComplexTriangleApp() {
         super("Complex Triangle", 800, 600, new GLFWWindowSystem(), new GLFWInputSystem());
@@ -33,11 +36,13 @@ public class ComplexTriangleApp extends VulkanApplication {
         
         renderer = new ThreadedRenderer(vulkanContext().arena(), vulkanContext().device(),
                                                          vulkanContext().graphicsQueue(), surface(), 800, 600);
-        renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
-        renderer.loadSampleModels();
+        renderer.init(vulkanContext().graphicsQueueFamily());
+
+        gltfLoader = new GLTFLoader(Arena.ofShared(), vulkanContext().device());
+        loadSampleModels();
         Logger.info("Threaded renderer initialized");
     }
-    
+
     @Override
     protected void render() {
         renderer.drawFrame();
@@ -53,6 +58,10 @@ public class ComplexTriangleApp extends VulkanApplication {
         if (renderer != null) {
             renderer.cleanup();
         }
+
+        // Clean up GLTF loader
+        if (gltfLoader != null)
+            gltfLoader.shutdown();
     }
     
     @Override
@@ -117,33 +126,16 @@ public class ComplexTriangleApp extends VulkanApplication {
                 Logger.info("Debug logging enabled");
             }
         });
-        
-        // LOD Visualization controls
-        input.onKeyPress(GLFWKey.GLFW_KEY_V, () -> {
-            renderer.getLODVisualizer().toggleWireframe();
-            Logger.info("Wireframe: " + (renderer.getLODVisualizer().isWireframeEnabled() ? "ON" : "OFF"));
-        });
-        
-        input.onKeyPress(GLFWKey.GLFW_KEY_C, () -> {
-            renderer.getLODVisualizer().toggleColorCoding();
-            Logger.info("LOD Color-Coding: " + (renderer.getLODVisualizer().isColorCodingEnabled() ? "ON" : "OFF"));
-        });
-        
-        input.onKeyPress(GLFWKey.GLFW_KEY_B, () -> {
-            renderer.getLODVisualizer().toggleSplitScreen();
-            Logger.info("Split-Screen: " + (renderer.getLODVisualizer().isSplitScreenEnabled() ? "ON" : "OFF"));
-        });
 
     }
     
     @Override
     protected void onFPSUpdate(int fps) {
-        int culled = renderer.getCulledInstanceCount();
         float[] camPos = renderer.getCamera().getPosition();
         float camDist = (float)Math.sqrt(camPos[0]*camPos[0] + camPos[1]*camPos[1] + camPos[2]*camPos[2]);
-        Logger.info(String.format("FPS: %d | Cam Dist: %.1fm | Threads: %d | Frame: %.2fms | AA: %s | Culled: %d", 
+        Logger.info(String.format("FPS: %d | Cam Dist: %.1fm | Threads: %d | Frame: %.2fms | AA: %s | Triangles: %d", 
             fps, camDist, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
-            renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", culled));
+            renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", renderer.getActiveTriangleCount()));
     }
     
     public static void main(String[] args) {
@@ -156,11 +148,6 @@ public class ComplexTriangleApp extends VulkanApplication {
         Logger.info("  +/-   - Increase/Decrease MSAA samples (when in MSAA mode)");
         Logger.info("  1-8   - Set thread count");
         Logger.info("  L     - Toggle debug logging");
-        Logger.info("  V     - Toggle wireframe mode");
-        Logger.info("  C     - Toggle LOD color-coding");
-        Logger.info("  B     - Toggle split-screen LOD comparison");
-        Logger.info("");
-        Logger.info("Move the camera to test LOD transitions!");
         Logger.info("");
         
         try (ComplexTriangleApp app = new ComplexTriangleApp()) {
@@ -170,4 +157,46 @@ public class ComplexTriangleApp extends VulkanApplication {
             e.printStackTrace();
         }
     }
+
+
+    /**
+     * Load sample models at adjacent positions for testing
+     */
+    public void loadSampleModels() {
+        Logger.info("Starting to load sample models...");
+
+        // Load Box
+        gltfLoader.loadModel("/sample-models/Box/glTF/Box.gltf")
+                .thenAccept(mesh -> {
+                    Logger.info("Box model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(throwable -> {
+                    Logger.error("Failed to load Box: " + throwable.getMessage());
+                    return null;
+                });
+
+        // Load Duck
+        gltfLoader.loadModel("/sample-models/Duck/glTF/Duck.gltf")
+                .thenAccept(mesh -> {
+                    Logger.info("Duck model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(throwable -> {
+                    Logger.error("Failed to load Duck: " + throwable.getMessage());
+                    return null;
+                });
+
+        // Load Suzanne
+        gltfLoader.loadModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
+                .thenAccept(mesh -> {
+                    Logger.info("Suzanne model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(throwable -> {
+                    Logger.error("Failed to load Suzanne: " + throwable.getMessage());
+                    return null;
+                });
+    }
+
 }

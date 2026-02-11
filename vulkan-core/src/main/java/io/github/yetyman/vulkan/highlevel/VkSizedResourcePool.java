@@ -14,7 +14,6 @@ import java.util.function.Consumer;
  *     .sizes(1024, 4096, 65536, 1048576) // 1KB, 4KB, 64KB, 1MB
  *     .factory((size) -> VkBuffer.builder()
  *         .device(device)
- *         .physicalDevice(physicalDevice)
  *         .size(size)
  *         .vertexBuffer()
  *         .build(arena))

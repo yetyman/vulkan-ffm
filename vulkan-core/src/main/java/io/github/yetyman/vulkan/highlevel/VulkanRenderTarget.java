@@ -11,17 +11,15 @@ import java.lang.foreign.*;
 public class VulkanRenderTarget implements AutoCloseable {
     private final Arena arena;
     private final VkDevice device;
-    private final VkPhysicalDevice physicalDevice;
     private final VkImage image;
     private final VkImageView imageView;
 
     
-    private VulkanRenderTarget(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice,
+    private VulkanRenderTarget(Arena arena, VkDevice device,
                               int format, int width, int height, int usage, int aspectMask) {
         this.arena = arena;
         this.device = device;
-        this.physicalDevice = physicalDevice;
-        
+
         // Create image
         MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
         VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
@@ -77,7 +75,6 @@ public class VulkanRenderTarget implements AutoCloseable {
     public static class Builder {
         private Arena arena;
         private VkDevice device;
-        private VkPhysicalDevice physicalDevice;
         private int format;
         private int width, height;
         private int usage;
@@ -93,15 +90,9 @@ public class VulkanRenderTarget implements AutoCloseable {
             return this;
         }
         
-        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
-            this.physicalDevice = physicalDevice;
-            return this;
-        }
-        
         public Builder context(VulkanContext context) {
             this.arena = context.arena();
             this.device = context.device();
-            this.physicalDevice = context.physicalDevice();
             return this;
         }
         
@@ -130,7 +121,7 @@ public class VulkanRenderTarget implements AutoCloseable {
             if (arena == null) throw new IllegalStateException("arena not set");
             if (device == null) throw new IllegalStateException("device not set");
             if (width <= 0 || height <= 0) throw new IllegalStateException("invalid extent");
-            return new VulkanRenderTarget(arena, device, physicalDevice, format, width, height, usage, aspectMask);
+            return new VulkanRenderTarget(arena, device, format, width, height, usage, aspectMask);
         }
     }
 }

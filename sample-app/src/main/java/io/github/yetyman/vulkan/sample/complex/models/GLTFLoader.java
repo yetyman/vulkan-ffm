@@ -4,13 +4,12 @@ import de.javagl.jgltf.model.*;
 import de.javagl.jgltf.model.io.GltfModelReader;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkPhysicalDevice;
-import io.github.yetyman.vulkan.sample.complex.models.decimation.MeshSimplifier;
-import io.github.yetyman.vulkan.sample.complex.models.decimation.SimplifiedMesh;
+import io.github.yetyman.vulkan.highlevel.VulkanMesh;
+import io.github.yetyman.vulkan.highlevel.VkVertexFormat;
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.util.Logger;
-import java.lang.foreign.Arena;
-import java.nio.file.Paths;
+import java.lang.foreign.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
@@ -27,32 +26,30 @@ public class GLTFLoader {
         return t;
     });
     
-    private final AtomicInteger nextModelId = new AtomicInteger(0);
-    
-    public GLTFLoader(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice) {
-        this.device = device;
-        this.physicalDevice = physicalDevice;
-    }
-    
+    private final Arena arena;
     private final VkDevice device;
-    private final VkPhysicalDevice physicalDevice;
+
+    public GLTFLoader(Arena arena, VkDevice device) {
+        this.arena = arena;
+        this.device = device;
+    }
     
     /**
      * Load glTF model from file path - can be called from any thread
      * @param filePath Path to .gltf or .glb file
-     * @return CompletableFuture that resolves to ModelData when loaded
+     * @return CompletableFuture that resolves to VulkanMesh when loaded
      */
-    public CompletableFuture<ModelData> loadModel(String filePath) {
+    public CompletableFuture<VulkanMesh> loadModel(String filePath) {
         Logger.debug("Queuing load for: " + filePath);
-        CompletableFuture<ModelData> promise = new CompletableFuture<>();
+        CompletableFuture<VulkanMesh> promise = new CompletableFuture<>();
         
         // Queue loading on background thread
         loadingThread.submit(() -> {
             try {
                 Logger.debug("Starting load: " + filePath);
-                ModelData modelData = loadModelSync(filePath);
+                VulkanMesh mesh = loadModelSync(filePath);
                 Logger.debug("Load complete: " + filePath);
-                promise.complete(modelData);
+                promise.complete(mesh);
             } catch (Exception e) {
                 Logger.error("Load failed: " + filePath + " - " + e.getMessage());
                 e.printStackTrace();
@@ -63,53 +60,30 @@ public class GLTFLoader {
         return promise;
     }
     
-    private ModelData loadModelSync(String filePath) throws Exception {
-        // Create ModelData with unique ID
-        int modelId = nextModelId.getAndIncrement();
-        ModelData modelData = new ModelData(modelId);
-        Logger.debug("Created ModelData with ID: " + modelId);
-        
+    private VulkanMesh loadModelSync(String filePath) throws Exception {
         // Parse glTF file
         Logger.debug("Parsing glTF file: " + filePath);
         GLTFData gltfData = parseGLTF(filePath);
-        Logger.debug("Parsed " + gltfData.vertices.length + " vertices, " + gltfData.indices.length + " indices");
+        Logger.debug("Parsed " + gltfData.vertexCount + " vertices, " + gltfData.indexCount + " indices");
         
-        // Convert to LOD model using background thread arena
-        Logger.debug("Generating LOD levels...");
-        try (Arena backgroundArena = Arena.ofConfined()) {
-            LODConverter lodConverter = new LODConverter(backgroundArena);
-            lodConverter.setVulkanDevice(device, physicalDevice);
-            
-            // Generate decimated meshes for all LOD levels
-            MeshSimplifier simplifier = new MeshSimplifier();
-            float[] ratios = {1.0f, 0.65f, 0.40f, 0.20f, 0.08f};
-            float[][] lodVertices = new float[5][];
-            int[][] lodIndices = new int[5][];
-            
-            for (int i = 0; i < 5; i++) {
-                SimplifiedMesh mesh = (i == 0) ? new SimplifiedMesh(gltfData.vertices, gltfData.indices)
-                                               : simplifier.simplify(gltfData.vertices, gltfData.indices, ratios[i]);
-                lodVertices[i] = mesh.vertices();
-                lodIndices[i] = mesh.indices();
-                Logger.debug("LOD" + i + ": " + mesh.triangleCount() + " triangles");
-            }
-            
-            LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
-            Logger.debug("Generated " + lodModel.getLODCount() + " LOD levels");
-            
-            // Create initial transform
-            TransformationMatrix transform = new TransformationMatrix();
-            
-            // Load into ModelData with per-LOD geometry data
-            modelData.loadModel(lodModel, transform, lodVertices, lodIndices);
-            
-            // Mark LOD0 as resident since it has GPU buffers from LODConverter
-            modelData.setLODResident(0, true);
-            
-            Logger.debug("ModelData loaded and ready");
-        }
+        // Create vertex format (position + normal + texcoord)
+        VkVertexFormat format = VkVertexFormat.builder()
+            .perVertexBinding(0, 32)  // 8 floats * 4 bytes = 32 bytes per vertex
+            .vec3Attribute(0, 0, 0)   // position at offset 0
+            .vec3Attribute(1, 0, 12)  // normal at offset 12
+            .vec2Attribute(2, 0, 24)  // texcoord at offset 24
+            .build();
         
-        return modelData;
+        // Create VulkanMesh
+        VulkanMesh mesh = VulkanMesh.builder()
+            .device(device)
+            .vertexFormat(format)
+            .vertexBuffer(0, gltfData.vertexData, gltfData.vertexCount)
+            .indexBuffer(gltfData.indexData, gltfData.indexCount)
+            .build(arena);
+        
+        Logger.debug("VulkanMesh created");
+        return mesh;
     }
     
     private GLTFData parseGLTF(String filePath) throws Exception {
@@ -165,7 +139,6 @@ public class GLTFLoader {
         FloatBuffer positionsBuffer = positionsData.createByteBuffer().asFloatBuffer();
         
         int vertexCount = positionsBuffer.remaining() / 3;
-        float[] vertices = new float[vertexCount * 8]; // 8 floats per vertex (pos=3, normal=3, texcoord=2)
         
         // Get normals if available
         FloatBuffer normalsBuffer = null;
@@ -183,68 +156,65 @@ public class GLTFLoader {
             texCoordsBuffer = texCoordsData.createByteBuffer().asFloatBuffer();
         }
         
+        // Allocate vertex data in native memory
+        MemorySegment vertexData = Arena.ofAuto().allocate(vertexCount * 32L); // 8 floats * 4 bytes = 32 bytes per vertex
+        
         // Copy all vertex data
         for (int i = 0; i < vertexCount; i++) {
+            long offset = i * 32L;
+            
             // Position
-            vertices[i * 8 + 0] = positionsBuffer.get(i * 3 + 0);
-            vertices[i * 8 + 1] = positionsBuffer.get(i * 3 + 1);
-            vertices[i * 8 + 2] = positionsBuffer.get(i * 3 + 2);
+            vertexData.set(ValueLayout.JAVA_FLOAT, offset + 0, positionsBuffer.get(i * 3 + 0));
+            vertexData.set(ValueLayout.JAVA_FLOAT, offset + 4, positionsBuffer.get(i * 3 + 1));
+            vertexData.set(ValueLayout.JAVA_FLOAT, offset + 8, positionsBuffer.get(i * 3 + 2));
             
             // Normal
             if (normalsBuffer != null) {
-                vertices[i * 8 + 3] = normalsBuffer.get(i * 3 + 0);
-                vertices[i * 8 + 4] = normalsBuffer.get(i * 3 + 1);
-                vertices[i * 8 + 5] = normalsBuffer.get(i * 3 + 2);
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 12, normalsBuffer.get(i * 3 + 0));
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 16, normalsBuffer.get(i * 3 + 1));
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 20, normalsBuffer.get(i * 3 + 2));
             } else {
                 // Default normal (up)
-                vertices[i * 8 + 3] = 0.0f;
-                vertices[i * 8 + 4] = 1.0f;
-                vertices[i * 8 + 5] = 0.0f;
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 12, 0.0f);
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 16, 1.0f);
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 20, 0.0f);
             }
             
             // Texture coordinates
             if (texCoordsBuffer != null) {
-                vertices[i * 8 + 6] = texCoordsBuffer.get(i * 2 + 0);
-                vertices[i * 8 + 7] = texCoordsBuffer.get(i * 2 + 1);
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 24, texCoordsBuffer.get(i * 2 + 0));
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 28, texCoordsBuffer.get(i * 2 + 1));
             } else {
                 // Default texcoord
-                vertices[i * 8 + 6] = 0.0f;
-                vertices[i * 8 + 7] = 0.0f;
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 24, 0.0f);
+                vertexData.set(ValueLayout.JAVA_FLOAT, offset + 28, 0.0f);
             }
         }
-        
-        // Calculate bounds
-        float minX = Float.MAX_VALUE, maxX = Float.MIN_VALUE;
-        float minY = Float.MAX_VALUE, maxY = Float.MIN_VALUE;
-        float minZ = Float.MAX_VALUE, maxZ = Float.MIN_VALUE;
-        for (int i = 0; i < vertices.length; i += 8) {
-            minX = Math.min(minX, vertices[i]);
-            maxX = Math.max(maxX, vertices[i]);
-            minY = Math.min(minY, vertices[i+1]);
-            maxY = Math.max(maxY, vertices[i+1]);
-            minZ = Math.min(minZ, vertices[i+2]);
-            maxZ = Math.max(maxZ, vertices[i+2]);
-        }
-        Logger.debug("Model bounds: X[" + minX + ", " + maxX + "] Y[" + minY + ", " + maxY + "] Z[" + minZ + ", " + maxZ + "]");
         
         // Get indices
         AccessorModel indicesAccessor = primitive.getIndices();
         AccessorData indicesData = indicesAccessor.getAccessorData();
         
-        int[] indices;
+        int indexCount;
+        MemorySegment indexData;
+        
         if (indicesAccessor.getComponentType() == 5123) { // UNSIGNED_SHORT
             var shortBuffer = indicesData.createByteBuffer().asShortBuffer();
-            indices = new int[shortBuffer.remaining()];
-            for (int i = 0; i < indices.length; i++) {
-                indices[i] = shortBuffer.get(i) & 0xFFFF;
+            indexCount = shortBuffer.remaining();
+            indexData = Arena.ofAuto().allocate(indexCount * 4L); // Convert to uint32
+            for (int i = 0; i < indexCount; i++) {
+                indexData.setAtIndex(ValueLayout.JAVA_INT, i, shortBuffer.get(i) & 0xFFFF);
             }
         } else { // UNSIGNED_INT
             IntBuffer intBuffer = indicesData.createByteBuffer().asIntBuffer();
-            indices = new int[intBuffer.remaining()];
-            intBuffer.get(indices);
+            indexCount = intBuffer.remaining();
+            indexData = Arena.ofAuto().allocate(indexCount * 4L);
+            for (int i = 0; i < indexCount; i++) {
+                indexData.setAtIndex(ValueLayout.JAVA_INT, i, intBuffer.get(i));
+            }
         }
         
-        return new GLTFData(vertices, indices);
+        return new GLTFData(vertexData, vertexCount, indexData, indexCount);
     }
     
     public void shutdown() {
@@ -255,12 +225,16 @@ public class GLTFLoader {
      * Simple data holder for parsed glTF data
      */
     private static class GLTFData {
-        final float[] vertices;
-        final int[] indices;
+        final MemorySegment vertexData;
+        final int vertexCount;
+        final MemorySegment indexData;
+        final int indexCount;
         
-        GLTFData(float[] vertices, int[] indices) {
-            this.vertices = vertices;
-            this.indices = indices;
+        GLTFData(MemorySegment vertexData, int vertexCount, MemorySegment indexData, int indexCount) {
+            this.vertexData = vertexData;
+            this.vertexCount = vertexCount;
+            this.indexData = indexData;
+            this.indexCount = indexCount;
         }
     }
 }

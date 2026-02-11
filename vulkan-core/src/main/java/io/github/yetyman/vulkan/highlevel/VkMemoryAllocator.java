@@ -19,7 +19,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * // Create allocator
  * VkMemoryAllocator allocator = VkMemoryAllocator.builder()
  *     .device(device)
- *     .physicalDevice(physicalDevice)
  *     .build(arena);
  * 
  * // Allocate buffer memory
@@ -44,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class VkMemoryAllocator implements AutoCloseable {
     private final VkDevice device;
-    private final VkPhysicalDevice physicalDevice;
     private final Arena arena;
     private final Map<Integer, MemoryPool> memoryPools = new ConcurrentHashMap<>();
     private final Map<MemorySegment, AllocationInfo> allocations = new ConcurrentHashMap<>();
@@ -53,12 +51,11 @@ public class VkMemoryAllocator implements AutoCloseable {
     private static final long DEFAULT_BLOCK_SIZE = 256 * 1024 * 1024; // 256MB
     private static final long MIN_ALLOCATION_SIZE = 1024; // 1KB
     
-    private VkMemoryAllocator(VkDevice device, VkPhysicalDevice physicalDevice, Arena arena) {
+    private VkMemoryAllocator(VkDevice device, Arena arena) {
         this.device = device;
-        this.physicalDevice = physicalDevice;
         this.arena = arena;
         this.memoryProperties = VkPhysicalDeviceMemoryProperties.allocate(arena);
-        Vulkan.getPhysicalDeviceMemoryProperties(physicalDevice.handle(), memoryProperties);
+        Vulkan.getPhysicalDeviceMemoryProperties(device.physicalDevice().handle(), memoryProperties);
     }
     
     public static Builder builder() {
@@ -309,22 +306,15 @@ public class VkMemoryAllocator implements AutoCloseable {
     
     public static class Builder {
         private VkDevice device;
-        private VkPhysicalDevice physicalDevice;
-        
+
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
         
-        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
-            this.physicalDevice = physicalDevice;
-            return this;
-        }
-        
         public VkMemoryAllocator build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            if (physicalDevice == null) throw new IllegalStateException("physicalDevice not set");
-            return new VkMemoryAllocator(device, physicalDevice, arena);
+            return new VkMemoryAllocator(device, arena);
         }
     }
 }

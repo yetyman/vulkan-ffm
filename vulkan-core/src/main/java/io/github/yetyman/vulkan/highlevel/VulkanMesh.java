@@ -26,7 +26,6 @@ import java.util.Map;
  * // Create mesh with multiple vertex buffers
  * VkMesh mesh = VkMesh.builder()
  *     .device(device)
- *     .physicalDevice(physicalDevice)
  *     .vertexFormat(format)
  *     .vertexBuffer(0, geometryBuffer, vertexCount)
  *     .vertexBuffer(1, instanceBuffer, instanceCount)
@@ -189,7 +188,6 @@ public class VulkanMesh implements AutoCloseable {
     
     public static class Builder {
         private VkDevice device;
-        private VkPhysicalDevice physicalDevice;
         private VkVertexFormat vertexFormat;
         private final Map<Integer, VertexBufferData> vertexBuffers = new HashMap<>();
         private MemorySegment indexData;
@@ -200,12 +198,7 @@ public class VulkanMesh implements AutoCloseable {
             this.device = device;
             return this;
         }
-        
-        public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
-            this.physicalDevice = physicalDevice;
-            return this;
-        }
-        
+
         public Builder vertexFormat(VkVertexFormat format) {
             this.vertexFormat = format;
             return this;
@@ -232,7 +225,6 @@ public class VulkanMesh implements AutoCloseable {
         
         public VulkanMesh build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            if (physicalDevice == null) throw new IllegalStateException("physicalDevice not set");
             if (vertexFormat == null) throw new IllegalStateException("vertexFormat not set");
             if (vertexBuffers.isEmpty()) throw new IllegalStateException("no vertex buffers set");
             

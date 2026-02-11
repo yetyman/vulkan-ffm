@@ -41,7 +41,7 @@ public class SimpleRenderer extends BaseRenderer {
     }
     
     @Override
-    protected void initializeResources(VkPhysicalDevice physicalDevice, int queueFamilyIndex) {
+    protected void initializeResources(int queueFamilyIndex) {
         createGraphicsPipeline();
         Logger.info("Simple renderer initialized");
     }

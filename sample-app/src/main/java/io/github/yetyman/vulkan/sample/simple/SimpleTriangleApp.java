@@ -28,7 +28,7 @@ public class SimpleTriangleApp extends VulkanApplication {
         
         renderer = new SimpleRenderer(vulkanContext().arena(), vulkanContext().device(),
                                         vulkanContext().graphicsQueue(), surface(), 800, 600);
-        renderer.init(vulkanContext().physicalDevice(), vulkanContext().graphicsQueueFamily());
+        renderer.init(vulkanContext().graphicsQueueFamily());
         Logger.info("New simple renderer initialized");
     }
     

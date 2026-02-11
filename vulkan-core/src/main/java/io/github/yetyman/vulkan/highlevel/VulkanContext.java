@@ -95,7 +95,6 @@ public class VulkanContext implements AutoCloseable {
     public VkBuffer createVertexBuffer(long size) {
         return VkBuffer.builder()
             .device(device)
-            .physicalDevice(physicalDevice)
             .size(size)
             .vertexBuffer()
             .transferDst()
@@ -107,7 +106,6 @@ public class VulkanContext implements AutoCloseable {
     public VkBuffer createStagingBuffer(long size) {
         return VkBuffer.builder()
             .device(device)
-            .physicalDevice(physicalDevice)
             .size(size)
             .transferSrc()
             .hostVisible()
@@ -118,7 +116,6 @@ public class VulkanContext implements AutoCloseable {
     public VkBuffer createUniformBuffer(long size) {
         return VkBuffer.builder()
             .device(device)
-            .physicalDevice(physicalDevice)
             .size(size)
             .uniformBuffer()
             .hostVisible()

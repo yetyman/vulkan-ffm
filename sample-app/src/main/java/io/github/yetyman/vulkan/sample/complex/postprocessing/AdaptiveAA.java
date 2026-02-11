@@ -2,7 +2,6 @@ package io.github.yetyman.vulkan.sample.complex.postprocessing;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.highlevel.VkTexture;
 import io.github.yetyman.vulkan.highlevel.VkMemoryAllocator;
@@ -14,7 +13,6 @@ public class AdaptiveAA {
     
     private final Arena arena;
     private final VkDevice device;
-    private final VkPhysicalDevice physicalDevice;
     private final VkMemoryAllocator allocator;
     private final int width, height;
     private final Mode mode;
@@ -44,13 +42,11 @@ public class AdaptiveAA {
     
     private int frameIndex = 0;
     
-    private AdaptiveAA(Arena arena, VkDevice device, VkPhysicalDevice physicalDevice, int width, int height, Mode mode, int samples) {
+    private AdaptiveAA(Arena arena, VkDevice device, int width, int height, Mode mode, int samples) {
         this.arena = arena;
         this.device = device;
-        this.physicalDevice = physicalDevice;
         this.allocator = VkMemoryAllocator.builder()
             .device(device)
-            .physicalDevice(physicalDevice)
             .build(arena);
         this.width = width;
         this.height = height;
@@ -447,17 +443,15 @@ public class AdaptiveAA {
         private int width, height;
         private Arena arena;
         private VkDevice device;
-        private VkPhysicalDevice physicalDevice;
-        
+
         public Builder mode(Mode mode) { this.mode = mode; return this; }
         public Builder samples(int samples) { this.samples = samples; return this; }
         public Builder dimensions(int width, int height) { this.width = width; this.height = height; return this; }
         public Builder arena(Arena arena) { this.arena = arena; return this; }
         public Builder device(VkDevice device) { this.device = device; return this; }
-        public Builder physicalDevice(VkPhysicalDevice physicalDevice) { this.physicalDevice = physicalDevice; return this; }
-        
+
         public AdaptiveAA build() {
-            return new AdaptiveAA(arena, device, physicalDevice, width, height, mode, samples);
+            return new AdaptiveAA(arena, device, width, height, mode, samples);
         }
     }
     
@@ -472,7 +466,7 @@ public class AdaptiveAA {
         
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
-                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = physicalDevice.getFormatProperties(format, tempArena);
+                VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = device.physicalDevice().getFormatProperties(format, tempArena);
                 int requiredFeatures = VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT.value() | 
                                       VkFormatFeatureFlagBits.VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT.value();
                 if ((formatProps.optimalTilingFeatures() & requiredFeatures) == requiredFeatures) {
