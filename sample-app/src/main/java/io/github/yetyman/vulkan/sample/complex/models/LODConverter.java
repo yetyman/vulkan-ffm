@@ -38,12 +38,18 @@ public class LODConverter {
         float[] ratios = {1.0f, 0.65f, 0.40f, 0.20f, 0.08f};
         float[] distances = {10.0f, 25.0f, 50.0f, 100.0f, Float.MAX_VALUE};
         
+        // Generate decimated meshes - create GPU buffers for LOD 0 only
         for (int i = 0; i < 5; i++) {
             SimplifiedMesh mesh = (i == 0) ? new SimplifiedMesh(vertices, indices) 
                                            : simplifier.simplify(vertices, indices, ratios[i]);
-            LODLevel lod = createLODLevel(mesh.vertices(), mesh.indices(), distances[i], ratios[i]);
+            
+            // Only create GPU buffers for LOD 0 (highest detail)
+            // Other LODs will be streamed on demand
+            LODLevel lod = (i == 0) ? createLODLevel(mesh.vertices(), mesh.indices(), distances[i], ratios[i])
+                                    : new LODLevel(MemorySegment.NULL, MemorySegment.NULL, 
+                                        mesh.indices().length, distances[i], mesh.triangleCount(), ratios[i]);
             lodLevels.add(lod);
-            Logger.debug("LOD" + i + ": " + mesh.triangleCount() + " triangles");
+            Logger.debug("LOD" + i + ": " + mesh.triangleCount() + " triangles" + (i == 0 ? " (GPU resident)" : " (CPU only)"));
         }
         
         return new LODModel(arena, lodLevels);

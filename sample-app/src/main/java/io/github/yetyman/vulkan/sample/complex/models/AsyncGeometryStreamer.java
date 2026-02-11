@@ -24,10 +24,12 @@ public class AsyncGeometryStreamer {
         t.setDaemon(true);
         return t;
     });
-    private final ConcurrentLinkedQueue<ModelData> loadQueue = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<ModelData> unloadQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<LODLoadRequest> loadQueue = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<LODUnloadRequest> unloadQueue = new ConcurrentLinkedQueue<>();
     private final StagingSystem stagingSystem;
-    private final Map<Integer, Integer> modelToRequestMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> lodToRequestMap = new ConcurrentHashMap<>();
+    private final Map<String, Long> lodUnloadTimestamp = new ConcurrentHashMap<>();
+    private static final long UNLOAD_DELAY_MS = 500; // Wait 500ms before unloading
 
     
     private final Arena arena;
@@ -45,44 +47,90 @@ public class AsyncGeometryStreamer {
     }
     
     public void updateStreaming(ModelData[] modelDataArray, float[] cameraPosition) {
-        int loadRequests = 0, unloadRequests = 0;
-        
         for (ModelData modelData : modelDataArray) {
             if (modelData == null || !modelData.isLoaded()) continue;
             
             float[] pos = modelData.getTransform().getPosition();
             float distance = calculateDistance(cameraPosition, pos);
             
-            if (distance < 100.0f && !modelData.isGPUResident() && !modelData.setPendingGPULoad(true)) {
-                loadQueue.offer(modelData);
-                loadRequests++;
-            } else if (distance > 200.0f && modelData.isGPUResident() && !modelData.setPendingGPUUnload(true)) {
-                unloadQueue.offer(modelData);
-                unloadRequests++;
+            // Use LODModel's selectLOD which has hysteresis to prevent thrashing
+            LODLevel selectedLOD = modelData.getLodModel().selectLOD(distance);
+            int neededLOD = modelData.getLodModel().getLODIndex(selectedLOD);
+            int nextLOD = Math.min(neededLOD + 1, 4);
+            
+            // Load needed LODs if not already resident or pending
+            String neededKey = modelData.getModelId() + ":" + neededLOD;
+            String nextKey = modelData.getModelId() + ":" + nextLOD;
+            
+            if (!modelData.isLODResident(neededLOD) && !lodToRequestMap.containsKey(neededKey)) {
+                Logger.info("[QUEUE LOAD] Model " + modelData.getModelId() + " LOD" + neededLOD + " - resident=" + modelData.isLODResident(neededLOD) + " pending=" + lodToRequestMap.containsKey(neededKey));
+                loadQueue.offer(new LODLoadRequest(modelData, neededLOD));
+            }
+            if (!modelData.isLODResident(nextLOD) && !lodToRequestMap.containsKey(nextKey)) {
+                Logger.info("[QUEUE LOAD] Model " + modelData.getModelId() + " LOD" + nextLOD + " - resident=" + modelData.isLODResident(nextLOD) + " pending=" + lodToRequestMap.containsKey(nextKey));
+                loadQueue.offer(new LODLoadRequest(modelData, nextLOD));
+            }
+            
+            // Mark LODs for delayed unload
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < 5; i++) {
+                String lodKey = modelData.getModelId() + ":" + i;
+                if (i != neededLOD && i != nextLOD && modelData.isLODResident(i)) {
+                    // Only unload if replacement is resident AND delay has passed
+                    if (modelData.isLODResident(neededLOD)) {
+                        Long timestamp = lodUnloadTimestamp.get(lodKey);
+                        if (timestamp == null) {
+                            // First time marking for unload
+                            lodUnloadTimestamp.put(lodKey, now);
+                            Logger.info("[UNLOAD MARK] Model " + modelData.getModelId() + " LOD" + i + " marked for unload in 500ms");
+                        } else if (now - timestamp > UNLOAD_DELAY_MS) {
+                            // Delay passed, queue unload
+                            unloadQueue.offer(new LODUnloadRequest(modelData, i));
+                            lodUnloadTimestamp.remove(lodKey);
+                            Logger.info("[UNLOAD QUEUE] Model " + modelData.getModelId() + " LOD" + i + " queued for unload");
+                        }
+                    }
+                } else {
+                    // This LOD is needed, cancel any pending unload
+                    lodUnloadTimestamp.remove(lodKey);
+                }
             }
         }
-        
-        if (loadRequests > 0 || unloadRequests > 0) {
-            Logger.debug("Queued " + loadRequests + " loads, " + unloadRequests + " unloads");
-        }
+    }
+    
+    private int selectLODIndex(float distance) {
+        if (distance <= 10.0f) return 0;
+        if (distance <= 25.0f) return 1;
+        if (distance <= 50.0f) return 2;
+        if (distance <= 100.0f) return 3;
+        return 4;
+    }
+    
+    private static class LODLoadRequest {
+        final ModelData modelData;
+        final int lodIndex;
+        LODLoadRequest(ModelData m, int i) { modelData = m; lodIndex = i; }
+    }
+    
+    private static class LODUnloadRequest {
+        final ModelData modelData;
+        final int lodIndex;
+        LODUnloadRequest(ModelData m, int i) { modelData = m; lodIndex = i; }
     }
     
     private void processQueues() {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 // Process unloads first to free memory
-                ModelData toUnload = unloadQueue.poll();
+                LODUnloadRequest toUnload = unloadQueue.poll();
                 if (toUnload != null) {
-                    unloadFromGPU(toUnload);
-                    toUnload.setPendingGPUUnload(false);
+                    unloadLODFromGPU(toUnload.modelData, toUnload.lodIndex);
                 }
                 
                 // Process loads if we have budget
-                ModelData toLoad = loadQueue.poll();
+                LODLoadRequest toLoad = loadQueue.poll();
                 if (toLoad != null && currentGPUUsage.get() < GPU_MEMORY_BUDGET) {
-                    Logger.debug("Processing GPU load for model " + toLoad.getModelId());
-                    loadToGPU(toLoad);
-                    toLoad.setPendingGPULoad(false);
+                    loadLODToGPU(toLoad.modelData, toLoad.lodIndex);
                 }
                 
                 Thread.sleep(16); // ~60fps processing
@@ -93,78 +141,51 @@ public class AsyncGeometryStreamer {
         }
     }
     
-    private void loadToGPU(ModelData modelData) {
-        if (modelData.isGPUResident()) {
-            return;
-        }
+    private void loadLODToGPU(ModelData modelData, int lodIndex) {
+        if (modelData.isLODResident(lodIndex)) return;
         
-        LODModel lodModel = modelData.getLodModel();
-        if (lodModel == null) return;
-        
-        // Create actual vertex data from the loaded model
-        try {
-            Arena tempArena = Arena.ofShared();
-            
-            // Get actual geometry data from the loaded glTF model
-            Logger.debug("Using actual glTF geometry data for model " + modelData.getModelId());
-            
-            // Get vertex and index data from the model
-            float[] vertices = modelData.getVertices();
-            int[] indices = modelData.getIndices();
+        try (Arena tempArena = Arena.ofShared()) {
+            float[] vertices = modelData.getLodVertices(lodIndex);
+            int[] indices = modelData.getLodIndices(lodIndex);
             
             if (vertices == null || indices == null) {
-                Logger.error("Model geometry data is null! vertices=" + vertices + ", indices=" + indices);
+                Logger.error("LOD" + lodIndex + " geometry is null for model " + modelData.getModelId());
                 return;
             }
             
-            Logger.debug("Model has " + vertices.length + " vertex floats, " + indices.length + " indices");
-            Logger.debug("First few vertices: [" + vertices[0] + ", " + vertices[1] + ", " + vertices[2] + "]");
-            Logger.debug("First few indices: [" + indices[0] + ", " + indices[1] + ", " + indices[2] + "]");
-            
-            // Create vertex data buffer using VkDataCopy utility
             MemorySegment vertexData = io.github.yetyman.vulkan.util.VkDataCopy.copyFloatArray(vertices, tempArena);
-            
-            // Create index data buffer using VkDataCopy utility
             MemorySegment indexData = io.github.yetyman.vulkan.util.VkDataCopy.copyIntArray(indices, tempArena);
             
-            // Stage the data
             int requestId = stagingSystem.stageVertexData(vertexData, indexData);
             if (requestId != -1) {
-                modelToRequestMap.put(modelData.getModelId(), requestId);
-                Logger.debug("Staged model " + modelData.getModelId() + " with request " + requestId);
+                String key = modelData.getModelId() + ":" + lodIndex;
+                lodToRequestMap.put(key, requestId);
             }
             
+            long bufferSize = (vertices.length * 4L + indices.length * 4L);
+            currentGPUUsage.addAndGet(bufferSize);
+            modelData.setLastAccessTime(System.nanoTime());
         } catch (Exception e) {
-            Logger.error("Failed to stage model data: " + e.getMessage());
+            Logger.error("Failed to load LOD" + lodIndex + ": " + e.getMessage());
         }
-        
-        long bufferSize = estimateBufferSize(modelData);
-        currentGPUUsage.addAndGet(bufferSize);
-        modelData.setGPUResident(true);
-        modelData.setLastAccessTime(System.nanoTime());
     }
     
-    private void unloadFromGPU(ModelData modelData) {
-        if (!modelData.isGPUResident()) return;
+    private void unloadLODFromGPU(ModelData modelData, int lodIndex) {
+        if (!modelData.isLODResident(lodIndex)) return;
         
         try {
-            Logger.debug("Unloading model ID " + modelData.getModelId() + " from GPU");
+            Logger.info("[UNLOAD EXECUTE] Model " + modelData.getModelId() + " LOD" + lodIndex + " unloading from GPU");
             
-            LODModel lodModel = modelData.getLodModel();
-            if (lodModel != null) {
-                // Clean up GPU buffers for each LOD level
-                for (int i = 0; i < lodModel.getLODCount(); i++) {
-                    LODLevel lodLevel = lodModel.getLOD(i);
-                    lodLevel.clearGPUBuffers();
-                }
-            }
+            LODLevel lodLevel = modelData.getLodModel().getLOD(lodIndex);
+            lodLevel.clearGPUBuffers();
+            modelData.setLODResident(lodIndex, false);
             
-            long bufferSize = estimateBufferSize(modelData);
+            float[] vertices = modelData.getLodVertices(lodIndex);
+            int[] indices = modelData.getLodIndices(lodIndex);
+            long bufferSize = (vertices.length * 4L + indices.length * 4L);
             currentGPUUsage.addAndGet(-bufferSize);
-            modelData.setGPUResident(false);
-            
         } catch (Exception e) {
-            Logger.error("Failed to unload geometry from GPU: " + e.getMessage());
+            Logger.error("Failed to unload LOD" + lodIndex + ": " + e.getMessage());
         }
     }
     
@@ -185,40 +206,39 @@ public class AsyncGeometryStreamer {
     public void processPendingCopies(int maxCopies, ModelData[] modelDataArray) {
         stagingSystem.processPendingCopies(maxCopies);
         
-        // Check for completed staging requests and update LOD levels
-        modelToRequestMap.entrySet().removeIf(entry -> {
-            int modelId = entry.getKey();
+        // Check for completed staging requests and update specific LOD levels
+        lodToRequestMap.entrySet().removeIf(entry -> {
+            String key = entry.getKey();
             int requestId = entry.getValue();
+            
+            String[] parts = key.split(":");
+            int modelId = Integer.parseInt(parts[0]);
+            int lodIndex = Integer.parseInt(parts[1]);
             
             StagingSystem.CopyRequest request = stagingSystem.getCompletedRequest(requestId);
             if (request != null && request.completed) {
-                updateModelGPUBuffers(modelId, request, modelDataArray);
-                Logger.debug("Completed GPU load for model " + modelId);
+                updateLODGPUBuffers(modelId, lodIndex, request, modelDataArray);
+                Logger.debug("Completed GPU load for model " + modelId + " LOD" + lodIndex);
                 return true; // Remove from map
             }
             return false; // Keep in map
         });
     }
     
-    private void updateModelGPUBuffers(int modelId, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
+    private void updateLODGPUBuffers(int modelId, int lodIndex, StagingSystem.CopyRequest request, ModelData[] modelDataArray) {
         ModelData modelData = modelDataArray[modelId];
         if (modelData != null && modelData.getLodModel() != null) {
-            Logger.debug("Getting handles from VkBuffer objects:");
-            Logger.debug("request.deviceVertexBuffer: " + request.deviceVertexBuffer);
-            Logger.debug("request.deviceIndexBuffer: " + request.deviceIndexBuffer);
-            
+            LODLevel lodLevel = modelData.getLodModel().getLOD(lodIndex);
             MemorySegment vertexBuffer = request.deviceVertexBuffer.handle();
             MemorySegment indexBuffer = request.deviceIndexBuffer.handle();
-            Logger.debug("VkBuffer.handle() results - vertex: 0x" + Long.toHexString(vertexBuffer.address()) + ", index: 0x" + Long.toHexString(indexBuffer.address()));
             
-            // Set GPU buffers on ALL LOD levels (they all use the same geometry for now)
-            LODModel lodModel = modelData.getLodModel();
-            for (int i = 0; i < lodModel.getLODCount(); i++) {
-                LODLevel lodLevel = lodModel.getLOD(i);
-                Logger.debug("Calling setGPUBuffers on LOD level " + i);
-                lodLevel.setGPUBuffers(vertexBuffer, indexBuffer);
-            }
-            Logger.debug("Set GPU buffers on all " + lodModel.getLODCount() + " LOD levels for model " + modelId);
+            Logger.info("[GPU UPLOAD] Model " + modelId + " LOD" + lodIndex + 
+                       " - VB=" + vertexBuffer.address() + " IB=" + indexBuffer.address());
+            
+            lodLevel.setGPUBuffers(vertexBuffer, indexBuffer);
+            modelData.setLODResident(lodIndex, true);
+            
+            Logger.info("[RESIDENT] Model " + modelId + " LOD" + lodIndex + " marked resident. hasGPUBuffers=" + lodLevel.hasGPUBuffers());
         }
     }
     

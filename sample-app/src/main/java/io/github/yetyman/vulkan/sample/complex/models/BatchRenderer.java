@@ -73,9 +73,7 @@ public class BatchRenderer {
             if (!instanceData.isActive(i)) continue;
             
             ModelData modelData = instanceData.getModelData(i, modelDataArray);
-            if (modelData == null || !modelData.isLoaded() || !modelData.isGPUResident()) {
-                Logger.debug("Skipping instance " + i + ": loaded=" + (modelData != null && modelData.isLoaded()) + 
-                           ", gpuResident=" + (modelData != null && modelData.isGPUResident()));
+            if (modelData == null || !modelData.isLoaded()) {
                 continue;
             }
             
@@ -85,6 +83,12 @@ public class BatchRenderer {
             LODModel.LODSelection selection = modelData.getLodModel().selectLODWithBlend(distance);
             LODLevel selectedLOD = selection.level();
             float blendFactor = selection.blendFactor();
+            
+            // Skip if selected LOD doesn't have GPU buffers yet
+            if (!selectedLOD.hasGPUBuffers()) {
+                Logger.debug("Skipping instance " + i + ": LOD" + modelData.getLodModel().getLODIndex(selectedLOD) + " has no GPU buffers");
+                continue;
+            }
             
             // Frustum culling
             boolean visible = true;
@@ -100,16 +104,13 @@ public class BatchRenderer {
             }
             
             // Render this instance with selected LOD
-            if (selectedLOD.hasGPUBuffers()) {
-                int lodIndex = modelData.getLodModel().getLODIndex(selectedLOD);
-                if (lodIndex == -1) {
-                    Logger.error("Failed to find LOD index for selected LOD!");
-                    lodIndex = 0;
-                }
-                Logger.debug("Rendering instance " + i + " with LOD " + lodIndex + " (distance: " + String.format("%.1f", distance) + ")");
-                renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData, lodIndex);
-                rendered++;
+            int lodIndex = modelData.getLodModel().getLODIndex(selectedLOD);
+            if (lodIndex == -1) {
+                Logger.error("Failed to find LOD index for selected LOD!");
+                lodIndex = 0;
             }
+            renderInstance(commandBuffer, selectedLOD, i, blendFactor, pipelineLayout, frameArena, instanceData, lodIndex);
+            rendered++;
         }
         
         Logger.debug("Rendered " + rendered + " instances, culled " + culledCount);

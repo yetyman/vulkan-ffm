@@ -4,6 +4,8 @@ import de.javagl.jgltf.model.*;
 import de.javagl.jgltf.model.io.GltfModelReader;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkPhysicalDevice;
+import io.github.yetyman.vulkan.sample.complex.models.decimation.MeshSimplifier;
+import io.github.yetyman.vulkan.sample.complex.models.decimation.SimplifiedMesh;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.Arena;
 import java.nio.file.Paths;
@@ -77,14 +79,33 @@ public class GLTFLoader {
         try (Arena backgroundArena = Arena.ofConfined()) {
             LODConverter lodConverter = new LODConverter(backgroundArena);
             lodConverter.setVulkanDevice(device, physicalDevice);
+            
+            // Generate decimated meshes for all LOD levels
+            MeshSimplifier simplifier = new MeshSimplifier();
+            float[] ratios = {1.0f, 0.65f, 0.40f, 0.20f, 0.08f};
+            float[][] lodVertices = new float[5][];
+            int[][] lodIndices = new int[5][];
+            
+            for (int i = 0; i < 5; i++) {
+                SimplifiedMesh mesh = (i == 0) ? new SimplifiedMesh(gltfData.vertices, gltfData.indices)
+                                               : simplifier.simplify(gltfData.vertices, gltfData.indices, ratios[i]);
+                lodVertices[i] = mesh.vertices();
+                lodIndices[i] = mesh.indices();
+                Logger.debug("LOD" + i + ": " + mesh.triangleCount() + " triangles");
+            }
+            
             LODModel lodModel = lodConverter.generateLODModel(gltfData.vertices, gltfData.indices);
             Logger.debug("Generated " + lodModel.getLODCount() + " LOD levels");
             
             // Create initial transform
             TransformationMatrix transform = new TransformationMatrix();
             
-            // Load into ModelData with geometry data
-            modelData.loadModel(lodModel, transform, gltfData.vertices, gltfData.indices);
+            // Load into ModelData with per-LOD geometry data
+            modelData.loadModel(lodModel, transform, lodVertices, lodIndices);
+            
+            // Mark LOD0 as resident since it has GPU buffers from LODConverter
+            modelData.setLODResident(0, true);
+            
             Logger.debug("ModelData loaded and ready");
         }
         

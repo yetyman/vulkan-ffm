@@ -766,7 +766,13 @@ public class ThreadedRenderer extends BaseRenderer {
                     transform.setRotation(i * 0.5f);
                     
                     ModelData instance = new ModelData(boxModel.getModelId());
-                    instance.loadModel(boxModel.getLodModel(), transform, boxModel.getVertices(), boxModel.getIndices());
+                    float[][] lodVertices = new float[5][];
+                    int[][] lodIndices = new int[5][];
+                    for (int lod = 0; lod < 5; lod++) {
+                        lodVertices[lod] = boxModel.getLodVertices(lod);
+                        lodIndices[lod] = boxModel.getLodIndices(lod);
+                    }
+                    instance.loadModel(boxModel.getLodModel(), transform, lodVertices, lodIndices);
                     int instanceId = addLODInstance(instance);
                     Logger.info("Box " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
                 }
@@ -803,7 +809,13 @@ public class ThreadedRenderer extends BaseRenderer {
                     transform.setRotation(i * 0.7f);
                     
                     ModelData instance = new ModelData(suzanneModel.getModelId());
-                    instance.loadModel(suzanneModel.getLodModel(), transform, suzanneModel.getVertices(), suzanneModel.getIndices());
+                    float[][] lodVertices = new float[5][];
+                    int[][] lodIndices = new int[5][];
+                    for (int lod = 0; lod < 5; lod++) {
+                        lodVertices[lod] = suzanneModel.getLodVertices(lod);
+                        lodIndices[lod] = suzanneModel.getLodIndices(lod);
+                    }
+                    instance.loadModel(suzanneModel.getLodModel(), transform, lodVertices, lodIndices);
                     int instanceId = addLODInstance(instance);
                     Logger.info("Suzanne " + i + " loaded, instanceId: " + instanceId + ", LOD levels: " + instance.getLodModel().getLODCount());
                 }

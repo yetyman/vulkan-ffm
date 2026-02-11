@@ -44,11 +44,7 @@ public class LODRenderer {
     public int addInstance(ModelData modelData) {
         int instanceId = modelRegistry.addInstance(modelData);
         
-        // Mark as GPU resident immediately since geometry is in LODLevel
-        if (modelData.isLoaded()) {
-            modelData.setGPUResident(true);
-            Logger.info("Marked instance " + instanceId + " as GPU resident");
-        }
+        Logger.info("Added instance " + instanceId);
         
         batchRenderer.createStaticBatchesForModel(modelData, instanceId);
         return instanceId;

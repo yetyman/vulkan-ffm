@@ -12,7 +12,7 @@ public class LODModel {
     private final float[] lodDistances;
     private final Arena arena;
     private int currentLODIndex = -1;
-    private static final float HYSTERESIS = 0.5f; // Prevent thrashing between levels
+    private static final float HYSTERESIS = 2.0f; // Prevent thrashing between levels
     
     public record LODSelection(LODLevel level, float blendFactor) {}
     private static final float TRANSITION_RANGE = 5.0f;
