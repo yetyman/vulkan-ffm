@@ -32,13 +32,13 @@ import java.lang.foreign.*;
  */
 public class VkMappedBuffer implements AutoCloseable {
     private final VkBuffer buffer;
-    private final VkAllocation allocation;
+    private final PoolAllocator.VkAllocation allocation;
     private final MemorySegment mappedMemory;
-    private final VkMemoryAllocator allocator;
+    private final PoolAllocator allocator;
     private final long size;
     
-    private VkMappedBuffer(VkBuffer buffer, VkAllocation allocation, MemorySegment mappedMemory, 
-                          VkMemoryAllocator allocator, long size) {
+    private VkMappedBuffer(VkBuffer buffer, PoolAllocator.VkAllocation allocation, MemorySegment mappedMemory,
+                           PoolAllocator allocator, long size) {
         this.buffer = buffer;
         this.allocation = allocation;
         this.mappedMemory = mappedMemory;
@@ -141,7 +141,7 @@ public class VkMappedBuffer implements AutoCloseable {
     
     public static class Builder {
         private VkDevice device;
-        private VkMemoryAllocator allocator;
+        private PoolAllocator allocator;
         private long size;
         private int usage = VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_SRC_BIT.value();
         private int memoryProperties = VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | 
@@ -153,7 +153,7 @@ public class VkMappedBuffer implements AutoCloseable {
             return this;
         }
         
-        public Builder allocator(VkMemoryAllocator allocator) {
+        public Builder allocator(PoolAllocator allocator) {
             this.allocator = allocator;
             return this;
         }
@@ -227,7 +227,7 @@ public class VkMappedBuffer implements AutoCloseable {
                 .build(arena);
             
             // Allocate memory
-            VkAllocation allocation = allocator.allocateBuffer(buffer.handle(), memoryProperties);
+            PoolAllocator.VkAllocation allocation = allocator.allocateBuffer(buffer.handle(), memoryProperties);
             
             // Bind memory
             Vulkan.bindBufferMemory(device.handle(), buffer.handle(), allocation.memory(), allocation.offset()).check();

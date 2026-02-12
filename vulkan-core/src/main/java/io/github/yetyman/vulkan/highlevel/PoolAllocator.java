@@ -41,7 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * allocator.free(stagingAllocation);
  * }</pre>
  */
-public class VkMemoryAllocator implements AutoCloseable {
+public class PoolAllocator implements AutoCloseable {
     private final VkDevice device;
     private final Arena arena;
     private final Map<Integer, MemoryPool> memoryPools = new ConcurrentHashMap<>();
@@ -51,7 +51,7 @@ public class VkMemoryAllocator implements AutoCloseable {
     private static final long DEFAULT_BLOCK_SIZE = 256 * 1024 * 1024; // 256MB
     private static final long MIN_ALLOCATION_SIZE = 1024; // 1KB
     
-    private VkMemoryAllocator(VkDevice device, Arena arena) {
+    private PoolAllocator(VkDevice device, Arena arena) {
         this.device = device;
         this.arena = arena;
         this.memoryProperties = VkPhysicalDeviceMemoryProperties.allocate(arena);
@@ -312,10 +312,16 @@ public class VkMemoryAllocator implements AutoCloseable {
             return this;
         }
         
-        public VkMemoryAllocator build(Arena arena) {
+        public PoolAllocator build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            return new VkMemoryAllocator(device, arena);
+            return new PoolAllocator(device, arena);
         }
     }
+
+    /**
+     * Represents an allocated memory region.
+     */
+    public record VkAllocation(MemorySegment memory, long offset, long size) {}
+
 }
 

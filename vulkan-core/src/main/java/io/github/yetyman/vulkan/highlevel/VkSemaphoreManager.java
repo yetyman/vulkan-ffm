@@ -1,7 +1,6 @@
 package io.github.yetyman.vulkan.highlevel;
 
-import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.Vulkan;
+import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
@@ -22,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * long value = timeline.getNextValue();
  * 
  * // Binary semaphore for simple signaling
- * MemorySegment binary = semMgr.createBinarySemaphore();
+ * VkSemaphore binary = semMgr.createBinarySemaphore();
  * ```
  */
 public class VkSemaphoreManager implements AutoCloseable {
@@ -49,29 +48,18 @@ public class VkSemaphoreManager implements AutoCloseable {
     /**
      * Creates a binary semaphore for one-time synchronization.
      */
-    public MemorySegment createBinarySemaphore() {
-        MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
-        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
-        
-        MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.createSemaphore(device.handle(), semaphoreInfo, semaphorePtr).check();
-        return semaphorePtr.get(ValueLayout.ADDRESS, 0);
+    public VkSemaphore createBinarySemaphore() {
+        return VkSemaphore.builder()
+            .device(device)
+            .build(arena);
     }
     
     private TimelineSemaphore createTimelineSemaphore() {
-        MemorySegment typeInfo = VkSemaphoreTypeCreateInfo.allocate(arena);
-        VkSemaphoreTypeCreateInfo.sType(typeInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO.value());
-        VkSemaphoreTypeCreateInfo.semaphoreType(typeInfo, VkSemaphoreType.VK_SEMAPHORE_TYPE_TIMELINE.value());
-        VkSemaphoreTypeCreateInfo.initialValue(typeInfo, 0);
-        
-        MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
-        VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
-        VkSemaphoreCreateInfo.pNext(semaphoreInfo, typeInfo);
-        
-        MemorySegment semaphorePtr = arena.allocate(ValueLayout.ADDRESS);
-        Vulkan.createSemaphore(device.handle(), semaphoreInfo, semaphorePtr).check();
-        
-        return new TimelineSemaphore(semaphorePtr.get(ValueLayout.ADDRESS, 0), device, arena);
+        VkSemaphore semaphore = VkSemaphore.builder()
+            .device(device)
+            .timeline(0)
+            .build(arena);
+        return new TimelineSemaphore(semaphore, device, arena);
     }
     
     @Override
@@ -86,22 +74,23 @@ public class VkSemaphoreManager implements AutoCloseable {
      * Timeline semaphore wrapper with value tracking.
      */
     public static class TimelineSemaphore implements AutoCloseable {
-        private final MemorySegment handle;
+        private final VkSemaphore semaphore;
         private final VkDevice device;
         private final Arena arena;
         private volatile long currentValue = 0;
         
-        TimelineSemaphore(MemorySegment handle, VkDevice device, Arena arena) {
-            this.handle = handle;
+        TimelineSemaphore(VkSemaphore semaphore, VkDevice device, Arena arena) {
+            this.semaphore = semaphore;
             this.device = device;
             this.arena = arena;
         }
         
-        public MemorySegment handle() { return handle; }
+        public VkSemaphore semaphore() { return semaphore; }
+        public MemorySegment handle() { return semaphore.handle(); }
         
         public long getCurrentValue() {
             MemorySegment valuePtr = arena.allocate(ValueLayout.JAVA_LONG);
-            Vulkan.getSemaphoreCounterValue(device.handle(), handle, valuePtr).check();
+            Vulkan.getSemaphoreCounterValue(device.handle(), semaphore.handle(), valuePtr).check();
             return valuePtr.get(ValueLayout.JAVA_LONG, 0);
         }
         
@@ -115,7 +104,7 @@ public class VkSemaphoreManager implements AutoCloseable {
             VkSemaphoreWaitInfo.semaphoreCount(waitInfo, 1);
             
             MemorySegment semaphoreArray = arena.allocate(ValueLayout.ADDRESS);
-            semaphoreArray.set(ValueLayout.ADDRESS, 0, handle);
+            semaphoreArray.set(ValueLayout.ADDRESS, 0, semaphore.handle());
             VkSemaphoreWaitInfo.pSemaphores(waitInfo, semaphoreArray);
             
             MemorySegment valueArray = arena.allocate(ValueLayout.JAVA_LONG);
@@ -128,7 +117,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         public void signalValue(long value) {
             MemorySegment signalInfo = VkSemaphoreSignalInfo.allocate(arena);
             VkSemaphoreSignalInfo.sType(signalInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO.value());
-            VkSemaphoreSignalInfo.semaphore(signalInfo, handle);
+            VkSemaphoreSignalInfo.semaphore(signalInfo, semaphore.handle());
             VkSemaphoreSignalInfo.value(signalInfo, value);
             
             Vulkan.signalSemaphore(device.handle(), signalInfo).check();
@@ -136,7 +125,7 @@ public class VkSemaphoreManager implements AutoCloseable {
         
         @Override
         public void close() {
-            Vulkan.destroySemaphore(device.handle(), handle);
+            semaphore.close();
         }
     }
     

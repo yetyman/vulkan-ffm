@@ -31,15 +31,15 @@ public class VkTexture implements AutoCloseable {
     private final MemorySegment imageView;
     private final MemorySegment sampler;
     private final VkAllocation allocation;
-    private final VkMemoryAllocator allocator;
+    private final PoolAllocator allocator;
     private final VkDevice device;
     private final int width, height, depth;
     private final int mipLevels;
     private final int format;
     
-    private VkTexture(VkImage image, MemorySegment imageView, MemorySegment sampler, 
-                     VkAllocation allocation, VkMemoryAllocator allocator, VkDevice device,
-                     int width, int height, int depth, int mipLevels, int format) {
+    private VkTexture(VkImage image, MemorySegment imageView, MemorySegment sampler,
+                      VkAllocation allocation, PoolAllocator allocator, VkDevice device,
+                      int width, int height, int depth, int mipLevels, int format) {
         this.image = image;
         this.imageView = imageView;
         this.sampler = sampler;
@@ -248,7 +248,7 @@ public class VkTexture implements AutoCloseable {
     
     public static class Builder {
         private VkDevice device;
-        private VkMemoryAllocator allocator;
+        private PoolAllocator allocator;
         private int width = 1, height = 1, depth = 1;
         private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value();
         private int imageType = VkImageType.VK_IMAGE_TYPE_2D.value();
@@ -273,7 +273,7 @@ public class VkTexture implements AutoCloseable {
             return this;
         }
         
-        public Builder allocator(VkMemoryAllocator allocator) {
+        public Builder allocator(PoolAllocator allocator) {
             this.allocator = allocator;
             return this;
         }

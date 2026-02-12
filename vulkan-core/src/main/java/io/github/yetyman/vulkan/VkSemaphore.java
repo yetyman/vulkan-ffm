@@ -12,7 +12,7 @@ public class VkSemaphore implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
     
-    private VkSemaphore(MemorySegment handle, VkDevice device) {
+    VkSemaphore(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
@@ -43,6 +43,8 @@ public class VkSemaphore implements AutoCloseable {
     public static class Builder {
         private VkDevice device;
         private int flags = 0;
+        private boolean timeline = false;
+        private long initialValue = 0;
         
         private Builder() {}
         
@@ -58,14 +60,30 @@ public class VkSemaphore implements AutoCloseable {
             return this;
         }
         
+        /** Creates a timeline semaphore with initial value */
+        public Builder timeline(long initialValue) {
+            this.timeline = true;
+            this.initialValue = initialValue;
+            return this;
+        }
+        
         /** Creates the semaphore */
         public VkSemaphore build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             
             MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
             VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
-            VkSemaphoreCreateInfo.pNext(semaphoreInfo, MemorySegment.NULL);
             VkSemaphoreCreateInfo.flags(semaphoreInfo, flags);
+            
+            if (timeline) {
+                MemorySegment typeInfo = VkSemaphoreTypeCreateInfo.allocate(arena);
+                VkSemaphoreTypeCreateInfo.sType(typeInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO.value());
+                VkSemaphoreTypeCreateInfo.semaphoreType(typeInfo, VkSemaphoreType.VK_SEMAPHORE_TYPE_TIMELINE.value());
+                VkSemaphoreTypeCreateInfo.initialValue(typeInfo, initialValue);
+                VkSemaphoreCreateInfo.pNext(semaphoreInfo, typeInfo);
+            } else {
+                VkSemaphoreCreateInfo.pNext(semaphoreInfo, MemorySegment.NULL);
+            }
             
             MemorySegment semPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createSemaphore(device.handle(), semaphoreInfo, semPtr).check();

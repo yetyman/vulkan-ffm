@@ -4,7 +4,7 @@ import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.highlevel.VkTexture;
-import io.github.yetyman.vulkan.highlevel.VkMemoryAllocator;
+import io.github.yetyman.vulkan.highlevel.PoolAllocator;
 import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 
@@ -13,7 +13,7 @@ public class AdaptiveAA {
     
     private final Arena arena;
     private final VkDevice device;
-    private final VkMemoryAllocator allocator;
+    private final PoolAllocator allocator;
     private final int width, height;
     private final Mode mode;
     private final int samples;
@@ -45,7 +45,7 @@ public class AdaptiveAA {
     private AdaptiveAA(Arena arena, VkDevice device, int width, int height, Mode mode, int samples) {
         this.arena = arena;
         this.device = device;
-        this.allocator = VkMemoryAllocator.builder()
+        this.allocator = PoolAllocator.builder()
             .device(device)
             .build(arena);
         this.width = width;
