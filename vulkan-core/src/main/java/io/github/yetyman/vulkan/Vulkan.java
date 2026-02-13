@@ -127,16 +127,6 @@ public class Vulkan {
     public static final int VK_API_VERSION_1_1 = makeVersion(1, 1, 0);
     public static final int VK_API_VERSION_1_2 = makeVersion(1, 2, 0);
     public static final int VK_API_VERSION_1_3 = makeVersion(1, 3, 0);
-    
-    public static final int VK_BUFFER_USAGE_TRANSFER_SRC_BIT = 0x00000001;
-    public static final int VK_BUFFER_USAGE_TRANSFER_DST_BIT = 0x00000002;
-    public static final int VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT = 0x00000010;
-    public static final int VK_BUFFER_USAGE_STORAGE_BUFFER_BIT = 0x00000020;
-    public static final int VK_BUFFER_USAGE_VERTEX_BUFFER_BIT = 0x00000080;
-    public static final int VK_BUFFER_USAGE_INDEX_BUFFER_BIT = 0x00000040;
-    
-    public static final int VK_SHARING_MODE_EXCLUSIVE = 0;
-    public static final int VK_SHARING_MODE_CONCURRENT = 1;
 
     public static void getBufferMemoryRequirements(MemorySegment device, MemorySegment buffer, MemorySegment requirements) {
         VulkanFFM.vkGetBufferMemoryRequirements(device, buffer, requirements);

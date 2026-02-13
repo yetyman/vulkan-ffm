@@ -10,13 +10,13 @@ import java.lang.foreign.*;
  */
 public class VkSyncManager implements AutoCloseable {
     private final VkSemaphoreManager semaphoreManager;
-    private final VkFencePool fencePool;
+    private final FencePool fencePool;
     private final Arena arena;
     
     private VkSyncManager(VkDevice device, Arena arena) {
         this.arena = arena;
         this.semaphoreManager = VkSemaphoreManager.builder().device(device).build(arena);
-        this.fencePool = VkFencePool.builder().device(device).build(arena);
+        this.fencePool = FencePool.builder().device(device).build(arena);
     }
     
     public static Builder builder() {

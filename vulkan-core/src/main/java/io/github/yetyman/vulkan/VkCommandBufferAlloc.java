@@ -41,7 +41,7 @@ public class VkCommandBufferAlloc {
             return this;
         }
         
-        public MemorySegment[] allocate(Arena arena) {
+        public VkCommandBuffer[] allocate(Arena arena) {
             MemorySegment allocInfo = VkCommandBufferAllocateInfo.allocate(arena);
             VkCommandBufferAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO.value());
             VkCommandBufferAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
@@ -52,9 +52,9 @@ public class VkCommandBufferAlloc {
             MemorySegment commandBuffersArray = arena.allocate(ValueLayout.ADDRESS, count);
             Vulkan.allocateCommandBuffers(device.handle(), allocInfo, commandBuffersArray).check();
             
-            MemorySegment[] result = new MemorySegment[count];
+            VkCommandBuffer[] result = new VkCommandBuffer[count];
             for (int i = 0; i < count; i++) {
-                result[i] = commandBuffersArray.getAtIndex(ValueLayout.ADDRESS, i);
+                result[i] = new VkCommandBuffer(commandBuffersArray.getAtIndex(ValueLayout.ADDRESS, i));
             }
             return result;
         }

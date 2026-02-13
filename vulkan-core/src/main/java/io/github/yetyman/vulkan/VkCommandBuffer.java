@@ -5,6 +5,17 @@ import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 
 public class VkCommandBuffer {
+    private final MemorySegment handle;
+    
+    public VkCommandBuffer(MemorySegment handle) {
+        this.handle = handle;
+    }
+    
+    public MemorySegment handle() { return handle; }
+    
+    public static Builder begin(VkCommandBuffer commandBuffer) {
+        return new Builder(commandBuffer.handle);
+    }
     
     public static Builder begin(MemorySegment commandBuffer) {
         return new Builder(commandBuffer);
@@ -12,6 +23,11 @@ public class VkCommandBuffer {
     
     public static Builder begin(MemorySegment commandBuffer, int usageFlags) {
         return new Builder(commandBuffer).flags(usageFlags);
+    }
+    
+    public static VkResult reset(VkCommandBuffer commandBuffer) {
+        int result = VulkanFFM.vkResetCommandBuffer(commandBuffer.handle, 0);
+        return VkResult.fromInt(result);
     }
     
     public static VkResult reset(MemorySegment commandBuffer) {
@@ -74,6 +90,10 @@ public class VkCommandBuffer {
             int result = VulkanFFM.vkBeginCommandBuffer(commandBuffer, beginInfo);
             VkResult.fromInt(result).check();
         }
+    }
+    
+    public static RenderPassBuilder beginRenderPass(VkCommandBuffer commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {
+        return new RenderPassBuilder(commandBuffer.handle, renderPass, framebuffer);
     }
     
     public static RenderPassBuilder beginRenderPass(MemorySegment commandBuffer, MemorySegment renderPass, MemorySegment framebuffer) {

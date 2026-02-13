@@ -8,6 +8,20 @@ public class VkFenceOps {
         return new Builder(device);
     }
     
+    /**
+     * Wait for a single fence with timeout.
+     */
+    public static VkResult wait(VkDevice device, VkFence fence, long timeout, Arena arena) {
+        return waitFor(device).fence(fence.handle()).timeout(timeout).execute(arena);
+    }
+    
+    /**
+     * Get status of a single fence without blocking.
+     */
+    public static VkResult getStatus(VkDevice device, VkFence fence) {
+        return Vulkan.getFenceStatus(device.handle(), fence.handle());
+    }
+    
     public static class Builder {
         private final VkDevice device;
         private MemorySegment[] fences = new MemorySegment[0];

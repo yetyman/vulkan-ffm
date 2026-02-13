@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.generated.VkFormatProperties;
 import io.github.yetyman.vulkan.generated.VkPhysicalDeviceMemoryProperties;
+import io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties;
 import io.github.yetyman.vulkan.generated.VulkanFFM;
 
 import java.lang.foreign.Arena;
@@ -12,6 +13,7 @@ import java.lang.foreign.MemorySegment;
  */
 public class VkPhysicalDevice {
     private final MemorySegment handle;
+    private Long cachedSparsePageSize;
     
     private VkPhysicalDevice(MemorySegment handle) {
         this.handle = handle;
@@ -60,6 +62,21 @@ public class VkPhysicalDevice {
             }
         }
         return -1;
+    }
+    
+    /**
+     * Returns the sparse buffer page size (bufferImageGranularity).
+     * Cached after first query.
+     */
+    public long getSparsePageSize() {
+        if (cachedSparsePageSize == null) {
+            try (Arena arena = Arena.ofConfined()) {
+                MemorySegment props = VkPhysicalDeviceProperties.allocate(arena);
+                VulkanFFM.vkGetPhysicalDeviceProperties(handle, props);
+                cachedSparsePageSize = VkPhysicalDeviceProperties.limits.bufferImageGranularity(props);
+            }
+        }
+        return cachedSparsePageSize;
     }
     
     // Wrapper classes for return values

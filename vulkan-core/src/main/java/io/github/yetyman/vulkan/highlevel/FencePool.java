@@ -19,14 +19,14 @@ import java.util.*;
  * fencePool.release(fence);
  * ```
  */
-public class VkFencePool implements AutoCloseable {
+public class FencePool implements AutoCloseable {
     private final VkDevice device;
     private final Arena arena;
     private final Queue<VkFence> availableFences = new ArrayDeque<>();
     private final Set<MemorySegment> allFenceHandles = new HashSet<>();
     private final int maxPoolSize;
     
-    private VkFencePool(VkDevice device, Arena arena, int maxPoolSize) {
+    private FencePool(VkDevice device, Arena arena, int maxPoolSize) {
         this.device = device;
         this.arena = arena;
         this.maxPoolSize = maxPoolSize;
@@ -121,9 +121,9 @@ public class VkFencePool implements AutoCloseable {
             return this;
         }
         
-        public VkFencePool build(Arena arena) {
+        public FencePool build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            return new VkFencePool(device, arena, maxPoolSize);
+            return new FencePool(device, arena, maxPoolSize);
         }
     }
 }
