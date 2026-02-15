@@ -337,11 +337,11 @@ public class AdaptiveAA {
     public VkRenderPass getSceneRenderPass() { return sceneRenderPass; }
     public VkFramebuffer getSceneFramebuffer() { return sceneFramebuffer; }
     
-    public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
+    public void performAA(VkCommandBuffer commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena) {
         performAA(commandBuffer, finalFramebuffer, frameArena, 0.0f, 0.0f, 0.0f, 1.0f);
     }
     
-    public void performAA(MemorySegment commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena, float clearR, float clearG, float clearB, float clearA) {
+    public void performAA(VkCommandBuffer commandBuffer, VkFramebuffer finalFramebuffer, Arena frameArena, float clearR, float clearG, float clearB, float clearA) {
         boolean useMSAA = (mode == Mode.MSAA);
         
         if (useMSAA) {
@@ -352,10 +352,10 @@ public class AdaptiveAA {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
-            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
-            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
+            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
         } else {
             // Post-process AA mode - edge detection + adaptive AA
             // Transition previous frame for sampling (only if first frame)
@@ -369,10 +369,10 @@ public class AdaptiveAA {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
-            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
-            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
+            descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
+            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             // Adaptive AA pass to swapchain
             VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
@@ -381,18 +381,18 @@ public class AdaptiveAA {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
-            descriptorSet.bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
+            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
             
             // Push constants for frame info
             VkPushConstants.builder(frameArena)
                 .floatValue((float)frameIndex)
                 .floatValue(16.67f)
                 .build()
-                .push(commandBuffer, aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
+                .push(commandBuffer.handle(), aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
             
-            Vulkan.cmdDraw(commandBuffer, 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             frameIndex++;
         }
@@ -478,7 +478,7 @@ public class AdaptiveAA {
         throw new RuntimeException("Failed to find supported depth format with sampling support");
     }
     
-    private void transitionImageLayout(MemorySegment commandBuffer, MemorySegment image, int oldLayout, int newLayout, boolean isDepth) {
+    private void transitionImageLayout(VkCommandBuffer commandBuffer, MemorySegment image, int oldLayout, int newLayout, boolean isDepth) {
         int srcAccessMask = oldLayout == VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value() ? 0 :
             (isDepth ? VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value() : 
                       VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value());
@@ -497,6 +497,6 @@ public class AdaptiveAA {
                                  VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
             .build(arena);
         
-        barrier.execute(commandBuffer, srcStage, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value());
+        barrier.execute(commandBuffer.handle(), srcStage, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value());
     }
 }

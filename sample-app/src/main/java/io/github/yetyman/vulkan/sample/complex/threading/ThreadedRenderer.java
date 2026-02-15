@@ -400,7 +400,7 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     @Override
-    protected void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         int threadsToUse = threadManager.getActiveThreads();
         
         if (threadsToUse == 1) {
@@ -412,7 +412,7 @@ public class ThreadedRenderer extends BaseRenderer {
         recordMultiThreaded(commandBuffer, imageIndex, frameArena);
     }
     
-    private void recordSingleThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
+    private void recordSingleThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
         if (aaMode != AdaptiveAA.Mode.NONE) {
@@ -427,7 +427,7 @@ public class ThreadedRenderer extends BaseRenderer {
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
@@ -438,17 +438,17 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
         }
         
-        Vulkan.endCommandBuffer(commandBuffer).check();
+        Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
     
-    private void recordMultiThreaded(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
+    private void recordMultiThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
         if (aaMode != AdaptiveAA.Mode.NONE) {
-            var builder = VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
+            var builder = VkCommandBuffer.beginRenderPass(commandBuffer.handle(), adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
             
@@ -459,7 +459,7 @@ public class ThreadedRenderer extends BaseRenderer {
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
@@ -470,15 +470,15 @@ public class ThreadedRenderer extends BaseRenderer {
                 .execute(frameArena);
             
             renderScene(commandBuffer, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer);
+            Vulkan.cmdEndRenderPass(commandBuffer.handle());
         }
         
-        Vulkan.endCommandBuffer(commandBuffer).check();
+        Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
     
-    private void renderScene(MemorySegment commandBuffer, Arena frameArena) {
+    private void renderScene(VkCommandBuffer commandBuffer, Arena frameArena) {
         // EXECUTE RENDER GRAPH - replaces all manual rendering
-        renderGraph.execute(commandBuffer, frameArena);
+        renderGraph.execute(commandBuffer.handle(), frameArena);
     }
     
 

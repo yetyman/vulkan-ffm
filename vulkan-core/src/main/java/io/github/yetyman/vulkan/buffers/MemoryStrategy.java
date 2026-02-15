@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.auto;
+package io.github.yetyman.vulkan.buffers;
 
 /**
  * Memory allocation and access strategy for buffers.
@@ -21,5 +21,8 @@ public enum MemoryStrategy {
     RING_BUFFER,
     
     /** Sparse virtual memory with on-demand page binding */
-    SPARSE
+    SPARSE,
+    
+    /** Suballocator: single large buffer with multiple small allocations */
+    SUBALLOCATOR
 }

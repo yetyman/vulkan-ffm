@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.generated.VulkanFFM;
 import java.lang.foreign.*;
 
 public class VkFenceOps {
@@ -19,7 +20,8 @@ public class VkFenceOps {
      * Get status of a single fence without blocking.
      */
     public static VkResult getStatus(VkDevice device, VkFence fence) {
-        return Vulkan.getFenceStatus(device.handle(), fence.handle());
+        int result = VulkanFFM.vkGetFenceStatus(device.handle(), fence.handle());
+        return VkResult.fromInt(result);
     }
     
     public static class Builder {

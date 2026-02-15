@@ -1,8 +1,9 @@
-package io.github.yetyman.vulkan.auto;
+package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.VkCommandPool;
+import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
@@ -22,9 +23,10 @@ public class BufferFactory {
      *   <li><b>STAGING</b> - Temporary host-visible buffers for GPU transfers</li>
      *   <li><b>RING_BUFFER</b> - Multi-frame buffers using secondaryStrategy for underlying memory</li>
      *   <li><b>SPARSE</b> - Large virtual buffers with on-demand page allocation using secondaryStrategy</li>
+     *   <li><b>SUBALLOCATOR</b> - Single large buffer with multiple small allocations using secondaryStrategy</li>
      * </ul>
      * 
-     * <p>For composite buffer types (RING_BUFFER, SPARSE), the secondaryStrategy determines
+     * <p>For composite buffer types (RING_BUFFER, SPARSE, SUBALLOCATOR), the secondaryStrategy determines
      * the underlying memory management approach.
      * 
      * @param strategy primary memory strategy
@@ -43,17 +45,18 @@ public class BufferFactory {
             long size,
             BufferUsage usage,
             VkDevice device,
-            MemorySegment transferQueue,
+            VkQueue transferQueue,
             VkCommandPool commandPool,
             Arena arena) {
         
         return switch (strategy) {
             case MAPPED -> new MappedBuffer(device, arena, size, usage, true);
             case MAPPED_CACHED -> new MappedBuffer(device, arena, size, usage, false);
-            case DEVICE_LOCAL -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool);
-            case STAGING -> new StagingBuffer(device, arena, size, usage, transferQueue, commandPool);
+            case DEVICE_LOCAL -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, false);
+            case STAGING -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, true);
             case RING_BUFFER -> new RingBuffer(device, arena, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
             case SPARSE -> new SparseBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, transferQueue, commandPool);
+            case SUBALLOCATOR -> new SuballocatorBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, commandPool);
         };
     }
 
@@ -63,7 +66,7 @@ public class BufferFactory {
      * <p>Automatically selects the best buffer strategy by analyzing:
      * <ul>
      *   <li><b>Access frequencies</b> - How often CPU/GPU read/write the data</li>
-     *   <li><b>Data size</b> - Scale from trivial (KB) to large (GB)</li>
+     *   <li><b>Data size</b> - Actual buffer size in bytes</li>
      * </ul>
      * 
      * <p>Selection logic:
@@ -82,7 +85,7 @@ public class BufferFactory {
      * @param cpuRead how often CPU reads from buffer
      * @param gpuRead how often GPU reads from buffer
      * @param gpuWrite how often GPU writes to buffer
-     * @param size data size scale
+     * @param size buffer size in bytes
      * @param usage buffer usage flags
      * @param device Vulkan logical device
      * @param transferQueue queue for transfer operations
@@ -95,15 +98,16 @@ public class BufferFactory {
             AccessFrequency cpuRead,
             AccessFrequency gpuRead,
             AccessFrequency gpuWrite,
-            DataScale size,
+            long size,
             BufferUsage usage,
             VkDevice device,
-            MemorySegment transferQueue,
+            VkQueue transferQueue,
             VkCommandPool commandPool,
             Arena arena) {
         
-        BufferStrategySelection selection = BufferStrategySelector.select(cpuWrite, cpuRead, gpuRead, gpuWrite, size);
+        DataScale scale = DataScale.fromSize(size, device.physicalDevice());
+        BufferStrategySelection selection = BufferStrategySelector.select(cpuWrite, cpuRead, gpuRead, gpuWrite, scale);
         
-        return create(selection.memoryStrategy(), selection.secondaryStrategy(), size.getBytes(), usage, device, transferQueue, commandPool, arena);
+        return create(selection.memoryStrategy(), selection.secondaryStrategy(), size, usage, device, transferQueue, commandPool, arena);
     }
 }

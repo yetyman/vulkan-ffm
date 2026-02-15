@@ -32,7 +32,7 @@ public abstract class BaseRenderer implements AutoCloseable {
     protected VkRenderPass renderPass;
     protected VkFramebuffer[] framebuffers;
     protected VkCommandPool commandPool;
-    protected MemorySegment[] commandBuffers;
+    protected VkCommandBuffer[] commandBuffers;
     protected VkSemaphore[] imageAvailableSemaphores;
     protected VkSemaphore[] renderFinishedSemaphores;
     protected VkFence[] inFlightFences;
@@ -212,7 +212,7 @@ public abstract class BaseRenderer implements AutoCloseable {
     // Abstract methods for subclasses
     protected abstract VkRenderPass createRenderPassImpl();
     protected abstract VkFramebuffer createFramebufferImpl(int imageIndex);
-    protected abstract void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena);
+    protected abstract void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena);
     
     // Optional hooks
     protected void initializeResources(int queueFamilyIndex) {}

@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.auto;
+package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
 import java.lang.foreign.Arena;
@@ -29,9 +29,9 @@ import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_
  */
 public class SparseBuffer extends AbstractBuffer {
     private final long pageSize;
-    private final MemorySegment sparseQueue;
+    private final VkQueue sparseQueue;
     private final VkCommandPool commandPool;
-    private final MemorySegment transferQueue;
+    private final VkQueue transferQueue;
     private final Map<Long, MemorySegment> boundPages = new HashMap<>();
     private final Queue<MemorySegment> freeMemoryPool = new ArrayDeque<>();
     private final int memoryProperties;
@@ -41,7 +41,7 @@ public class SparseBuffer extends AbstractBuffer {
     
     public SparseBuffer(VkDevice device, Arena arena,
                        long size, BufferUsage usage, MemoryStrategy underlyingStrategy,
-                       MemorySegment sparseQueue, MemorySegment transferQueue, VkCommandPool commandPool) {
+                       VkQueue sparseQueue, VkQueue transferQueue, VkCommandPool commandPool) {
         super(device, arena, size, usage, MemoryStrategy.SPARSE);
         this.sparseQueue = sparseQueue;
         this.transferQueue = transferQueue;
@@ -87,7 +87,7 @@ public class SparseBuffer extends AbstractBuffer {
      * Binds physical memory to a page at the given offset.
      * Offset must be page-aligned.
      */
-    public void bindPage(long offset) {
+    private void bindPage(long offset) {
         if (offset % pageSize != 0) {
             throw new IllegalArgumentException("Offset must be page-aligned");
         }
@@ -101,27 +101,26 @@ public class SparseBuffer extends AbstractBuffer {
             memory = allocatePageMemory();
         }
         
-        // Create sparse bind info
-        MemorySegment bind = arena.allocate(32); // VkSparseMemoryBind
-        bind.set(ValueLayout.JAVA_LONG, 0, offset); // resourceOffset
-        bind.set(ValueLayout.JAVA_LONG, 8, pageSize); // size
-        bind.set(ValueLayout.ADDRESS, 16, memory); // memory
-        bind.set(ValueLayout.JAVA_LONG, 24, 0L); // memoryOffset
+        // Create sparse bind info using builder
+        MemorySegment bind = VkSparseMemoryBind.builder()
+            .resourceOffset(offset)
+            .size(pageSize)
+            .memory(memory)
+            .memoryOffset(0)
+            .flags(0)
+            .build(arena);
         
-        MemorySegment bufferBind = arena.allocate(24); // VkSparseBufferMemoryBindInfo
-        bufferBind.set(ValueLayout.ADDRESS, 0, vkBuffer.handle());
-        bufferBind.set(ValueLayout.JAVA_INT, 8, 1); // bindCount
-        bufferBind.set(ValueLayout.ADDRESS, 16, bind);
+        MemorySegment bufferBind = VkSparseBufferMemoryBindInfo.builder()
+            .buffer(vkBuffer.handle())
+            .binds(bind)
+            .build(arena);
         
-        MemorySegment bindInfo = arena.allocate(64); // VkBindSparseInfo
-        bindInfo.set(ValueLayout.JAVA_INT, 0, 1000009); // VK_STRUCTURE_TYPE_BIND_SPARSE_INFO
-        bindInfo.set(ValueLayout.ADDRESS, 8, MemorySegment.NULL);
-        bindInfo.set(ValueLayout.JAVA_INT, 16, 0); // waitSemaphoreCount
-        bindInfo.set(ValueLayout.JAVA_INT, 24, 1); // bufferBindCount
-        bindInfo.set(ValueLayout.ADDRESS, 32, bufferBind);
+        MemorySegment bindInfo = VkBindSparseInfo.builder()
+            .bufferBinds(bufferBind)
+            .build(arena);
         
         VkFence fence = VkFence.builder().device(device).build(arena);
-        int result = vkQueueBindSparse(sparseQueue, 1, bindInfo, fence.handle());
+        int result = vkQueueBindSparse(sparseQueue.handle(), 1, bindInfo, fence.handle());
         if (result != 0) {
             throw new RuntimeException("Failed to bind sparse memory: " + result);
         }
@@ -136,33 +135,32 @@ public class SparseBuffer extends AbstractBuffer {
      * Unbinds physical memory from a page at the given offset.
      * Memory is returned to pool for reuse.
      */
-    public void unbindPage(long offset) {
+    private void unbindPage(long offset) {
         MemorySegment memory = boundPages.remove(offset);
         if (memory == null) {
             return; // Not bound
         }
         
-        // Create unbind (bind with NULL memory)
-        MemorySegment bind = arena.allocate(32);
-        bind.set(ValueLayout.JAVA_LONG, 0, offset);
-        bind.set(ValueLayout.JAVA_LONG, 8, pageSize);
-        bind.set(ValueLayout.ADDRESS, 16, MemorySegment.NULL);
-        bind.set(ValueLayout.JAVA_LONG, 24, 0L);
+        // Create unbind (bind with NULL memory) using builder
+        MemorySegment bind = VkSparseMemoryBind.builder()
+            .resourceOffset(offset)
+            .size(pageSize)
+            .memory(MemorySegment.NULL)
+            .memoryOffset(0)
+            .flags(0)
+            .build(arena);
         
-        MemorySegment bufferBind = arena.allocate(24);
-        bufferBind.set(ValueLayout.ADDRESS, 0, vkBuffer.handle());
-        bufferBind.set(ValueLayout.JAVA_INT, 8, 1);
-        bufferBind.set(ValueLayout.ADDRESS, 16, bind);
+        MemorySegment bufferBind = VkSparseBufferMemoryBindInfo.builder()
+            .buffer(vkBuffer.handle())
+            .binds(bind)
+            .build(arena);
         
-        MemorySegment bindInfo = arena.allocate(64);
-        bindInfo.set(ValueLayout.JAVA_INT, 0, 1000009);
-        bindInfo.set(ValueLayout.ADDRESS, 8, MemorySegment.NULL);
-        bindInfo.set(ValueLayout.JAVA_INT, 16, 0);
-        bindInfo.set(ValueLayout.JAVA_INT, 24, 1);
-        bindInfo.set(ValueLayout.ADDRESS, 32, bufferBind);
+        MemorySegment bindInfo = VkBindSparseInfo.builder()
+            .bufferBinds(bufferBind)
+            .build(arena);
         
         VkFence fence = VkFence.builder().device(device).build(arena);
-        vkQueueBindSparse(sparseQueue, 1, bindInfo, fence.handle());
+        vkQueueBindSparse(sparseQueue.handle(), 1, bindInfo, fence.handle());
         VkFenceOps.waitFor(device).fence(fence.handle()).execute(arena).check();
         fence.close();
         
@@ -172,7 +170,7 @@ public class SparseBuffer extends AbstractBuffer {
     /**
      * Checks if a page at the given offset is bound.
      */
-    public boolean isPageBound(long offset) {
+    private boolean isPageBound(long offset) {
         return boundPages.containsKey(offset);
     }
     
@@ -297,13 +295,13 @@ public class SparseBuffer extends AbstractBuffer {
             // Unmap
             vkUnmapMemory(device.handle(), firstPageMemory);
         } else {
-            // Use staging buffer for device-local memory
-            try (var stagingBuffer = new StagingBuffer(device, arena, data.remaining(), BufferUsage.TRANSFER, transferQueue, commandPool)) {
+            // Use device-local buffer for staging
+            try (var stagingBuffer = new DeviceLocalBuffer(device, arena, data.remaining(), BufferUsage.TRANSFER, transferQueue, commandPool, false)) {
                 stagingBuffer.write(data, 0);
                 
                 VkCommandBuffer cmd = commandPool.allocateCommandBuffer(arena);
                 VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(arena);
-                cmd.copyBuffer(stagingBuffer.getVkBuffer(), vkBuffer.handle(), 0, offset, data.remaining());
+                cmd.copyBuffer(stagingBuffer.vkBuffer, vkBuffer, 0, offset, data.remaining());
                 cmd.end();
                 
                 VkFence fence = VkFence.builder().device(device).build(arena);
@@ -326,13 +324,13 @@ public class SparseBuffer extends AbstractBuffer {
             write(data, offset);
             return new TransferCompletion(device, null, arena);
         } else {
-            // Use staging buffer for device-local memory
-            var stagingBuffer = new StagingBuffer(device, arena, data.remaining(), BufferUsage.TRANSFER, transferQueue, commandPool);
+            // Use device-local buffer for staging
+            var stagingBuffer = new DeviceLocalBuffer(device, arena, data.remaining(), BufferUsage.TRANSFER, transferQueue, commandPool, false);
             stagingBuffer.write(data, 0);
             
             VkCommandBuffer cmd = commandPool.allocateCommandBuffer(arena);
             VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(arena);
-            cmd.copyBuffer(stagingBuffer.getVkBuffer(), vkBuffer.handle(), 0, offset, data.remaining());
+            cmd.copyBuffer(stagingBuffer.vkBuffer, vkBuffer, 0, offset, data.remaining());
             cmd.end();
             
             VkFence fence = VkFence.builder().device(device).build(arena);
@@ -393,11 +391,11 @@ public class SparseBuffer extends AbstractBuffer {
                 public ByteBuffer getResult() { return result; }
             };
         } else {
-            var stagingBuffer = new StagingBuffer(device, arena, size, BufferUsage.TRANSFER, transferQueue, commandPool);
+            var stagingBuffer = new DeviceLocalBuffer(device, arena, size, BufferUsage.TRANSFER, transferQueue, commandPool, false);
             
             VkCommandBuffer cmd = commandPool.allocateCommandBuffer(arena);
             VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(arena);
-            cmd.copyBuffer(vkBuffer.handle(), stagingBuffer.getVkBuffer(), offset, 0, size);
+            cmd.copyBuffer(vkBuffer, stagingBuffer.vkBuffer, offset, 0, size);
             cmd.end();
             
             VkFence fence = VkFence.builder().device(device).build(arena);
@@ -435,7 +433,7 @@ public class SparseBuffer extends AbstractBuffer {
     }
     
     @Override
-    public void close() {
+    public void closeImpl() {
         // Unbind all pages
         for (long offset : boundPages.keySet().toArray(new Long[0])) {
             unbindPage(offset);

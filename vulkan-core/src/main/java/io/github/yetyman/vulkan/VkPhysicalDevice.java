@@ -90,6 +90,88 @@ public class VkPhysicalDevice {
     }
     
     /**
+     * Returns minimum alignment for memory map operations.
+     */
+    public long getMinMemoryMapAlignment() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.minMemoryMapAlignment(limits);
+    }
+    
+    /**
+     * Returns granularity for non-coherent memory flush/invalidate operations.
+     */
+    public long getNonCoherentAtomSize() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.nonCoherentAtomSize(limits);
+    }
+    
+    /**
+     * Returns maximum number of memory allocations.
+     */
+    public int getMaxMemoryAllocationCount() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.maxMemoryAllocationCount(limits);
+    }
+    
+    /**
+     * Returns maximum storage buffer range in bytes.
+     */
+    public long getMaxStorageBufferRange() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.maxStorageBufferRange(limits);
+    }
+    
+    /**
+     * Returns maximum uniform buffer range in bytes.
+     */
+    public long getMaxUniformBufferRange() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.maxUniformBufferRange(limits);
+    }
+    
+    /**
+     * Returns total size of device-local memory heaps in bytes.
+     */
+    public long getDeviceLocalMemorySize() {
+        ensureCached();
+        int heapCount = VkPhysicalDeviceMemoryProperties.memoryHeapCount(cachedMemoryProperties);
+        long total = 0;
+        for (int i = 0; i < heapCount; i++) {
+            MemorySegment heap = VkPhysicalDeviceMemoryProperties.memoryHeaps(cachedMemoryProperties, i);
+            int flags = VkMemoryHeap.flags(heap);
+            if ((flags & 1) != 0) { // VK_MEMORY_HEAP_DEVICE_LOCAL_BIT
+                total += VkMemoryHeap.size(heap);
+            }
+        }
+        return total;
+    }
+    
+    /**
+     * Returns minimum required alignment for uniform buffer offsets.
+     * Used for dynamic offsets and suballocations.
+     */
+    public long getMinUniformBufferOffsetAlignment() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.minUniformBufferOffsetAlignment(limits);
+    }
+    
+    /**
+     * Returns minimum required alignment for storage buffer offsets.
+     * Used for dynamic offsets and suballocations.
+     */
+    public long getMinStorageBufferOffsetAlignment() {
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.minStorageBufferOffsetAlignment(limits);
+    }
+    
+    /**
      * Returns whether the device supports sparse buffer residency.
      * When true, accessing uncommitted sparse buffer regions returns zero.
      * When false, accessing uncommitted regions has undefined behavior.

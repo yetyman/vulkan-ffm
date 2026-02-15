@@ -33,28 +33,28 @@ public class VkSyncManager implements AutoCloseable {
     /**
      * Creates a binary semaphore for one-time synchronization.
      */
-    public MemorySegment createBinarySemaphore() {
+    public VkSemaphore createBinarySemaphore() {
         return semaphoreManager.createBinarySemaphore();
     }
     
     /**
      * Gets a fence from the pool.
      */
-    public MemorySegment acquireFence() {
+    public VkFence acquireFence() {
         return fencePool.acquire();
     }
     
     /**
      * Returns a fence to the pool.
      */
-    public void releaseFence(MemorySegment fence) {
+    public void releaseFence(VkFence fence) {
         fencePool.release(fence);
     }
     
     /**
      * Waits for a fence with timeout.
      */
-    public VkResult waitForFence(MemorySegment fence, long timeoutNs) {
+    public VkResult waitForFence(VkFence fence, long timeoutNs) {
         return fencePool.waitForFence(fence, timeoutNs);
     }
     
@@ -189,18 +189,18 @@ public class VkSyncManager implements AutoCloseable {
      */
     public static class FrameSync implements AutoCloseable {
         private final VkSyncManager syncManager;
-        private final MemorySegment[] imageAvailable;
-        private final MemorySegment[] renderFinished;
-        private final MemorySegment[] inFlight;
+        private final VkSemaphore[] imageAvailable;
+        private final VkSemaphore[] renderFinished;
+        private final VkFence[] inFlight;
         private final int maxFramesInFlight;
         private int currentFrame = 0;
         
         FrameSync(VkSyncManager syncManager, int framesInFlight) {
             this.syncManager = syncManager;
             this.maxFramesInFlight = framesInFlight;
-            this.imageAvailable = new MemorySegment[framesInFlight];
-            this.renderFinished = new MemorySegment[framesInFlight];
-            this.inFlight = new MemorySegment[framesInFlight];
+            this.imageAvailable = new VkSemaphore[framesInFlight];
+            this.renderFinished = new VkSemaphore[framesInFlight];
+            this.inFlight = new VkFence[framesInFlight];
             
             for (int i = 0; i < framesInFlight; i++) {
                 imageAvailable[i] = syncManager.createBinarySemaphore();
@@ -241,13 +241,13 @@ public class VkSyncManager implements AutoCloseable {
      * Synchronization state for a single frame.
      */
     public static class FrameSyncState {
-        public final MemorySegment imageAvailable;
-        public final MemorySegment renderFinished;
-        public final MemorySegment inFlight;
+        public final VkSemaphore imageAvailable;
+        public final VkSemaphore renderFinished;
+        public final VkFence inFlight;
         public final int frameIndex;
         
-        FrameSyncState(MemorySegment imageAvailable, MemorySegment renderFinished, 
-                      MemorySegment inFlight, int frameIndex) {
+        FrameSyncState(VkSemaphore imageAvailable, VkSemaphore renderFinished,
+                       VkFence inFlight, int frameIndex) {
             this.imageAvailable = imageAvailable;
             this.renderFinished = renderFinished;
             this.inFlight = inFlight;

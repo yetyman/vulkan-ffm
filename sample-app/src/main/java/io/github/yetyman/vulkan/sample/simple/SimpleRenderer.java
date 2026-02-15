@@ -63,7 +63,7 @@ public class SimpleRenderer extends BaseRenderer {
     }
     
     @Override
-    protected void recordCommandBuffer(MemorySegment commandBuffer, int imageIndex, Arena frameArena) {
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
         VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
@@ -71,7 +71,7 @@ public class SimpleRenderer extends BaseRenderer {
             .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
             .execute(frameArena);
         
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
+        Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
         
         // Set dynamic viewport and scissor
         MemorySegment viewport = VkViewport.builder()
@@ -79,18 +79,18 @@ public class SimpleRenderer extends BaseRenderer {
             .size(width, height)
             .depthRange(0.0f, 1.0f)
             .build(frameArena);
-        Vulkan.cmdSetViewport(commandBuffer, 0, 1, viewport);
+        Vulkan.cmdSetViewport(commandBuffer.handle(), 0, 1, viewport);
         
         MemorySegment scissor = VkRect2D.builder()
             .offset(0, 0)
             .extent(width, height)
             .build(frameArena);
-        Vulkan.cmdSetScissor(commandBuffer, 0, 1, scissor);
+        Vulkan.cmdSetScissor(commandBuffer.handle(), 0, 1, scissor);
         
         // Draw triangle using DrawCommand abstraction
-        DrawCommand.direct(3, 1).execute(commandBuffer);
-        Vulkan.cmdEndRenderPass(commandBuffer);
-        Vulkan.endCommandBuffer(commandBuffer).check();
+        DrawCommand.direct(3, 1).execute(commandBuffer.handle());
+        Vulkan.cmdEndRenderPass(commandBuffer.handle());
+        Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
     
     @Override

@@ -11,6 +11,7 @@ import java.lang.foreign.*;
 public class VkFence implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
+    private boolean freed = false;
     
     private VkFence(MemorySegment handle, VkDevice device) {
         this.handle = handle;
@@ -34,7 +35,10 @@ public class VkFence implements AutoCloseable {
     
     @Override
     public void close() {
-        Vulkan.destroyFence(device.handle(), handle);
+        if (!freed) {
+            freed = true;
+            Vulkan.destroyFence(device.handle(), handle);
+        }
     }
     
     /**

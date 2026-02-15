@@ -36,7 +36,7 @@ public class VulkanCommandManager implements AutoCloseable {
         return new Builder();
     }
     
-    public MemorySegment[] allocateBuffers(int count, Arena bufferArena) {
+    public VkCommandBuffer[] allocateBuffers(int count, Arena bufferArena) {
         VkCommandPool pool = threaded ? getThreadPool() : mainPool;
         return VkCommandBufferAlloc.builder()
             .device(device)
@@ -46,7 +46,7 @@ public class VulkanCommandManager implements AutoCloseable {
             .allocate(bufferArena);
     }
     
-    public MemorySegment allocateBuffer(Arena bufferArena) {
+    public VkCommandBuffer allocateBuffer(Arena bufferArena) {
         return allocateBuffers(1, bufferArena)[0];
     }
     

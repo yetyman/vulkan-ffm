@@ -23,8 +23,8 @@ public class VkSubmit {
             return this;
         }
         
-        public Builder commandBuffer(MemorySegment commandBuffer) {
-            commandBuffers.add(commandBuffer);
+        public Builder commandBuffer(VkCommandBuffer commandBuffer) {
+            commandBuffers.add(commandBuffer.handle());
             return this;
         }
         

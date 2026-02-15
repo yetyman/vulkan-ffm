@@ -14,13 +14,13 @@
  *   <li>Ring buffers for high-frequency updates</li>
  * </ul>
  * 
- * <p>The main entry point is {@link io.github.yetyman.vulkan.auto.BufferStrategySelector#select},
+ * <p>The main entry point is {@link io.github.yetyman.vulkan.buffers.BufferStrategySelector#select},
  * which takes access frequency parameters and returns a recommended strategy.
  * 
- * @see io.github.yetyman.vulkan.auto.BufferStrategySelector
- * @see io.github.yetyman.vulkan.auto.BufferStrategySelection
- * @see io.github.yetyman.vulkan.auto.MemoryStrategy
- * @see io.github.yetyman.vulkan.auto.AccessFrequency
- * @see io.github.yetyman.vulkan.auto.DataScale
+ * @see io.github.yetyman.vulkan.buffers.BufferStrategySelector
+ * @see io.github.yetyman.vulkan.buffers.BufferStrategySelection
+ * @see io.github.yetyman.vulkan.buffers.MemoryStrategy
+ * @see io.github.yetyman.vulkan.buffers.AccessFrequency
+ * @see io.github.yetyman.vulkan.buffers.DataScale
  */
-package io.github.yetyman.vulkan.auto;
+package io.github.yetyman.vulkan.buffers;

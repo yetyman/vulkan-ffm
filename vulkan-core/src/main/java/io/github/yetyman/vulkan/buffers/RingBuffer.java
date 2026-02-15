@@ -1,8 +1,8 @@
-package io.github.yetyman.vulkan.auto;
+package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.VkPhysicalDevice;
+import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -15,13 +15,13 @@ public class RingBuffer extends AbstractBuffer {
     
     public RingBuffer(VkDevice device, Arena arena,
                      long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
-                     MemorySegment transferQueue, VkCommandPool commandPool) {
+                     VkQueue transferQueue, VkCommandPool commandPool) {
         super(device, arena, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
         
         for (int i = 0; i < frameCount; i++) {
-            buffers[i] = BufferFactory.create(underlyingStrategy, size, usage, device, transferQueue, commandPool, arena);
+            buffers[i] = BufferFactory.create(underlyingStrategy, MemoryStrategy.DEVICE_LOCAL, size, usage, device, transferQueue, commandPool, arena);
         }
     }
     
@@ -29,15 +29,15 @@ public class RingBuffer extends AbstractBuffer {
                      long size, BufferUsage usage, 
                      AccessFrequency cpuWrite, AccessFrequency cpuRead,
                      AccessFrequency gpuRead, AccessFrequency gpuWrite,
-                     DataScale dataScale, int frameCount,
-                     MemorySegment transferQueue, VkCommandPool commandPool) {
+                      int frameCount,
+                     VkQueue transferQueue, VkCommandPool commandPool) {
         super(device, arena, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
         
         for (int i = 0; i < frameCount; i++) {
             buffers[i] = BufferFactory.createAutomatic(
-                cpuWrite, cpuRead, gpuRead, gpuWrite, dataScale,
+                cpuWrite, cpuRead, gpuRead, gpuWrite, size,
                 usage, device, transferQueue, commandPool, arena
             );
         }
@@ -58,9 +58,13 @@ public class RingBuffer extends AbstractBuffer {
         buffers[currentFrame].flush();
     }
     
+    /**
+     * Returns the handle of the current frame's buffer.
+     * This is the buffer that should be bound for the current frame's rendering.
+     */
     @Override
-    public MemorySegment getVkBuffer() {
-        return buffers[currentFrame].getVkBuffer();
+    public MemorySegment handle() {
+        return buffers[currentFrame].handle();
     }
     
     public void nextFrame() {
@@ -72,7 +76,7 @@ public class RingBuffer extends AbstractBuffer {
     }
     
     @Override
-    public void close() {
+    public void closeImpl() {
         for (ManagedBuffer buffer : buffers) {
             if (buffer != null) {
                 buffer.close();
@@ -83,7 +87,6 @@ public class RingBuffer extends AbstractBuffer {
     
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        write(data, offset);
-        return null; // Ring buffers are synchronous
+        return buffers[currentFrame].writeAsync(data, offset);
     }
 }

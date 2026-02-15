@@ -30,21 +30,16 @@ public class VkTexture implements AutoCloseable {
     private final VkImage image;
     private final MemorySegment imageView;
     private final MemorySegment sampler;
-    private final VkAllocation allocation;
-    private final PoolAllocator allocator;
     private final VkDevice device;
     private final int width, height, depth;
     private final int mipLevels;
     private final int format;
     
-    private VkTexture(VkImage image, MemorySegment imageView, MemorySegment sampler,
-                      VkAllocation allocation, PoolAllocator allocator, VkDevice device,
+    private VkTexture(VkImage image, MemorySegment imageView, MemorySegment sampler, VkDevice device,
                       int width, int height, int depth, int mipLevels, int format) {
         this.image = image;
         this.imageView = imageView;
         this.sampler = sampler;
-        this.allocation = allocation;
-        this.allocator = allocator;
         this.device = device;
         this.width = width;
         this.height = height;
@@ -423,7 +418,7 @@ public class VkTexture implements AutoCloseable {
             Vulkan.createSampler(device.handle(), samplerInfo, samplerPtr).check();
             MemorySegment sampler = samplerPtr.get(ValueLayout.ADDRESS, 0);
             
-            return new VkTexture(image, imageView, sampler, null, null, device, width, height, depth, mipLevels, format);
+            return new VkTexture(image, imageView, sampler, device, width, height, depth, mipLevels, format);
         }
     }
 }
