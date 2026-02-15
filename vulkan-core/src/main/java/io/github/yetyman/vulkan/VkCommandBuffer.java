@@ -13,6 +13,18 @@ public class VkCommandBuffer {
     
     public MemorySegment handle() { return handle; }
     
+    public void copyBuffer(MemorySegment srcBuffer, MemorySegment dstBuffer, long srcOffset, long dstOffset, long size) {
+        MemorySegment copyRegion = Arena.ofAuto().allocate(24);
+        copyRegion.set(ValueLayout.JAVA_LONG, 0, srcOffset);
+        copyRegion.set(ValueLayout.JAVA_LONG, 8, dstOffset);
+        copyRegion.set(ValueLayout.JAVA_LONG, 16, size);
+        VulkanFFM.vkCmdCopyBuffer(handle, srcBuffer, dstBuffer, 1, copyRegion);
+    }
+    
+    public void end() {
+        VulkanFFM.vkEndCommandBuffer(handle);
+    }
+    
     public static Builder begin(VkCommandBuffer commandBuffer) {
         return new Builder(commandBuffer.handle);
     }

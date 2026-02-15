@@ -6,6 +6,7 @@ public enum BufferUsage {
     UNIFORM(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.value()),
     STORAGE(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.value()),
     VERTEX(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT.value()),
+    TRANSFER(0), // Transfer-only buffer
     MIXED(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.value() | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.value() | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT.value());
     
     private final int vkFlags;

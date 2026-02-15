@@ -6,10 +6,40 @@ import io.github.yetyman.vulkan.VkCommandPool;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
+import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
 public class BufferFactory {
     
+    /**
+     * Creates a managed buffer with explicit memory strategies.
+     * 
+     * <p>This is the primary buffer creation method that supports all buffer types:
+     * <ul>
+     *   <li><b>MAPPED/MAPPED_CACHED</b> - Host-visible buffers for frequent CPU access</li>
+     *   <li><b>DEVICE_LOCAL</b> - GPU-optimal buffers with staging transfers</li>
+     *   <li><b>STAGING</b> - Temporary host-visible buffers for GPU transfers</li>
+     *   <li><b>RING_BUFFER</b> - Multi-frame buffers using secondaryStrategy for underlying memory</li>
+     *   <li><b>SPARSE</b> - Large virtual buffers with on-demand page allocation using secondaryStrategy</li>
+     * </ul>
+     * 
+     * <p>For composite buffer types (RING_BUFFER, SPARSE), the secondaryStrategy determines
+     * the underlying memory management approach.
+     * 
+     * @param strategy primary memory strategy
+     * @param secondaryStrategy underlying strategy for composite buffers (ignored for simple buffers)
+     * @param size buffer size in bytes
+     * @param usage buffer usage flags (UNIFORM, STORAGE, VERTEX, etc.)
+     * @param device Vulkan logical device
+     * @param transferQueue queue for transfer operations
+     * @param commandPool command pool for transfer commands
+     * @param arena memory arena for Vulkan object allocation
+     * @return managed buffer instance
+     */
     public static ManagedBuffer create(
             MemoryStrategy strategy,
+            MemoryStrategy secondaryStrategy,
             long size,
             BufferUsage usage,
             VkDevice device,
@@ -22,45 +52,44 @@ public class BufferFactory {
             case MAPPED_CACHED -> new MappedBuffer(device, arena, size, usage, false);
             case DEVICE_LOCAL -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool);
             case STAGING -> new StagingBuffer(device, arena, size, usage, transferQueue, commandPool);
-            case RING_BUFFER -> throw new IllegalArgumentException("Use BufferFactory.createRingBuffer() for ring buffers");
-            case SPARSE -> new SparseBuffer(device, arena, size, usage, transferQueue, transferQueue, commandPool);
+            case RING_BUFFER -> new RingBuffer(device, arena, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
+            case SPARSE -> new SparseBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, transferQueue, commandPool);
         };
     }
-    
-    public static ManagedBuffer createRingBuffer(
-            MemoryStrategy underlyingStrategy,
-            int frameCount,
-            long size,
-            BufferUsage usage,
-            VkDevice device,
-            MemorySegment transferQueue,
-            VkCommandPool commandPool,
-            Arena arena) {
-        
-        if (underlyingStrategy == MemoryStrategy.RING_BUFFER) {
-            throw new IllegalArgumentException("Cannot nest ring buffers");
-        }
-        return new RingBuffer(device, arena, size, usage, underlyingStrategy, frameCount, transferQueue, commandPool);
-    }
-    
-    public static ManagedBuffer createRingBuffer(
-            AccessFrequency cpuWrite,
-            AccessFrequency cpuRead,
-            AccessFrequency gpuRead,
-            AccessFrequency gpuWrite,
-            DataScale dataScale,
-            int frameCount,
-            BufferUsage usage,
-            VkDevice device,
-            MemorySegment transferQueue,
-            VkCommandPool commandPool,
-            Arena arena) {
-        
-        return new RingBuffer(device, arena, dataScale.getBytes(), usage, 
-            cpuWrite, cpuRead, gpuRead, gpuWrite, dataScale, frameCount,
-            transferQueue, commandPool);
-    }
-    
+
+    /**
+     * Creates an optimal managed buffer based on access patterns and data size.
+     * 
+     * <p>Automatically selects the best buffer strategy by analyzing:
+     * <ul>
+     *   <li><b>Access frequencies</b> - How often CPU/GPU read/write the data</li>
+     *   <li><b>Data size</b> - Scale from trivial (KB) to large (GB)</li>
+     * </ul>
+     * 
+     * <p>Selection logic:
+     * <ul>
+     *   <li><b>MULTI_FRAME access</b> → RING_BUFFER with underlying strategy</li>
+     *   <li><b>Frequent CPU writes</b> → MAPPED for convenience</li>
+     *   <li><b>Rare CPU writes + frequent GPU reads</b> → STAGING → DEVICE_LOCAL</li>
+     *   <li><b>GPU-only data</b> → DEVICE_LOCAL</li>
+     *   <li><b>GPU writes + CPU reads</b> → MAPPED_CACHED for readback</li>
+     * </ul>
+     * 
+     * <p>Ring buffers automatically reduce access frequency to underlying buffers,
+     * enabling more optimal memory strategies (e.g., DEVICE_LOCAL instead of MAPPED).
+     * 
+     * @param cpuWrite how often CPU writes to buffer
+     * @param cpuRead how often CPU reads from buffer
+     * @param gpuRead how often GPU reads from buffer
+     * @param gpuWrite how often GPU writes to buffer
+     * @param size data size scale
+     * @param usage buffer usage flags
+     * @param device Vulkan logical device
+     * @param transferQueue queue for transfer operations
+     * @param commandPool command pool for transfer commands
+     * @param arena memory arena for Vulkan object allocation
+     * @return optimally configured managed buffer
+     */
     public static ManagedBuffer createAutomatic(
             AccessFrequency cpuWrite,
             AccessFrequency cpuRead,
@@ -75,12 +104,6 @@ public class BufferFactory {
         
         BufferStrategySelection selection = BufferStrategySelector.select(cpuWrite, cpuRead, gpuRead, gpuWrite, size);
         
-        if (selection.useRingBuffer()) {
-            return new RingBuffer(device, arena, size.getBytes(), usage, 
-                selection.memoryStrategy(), selection.recommendedFrameCount(), 
-                transferQueue, commandPool);
-        }
-        
-        return create(selection.memoryStrategy(), size.getBytes(), usage, device, transferQueue, commandPool, arena);
+        return create(selection.memoryStrategy(), selection.secondaryStrategy(), size.getBytes(), usage, device, transferQueue, commandPool, arena);
     }
 }

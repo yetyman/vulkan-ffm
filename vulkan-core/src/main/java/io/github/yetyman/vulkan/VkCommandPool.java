@@ -43,6 +43,13 @@ public class VkCommandPool implements AutoCloseable {
         Vulkan.destroyCommandPool(device.handle(), handle);
     }
     
+    public VkCommandBuffer allocateCommandBuffer(Arena arena) {
+        return VkCommandBufferAlloc.builder()
+            .device(device)
+            .commandPool(handle)
+            .allocate(arena)[0];
+    }
+    
     /**
      * Builder for command pool creation.
      */

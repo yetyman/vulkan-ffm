@@ -1,9 +1,6 @@
 package io.github.yetyman.vulkan;
 
-import io.github.yetyman.vulkan.generated.VkFormatProperties;
-import io.github.yetyman.vulkan.generated.VkPhysicalDeviceMemoryProperties;
-import io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties;
-import io.github.yetyman.vulkan.generated.VulkanFFM;
+import io.github.yetyman.vulkan.generated.*;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -13,7 +10,9 @@ import java.lang.foreign.MemorySegment;
  */
 public class VkPhysicalDevice {
     private final MemorySegment handle;
-    private Long cachedSparsePageSize;
+    private MemorySegment cachedProperties;
+    private MemorySegment cachedFeatures;
+    private MemorySegment cachedMemoryProperties;
     
     private VkPhysicalDevice(MemorySegment handle) {
         this.handle = handle;
@@ -25,6 +24,24 @@ public class VkPhysicalDevice {
     
     public MemorySegment handle() {
         return handle;
+    }
+    
+    private void ensureCached() {
+        if (cachedProperties == null) {
+            Arena globalArena = Arena.global();
+            
+            // Cache properties (includes limits, sparse properties, etc.)
+            cachedProperties = VkPhysicalDeviceProperties.allocate(globalArena);
+            VulkanFFM.vkGetPhysicalDeviceProperties(handle, cachedProperties);
+            
+            // Cache features (includes sparse residency, etc.)
+            cachedFeatures = VkPhysicalDeviceFeatures.allocate(globalArena);
+            VulkanFFM.vkGetPhysicalDeviceFeatures(handle, cachedFeatures);
+            
+            // Cache memory properties (memory types and heaps)
+            cachedMemoryProperties = VkPhysicalDeviceMemoryProperties.allocate(globalArena);
+            VulkanFFM.vkGetPhysicalDeviceMemoryProperties(handle, cachedMemoryProperties);
+        }
     }
     
     public void getFormatProperties(int format, MemorySegment properties) {
@@ -41,20 +58,18 @@ public class VkPhysicalDevice {
         VulkanFFM.vkGetPhysicalDeviceMemoryProperties(handle, properties);
     }
     
-    public VkPhysicalDeviceMemoryPropertiesWrapper getMemoryProperties(Arena arena) {
-        MemorySegment props = VkPhysicalDeviceMemoryProperties.allocate(arena);
-        getMemoryProperties(props);
-        return new VkPhysicalDeviceMemoryPropertiesWrapper(props);
+    public VkPhysicalDeviceMemoryPropertiesWrapper getMemoryProperties() {
+        ensureCached();
+        return new VkPhysicalDeviceMemoryPropertiesWrapper(cachedMemoryProperties);
     }
     
-    public int findMemoryType(int typeBits, int properties, Arena arena) {
-        MemorySegment memProps = VkPhysicalDeviceMemoryProperties.allocate(arena);
-        getMemoryProperties(memProps);
+    public int findMemoryType(int typeBits, int properties) {
+        ensureCached();
         
-        int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(memProps);
+        int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(cachedMemoryProperties);
         for (int i = 0; i < typeCount; i++) {
             if ((typeBits & (1 << i)) != 0) {
-                MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(memProps, i);
+                MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(cachedMemoryProperties, i);
                 int props = io.github.yetyman.vulkan.generated.VkMemoryType.propertyFlags(memType);
                 if ((props & properties) == properties) {
                     return i;
@@ -69,14 +84,20 @@ public class VkPhysicalDevice {
      * Cached after first query.
      */
     public long getSparsePageSize() {
-        if (cachedSparsePageSize == null) {
-            try (Arena arena = Arena.ofConfined()) {
-                MemorySegment props = VkPhysicalDeviceProperties.allocate(arena);
-                VulkanFFM.vkGetPhysicalDeviceProperties(handle, props);
-                cachedSparsePageSize = VkPhysicalDeviceProperties.limits.bufferImageGranularity(props);
-            }
-        }
-        return cachedSparsePageSize;
+        ensureCached();
+        MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
+        return VkPhysicalDeviceLimits.bufferImageGranularity(limits);
+    }
+    
+    /**
+     * Returns whether the device supports sparse buffer residency.
+     * When true, accessing uncommitted sparse buffer regions returns zero.
+     * When false, accessing uncommitted regions has undefined behavior.
+     * Cached after first query.
+     */
+    public boolean supportsSparseResidencyBuffer() {
+        ensureCached();
+        return VkPhysicalDeviceFeatures.sparseResidencyBuffer(cachedFeatures) != 0;
     }
     
     // Wrapper classes for return values

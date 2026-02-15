@@ -83,6 +83,24 @@ public class VkDevice implements AutoCloseable {
         return queuePtr.get(ValueLayout.ADDRESS, 0);
     }
     
+    /** Simple queue submit for single command buffer */
+    public void submitAndWait(MemorySegment queue, VkCommandBuffer commandBuffer, VkFence fence, Arena arena) {
+        MemorySegment submitInfo = arena.allocate(72);
+        submitInfo.set(ValueLayout.JAVA_INT, 0, 4); // VK_STRUCTURE_TYPE_SUBMIT_INFO
+        submitInfo.set(ValueLayout.ADDRESS, 8, MemorySegment.NULL);
+        submitInfo.set(ValueLayout.JAVA_INT, 16, 0); // waitSemaphoreCount
+        submitInfo.set(ValueLayout.ADDRESS, 24, MemorySegment.NULL); // pWaitSemaphores
+        submitInfo.set(ValueLayout.ADDRESS, 32, MemorySegment.NULL); // pWaitDstStageMask
+        submitInfo.set(ValueLayout.JAVA_INT, 40, 1); // commandBufferCount
+        MemorySegment cmdBufferArray = arena.allocate(ValueLayout.ADDRESS);
+        cmdBufferArray.set(ValueLayout.ADDRESS, 0, commandBuffer.handle());
+        submitInfo.set(ValueLayout.ADDRESS, 48, cmdBufferArray); // pCommandBuffers
+        submitInfo.set(ValueLayout.JAVA_INT, 56, 0); // signalSemaphoreCount
+        submitInfo.set(ValueLayout.ADDRESS, 64, MemorySegment.NULL); // pSignalSemaphores
+        
+        VulkanFFM.vkQueueSubmit(queue, 1, submitInfo, fence.handle());
+    }
+    
     @Override
     public void close() {
         VulkanFFM.vkDestroyDevice(handle, MemorySegment.NULL);

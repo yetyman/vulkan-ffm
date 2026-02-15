@@ -46,8 +46,17 @@ public class BufferStrategySelector {
             DataScale size) {
         
         boolean ringBuffer = (cpuWrite == AccessFrequency.MULTI_FRAME) || (cpuRead == AccessFrequency.MULTI_FRAME);
-        MemoryStrategy strategy = selectMemoryStrategy(cpuWrite, cpuRead, gpuRead, gpuWrite, size);
-        return new BufferStrategySelection(strategy, ringBuffer);
+        
+        if (ringBuffer) {
+            // Ring buffer reduces access frequency to underlying buffers
+            AccessFrequency adjustedCpuWrite = cpuWrite == AccessFrequency.MULTI_FRAME ? AccessFrequency.FRAME : cpuWrite;
+            AccessFrequency adjustedCpuRead = cpuRead == AccessFrequency.MULTI_FRAME ? AccessFrequency.FRAME : cpuRead;
+            MemoryStrategy underlyingStrategy = selectMemoryStrategy(adjustedCpuWrite, adjustedCpuRead, gpuRead, gpuWrite, size);
+            return new BufferStrategySelection(MemoryStrategy.RING_BUFFER, underlyingStrategy);
+        } else {
+            MemoryStrategy strategy = selectMemoryStrategy(cpuWrite, cpuRead, gpuRead, gpuWrite, size);
+            return new BufferStrategySelection(strategy, MemoryStrategy.DEVICE_LOCAL);
+        }
     }
     
     private static MemoryStrategy selectMemoryStrategy(
