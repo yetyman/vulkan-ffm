@@ -10,6 +10,10 @@ import java.util.Map;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
+import io.github.yetyman.vulkan.enums.VkStructureType;
+import io.github.yetyman.vulkan.generated.VkMemoryAllocateInfo;
+import io.github.yetyman.vulkan.generated.VkMemoryType;
+import io.github.yetyman.vulkan.generated.VkPhysicalDeviceMemoryProperties;
 import static io.github.yetyman.vulkan.enums.VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_BINDING_BIT;
 import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceFeatures;
@@ -46,7 +50,6 @@ public class SparseBuffer extends AbstractBuffer {
         this.sparseQueue = sparseQueue;
         this.transferQueue = transferQueue;
         this.commandPool = commandPool;
-        this.pageSize = device.physicalDevice().getSparsePageSize();
         
         if (underlyingStrategy == MemoryStrategy.SPARSE) {
             throw new IllegalArgumentException("Cannot nest sparse buffers");
@@ -63,6 +66,7 @@ public class SparseBuffer extends AbstractBuffer {
         
         checkSparseSupport();
         createSparseBuffer();
+        this.pageSize = querySparsePageSize();
     }
     
     private void checkSparseSupport() {
@@ -81,6 +85,14 @@ public class SparseBuffer extends AbstractBuffer {
             .usage(usage.toVkFlags())
             .flags(VK_BUFFER_CREATE_SPARSE_BINDING_BIT.value())
             .build(arena);
+    }
+
+    private long querySparsePageSize() {
+        try (Arena tmp = Arena.ofConfined()) {
+            MemorySegment req = io.github.yetyman.vulkan.generated.VkMemoryRequirements.allocate(tmp);
+            io.github.yetyman.vulkan.generated.VulkanFFM.vkGetBufferMemoryRequirements(device.handle(), vkBuffer.handle(), req);
+            return io.github.yetyman.vulkan.generated.VkMemoryRequirements.alignment(req);
+        }
     }
     
     /**
@@ -182,26 +194,28 @@ public class SparseBuffer extends AbstractBuffer {
     }
     
     private MemorySegment allocatePageMemory() {
-        MemorySegment allocInfo = arena.allocate(32);
-        allocInfo.set(ValueLayout.JAVA_INT, 0, 5); // VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
-        allocInfo.set(ValueLayout.ADDRESS, 8, MemorySegment.NULL);
-        allocInfo.set(ValueLayout.JAVA_LONG, 16, pageSize);
-        
-        // Find memory type
-        MemorySegment memProps = arena.allocate(520);
-        vkGetPhysicalDeviceMemoryProperties(device.physicalDevice().handle(), memProps);
-        int memoryTypeIndex = findMemoryType(memProps, memoryProperties);
-        allocInfo.set(ValueLayout.JAVA_INT, 24, memoryTypeIndex);
-        
-        MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
-        int result = vkAllocateMemory(device.handle(), allocInfo, MemorySegment.NULL, memoryPtr);
-        if (result != 0) {
-            throw new RuntimeException("Failed to allocate page memory: " + result);
+        try (Arena tmp = Arena.ofConfined()) {
+            MemorySegment req = io.github.yetyman.vulkan.generated.VkMemoryRequirements.allocate(tmp);
+            io.github.yetyman.vulkan.generated.VulkanFFM.vkGetBufferMemoryRequirements(device.handle(), vkBuffer.handle(), req);
+            int memTypeBits = io.github.yetyman.vulkan.generated.VkMemoryRequirements.memoryTypeBits(req);
+
+            MemorySegment memProps = VkPhysicalDeviceMemoryProperties.allocate(tmp);
+            vkGetPhysicalDeviceMemoryProperties(device.physicalDevice().handle(), memProps);
+            int memoryTypeIndex = findMemoryType(memProps, memTypeBits, memoryProperties);
+
+            MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
+            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
+            VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
+            VkMemoryAllocateInfo.allocationSize(allocInfo, pageSize);
+            VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
+
+            MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
+            int result = vkAllocateMemory(device.handle(), allocInfo, MemorySegment.NULL, memoryPtr);
+            if (result != 0) throw new RuntimeException("Failed to allocate page memory: " + result);
+            return memoryPtr.get(ValueLayout.ADDRESS, 0);
         }
-        
-        return memoryPtr.get(ValueLayout.ADDRESS, 0);
     }
-    
+
     private void mapBuffer() {
         if (!isHostVisible) {
             throw new UnsupportedOperationException("Cannot map non-host-visible buffer");
@@ -246,13 +260,13 @@ public class SparseBuffer extends AbstractBuffer {
         }
     }
     
-    private int findMemoryType(MemorySegment memProps, int properties) {
-        int typeCount = memProps.get(ValueLayout.JAVA_INT, 0);
+    private int findMemoryType(MemorySegment memProps, int typeBits, int properties) {
+        int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(memProps);
         for (int i = 0; i < typeCount; i++) {
-            int props = memProps.get(ValueLayout.JAVA_INT, 4 + i * 8 + 4);
-            if ((props & properties) == properties) {
-                return i;
-            }
+            if ((typeBits & (1 << i)) == 0) continue;
+            MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(memProps, i);
+            int props = VkMemoryType.propertyFlags(memType);
+            if ((props & properties) == properties) return i;
         }
         throw new RuntimeException("Failed to find suitable memory type");
     }
@@ -375,7 +389,25 @@ public class SparseBuffer extends AbstractBuffer {
             
             return result;
         } else {
-            throw new UnsupportedOperationException("Cannot read from device-local sparse buffer - use readAsync");
+            System.err.println("WARNING: Synchronous read from device-local buffer requires staging buffer and GPU->CPU transfer. This is extremely slow and will stall the pipeline. Consider using MAPPED/MAPPED_CACHED strategy for frequent reads.");
+            VkBuffer readbackBuf = VkBuffer.builder().device(device).size(size).transferDst().hostVisible().build(arena);
+            try {
+                VkCommandBuffer cmd = commandPool.allocateCommandBuffer(arena);
+                VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(arena);
+                cmd.copyBuffer(vkBuffer, readbackBuf, offset, 0, size);
+                cmd.end();
+                VkFence fence = VkFence.builder().device(device).build(arena);
+                device.submitAndWait(transferQueue, cmd, fence, arena);
+                VkFenceOps.waitFor(device).fence(fence.handle()).execute(arena).check();
+                fence.close();
+                MemorySegment mapped = readbackBuf.map(arena);
+                ByteBuffer result = ByteBuffer.allocate((int) size);
+                MemorySegment.copy(mapped, 0, MemorySegment.ofBuffer(result), 0, size);
+                readbackBuf.unmap();
+                return result.rewind();
+            } finally {
+                readbackBuf.close();
+            }
         }
     }
     
@@ -444,6 +476,6 @@ public class SparseBuffer extends AbstractBuffer {
             vkFreeMemory(device.handle(), memory, MemorySegment.NULL);
         }
         
-        super.close();
+        super.closeImpl();
     }
 }

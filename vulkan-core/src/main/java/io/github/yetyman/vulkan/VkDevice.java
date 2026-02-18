@@ -115,6 +115,7 @@ public class VkDevice implements AutoCloseable {
         private float[] queuePriorities = new float[0];
         private String[] extensions = new String[0];
         private String[] layers = new String[0];
+        private boolean sparseBinding = false;
         
         private Builder() {}
         
@@ -152,6 +153,12 @@ public class VkDevice implements AutoCloseable {
         /** Sets validation layers */
         public Builder layers(String... layers) {
             this.layers = layers;
+            return this;
+        }
+
+        /** Enables sparse binding feature */
+        public Builder enableSparseBinding() {
+            this.sparseBinding = true;
             return this;
         }
         
@@ -201,6 +208,12 @@ public class VkDevice implements AutoCloseable {
                 VkDeviceCreateInfo.ppEnabledLayerNames(createInfo, layerNames);
             }
             
+            if (sparseBinding) {
+                MemorySegment features = VkPhysicalDeviceFeatures.allocate(arena);
+                VkPhysicalDeviceFeatures.sparseBinding(features, 1);
+                VkDeviceCreateInfo.pEnabledFeatures(createInfo, features);
+            }
+
             MemorySegment devicePtr = arena.allocate(ValueLayout.ADDRESS);
             int result = VulkanFFM.vkCreateDevice(Objects.requireNonNullElse(physicalDevice.handle(), MemorySegment.NULL), createInfo, MemorySegment.NULL, devicePtr);
             VkResult.fromInt(result).check();

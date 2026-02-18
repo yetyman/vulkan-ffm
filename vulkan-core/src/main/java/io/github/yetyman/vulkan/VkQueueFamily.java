@@ -32,6 +32,25 @@ public class VkQueueFamily {
         throw new VulkanException("No graphics queue family found");
     }
     
+    public static int findSparseBinding(VkPhysicalDevice physicalDevice, Arena arena) {
+        MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, MemorySegment.NULL);
+        int count = queueFamilyCount.get(ValueLayout.JAVA_INT, 0);
+
+        MemorySegment queueFamilies = arena.allocate(VkQueueFamilyProperties.layout(), count);
+        Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, queueFamilies);
+
+        for (int i = 0; i < count; i++) {
+            MemorySegment queueFamily = queueFamilies.asSlice(i * VkQueueFamilyProperties.layout().byteSize(), VkQueueFamilyProperties.layout());
+            int queueFlags = VkQueueFamilyProperties.queueFlags(queueFamily);
+            if ((queueFlags & VkQueueFlagBits.VK_QUEUE_SPARSE_BINDING_BIT.value()) != 0) {
+                return i;
+            }
+        }
+
+        throw new VulkanException("No sparse binding queue family found");
+    }
+
     public static int findPresent(VkPhysicalDevice physicalDevice, MemorySegment surface, Arena arena) {
         MemorySegment queueFamilyCount = arena.allocate(ValueLayout.JAVA_INT);
         Vulkan.getPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), queueFamilyCount, MemorySegment.NULL);

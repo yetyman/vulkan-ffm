@@ -211,6 +211,14 @@ public class VkBuffer implements AutoCloseable {
             Vulkan.createBuffer(device.handle(), bufferInfo, bufferPtr).check();
             MemorySegment buffer = bufferPtr.get(ValueLayout.ADDRESS, 0);
             
+            // Sparse buffers manage their own memory via vkQueueBindSparse
+            boolean isSparse = (flags & (VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_BINDING_BIT.value()
+                                       | VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT.value()
+                                       | VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_ALIASED_BIT.value())) != 0;
+            if (isSparse) {
+                return new VkBuffer(buffer, MemorySegment.NULL, device, size);
+            }
+
             // Get memory requirements
             MemorySegment memRequirements = VkMemoryRequirements.allocate(arena);
             Vulkan.getBufferMemoryRequirements(device.handle(), buffer, memRequirements);
