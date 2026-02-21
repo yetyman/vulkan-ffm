@@ -69,7 +69,12 @@ public class MappedBuffer extends AbstractBuffer {
     }
     
     private void invalidate(long offset, long invalidateSize) {
-        MemorySegment range = VkMappedMemoryRange.allocate(arena, vkBuffer.memory(), offset, invalidateSize);
+        long atomSize = physicalDevice.getNonCoherentAtomSize();
+        long alignedOffset = (offset / atomSize) * atomSize;
+        long alignedEnd = offset + invalidateSize;
+        // round end up to atom boundary unless it reaches the end of the allocation
+        if (alignedEnd < size) alignedEnd = ((alignedEnd + atomSize - 1) / atomSize) * atomSize;
+        MemorySegment range = VkMappedMemoryRange.allocate(arena, vkBuffer.memory(), alignedOffset, alignedEnd - alignedOffset);
         vkInvalidateMappedMemoryRanges(device.handle(), 1, range);
     }
     

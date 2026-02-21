@@ -11,7 +11,6 @@ import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFreeCommandBuffers;
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkQueueWaitIdle;
 
 public class DeviceLocalBuffer extends AbstractBuffer {
     private final VkQueue transferQueue;
@@ -41,78 +40,41 @@ public class DeviceLocalBuffer extends AbstractBuffer {
 
     @Override
     public void write(ByteBuffer data, long offset) {
-        if (persistentStaging) {
-            writePersistent(data, offset, null);
-        } else {
-            writeEphemeral(data, offset, null);
-        }
+        TransferCompletion tc = writeAsync(data, offset);
+        tc.await();
+        tc.close();
     }
 
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        VkFence fence = VkFence.builder().device(device).build(arena);
+        Arena transferArena = Arena.ofShared();
+        VkFence fence = VkFence.builder().device(device).build(transferArena);
+
         if (persistentStaging) {
-            writePersistent(data, offset, fence);
-            return new TransferCompletion(device, fence, arena);
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
+            copyToDevice(stagingBuffer, offset, offset, data.remaining(), fence, transferArena);
+            return new TransferCompletion(device, fence, transferArena);
         } else {
-            return writeEphemeral(data, offset, fence);
+            VkBuffer tempStaging = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
+            MemorySegment tempMapped = tempStaging.map(transferArena);
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
+            copyToDevice(tempStaging, 0, offset, data.remaining(), fence, transferArena);
+            return new TransferCompletion(device, fence, transferArena, tempStaging);
         }
     }
 
-    private void writePersistent(ByteBuffer data, long offset, VkFence fence) {
-        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
-        copyToDevice(stagingBuffer, offset, data.remaining(), fence);
-    }
-
-    private TransferCompletion writeEphemeral(ByteBuffer data, long offset, VkFence fence) {
-        VkBuffer tempStaging = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(arena);
-        MemorySegment tempMapped = tempStaging.map(arena);
-        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
-        
-        copyToDevice(tempStaging, offset, data.remaining(), fence);
-        
-        if (fence == null) {
-            tempStaging.close();
-            return TransferCompletion.completed();
-        } else {
-            return new TransferCompletion(device, fence, arena) {
-                @Override
-                public void close() {
-                    super.close();
-                    tempStaging.close();
-                }
-            };
-        }
-    }
-
-    private void copyToDevice(VkBuffer srcBuffer, long dstOffset, long copySize, VkFence fence) {
-        Arena cmdArena = Arena.ofConfined();
+    private void copyToDevice(VkBuffer srcBuffer, long srcOffset, long dstOffset, long copySize, VkFence fence, Arena transferArena) {
         VkCommandBuffer[] cmdBuffers = VkCommandBufferAlloc.builder()
-            .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(cmdArena);
+            .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
         VkCommandBuffer cmdBuffer = cmdBuffers[0];
 
-        VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(cmdArena);
-        MemorySegment copyRegion = VkBufferCopy.allocate(cmdArena, 0, dstOffset, copySize);
+        VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(transferArena);
+        MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, srcOffset, dstOffset, copySize);
         vkCmdCopyBuffer(cmdBuffer.handle(), srcBuffer.handle(), handle(), 1, copyRegion);
         vkEndCommandBuffer(cmdBuffer.handle());
 
         VkSubmit.builder().commandBuffer(cmdBuffer)
-            .submit(transferQueue.handle(), fence != null ? fence.handle() : MemorySegment.NULL, cmdArena).check();
-
-        if (fence == null) {
-            vkQueueWaitIdle(transferQueue.handle());
-            freeCommandBuffer(cmdBuffer, cmdArena);
-            cmdArena.close();
-        } else {
-            TransferExecutor.executeAsync(() -> {
-                try {
-                    VkFenceOps.wait(device, fence, Long.MAX_VALUE, cmdArena).check();
-                } finally {
-                    freeCommandBuffer(cmdBuffer, cmdArena);
-                    cmdArena.close();
-                }
-            });
-        }
+            .submit(transferQueue.handle(), fence.handle(), transferArena).check();
     }
 
     private void freeCommandBuffer(VkCommandBuffer cmdBuffer, Arena cmdArena) {
@@ -123,49 +85,39 @@ public class DeviceLocalBuffer extends AbstractBuffer {
 
     @Override
     public ByteBuffer read(long offset, long readSize) {
-        // Warn about performance impact
         System.err.println("WARNING: Synchronous read from device-local buffer requires staging buffer and GPU->CPU transfer. "
                          + "This is extremely slow and will stall the pipeline. Consider using MAPPED/MAPPED_CACHED strategy for frequent reads.");
-        
-        // Create temporary staging buffer for readback
-        VkBuffer stagingBuffer = VkBuffer.builder()
-            .device(device)
-            .size(readSize)
-            .transferDst()
-            .hostVisible()
-            .build(arena);
-        
+
+        Arena readArena = Arena.ofShared();
         try {
-            // Copy from device-local to staging
+            VkBuffer readbackBuf = VkBuffer.builder().device(device).size(readSize).transferDst().hostVisible().build(readArena);
+            VkFence fence = VkFence.builder().device(device).build(readArena);
+
             VkCommandBuffer[] cmdBuffers = VkCommandBufferAlloc.builder()
-                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(arena);
+                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
             VkCommandBuffer cmdBuffer = cmdBuffers[0];
-            
-            VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(arena);
-            MemorySegment copyRegion = VkBufferCopy.allocate(arena, offset, 0, readSize);
-            vkCmdCopyBuffer(cmdBuffer.handle(), handle(), stagingBuffer.handle(), 1, copyRegion);
+
+            VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(readArena);
+            MemorySegment copyRegion = VkBufferCopy.allocate(readArena, offset, 0, readSize);
+            vkCmdCopyBuffer(cmdBuffer.handle(), handle(), readbackBuf.handle(), 1, copyRegion);
             vkEndCommandBuffer(cmdBuffer.handle());
-            
+
             VkSubmit.builder().commandBuffer(cmdBuffer)
-                .submit(transferQueue.handle(), MemorySegment.NULL, arena).check();
-            
-            // Wait for transfer to complete
-            vkQueueWaitIdle(transferQueue.handle());
-            
-            // Read from staging buffer
-            MemorySegment mapped = stagingBuffer.map(arena);
-            ByteBuffer result = ByteBuffer.allocate((int)readSize);
+                .submit(transferQueue.handle(), fence.handle(), readArena).check();
+
+            try (Arena waitArena = Arena.ofConfined()) {
+                VkFenceOps.wait(device, fence, Long.MAX_VALUE, waitArena).check();
+            }
+
+            MemorySegment mapped = readbackBuf.map(readArena);
+            ByteBuffer result = ByteBuffer.allocate((int) readSize);
             MemorySegment.copy(mapped, 0, MemorySegment.ofBuffer(result), 0, readSize);
-            result.rewind();
-            
-            // Cleanup
-            MemorySegment cmdBufferPtr = arena.allocate(ValueLayout.ADDRESS);
-            cmdBufferPtr.set(ValueLayout.ADDRESS, 0, cmdBuffer.handle());
-            vkFreeCommandBuffers(device.handle(), commandPool.handle(), 1, cmdBufferPtr);
-            
-            return result;
+            // Explicitly destroy Vulkan objects before closing the arena
+            fence.close();
+            readbackBuf.close();
+            return result.rewind();
         } finally {
-            stagingBuffer.close();
+            readArena.close();
         }
     }
 

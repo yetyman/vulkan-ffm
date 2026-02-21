@@ -1,210 +1,158 @@
 package io.github.yetyman.vulkan.buffers;
 
-import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Suballocator buffer that manages multiple small allocations within a single large VkBuffer.
- * 
- * <p>This is highly efficient for uniform buffers and small storage buffers because:
- * <ul>
- *   <li>Reduces VkBuffer allocation overhead (each VkBuffer has kernel-side metadata)</li>
- *   <li>Improves memory locality and cache efficiency</li>
- *   <li>Supports dynamic offsets in descriptors (VkDescriptorBufferInfo.offset)</li>
- *   <li>Minimizes memory fragmentation</li>
- * </ul>
- * 
- * <p><b>Descriptor Usage:</b>
- * When binding suballocations to descriptors, use the base buffer handle with dynamic offsets:
- * <pre>{@code
- * SuballocatorBuffer allocator = new SuballocatorBuffer(...);
- * SuballocatorBuffer.Suballocation alloc1 = allocator.allocate(256);
- * SuballocatorBuffer.Suballocation alloc2 = allocator.allocate(256);
- * 
- * // In descriptor set:
- * VkDescriptorBufferInfo bufferInfo1 = {
- *     .buffer = allocator.handle(),  // Same buffer for all
- *     .offset = alloc1.offset(),     // Different offset per allocation
- *     .range = alloc1.size()
- * };
- * 
- * // Or use dynamic offsets at bind time:
- * vkCmdBindDescriptorSets(..., dynamicOffsetCount=2, 
- *     pDynamicOffsets=[alloc1.offset(), alloc2.offset()]);
- * }</pre>
- * 
- * <p><b>Alignment:</b> All suballocations are aligned to minUniformBufferOffsetAlignment
- * or minStorageBufferOffsetAlignment as required by Vulkan spec.
+ * Fixed-size slab allocator backed by a single VkBuffer.
+ * All suballocations are exactly {@code slotSize} bytes, aligned to device requirements.
+ * Alloc and free are O(1). Create one instance per size class.
  */
 public class SuballocatorBuffer extends AbstractBuffer {
     private final ManagedBuffer backingBuffer;
-    private final List<Suballocation> allocations = new ArrayList<>();
-    private final long alignment;
-    private long currentOffset = 0;
-    
+    private final long slotSize;
+    private final int slotCount;
+    private final ArrayDeque<Integer> freeSlots;
+    private final ReentrantLock lock = new ReentrantLock();
+
     public SuballocatorBuffer(VkDevice device, Arena arena,
-                             long totalSize, BufferUsage usage, MemoryStrategy backingStrategy,
-                             VkQueue transferQueue, VkCommandPool commandPool) {
+                              long totalSize, BufferUsage usage, long slotSize,
+                              MemoryStrategy backingStrategy,
+                              VkQueue transferQueue, VkCommandPool commandPool) {
         super(device, arena, totalSize, usage, MemoryStrategy.SUBALLOCATOR);
-        
-        // Get alignment requirement from device
-        this.alignment = getAlignmentForUsage(device, usage);
-        
-        // Create backing buffer
+
+        long alignment = switch (usage) {
+            case UNIFORM -> device.physicalDevice().getMinUniformBufferOffsetAlignment();
+            case STORAGE -> device.physicalDevice().getMinStorageBufferOffsetAlignment();
+            case VERTEX  -> 4L;
+            case TRANSFER -> 1L;
+            case MIXED   -> Math.max(device.physicalDevice().getMinUniformBufferOffsetAlignment(),
+                                     device.physicalDevice().getMinStorageBufferOffsetAlignment());
+        };
+        this.slotSize = alignUp(slotSize, alignment);
+        this.slotCount = (int) (totalSize / this.slotSize);
+        if (this.slotCount == 0) throw new IllegalArgumentException("slotSize exceeds totalSize");
+
+        this.freeSlots = new ArrayDeque<>(slotCount);
+        for (int i = slotCount - 1; i >= 0; i--) freeSlots.push(i);
+
         this.backingBuffer = BufferFactory.create(
-            backingStrategy, MemoryStrategy.DEVICE_LOCAL,
-            totalSize, usage, device, transferQueue, commandPool, arena
+            backingStrategy, backingStrategy, totalSize, usage, device, transferQueue, commandPool, arena
         );
     }
-    
-    private long getAlignmentForUsage(VkDevice device, BufferUsage usage) {
-        // Get device limits
-        long minUniformAlignment = device.physicalDevice().getMinUniformBufferOffsetAlignment();
-        long minStorageAlignment = device.physicalDevice().getMinStorageBufferOffsetAlignment();
-        
-        return switch (usage) {
-            case UNIFORM -> minUniformAlignment;
-            case STORAGE -> minStorageAlignment;
-            case VERTEX -> 4; // Vertex attributes typically 4-byte aligned
-            case TRANSFER -> 1; // No special alignment
-            case MIXED -> Math.max(minUniformAlignment, minStorageAlignment);
-        };
-    }
-    
-    /**
-     * Allocates a suballocation of the specified size.
-     * Returns null if insufficient space remains.
-     */
-    public synchronized Suballocation allocate(long size) {
-        // Align current offset
-        long alignedOffset = alignUp(currentOffset, alignment);
-        
-        // Check if we have space
-        if (alignedOffset + size > this.size) {
-            return null; // Out of space
+
+    /** @return a new slot, or throws {@link IllegalStateException} if the slab is full. */
+    public Suballocation allocate() {
+        lock.lock();
+        try {
+            Integer slot = freeSlots.poll();
+            if (slot == null) throw new IllegalStateException("SuballocatorBuffer is full (slotCount=" + slotCount + ")");
+            return new Suballocation(slot, slot * slotSize, slotSize);
+        } finally {
+            lock.unlock();
         }
-        
-        Suballocation alloc = new Suballocation(alignedOffset, size);
-        allocations.add(alloc);
-        currentOffset = alignedOffset + size;
-        
-        return alloc;
     }
-    
-    /**
-     * Frees a suballocation. Note: This does NOT compact memory.
-     * For true compaction, recreate the SuballocatorBuffer.
-     */
-    public synchronized void free(Suballocation alloc) {
-        allocations.remove(alloc);
-        // Note: We don't reclaim space - this is a simple allocator
-        // For production, consider implementing a free list or buddy allocator
+
+    /** Returns a slot to the free stack in O(1). */
+    public void free(Suballocation alloc) {
+        lock.lock();
+        try {
+            freeSlots.push(alloc.slot);
+        } finally {
+            lock.unlock();
+        }
     }
-    
-    /**
-     * Returns the backing buffer handle for descriptor binding.
-     */
-    @Override
-    public MemorySegment handle() {
-        return backingBuffer.handle();
+
+    /** @return number of slots currently available */
+    public int availableSlots() {
+        lock.lock();
+        try { return freeSlots.size(); } finally { lock.unlock(); }
     }
-    
+
+    /** @return the fixed slot size in bytes (after alignment) */
+    public long slotSize() { return slotSize; }
+
+    /** @return total number of slots in this slab */
+    public int slotCount() { return slotCount; }
+
+    @Override public MemorySegment handle() { return backingBuffer.handle(); }
+
     @Override
     public void write(ByteBuffer data, long offset) {
-        backingBuffer.write(data, offset);
+        TransferCompletion tc = writeAsync(data, offset);
+        tc.await();
+        tc.close();
     }
-    
+
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
         return backingBuffer.writeAsync(data, offset);
     }
-    
-    @Override
-    public ByteBuffer read(long offset, long size) {
-        return backingBuffer.read(offset, size);
-    }
-    
-    @Override
-    public void flush() {
-        backingBuffer.flush();
-    }
-    
-    @Override
-    public void closeImpl() {
-        backingBuffer.close();
-    }
-    
+
+    @Override public ByteBuffer read(long offset, long size) { return backingBuffer.read(offset, size); }
+    @Override public void flush() { backingBuffer.flush(); }
+    @Override public void closeImpl() { backingBuffer.close(); }
+
     private static long alignUp(long value, long alignment) {
-        return (value + alignment - 1) & ~(alignment - 1);
+        return alignment <= 1 ? value : (value + alignment - 1) & ~(alignment - 1);
     }
-    
+
     /**
-     * Represents a suballocation within the backing buffer.
-     * Use offset() for descriptor binding and write operations.
+     * A fixed-size slot within the slab, implementing {@link ManagedBuffer} so it can be passed
+     * anywhere a buffer is expected. {@link #close()} returns the slot to the slab.
+     * {@link #handle()} returns the backing buffer handle — bind with {@link #offset()} as the dynamic offset.
      */
-    public class Suballocation {
+    public class Suballocation implements ManagedBuffer {
+        private final int slot;
         private final long offset;
         private final long size;
-        
-        private Suballocation(long offset, long size) {
+
+        private Suballocation(int slot, long offset, long size) {
+            this.slot = slot;
             this.offset = offset;
             this.size = size;
         }
-        
-        /**
-         * Returns the offset within the backing buffer.
-         * Use this for VkDescriptorBufferInfo.offset or dynamic offsets.
-         */
-        public long offset() {
-            return offset;
-        }
-        
-        /**
-         * Returns the size of this suballocation.
-         */
-        public long size() {
-            return size;
-        }
-        
-        /**
-         * Writes data to this suballocation.
-         */
-        public void write(ByteBuffer data) {
-            if (data.remaining() > size) {
-                throw new IllegalArgumentException("Data exceeds suballocation size");
-            }
+
+        /** @return byte offset within the backing buffer */
+        public long offset() { return offset; }
+
+        @Override public MemorySegment handle() { return backingBuffer.handle(); }
+        @Override public long size() { return size; }
+        @Override public BufferUsage usage() { return SuballocatorBuffer.this.usage(); }
+        @Override public MemoryStrategy memoryStrategy() { return SuballocatorBuffer.this.memoryStrategy(); }
+
+        @Override
+        public void write(ByteBuffer data, long ignored) {
+            if (data.remaining() > size) throw new IllegalArgumentException("Data exceeds slot size");
             SuballocatorBuffer.this.write(data, offset);
         }
-        
-        /**
-         * Writes data to this suballocation asynchronously.
-         */
-        public TransferCompletion writeAsync(ByteBuffer data) {
-            if (data.remaining() > size) {
-                throw new IllegalArgumentException("Data exceeds suballocation size");
-            }
+
+        /** Writes to this slot. Offset parameter is ignored — slot offset is fixed. */
+        public void write(ByteBuffer data) { write(data, 0); }
+
+        @Override
+        public TransferCompletion writeAsync(ByteBuffer data, long ignored) {
+            if (data.remaining() > size) throw new IllegalArgumentException("Data exceeds slot size");
             return SuballocatorBuffer.this.writeAsync(data, offset);
         }
-        
-        /**
-         * Reads data from this suballocation.
-         */
-        public ByteBuffer read() {
-            return SuballocatorBuffer.this.read(offset, size);
-        }
-        
-        /**
-         * Frees this suballocation.
-         */
-        public void free() {
-            SuballocatorBuffer.this.free(this);
-        }
+
+        /** Writes asynchronously to this slot. Offset parameter is ignored — slot offset is fixed. */
+        public TransferCompletion writeAsync(ByteBuffer data) { return writeAsync(data, 0); }
+
+        @Override public ByteBuffer read(long ignored, long readSize) { return SuballocatorBuffer.this.read(offset, readSize); }
+        public ByteBuffer read() { return SuballocatorBuffer.this.read(offset, size); }
+
+        @Override public void flush() { SuballocatorBuffer.this.flush(); }
+
+        /** Returns this slot to the slab. */
+        @Override public void close() { SuballocatorBuffer.this.free(this); }
+
+        public void free() { close(); }
     }
 }

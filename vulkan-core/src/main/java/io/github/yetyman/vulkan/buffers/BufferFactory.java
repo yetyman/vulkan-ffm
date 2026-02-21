@@ -1,15 +1,9 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.Arena;
-import java.lang.foreign.MemorySegment;
-
-import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 public class BufferFactory {
     
@@ -57,8 +51,28 @@ public class BufferFactory {
             case REBAR -> new ReBarBuffer(device, arena, size, usage);
             case RING_BUFFER -> new RingBuffer(device, arena, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
             case SPARSE -> new SparseBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, transferQueue, commandPool);
-            case SUBALLOCATOR -> new SuballocatorBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, commandPool);
+            case SUBALLOCATOR -> throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
         };
+    }
+
+    /**
+     * Creates a fixed-size slab suballocator.
+     *
+     * @param totalSize      total buffer size in bytes
+     * @param slotSize       size of each fixed slot in bytes (aligned up to device requirements)
+     * @param usage          buffer usage
+     * @param backingStrategy memory strategy for the backing buffer
+     */
+    public static SuballocatorBuffer createSlab(
+            long totalSize,
+            long slotSize,
+            BufferUsage usage,
+            MemoryStrategy backingStrategy,
+            VkDevice device,
+            VkQueue transferQueue,
+            VkCommandPool commandPool,
+            Arena arena) {
+        return new SuballocatorBuffer(device, arena, totalSize, usage, slotSize, backingStrategy, transferQueue, commandPool);
     }
 
     /**

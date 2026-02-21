@@ -10,20 +10,24 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Handle for async buffer transfer operations.
- * Allows waiting, polling, or callback-based completion.
- * Implements AutoCloseable to ensure fence cleanup.
+ * Owns the fence, any ephemeral Vulkan objects (e.g. staging buffers), and the native memory arena
+ * for the in-flight transfer. All are destroyed on {@link #close()}.
  */
 public class TransferCompletion implements AutoCloseable {
-    private static final TransferCompletion COMPLETED = new TransferCompletion(null, null, null);
-    
+    private static final TransferCompletion COMPLETED = new TransferCompletion(null, null, null, (AutoCloseable[]) null);
+
     private final VkDevice device;
     private final VkFence fence;
-    private final Arena arena;
-    
-    public TransferCompletion(VkDevice device, VkFence fence, Arena arena) {
+    /** Shared arena owning native memory (structs, copy regions, etc.) for this transfer. */
+    private final Arena transferArena;
+    /** Additional Vulkan objects (e.g. staging VkBuffer) that must be explicitly closed after the fence signals. */
+    private final AutoCloseable[] ownedObjects;
+
+    public TransferCompletion(VkDevice device, VkFence fence, Arena transferArena, AutoCloseable... ownedObjects) {
         this.device = device;
         this.fence = fence;
-        this.arena = arena;
+        this.transferArena = transferArena;
+        this.ownedObjects = ownedObjects;
     }
     
     /**
@@ -38,51 +42,57 @@ public class TransferCompletion implements AutoCloseable {
      * Safe to call from any thread.
      */
     public void await() {
-        if (fence == null) return; // Already completed
-        VkFenceOps.wait(device, fence, Long.MAX_VALUE, arena).check();
+        if (fence == null) return;
+        try (Arena tmp = Arena.ofConfined()) {
+            VkFenceOps.wait(device, fence, Long.MAX_VALUE, tmp).check();
+        }
     }
-    
+
     /**
      * Non-blocking check if transfer is complete.
      * Safe to call from any thread, typically used in game loop.
      */
     public boolean isComplete() {
-        if (fence == null) return true; // Already completed
+        if (fence == null) return true;
         return VkFenceOps.getStatus(device, fence) == VkResult.VK_SUCCESS;
     }
-    
+
     /**
-     * Executes callback when transfer completes.
-     * Spawns virtual thread that waits on fence - completely safe.
-     * Fence is automatically cleaned up after callback.
+     * Executes callback when transfer completes, then closes this completion.
+     * Spawns a virtual thread — safe to call from any thread.
      */
     public void onComplete(Runnable callback) {
         if (fence == null) {
             callback.run();
+            close();
             return;
         }
         Thread.ofVirtual().start(() -> {
-            await();
             try {
+                await();
                 callback.run();
             } finally {
-                fence.close();
+                close();
             }
         });
     }
-    
+
     /**
      * Returns CompletableFuture for integration with async Java APIs.
      */
     public CompletableFuture<Void> toFuture() {
         if (fence == null) return CompletableFuture.completedFuture(null);
-        return CompletableFuture.runAsync(() -> await());
+        return CompletableFuture.runAsync(this::await);
     }
-    
+
     @Override
     public void close() {
-        if (fence != null) {
-            fence.close();
+        if (fence != null) fence.close();
+        if (ownedObjects != null) {
+            for (AutoCloseable obj : ownedObjects) {
+                if (obj != null) try { obj.close(); } catch (Exception ignored) {}
+            }
         }
+        if (transferArena != null) transferArena.close();
     }
 }
