@@ -16,6 +16,9 @@ public enum MemoryStrategy {
     
     /** Staging pattern: CPU-mapped staging + device-local backing */
     STAGING,
+
+    /** Resizable BAR: direct CPU map into DEVICE_LOCAL | HOST_VISIBLE VRAM (requires ReBAR/SAM hardware support) */
+    REBAR,
     
     /** Ring buffer (N-buffered) wrapping another strategy */
     RING_BUFFER,

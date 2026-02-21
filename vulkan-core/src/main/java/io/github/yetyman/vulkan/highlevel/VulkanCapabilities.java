@@ -24,6 +24,7 @@ public class VulkanCapabilities {
     public static boolean drawIndirectByteCount = false;
     public static boolean conditionalRendering = false;
     public static boolean transformFeedback = false;
+    public static boolean reBar = false;
     
     private static boolean initialized = false;
     
@@ -40,6 +41,7 @@ public class VulkanCapabilities {
         Set<String> availableExtensions = getAvailableExtensions(physicalDevice);
         
         // Check each extension we care about
+        reBar = physicalDevice.supportsReBar();
         multiDraw = availableExtensions.contains("VK_EXT_multi_draw");
         meshShaders = availableExtensions.contains("VK_EXT_mesh_shader") || 
                      availableExtensions.contains("VK_NV_mesh_shader");
@@ -95,6 +97,7 @@ public class VulkanCapabilities {
         Logger.info("  Draw indirect byte count: " + drawIndirectByteCount);
         Logger.info("  Conditional rendering: " + conditionalRendering);
         Logger.info("  Transform feedback: " + transformFeedback);
+        Logger.info("  Resizable BAR (ReBAR): " + reBar);
     }
     
     /**
@@ -153,5 +156,6 @@ public class VulkanCapabilities {
         drawIndirectByteCount = false;
         conditionalRendering = false;
         transformFeedback = false;
+        reBar = false;
     }
 }

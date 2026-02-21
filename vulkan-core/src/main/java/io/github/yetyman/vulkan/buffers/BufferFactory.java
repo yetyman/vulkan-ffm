@@ -54,6 +54,7 @@ public class BufferFactory {
             case MAPPED_CACHED -> new MappedBuffer(device, arena, size, usage, false);
             case DEVICE_LOCAL -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, false);
             case STAGING -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, true);
+            case REBAR -> new ReBarBuffer(device, arena, size, usage);
             case RING_BUFFER -> new RingBuffer(device, arena, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
             case SPARSE -> new SparseBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, transferQueue, commandPool);
             case SUBALLOCATOR -> new SuballocatorBuffer(device, arena, size, usage, secondaryStrategy, transferQueue, commandPool);

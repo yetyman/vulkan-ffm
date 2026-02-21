@@ -181,6 +181,34 @@ public class VkPhysicalDevice {
         ensureCached();
         return VkPhysicalDeviceFeatures.sparseResidencyBuffer(cachedFeatures) != 0;
     }
+
+    /**
+     * Returns whether Resizable BAR (ReBAR) / Smart Access Memory is available.
+     * True when a DEVICE_LOCAL | HOST_VISIBLE memory type exists on a heap larger than 512MB,
+     * indicating the full VRAM is CPU-accessible rather than just the small PCIe BAR window.
+     */
+    public boolean supportsReBar() {
+        ensureCached();
+        int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(cachedMemoryProperties);
+        int heapCount = VkPhysicalDeviceMemoryProperties.memoryHeapCount(cachedMemoryProperties);
+        int deviceLocalHostVisible = io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value()
+                                   | io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value();
+        for (int i = 0; i < typeCount; i++) {
+            MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(cachedMemoryProperties, i);
+            int props = io.github.yetyman.vulkan.generated.VkMemoryType.propertyFlags(memType);
+            if ((props & deviceLocalHostVisible) == deviceLocalHostVisible) {
+                int heapIndex = io.github.yetyman.vulkan.generated.VkMemoryType.heapIndex(memType);
+                if (heapIndex < heapCount) {
+                    MemorySegment heap = VkPhysicalDeviceMemoryProperties.memoryHeaps(cachedMemoryProperties, heapIndex);
+                    long heapSize = VkMemoryHeap.size(heap);
+                    if (heapSize > 512L * 1024 * 1024) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
     
     // Wrapper classes for return values
     public static class VkPhysicalDeviceMemoryPropertiesWrapper {

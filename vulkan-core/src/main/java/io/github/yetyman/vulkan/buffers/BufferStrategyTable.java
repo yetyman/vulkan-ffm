@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.buffers;
 
+import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import java.util.*;
 
 /**
@@ -30,7 +31,12 @@ class BufferStrategyTable {
     
     static BufferStrategySelection select(AccessFrequency cpuWrite, AccessFrequency cpuRead,
                                          AccessFrequency gpuRead, AccessFrequency gpuWrite, DataScale size) {
-        return TABLE.get(new TableKey(cpuWrite, cpuRead, gpuRead, gpuWrite, size));
+        BufferStrategySelection selection = TABLE.get(new TableKey(cpuWrite, cpuRead, gpuRead, gpuWrite, size));
+        // Upgrade STAGING to REBAR at query time if hardware supports it — avoids copy commands entirely
+        if (selection != null && selection.memoryStrategy() == MemoryStrategy.STAGING && VulkanCapabilities.reBar) {
+            return new BufferStrategySelection(MemoryStrategy.REBAR, null);
+        }
+        return selection;
     }
     
     private static BufferStrategySelection computeStrategy(AccessFrequency cpuW, AccessFrequency cpuR,

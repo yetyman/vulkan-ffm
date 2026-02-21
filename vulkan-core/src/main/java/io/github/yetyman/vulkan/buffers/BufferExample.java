@@ -128,6 +128,16 @@ public class BufferExample {
                 System.out.println("SPARSE: skipped (device does not support sparse binding)");
             }
 
+            // REBAR (requires ReBAR support)
+            if (physicalDevice.supportsReBar()) {
+                try (ManagedBuffer buf = new ReBarBuffer(device, arena, SIZE, BufferUsage.STORAGE)) {
+                    buf.write(data.rewind(), 0);
+                    System.out.println("REBAR read: 0x" + Integer.toHexString(buf.read(0, SIZE).getInt(0)));
+                }
+            } else {
+                System.out.println("REBAR: skipped (device does not support ReBAR)");
+            }
+
             commandPool.close();
             device.close();
             Vulkan.destroyInstance(instance);
