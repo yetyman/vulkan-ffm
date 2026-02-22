@@ -8,6 +8,8 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
 import static io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits.*;
+import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
+import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 
 public abstract class AbstractBuffer implements ManagedBuffer {
     protected final VkDevice device;
@@ -70,6 +72,28 @@ public abstract class AbstractBuffer implements ManagedBuffer {
             .build(arena);
     }
     
+    @Override
+    public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
+        TransferCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue, commandPool);
+        tc.await();
+        tc.close();
+    }
+
+    @Override
+    public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
+        Arena transferArena = Arena.ofShared();
+        VkFence fence = VkFence.builder().device(device).build(transferArena);
+        VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
+            .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
+        VkCommandBuffer cmd = cmds[0];
+        VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(transferArena);
+        MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, srcOffset, dstOffset, length);
+        vkCmdCopyBuffer(cmd.handle(), handle(), dst.handle(), 1, copyRegion);
+        vkEndCommandBuffer(cmd.handle());
+        VkSubmit.builder().commandBuffer(cmd).submit(queue.handle(), fence.handle(), transferArena).check();
+        return new TransferCompletion(device, fence, transferArena);
+    }
+
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
         throw new UnsupportedOperationException("writeAsync not implemented for " + getClass().getSimpleName());

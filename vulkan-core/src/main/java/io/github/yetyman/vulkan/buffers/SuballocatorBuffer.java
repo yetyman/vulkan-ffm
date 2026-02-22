@@ -97,6 +97,8 @@ public class SuballocatorBuffer extends AbstractBuffer {
 
     @Override public ByteBuffer read(long offset, long size) { return backingBuffer.read(offset, size); }
     @Override public void flush() { backingBuffer.flush(); }
+    @Override public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) { backingBuffer.copyTo(dst, srcOffset, dstOffset, length, queue, commandPool); }
+    @Override public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) { return backingBuffer.copyToAsync(dst, srcOffset, dstOffset, length, queue, commandPool); }
     @Override public void closeImpl() { backingBuffer.close(); }
 
     private static long alignUp(long value, long alignment) {
@@ -149,6 +151,16 @@ public class SuballocatorBuffer extends AbstractBuffer {
         public ByteBuffer read() { return SuballocatorBuffer.this.read(offset, size); }
 
         @Override public void flush() { SuballocatorBuffer.this.flush(); }
+
+        @Override
+        public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
+            SuballocatorBuffer.this.copyTo(dst, offset + srcOffset, dstOffset, length, queue, commandPool);
+        }
+
+        @Override
+        public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
+            return SuballocatorBuffer.this.copyToAsync(dst, offset + srcOffset, dstOffset, length, queue, commandPool);
+        }
 
         /** Returns this slot to the slab. */
         @Override public void close() { SuballocatorBuffer.this.free(this); }

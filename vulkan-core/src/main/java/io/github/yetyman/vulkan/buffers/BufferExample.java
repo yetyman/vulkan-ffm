@@ -179,6 +179,29 @@ public class BufferExample {
             }
 
             // =========================================================
+            // GPU COPY
+            // =========================================================
+            section("GPU COPY");
+            try (ManagedBuffer src = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena);
+                 ManagedBuffer dst = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+                src.write(data.rewind(), 0);
+                src.copyTo(dst, 0, 0, SIZE, queue, commandPool);
+                check("GPU COPY sync full", dst.read(0, SIZE).getInt(0), MAGIC);
+
+                src.write(intBuf(MAGIC2), SIZE / 2);
+                src.copyTo(dst, SIZE / 2, SIZE / 2, 4, queue, commandPool);
+                check("GPU COPY sync offset", dst.read(SIZE / 2, 4).getInt(0), MAGIC2);
+
+                src.write(data.rewind(), 0);
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue, commandPool)) { tc.await(); }
+                check("GPU COPY async+await", dst.read(0, SIZE).getInt(0), MAGIC);
+
+                src.write(data2.rewind(), 0);
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue, commandPool)) { tc.toFuture().join(); }
+                check("GPU COPY async+toFuture", dst.read(0, SIZE).getInt(0), MAGIC2);
+            }
+
+            // =========================================================
             // DEVICE_LOCAL_MIRRORED
             // =========================================================
             section("DEVICE_LOCAL_MIRRORED");
