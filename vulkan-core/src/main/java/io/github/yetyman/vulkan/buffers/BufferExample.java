@@ -8,6 +8,8 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -348,6 +350,76 @@ public class BufferExample {
             }
 
             // =========================================================
+            // TYPED_VK_BUFFER
+            // =========================================================
+            section("TYPED_VK_BUFFER (mirrored)");
+            int elemCount = 4;
+            int elemStride = Vec4.BYTE_SIZE;
+            long typedBufSize = (long) elemStride * elemCount;
+            try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
+                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool, arena),
+                    elemStride, elemCount, true) {
+                @Override protected Vec4 getInstance() { return new Vec4(); }
+            }) {
+                Vec4 a = new Vec4(1, 2, 3, 4);
+                Vec4 b = new Vec4(5, 6, 7, 8);
+
+                buf.write(0, a);
+                check("TYPED mirrored write/read[0].x", Float.floatToRawIntBits(buf.read(0).x), Float.floatToRawIntBits(1f));
+
+                try (TransferCompletion tc = buf.writeAsync(1, b)) { tc.await(); }
+                check("TYPED mirrored writeAsync[1].x", Float.floatToRawIntBits(buf.read(1).x), Float.floatToRawIntBits(5f));
+
+                // bulk write
+                List<Vec4> batch = List.of(new Vec4(10, 0, 0, 0), new Vec4(20, 0, 0, 0));
+                buf.write(batch, 2);
+                check("TYPED mirrored bulk write[2].x", Float.floatToRawIntBits(buf.read(2).x), Float.floatToRawIntBits(10f));
+                check("TYPED mirrored bulk write[3].x", Float.floatToRawIntBits(buf.read(3).x), Float.floatToRawIntBits(20f));
+
+                // bulk read returns mirror sublist — zero GPU cost
+                List<Vec4> slice = buf.read(0, 2);
+                check("TYPED mirrored bulk read[0].x", Float.floatToRawIntBits(slice.get(0).x), Float.floatToRawIntBits(1f));
+                check("TYPED mirrored bulk read[1].x", Float.floatToRawIntBits(slice.get(1).x), Float.floatToRawIntBits(5f));
+            }
+
+            section("TYPED_VK_BUFFER (non-mirrored, GPU readback)");
+            try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
+                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool, arena),
+                    elemStride, elemCount, false) {
+                @Override protected Vec4 getInstance() { return new Vec4(); }
+            }) {
+                buf.write(0, new Vec4(99, 0, 0, 0));
+                Vec4 result = buf.read(0, new Vec4());
+                check("TYPED non-mirrored read(target).x", Float.floatToRawIntBits(result.x), Float.floatToRawIntBits(99f));
+
+                // bulk read into pre-populated list
+                buf.write(1, new Vec4(77, 0, 0, 0));
+                ArrayList<Vec4> targets = new ArrayList<>(List.of(new Vec4(), new Vec4()));
+                buf.read(0, 2, targets);
+                check("TYPED non-mirrored bulk read[0].x", Float.floatToRawIntBits(targets.get(0).x), Float.floatToRawIntBits(99f));
+                check("TYPED non-mirrored bulk read[1].x", Float.floatToRawIntBits(targets.get(1).x), Float.floatToRawIntBits(77f));
+            }
+
+            section("TYPED_VK_BUFFER GPU copy");
+            try (TypedVkBuffer<Vec4> src = new TypedVkBuffer<>(
+                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool, arena),
+                    elemStride, elemCount, true) {
+                @Override protected Vec4 getInstance() { return new Vec4(); }
+            };
+                 TypedVkBuffer<Vec4> dst = new TypedVkBuffer<>(
+                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool, arena),
+                    elemStride, elemCount, false) {
+                @Override protected Vec4 getInstance() { return new Vec4(); }
+            }) {
+                src.write(0, new Vec4(42, 0, 0, 0));
+                src.copyTo(dst, 0, 0, 1, queue, commandPool);
+                check("TYPED GPU copy[0].x", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
+
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, elemCount, queue, commandPool)) { tc.await(); }
+                check("TYPED GPU copyAsync full", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
+            }
+
+            // =========================================================
             // REBAR
             // =========================================================
             if (physicalDevice.supportsReBar()) {
@@ -378,6 +450,17 @@ public class BufferExample {
 
             System.out.println("\nAll tests passed.");
         }
+    }
+
+    // Simple 4-float struct used as a BufferWritable in TypedVkBuffer examples
+    static class Vec4 implements BufferWritable {
+        static final int BYTE_SIZE = 16;
+        float x, y, z, w;
+        Vec4() {}
+        Vec4(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; }
+        @Override public int byteSize() { return BYTE_SIZE; }
+        @Override public void writeTo(ByteBuffer buf) { buf.putFloat(x).putFloat(y).putFloat(z).putFloat(w); }
+        @Override public void readFrom(ByteBuffer buf) { x = buf.getFloat(); y = buf.getFloat(); z = buf.getFloat(); w = buf.getFloat(); }
     }
 
     private static ByteBuffer intBuf(int value) {
