@@ -13,6 +13,14 @@ public enum MemoryStrategy {
     
     /** GPU-only memory with staging buffer for uploads (DEVICE_LOCAL) */
     DEVICE_LOCAL,
+
+    /**
+     * GPU-only memory with a CPU-side mirror ByteBuffer for zero-cost reads.
+     * Writes go to both the device-local buffer (via staging) and the CPU mirror.
+     * Only safe when the CPU is the sole writer — GPU writes will not update the mirror.
+     * Best for: discrete GPU, rarely written, frequently read on both CPU and GPU.
+     */
+    DEVICE_LOCAL_MIRRORED,
     
     /** Staging pattern: CPU-mapped staging + device-local backing */
     STAGING,

@@ -179,6 +179,24 @@ public class BufferExample {
             }
 
             // =========================================================
+            // DEVICE_LOCAL_MIRRORED
+            // =========================================================
+            section("DEVICE_LOCAL_MIRRORED");
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL_MIRRORED, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+                buf.write(data.rewind(), 0);
+                check("MIRRORED sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
+
+                buf.write(intBuf(MAGIC2), SIZE / 2);
+                check("MIRRORED offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
+
+                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0)) { tc.await(); }
+                check("MIRRORED writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
+
+                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0)) { tc.toFuture().join(); }
+                check("MIRRORED writeAsync+toFuture (mirror)", buf.read(0, SIZE).getInt(0), MAGIC2);
+            }
+
+            // =========================================================
             // RING_BUFFER — all 3 frames, async paths, in-flight guard
             // =========================================================
             section("RING_BUFFER");

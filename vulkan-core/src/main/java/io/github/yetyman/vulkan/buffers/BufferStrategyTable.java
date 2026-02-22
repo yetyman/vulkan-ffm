@@ -70,6 +70,7 @@ class BufferStrategyTable {
         // Rare CPU writes
         if (cpuW == AccessFrequency.RARE) {
             if (gpuW.isFrequent()) return new BufferStrategySelection(MemoryStrategy.DEVICE_LOCAL, null);
+            if (gpuR.isFrequent() && cpuR.isFrequent()) return new BufferStrategySelection(MemoryStrategy.DEVICE_LOCAL_MIRRORED, null);
             if (gpuR.isFrequent()) return new BufferStrategySelection(MemoryStrategy.STAGING, null);
             if (size == DataScale.TRIVIAL) return new BufferStrategySelection(MemoryStrategy.MAPPED, null);
             return new BufferStrategySelection(MemoryStrategy.STAGING, null);

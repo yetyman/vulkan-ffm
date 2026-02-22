@@ -47,6 +47,7 @@ public class BufferFactory {
             case MAPPED -> new MappedBuffer(device, arena, size, usage, true);
             case MAPPED_CACHED -> new MappedBuffer(device, arena, size, usage, false);
             case DEVICE_LOCAL -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, false);
+            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device, arena, size, usage, transferQueue, commandPool);
             case STAGING -> new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, true);
             case REBAR -> new ReBarBuffer(device, arena, size, usage);
             case RING_BUFFER -> new RingBuffer(device, arena, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
