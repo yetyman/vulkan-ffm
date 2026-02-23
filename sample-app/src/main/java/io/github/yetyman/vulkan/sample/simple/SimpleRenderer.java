@@ -10,6 +10,7 @@ import java.lang.foreign.*;
 
 public class SimpleRenderer extends BaseRenderer {
     private VkPipeline pipeline;
+    private final long startTime = System.nanoTime();
     
     public SimpleRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height) {
@@ -59,6 +60,7 @@ public class SimpleRenderer extends BaseRenderer {
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
+            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
             .build(arena);
     }
     
@@ -72,6 +74,10 @@ public class SimpleRenderer extends BaseRenderer {
             .execute(frameArena);
         
         Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
+        
+        float elapsedTime = (System.nanoTime() - startTime) / 1_000_000_000.0f;
+        VkPushConstants.floatValue(elapsedTime, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
+            .push(commandBuffer.handle(), pipeline.layout());
         
         // Set dynamic viewport and scissor
         MemorySegment viewport = VkViewport.builder()

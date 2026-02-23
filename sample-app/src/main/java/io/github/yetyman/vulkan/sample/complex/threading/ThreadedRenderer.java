@@ -115,7 +115,6 @@ public class ThreadedRenderer extends BaseRenderer {
             .build();
         
         shaderManager = VulkanShaderManager.builder()
-            .arena(arena)
             .device(device)
             .build();
         
@@ -248,6 +247,11 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void createGraphicsPipeline(MemorySegment renderPass) {
+        // Close old descriptor resources before recreating to avoid leaks/corruption
+        if (descriptorPool != null) { descriptorPool.close(); descriptorPool = null; }
+        if (descriptorSetLayout != null) { descriptorSetLayout.close(); descriptorSetLayout = null; }
+        if (cameraUniformBuffer != null) { cameraUniformBuffer.close(); cameraUniformBuffer = null; }
+
         // Original triangle pipeline
         VulkanShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
             .vertex("/shaders/triangle.vert")
@@ -292,8 +296,8 @@ public class ThreadedRenderer extends BaseRenderer {
         pipeline = VkPipeline.builder()
             .device(device)
             .renderPass(renderPass)
-            .vertexShader(triangleShaders.vertex())
-            .fragmentShader(triangleShaders.fragment())
+            .vertexShader(triangleShaders.vertex().getSpirV())
+            .fragmentShader(triangleShaders.fragment().getSpirV())
             .triangleTopology()
             .dynamicViewport()
             .dynamicScissor()
@@ -308,8 +312,8 @@ public class ThreadedRenderer extends BaseRenderer {
         gltfPipeline = VkPipeline.builder()
             .device(device)
             .renderPass(renderPass)
-            .vertexShader(gltfShaders.vertex())
-            .fragmentShader(gltfShaders.fragment())
+            .vertexShader(gltfShaders.vertex().getSpirV())
+            .fragmentShader(gltfShaders.fragment().getSpirV())
             .triangleTopology()
             .polygonMode(VkPolygonMode.VK_POLYGON_MODE_FILL.value())
             .dynamicViewport()
@@ -415,7 +419,7 @@ public class ThreadedRenderer extends BaseRenderer {
     private void recordSingleThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        if (aaMode != AdaptiveAA.Mode.NONE) {
+        if (adaptiveAA != null) {
             var builder = VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
@@ -447,7 +451,7 @@ public class ThreadedRenderer extends BaseRenderer {
     private void recordMultiThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         
-        if (aaMode != AdaptiveAA.Mode.NONE) {
+        if (adaptiveAA != null) {
             var builder = VkCommandBuffer.beginRenderPass(commandBuffer.handle(), adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
                 .renderArea(0, 0, width, height)
                 .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
@@ -517,27 +521,29 @@ public class ThreadedRenderer extends BaseRenderer {
         adaptiveAAEnabled = !adaptiveAAEnabled;
         Logger.info("Adaptive AA " + (adaptiveAAEnabled ? "enabled" : "disabled"));
         
-        // Wait for device idle before recreating pipelines
         Vulkan.deviceWaitIdle(device.handle()).check();
         
-        // Cleanup old pipelines
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
         
-        // Recreate AA resources if enabling
-        if (adaptiveAAEnabled && adaptiveAA == null) {
-            adaptiveAA = AdaptiveAA.builder()
-                .arena(arena)
-                .device(device)
-                .dimensions(width, height)
-                .mode(aaMode)
-                .samples(msaaSamples)
-                .build();
+        if (adaptiveAAEnabled) {
+            if (adaptiveAA == null) {
+                adaptiveAA = AdaptiveAA.builder()
+                    .arena(arena)
+                    .device(device)
+                    .dimensions(width, height)
+                    .mode(aaMode)
+                    .samples(msaaSamples)
+                    .build();
+            }
+            createGraphicsPipeline(adaptiveAA.getSceneRenderPass().handle());
+        } else {
+            if (adaptiveAA != null) {
+                adaptiveAA.cleanup();
+                adaptiveAA = null;
+            }
+            createGraphicsPipeline(directRenderPass.handle());
         }
-        
-        // Recreate pipelines with correct render pass
-        MemorySegment renderPassForPipeline = adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
-        createGraphicsPipeline(renderPassForPipeline);
     }
     
     public boolean isAdaptiveAAEnabled() {

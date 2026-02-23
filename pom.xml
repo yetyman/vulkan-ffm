@@ -20,6 +20,8 @@
             <modules>
                 <module>vulkan-bindings</module>
                 <module>glfw-bindings</module>
+                <module>spirv-reflect-bindings</module>
+                <module>shaderc-bindings</module>
                 <module>vulkan-core</module>
                 <module>sample-app</module>
             </modules>

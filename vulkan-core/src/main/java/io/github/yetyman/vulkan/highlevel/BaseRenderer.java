@@ -52,18 +52,19 @@ public abstract class BaseRenderer implements AutoCloseable {
     }
     
     public final void init(int queueFamilyIndex) {
-        // Initialize subclass resources first
-        initializeResources(queueFamilyIndex);
-        
         createSwapchain();
         createImageViews();
         createRenderPass();
+        
+        // Initialize subclass resources after render pass exists but before framebuffers
+        // (subclasses may create depth targets or other attachments needed by createFramebufferImpl)
+        initializeResources(queueFamilyIndex);
+        
         createFramebuffers();
         createCommandPool(queueFamilyIndex);
         createCommandBuffers();
         createSyncObjects();
         
-        // Allow post-render pass initialization
         postRenderPassInit();
     }
     
@@ -127,7 +128,6 @@ public abstract class BaseRenderer implements AutoCloseable {
     
     public void drawFrame() {
         try (Arena frameArena = Arena.ofConfined()) {
-            // Wait for previous frame
             VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
                 .execute(frameArena).check();
@@ -135,15 +135,12 @@ public abstract class BaseRenderer implements AutoCloseable {
                 .fence(inFlightFences[currentFrame].handle())
                 .reset(frameArena).check();
             
-            // Acquire next image
             int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
                 .semaphore(imageAvailableSemaphores[currentFrame].handle())
                 .execute(frameArena);
             
-            // Record commands
             recordCommandBuffer(commandBuffers[currentFrame], imgIdx, frameArena);
             
-            // Submit commands
             VkSubmit.builder()
                 .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(), 
                               VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
@@ -151,7 +148,6 @@ public abstract class BaseRenderer implements AutoCloseable {
                 .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
                 .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();
             
-            // Present
             VkPresent.builder()
                 .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
                 .swapchain(swapchain.handle(), imgIdx)

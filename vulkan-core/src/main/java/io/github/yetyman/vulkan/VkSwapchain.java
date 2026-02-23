@@ -28,7 +28,7 @@ public class VkSwapchain implements AutoCloseable {
             .device(device)
             .surface(surface)
             .extent(width, height)
-            .vsync(true)
+            .vsync(false)
             .build(arena);
     }
     

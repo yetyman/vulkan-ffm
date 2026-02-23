@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.postprocessing;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.highlevel.CompiledShader;
 import io.github.yetyman.vulkan.highlevel.ShaderLoader;
 import io.github.yetyman.vulkan.highlevel.VkTexture;
 import io.github.yetyman.vulkan.highlevel.PoolAllocator;
@@ -198,8 +199,8 @@ public class AdaptiveAA {
         try {
             if (useMSAA) {
                 // Simple blit pipeline for MSAA final output
-                byte[] vertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
-                byte[] fragCode = ShaderLoader.compileShader("/shaders/blit.frag");
+                byte[] vertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert").getSpirV();
+                byte[] fragCode = ShaderLoader.compileShader("/shaders/blit.frag").getSpirV();
                 
                 aaPipeline = VkPipeline.builder()
                     .device(device)
@@ -215,8 +216,8 @@ public class AdaptiveAA {
                     .build(arena);
             } else {
                 // Post-process AA pipelines
-                byte[] edgeVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
-                byte[] edgeFragCode = ShaderLoader.compileShader("/shaders/edge_detect.frag");
+                byte[] edgeVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert").getSpirV();
+                byte[] edgeFragCode = ShaderLoader.compileShader("/shaders/edge_detect.frag").getSpirV();
                 
                 edgePipeline = VkPipeline.builder()
                     .device(device)
@@ -228,8 +229,8 @@ public class AdaptiveAA {
                     .descriptorSetLayouts(descriptorSetLayout.handle())
                     .build(arena);
                 
-                byte[] aaVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert");
-                byte[] aaFragCode = ShaderLoader.compileShader("/shaders/adaptive_aa.frag");
+                byte[] aaVertCode = ShaderLoader.compileShader("/shaders/fullscreen.vert").getSpirV();
+                byte[] aaFragCode = ShaderLoader.compileShader("/shaders/adaptive_aa.frag").getSpirV();
                 
                 aaPipeline = VkPipeline.builder()
                     .device(device)
@@ -246,7 +247,7 @@ public class AdaptiveAA {
                     .build(arena);
             }
         } catch (Exception e) {
-            System.err.println("[ERROR] Failed to create AA pipeline: " + e.getMessage());
+            Logger.error("Failed to create AA pipeline: " + e.getMessage());
             throw new RuntimeException("AdaptiveAA pipeline creation failed", e);
         }
     }
