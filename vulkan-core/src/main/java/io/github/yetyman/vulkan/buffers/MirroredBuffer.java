@@ -3,10 +3,8 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
-
 /**
  * Decorator over {@link DeviceLocalBuffer} that maintains a CPU-side mirror of all written data.
  * Reads are served from the mirror at zero GPU cost.
@@ -20,14 +18,18 @@ public class MirroredBuffer extends AbstractBuffer {
     private final DeviceLocalBuffer deviceBuffer;
     private ByteBuffer mirror;
 
-    public MirroredBuffer(VkDevice device, Arena arena,
-                          long size, BufferUsage usage,
+    public MirroredBuffer(VkDevice device, long size, BufferUsage usage,
                           VkQueue transferQueue, VkCommandPool commandPool) {
-        super(device, arena, size, usage, MemoryStrategy.DEVICE_LOCAL_MIRRORED);
-        this.deviceBuffer = new DeviceLocalBuffer(device, arena, size, usage, transferQueue, commandPool, false);
-        this.mirror = ByteBuffer.allocate((int) size);
-        // expose the device buffer's VkBuffer handle via vkBuffer field
-        this.vkBuffer = deviceBuffer.vkBuffer;
+        super(device, size, usage, MemoryStrategy.DEVICE_LOCAL_MIRRORED);
+        try {
+            this.deviceBuffer = new DeviceLocalBuffer(device, size, usage, transferQueue, commandPool, false);
+            this.mirror = ByteBuffer.allocate((int) size);
+            // expose the device buffer's VkBuffer handle via vkBuffer field
+            this.vkBuffer = deviceBuffer.vkBuffer;
+        } catch (Exception e) {
+            arena.close();
+            throw e;
+        }
     }
 
     @Override
@@ -42,13 +44,10 @@ public class MirroredBuffer extends AbstractBuffer {
 
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        // Update mirror first — slice to avoid mutating caller's position
         ByteBuffer slice = data.slice();
-        int len = slice.remaining();
         mirror.position((int) offset);
         mirror.put(slice);
         mirror.rewind();
-
         data.rewind();
         return deviceBuffer.writeAsync(data, offset);
     }

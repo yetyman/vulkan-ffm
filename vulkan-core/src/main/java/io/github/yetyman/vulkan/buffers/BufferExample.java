@@ -87,7 +87,7 @@ public class BufferExample {
             // MAPPED
             // =========================================================
             section("MAPPED");
-            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.MAPPED, null, SIZE, BufferUsage.UNIFORM, device, queue, commandPool, arena)) {
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.MAPPED, null, SIZE, BufferUsage.UNIFORM, device, queue, commandPool)) {
                 // sync write + read
                 buf.write(data.rewind(), 0);
                 check("MAPPED sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
@@ -123,7 +123,7 @@ public class BufferExample {
             // MAPPED_CACHED
             // =========================================================
             section("MAPPED_CACHED");
-            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.MAPPED_CACHED, null, SIZE, BufferUsage.UNIFORM, device, queue, commandPool, arena)) {
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.MAPPED_CACHED, null, SIZE, BufferUsage.UNIFORM, device, queue, commandPool)) {
                 buf.write(data.rewind(), 0);
                 check("MAPPED_CACHED sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
 
@@ -143,7 +143,7 @@ public class BufferExample {
             // DEVICE_LOCAL
             // =========================================================
             section("DEVICE_LOCAL");
-            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool)) {
                 buf.write(data.rewind(), 0);
                 check("DEVICE_LOCAL sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
 
@@ -166,7 +166,7 @@ public class BufferExample {
             // STAGING (persistent staging buffer)
             // =========================================================
             section("STAGING");
-            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.STAGING, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.STAGING, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool)) {
                 buf.write(data.rewind(), 0);
                 check("STAGING sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
 
@@ -184,8 +184,8 @@ public class BufferExample {
             // GPU COPY
             // =========================================================
             section("GPU COPY");
-            try (ManagedBuffer src = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena);
-                 ManagedBuffer dst = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+            try (ManagedBuffer src = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool);
+                 ManagedBuffer dst = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool)) {
                 src.write(data.rewind(), 0);
                 src.copyTo(dst, 0, 0, SIZE, queue, commandPool);
                 check("GPU COPY sync full", dst.read(0, SIZE).getInt(0), MAGIC);
@@ -207,7 +207,7 @@ public class BufferExample {
             // DEVICE_LOCAL_MIRRORED
             // =========================================================
             section("DEVICE_LOCAL_MIRRORED");
-            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL_MIRRORED, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+            try (ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL_MIRRORED, null, SIZE, BufferUsage.STORAGE, device, queue, commandPool)) {
                 buf.write(data.rewind(), 0);
                 check("MIRRORED sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
 
@@ -225,7 +225,7 @@ public class BufferExample {
             // RING_BUFFER — all 3 frames, async paths, in-flight guard
             // =========================================================
             section("RING_BUFFER");
-            try (RingBuffer buf = (RingBuffer) BufferFactory.create(MemoryStrategy.RING_BUFFER, MemoryStrategy.MAPPED, SIZE, BufferUsage.UNIFORM, device, queue, commandPool, arena)) {
+            try (RingBuffer buf = (RingBuffer) BufferFactory.create(MemoryStrategy.RING_BUFFER, MemoryStrategy.MAPPED, SIZE, BufferUsage.UNIFORM, device, queue, commandPool)) {
                 // cycle all 3 frames with sync writes
                 for (int frame = 0; frame < 3; frame++) {
                     buf.write(intBuf(MAGIC + frame), 0);
@@ -247,7 +247,7 @@ public class BufferExample {
 
             // RING_BUFFER with DEVICE_LOCAL underlying strategy
             section("RING_BUFFER(DEVICE_LOCAL)");
-            try (RingBuffer buf = (RingBuffer) BufferFactory.create(MemoryStrategy.RING_BUFFER, MemoryStrategy.DEVICE_LOCAL, SIZE, BufferUsage.STORAGE, device, queue, commandPool, arena)) {
+            try (RingBuffer buf = (RingBuffer) BufferFactory.create(MemoryStrategy.RING_BUFFER, MemoryStrategy.DEVICE_LOCAL, SIZE, BufferUsage.STORAGE, device, queue, commandPool)) {
                 buf.write(data.rewind(), 0);
                 check("RING_BUFFER(DEVICE_LOCAL)[0] sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
                 buf.nextFrame();
@@ -259,7 +259,7 @@ public class BufferExample {
             // SUBALLOCATOR
             // =========================================================
             section("SUBALLOCATOR");
-            try (SuballocatorBuffer buf = BufferFactory.createSlab(SIZE, 256, BufferUsage.UNIFORM, MemoryStrategy.MAPPED, device, queue, commandPool, arena)) {
+            try (SuballocatorBuffer buf = BufferFactory.createSlab(SIZE, 256, BufferUsage.UNIFORM, MemoryStrategy.MAPPED, device, queue, commandPool)) {
                 try (SuballocatorBuffer.Suballocation sub1 = buf.allocate();
                      SuballocatorBuffer.Suballocation sub2 = buf.allocate()) {
 
@@ -286,7 +286,7 @@ public class BufferExample {
             }
 
             section("SUBALLOCATOR(DEVICE_LOCAL)");
-            try (SuballocatorBuffer buf = BufferFactory.createSlab(SIZE, 256, BufferUsage.STORAGE, MemoryStrategy.DEVICE_LOCAL, device, queue, commandPool, arena)) {
+            try (SuballocatorBuffer buf = BufferFactory.createSlab(SIZE, 256, BufferUsage.STORAGE, MemoryStrategy.DEVICE_LOCAL, device, queue, commandPool)) {
                 try (SuballocatorBuffer.Suballocation sub = buf.allocate()) {
                     sub.write(intBuf(MAGIC));
                     check("SUBALLOCATOR(DEVICE_LOCAL) write/read", sub.read().getInt(0), MAGIC);
@@ -300,7 +300,7 @@ public class BufferExample {
             // =========================================================
             if (physicalDevice.supportsSparseResidencyBuffer()) {
                 section("SPARSE(DEVICE_LOCAL)");
-                try (SparseBuffer buf = new SparseBuffer(device, arena, SIZE * 64, BufferUsage.STORAGE, MemoryStrategy.DEVICE_LOCAL, sparseQueue, queue, commandPool)) {
+                try (SparseBuffer buf = new SparseBuffer(device, SIZE * 64, BufferUsage.STORAGE, MemoryStrategy.DEVICE_LOCAL, sparseQueue, queue, commandPool)) {
                     // single-page write/read
                     buf.write(data.rewind(), 0);
                     check("SPARSE(DEVICE_LOCAL) sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
@@ -328,7 +328,7 @@ public class BufferExample {
                 }
 
                 section("SPARSE(MAPPED)");
-                try (SparseBuffer buf = new SparseBuffer(device, arena, SIZE * 64, BufferUsage.STORAGE, MemoryStrategy.MAPPED, sparseQueue, queue, commandPool)) {
+                try (SparseBuffer buf = new SparseBuffer(device, SIZE * 64, BufferUsage.STORAGE, MemoryStrategy.MAPPED, sparseQueue, queue, commandPool)) {
                     buf.write(data.rewind(), 0);
                     check("SPARSE(MAPPED) sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
 
@@ -357,7 +357,7 @@ public class BufferExample {
             int elemStride = Vec4.BYTE_SIZE;
             long typedBufSize = (long) elemStride * elemCount;
             try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
-                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool, arena),
+                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool),
                     elemStride, elemCount, true) {
                 @Override protected Vec4 getInstance() { return new Vec4(); }
             }) {
@@ -384,7 +384,7 @@ public class BufferExample {
 
             section("TYPED_VK_BUFFER (non-mirrored, GPU readback)");
             try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
-                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool, arena),
+                    BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue, commandPool),
                     elemStride, elemCount, false) {
                 @Override protected Vec4 getInstance() { return new Vec4(); }
             }) {
@@ -402,12 +402,12 @@ public class BufferExample {
 
             section("TYPED_VK_BUFFER GPU copy");
             try (TypedVkBuffer<Vec4> src = new TypedVkBuffer<>(
-                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool, arena),
+                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool),
                     elemStride, elemCount, true) {
                 @Override protected Vec4 getInstance() { return new Vec4(); }
             };
                  TypedVkBuffer<Vec4> dst = new TypedVkBuffer<>(
-                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool, arena),
+                    BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue, commandPool),
                     elemStride, elemCount, false) {
                 @Override protected Vec4 getInstance() { return new Vec4(); }
             }) {
@@ -424,7 +424,7 @@ public class BufferExample {
             // =========================================================
             if (physicalDevice.supportsReBar()) {
                 section("REBAR");
-                try (ReBarBuffer buf = new ReBarBuffer(device, arena, SIZE, BufferUsage.STORAGE)) {
+                try (ReBarBuffer buf = new ReBarBuffer(device, SIZE, BufferUsage.STORAGE)) {
                     buf.write(data.rewind(), 0);
                     check("REBAR sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
 

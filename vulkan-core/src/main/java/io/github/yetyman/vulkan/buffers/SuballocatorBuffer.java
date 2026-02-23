@@ -3,7 +3,6 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
@@ -21,11 +20,11 @@ public class SuballocatorBuffer extends AbstractBuffer {
     private final ArrayDeque<Integer> freeSlots;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public SuballocatorBuffer(VkDevice device, Arena arena,
+    public SuballocatorBuffer(VkDevice device,
                               long totalSize, BufferUsage usage, long slotSize,
                               MemoryStrategy backingStrategy,
                               VkQueue transferQueue, VkCommandPool commandPool) {
-        super(device, arena, totalSize, usage, MemoryStrategy.SUBALLOCATOR);
+        super(device, totalSize, usage, MemoryStrategy.SUBALLOCATOR);
 
         long alignment = switch (usage) {
             case UNIFORM -> device.physicalDevice().getMinUniformBufferOffsetAlignment();
@@ -42,9 +41,14 @@ public class SuballocatorBuffer extends AbstractBuffer {
         this.freeSlots = new ArrayDeque<>(slotCount);
         for (int i = slotCount - 1; i >= 0; i--) freeSlots.push(i);
 
-        this.backingBuffer = BufferFactory.create(
-            backingStrategy, backingStrategy, totalSize, usage, device, transferQueue, commandPool, arena
-        );
+        ManagedBuffer backing = null;
+        try {
+            backing = BufferFactory.create(backingStrategy, backingStrategy, totalSize, usage, device, transferQueue, commandPool);
+        } catch (Exception e) {
+            arena.close();
+            throw e;
+        }
+        this.backingBuffer = backing;
     }
 
     /** @return a new slot, or throws {@link IllegalStateException} if the slab is full. */

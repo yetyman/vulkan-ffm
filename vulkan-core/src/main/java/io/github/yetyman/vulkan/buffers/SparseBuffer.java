@@ -22,10 +22,10 @@ public class SparseBuffer extends AbstractBuffer {
     private final VkQueue transferQueue;
     private final VkCommandPool commandPool;
 
-    public SparseBuffer(VkDevice device, Arena arena,
+    public SparseBuffer(VkDevice device,
                         long size, BufferUsage usage, MemoryStrategy underlyingStrategy,
                         VkQueue sparseQueue, VkQueue transferQueue, VkCommandPool commandPool) {
-        super(device, arena, size, usage, MemoryStrategy.SPARSE);
+        super(device, size, usage, MemoryStrategy.SPARSE);
         this.transferQueue = transferQueue;
         this.commandPool = commandPool;
 
@@ -38,10 +38,19 @@ public class SparseBuffer extends AbstractBuffer {
             default -> throw new IllegalArgumentException("Unsupported underlying strategy for sparse buffer: " + underlyingStrategy);
         };
 
-        checkSparseSupport();
-        createSparseBuffer();
-        long pageSize = querySparsePageSize();
-        this.pages = new SparsePageAllocator(device, arena, vkBuffer.handle(), size, pageSize, memoryProperties, sparseQueue);
+        SparsePageAllocator pagesLocal = null;
+        try {
+            checkSparseSupport();
+            createSparseBuffer();
+            long pageSize = querySparsePageSize();
+            pagesLocal = new SparsePageAllocator(device, vkBuffer.handle(), size, pageSize, memoryProperties, sparseQueue);
+        } catch (Exception e) {
+            if (pagesLocal != null) pagesLocal.close();
+            if (vkBuffer != null) vkBuffer.close();
+            arena.close();
+            throw e;
+        }
+        this.pages = pagesLocal;
     }
 
     /** @return the sparse page size in bytes */
@@ -70,7 +79,7 @@ public class SparseBuffer extends AbstractBuffer {
     /**
      * Writes data, automatically committing pages as needed.
      * Host-visible: maps each page individually and copies directly.
-     * Device-local: delegates to a transient {@link DeviceLocalBuffer} for staging.
+     * Device-local: delegates to a transient staging pipeline.
      */
     @Override
     public void write(ByteBuffer data, long offset) {
@@ -87,28 +96,31 @@ public class SparseBuffer extends AbstractBuffer {
             writeHostVisible(data, offset);
             return TransferCompletion.completed();
         } else {
-            // Delegate to a transient DeviceLocalBuffer — reuses all staging/fence/arena logic
             Arena transferArena = Arena.ofShared();
-            DeviceLocalBuffer staging = new DeviceLocalBuffer(device, transferArena, data.remaining(),
-                BufferUsage.TRANSFER, transferQueue, commandPool, false);
-            // Override the staging buffer's target handle to point at our sparse buffer
-            // by writing into a temp host-visible buffer then copying to our sparse vkBuffer
-            VkBuffer tempHost = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
-            MemorySegment mapped = tempHost.map(transferArena);
-            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mapped, 0, data.remaining());
+            VkBuffer tempHost = null;
+            VkFence fence = null;
+            try {
+                tempHost = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
+                MemorySegment mapped = tempHost.map(transferArena);
+                MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mapped, 0, data.remaining());
 
-            VkFence fence = VkFence.builder().device(device).build(transferArena);
-            VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
-            VkCommandBuffer cmd = cmds[0];
-            VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(transferArena);
-            MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, 0, offset, data.remaining());
-            vkCmdCopyBuffer(cmd.handle(), tempHost.handle(), vkBuffer.handle(), 1, copyRegion);
-            vkEndCommandBuffer(cmd.handle());
-            VkSubmit.builder().commandBuffer(cmd).submit(transferQueue.handle(), fence.handle(), transferArena).check();
+                fence = VkFence.builder().device(device).build(transferArena);
+                VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
+                    .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
+                VkCommandBuffer cmd = cmds[0];
+                VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(transferArena);
+                MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, 0, offset, data.remaining());
+                vkCmdCopyBuffer(cmd.handle(), tempHost.handle(), vkBuffer.handle(), 1, copyRegion);
+                vkEndCommandBuffer(cmd.handle());
+                VkSubmit.builder().commandBuffer(cmd).submit(transferQueue.handle(), fence.handle(), transferArena).check();
 
-            staging.close(); // staging DeviceLocalBuffer not needed — we built our own pipeline above
-            return new TransferCompletion(device, fence, transferArena, tempHost);
+                return new TransferCompletion(device, fence, transferArena, tempHost);
+            } catch (Exception e) {
+                if (fence != null) fence.close();
+                if (tempHost != null) tempHost.close();
+                transferArena.close();
+                throw e;
+            }
         }
     }
 
@@ -126,9 +138,11 @@ public class SparseBuffer extends AbstractBuffer {
         } else {
             System.err.println("WARNING: Synchronous read from device-local sparse buffer requires staging and will stall the pipeline.");
             Arena readArena = Arena.ofShared();
+            VkBuffer readback = null;
+            VkFence fence = null;
             try {
-                VkBuffer readback = VkBuffer.builder().device(device).size(length).transferDst().hostVisible().build(readArena);
-                VkFence fence = VkFence.builder().device(device).build(readArena);
+                readback = VkBuffer.builder().device(device).size(length).transferDst().hostVisible().build(readArena);
+                fence = VkFence.builder().device(device).build(readArena);
                 VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
                     .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
                 VkCommandBuffer cmd = cmds[0];
@@ -146,6 +160,10 @@ public class SparseBuffer extends AbstractBuffer {
                 fence.close();
                 readback.close();
                 return result.rewind();
+            } catch (Exception e) {
+                if (fence != null) fence.close();
+                if (readback != null) readback.close();
+                throw e;
             } finally {
                 readArena.close();
             }

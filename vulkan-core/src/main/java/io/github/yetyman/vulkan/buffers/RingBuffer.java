@@ -3,7 +3,6 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -12,53 +11,68 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public class RingBuffer extends AbstractBuffer {
     private final ManagedBuffer[] buffers;
     private final int frameCount;
-    private int currentFrame = 0;
+    /** volatile ensures nextFrame() writes are visible to any thread reading handle()/write()/etc. */
+    private volatile int currentFrame = 0;
     /** Tracks in-flight async completions per slot. Awaited before writing to a slot. */
     private final AtomicReferenceArray<TransferCompletion> inFlight;
 
-    public RingBuffer(VkDevice device, Arena arena,
+    public RingBuffer(VkDevice device,
                      long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
                      VkQueue transferQueue, VkCommandPool commandPool) {
-        super(device, arena, size, usage, MemoryStrategy.RING_BUFFER);
+        super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
         this.inFlight = new AtomicReferenceArray<>(frameCount);
 
-        for (int i = 0; i < frameCount; i++) {
-            buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue, commandPool, arena);
+        try {
+            for (int i = 0; i < frameCount; i++) {
+                buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue, commandPool);
+            }
+        } catch (Exception e) {
+            for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
+            arena.close();
+            throw e;
         }
     }
 
-    public RingBuffer(VkDevice device, Arena arena,
+    public RingBuffer(VkDevice device,
                      long size, BufferUsage usage,
                      AccessFrequency cpuWrite, AccessFrequency cpuRead,
                      AccessFrequency gpuRead, AccessFrequency gpuWrite,
                      int frameCount,
                      VkQueue transferQueue, VkCommandPool commandPool) {
-        super(device, arena, size, usage, MemoryStrategy.RING_BUFFER);
+        super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
         this.inFlight = new AtomicReferenceArray<>(frameCount);
 
-        for (int i = 0; i < frameCount; i++) {
-            buffers[i] = BufferFactory.createAutomatic(
-                cpuWrite, cpuRead, gpuRead, gpuWrite, size,
-                usage, device, transferQueue, commandPool, arena
-            );
+        try {
+            for (int i = 0; i < frameCount; i++) {
+                buffers[i] = BufferFactory.createAutomatic(
+                    cpuWrite, cpuRead, gpuRead, gpuWrite, size,
+                    usage, device, transferQueue, commandPool
+                );
+            }
+        } catch (Exception e) {
+            for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
+            arena.close();
+            throw e;
         }
     }
-    
+
     @Override
     public void write(ByteBuffer data, long offset) {
-        awaitSlot(currentFrame);
-        buffers[currentFrame].write(data, offset);
+        int frame = currentFrame;
+        awaitSlot(frame);
+        buffers[frame].write(data, offset);
     }
 
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        awaitSlot(currentFrame);
-        TransferCompletion tc = buffers[currentFrame].writeAsync(data, offset);
-        inFlight.set(currentFrame, tc);
+        int frame = currentFrame;
+        awaitSlot(frame);
+        TransferCompletion tc = buffers[frame].writeAsync(data, offset);
+        inFlight.set(frame, tc);
         return tc;
     }
 
@@ -67,17 +81,17 @@ public class RingBuffer extends AbstractBuffer {
         TransferCompletion prev = inFlight.getAndSet(slot, null);
         if (prev != null) prev.await();
     }
-    
+
     @Override
     public ByteBuffer read(long offset, long size) {
         return buffers[currentFrame].read(offset, size);
     }
-    
+
     @Override
     public void flush() {
         buffers[currentFrame].flush();
     }
-    
+
     /**
      * Returns the handle of the current frame's buffer.
      * This is the buffer that should be bound for the current frame's rendering.
@@ -86,15 +100,15 @@ public class RingBuffer extends AbstractBuffer {
     public MemorySegment handle() {
         return buffers[currentFrame].handle();
     }
-    
+
     public void nextFrame() {
         currentFrame = (currentFrame + 1) % frameCount;
     }
-    
+
     public int getCurrentFrame() {
         return currentFrame;
     }
-    
+
     @Override
     public void closeImpl() {
         for (ManagedBuffer buffer : buffers) {
@@ -102,6 +116,6 @@ public class RingBuffer extends AbstractBuffer {
                 buffer.close();
             }
         }
-        // Don't call super.close() as we don't own the primary buffer/memory
+        // Don't call super.closeImpl() — child buffers own their own VkBuffers
     }
 }

@@ -7,6 +7,7 @@ import io.github.yetyman.vulkan.VkResult;
 
 import java.lang.foreign.Arena;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Handle for async buffer transfer operations.
@@ -22,6 +23,7 @@ public class TransferCompletion implements AutoCloseable {
     private final Arena transferArena;
     /** Additional Vulkan objects (e.g. staging VkBuffer) that must be explicitly closed after the fence signals. */
     private final AutoCloseable[] ownedObjects;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public TransferCompletion(VkDevice device, VkFence fence, Arena transferArena, AutoCloseable... ownedObjects) {
         this.device = device;
@@ -29,14 +31,14 @@ public class TransferCompletion implements AutoCloseable {
         this.transferArena = transferArena;
         this.ownedObjects = ownedObjects;
     }
-    
+
     /**
      * Returns a pre-completed TransferCompletion for synchronous operations.
      */
     public static TransferCompletion completed() {
         return COMPLETED;
     }
-    
+
     /**
      * Blocks current thread until transfer completes.
      * Safe to call from any thread.
@@ -87,6 +89,7 @@ public class TransferCompletion implements AutoCloseable {
 
     @Override
     public void close() {
+        if (!closed.compareAndSet(false, true)) return;
         if (fence != null) fence.close();
         if (ownedObjects != null) {
             for (AutoCloseable obj : ownedObjects) {

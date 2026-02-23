@@ -5,9 +5,10 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkMemoryAllocateInfo;
@@ -28,6 +29,7 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkUnmapMemory;
  */
 class SparsePageAllocator implements AutoCloseable {
     private final VkDevice device;
+    /** Owns all long-lived native allocations (VkMemoryAllocateInfo, pointer-out segments). */
     private final Arena arena;
     private final MemorySegment bufferHandle;
     private final VkQueue sparseQueue;
@@ -36,16 +38,18 @@ class SparsePageAllocator implements AutoCloseable {
     final boolean isHostCoherent;
     private final int memoryProperties;
 
-    private final Map<Long, MemorySegment> boundPages = new HashMap<>();
+    private final ConcurrentHashMap<Long, MemorySegment> boundPages = new ConcurrentHashMap<>();
+    /** Guards freeMemoryPool and boundPages mutations in bind/unbind — pages at different offsets are independent. */
+    private final ReentrantLock bindLock = new ReentrantLock();
     private final Queue<MemorySegment> freeMemoryPool = new ArrayDeque<>();
-    private final Map<Long, MemorySegment> mappedPages = new HashMap<>();
+    private final ConcurrentHashMap<Long, MemorySegment> mappedPages = new ConcurrentHashMap<>();
     private final int[] mapDepth;
 
-    SparsePageAllocator(VkDevice device, Arena arena, MemorySegment bufferHandle,
+    SparsePageAllocator(VkDevice device, MemorySegment bufferHandle,
                         long bufferSize, long pageSize, int memoryProperties,
                         VkQueue sparseQueue) {
         this.device = device;
-        this.arena = arena;
+        this.arena = Arena.ofShared();
         this.bufferHandle = bufferHandle;
         this.sparseQueue = sparseQueue;
         this.pageSize = pageSize;
@@ -59,7 +63,17 @@ class SparsePageAllocator implements AutoCloseable {
         long startPage = offset / pageSize;
         long endPage = (offset + length - 1) / pageSize;
         for (long page = startPage; page <= endPage; page++) {
-            if (!boundPages.containsKey(page * pageSize)) bindPage(page * pageSize);
+            long pageOffset = page * pageSize;
+            // computeIfAbsent is atomic per key — two threads binding different pages don't block each other
+            boundPages.computeIfAbsent(pageOffset, k -> {
+                bindLock.lock();
+                try {
+                    // re-check inside lock in case another thread bound this page between the check and lock
+                    return boundPages.containsKey(k) ? boundPages.get(k) : allocateAndBindPage(k);
+                } finally {
+                    bindLock.unlock();
+                }
+            });
         }
     }
 
@@ -75,39 +89,47 @@ class SparsePageAllocator implements AutoCloseable {
     /**
      * Increments map depth for a page, mapping it on first request.
      * Must be paired with {@link #unmapPage(long)}.
+     * Synchronized per page index — different pages don't block each other.
      */
     MemorySegment mapPage(long pageIndex) {
-        long pageOffset = pageIndex * pageSize;
-        MemorySegment pageMemory = boundPages.get(pageOffset);
-        if (pageMemory == null) throw new IllegalStateException("Page at index " + pageIndex + " is not bound");
+        synchronized (mapDepth) {
+            long pageOffset = pageIndex * pageSize;
+            MemorySegment pageMemory = boundPages.get(pageOffset);
+            if (pageMemory == null) throw new IllegalStateException("Page at index " + pageIndex + " is not bound");
 
-        if (mapDepth[(int) pageIndex] == 0) {
-            try (Arena tmp = Arena.ofConfined()) {
-                MemorySegment mappedPtr = tmp.allocate(ValueLayout.ADDRESS);
-                int result = vkMapMemory(device.handle(), pageMemory, 0, pageSize, 0, mappedPtr);
-                if (result != 0) throw new RuntimeException("Failed to map page memory: " + result);
-                mappedPages.put(pageIndex, mappedPtr.get(ValueLayout.ADDRESS, 0).reinterpret(pageSize, arena, null));
+            if (mapDepth[(int) pageIndex] == 0) {
+                try (Arena tmp = Arena.ofConfined()) {
+                    MemorySegment mappedPtr = tmp.allocate(ValueLayout.ADDRESS);
+                    int result = vkMapMemory(device.handle(), pageMemory, 0, pageSize, 0, mappedPtr);
+                    if (result != 0) throw new RuntimeException("Failed to map page memory: " + result);
+                    mappedPages.put(pageIndex, mappedPtr.get(ValueLayout.ADDRESS, 0).reinterpret(pageSize, arena, null));
+                }
             }
+            mapDepth[(int) pageIndex]++;
+            return mappedPages.get(pageIndex);
         }
-        mapDepth[(int) pageIndex]++;
-        return mappedPages.get(pageIndex);
     }
 
     /** Decrements map depth, unmapping when it reaches zero. */
     void unmapPage(long pageIndex) {
-        if (mapDepth[(int) pageIndex] <= 0) return;
-        mapDepth[(int) pageIndex]--;
-        if (mapDepth[(int) pageIndex] == 0) {
-            MemorySegment pageMemory = boundPages.get(pageIndex * pageSize);
-            if (pageMemory != null) vkUnmapMemory(device.handle(), pageMemory);
-            mappedPages.remove(pageIndex);
+        synchronized (mapDepth) {
+            if (mapDepth[(int) pageIndex] <= 0) return;
+            mapDepth[(int) pageIndex]--;
+            if (mapDepth[(int) pageIndex] == 0) {
+                MemorySegment pageMemory = boundPages.get(pageIndex * pageSize);
+                if (pageMemory != null) vkUnmapMemory(device.handle(), pageMemory);
+                mappedPages.remove(pageIndex);
+            }
         }
     }
 
     /** @return the VkDeviceMemory handle for the page at the given byte offset */
-    MemorySegment pageMemoryAt(long pageOffset) { return boundPages.get(pageOffset); }
+    MemorySegment pageMemoryAt(long pageOffset) {
+        return boundPages.get(pageOffset);
+    }
 
-    private void bindPage(long offset) {
+    /** Allocates a VkDeviceMemory block and issues the sparse bind. Called with bindLock held. */
+    private MemorySegment allocateAndBindPage(long offset) {
         MemorySegment memory = freeMemoryPool.poll();
         if (memory == null) memory = allocatePageMemory();
 
@@ -124,9 +146,10 @@ class SparsePageAllocator implements AutoCloseable {
             VkFenceOps.waitFor(device).fence(fence.handle()).execute(tmp).check();
             fence.close();
         }
-        boundPages.put(offset, memory);
+        return memory;
     }
 
+    /** Unbinds a page and returns its memory to the pool. Called with bindLock held. */
     private void unbindPage(long offset) {
         MemorySegment memory = boundPages.remove(offset);
         if (memory == null) return;
@@ -181,7 +204,13 @@ class SparsePageAllocator implements AutoCloseable {
 
     @Override
     public void close() {
-        for (long offset : boundPages.keySet().toArray(new Long[0])) unbindPage(offset);
-        for (MemorySegment memory : freeMemoryPool) vkFreeMemory(device.handle(), memory, MemorySegment.NULL);
+        bindLock.lock();
+        try {
+            for (long offset : boundPages.keySet().toArray(new Long[0])) unbindPage(offset);
+            for (MemorySegment memory : freeMemoryPool) vkFreeMemory(device.handle(), memory, MemorySegment.NULL);
+        } finally {
+            bindLock.unlock();
+            arena.close();
+        }
     }
 }
