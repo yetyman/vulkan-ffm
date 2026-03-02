@@ -52,6 +52,9 @@ public class MirroredBuffer extends AbstractBuffer {
         return deviceBuffer.writeAsync(data, offset);
     }
 
+    /** @return the raw CPU mirror ByteBuffer — for typed buffer views. */
+    public ByteBuffer mirror() { return mirror; }
+
     /** @return a read-only view of the CPU mirror — zero GPU cost. */
     @Override
     public ByteBuffer read(long offset, long length) {

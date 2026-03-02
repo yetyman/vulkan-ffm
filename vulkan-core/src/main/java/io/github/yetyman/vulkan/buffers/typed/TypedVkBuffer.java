@@ -1,7 +1,10 @@
-package io.github.yetyman.vulkan.buffers;
+package io.github.yetyman.vulkan.buffers.typed;
 
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkQueue;
+import io.github.yetyman.vulkan.buffers.BufferWritable;
+import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -17,10 +20,12 @@ import java.util.List;
  * When not mirrored, reads perform a GPU readback — slow, avoid in hot paths.
  */
 public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoCloseable {
+    
     private final ManagedBuffer buffer;
     private final int stride;
     private final int count;
     private final ArrayList<T> mirror;
+    private final ThreadLocal<ByteBuffer> scratchPool;
 
     public TypedVkBuffer(ManagedBuffer buffer, int byteSize, int count, boolean mirrored) {
         if ((long) byteSize * count > buffer.size())
@@ -34,6 +39,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         } else {
             this.mirror = null;
         }
+        scratchPool = ThreadLocal.withInitial(() -> ByteBuffer.allocate(Math.max(stride, 1024)));
     }
 
     /** @return a T instance to populate during a read. May be pooled or freshly allocated. */
@@ -58,7 +64,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
 
     public TransferCompletion writeAsync(int index, T value) {
         checkIndex(index);
-        ByteBuffer scratch = ByteBuffer.allocate(stride);
+        ByteBuffer scratch = getScratchBuffer(stride);
         value.writeTo(scratch);
         scratch.rewind();
         if (mirror != null) {
@@ -81,7 +87,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     public TransferCompletion writeAsync(List<T> values, int startIndex) {
         checkIndex(startIndex);
         checkIndex(startIndex + values.size() - 1);
-        ByteBuffer scratch = ByteBuffer.allocate(stride * values.size());
+        ByteBuffer scratch = getScratchBuffer(stride * values.size());
         for (int i = 0; i < values.size(); i++) {
             values.get(i).writeTo(scratch);
             if (mirror != null) {
@@ -175,6 +181,16 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
                                           VkQueue queue, VkCommandPool commandPool) {
         return buffer.copyToAsync(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
                                   (long) elementCount * stride, queue, commandPool);
+    }
+
+    private ByteBuffer getScratchBuffer(int requiredSize) {
+        ByteBuffer buffer = scratchPool.get();
+        if (buffer.capacity() < requiredSize) {
+            buffer = ByteBuffer.allocate(Math.max(requiredSize, buffer.capacity() * 2));
+            scratchPool.set(buffer);
+        }
+        buffer.clear();
+        return buffer;
     }
 
     @Override
