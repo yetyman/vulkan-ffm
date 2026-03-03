@@ -20,14 +20,12 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFlushMappedMemoryRa
 public class SparseBuffer extends AbstractBuffer {
     private final SparsePageAllocator pages;
     private final VkQueue transferQueue;
-    private final VkCommandPool commandPool;
 
     public SparseBuffer(VkDevice device,
                         long size, BufferUsage usage, MemoryStrategy underlyingStrategy,
-                        VkQueue sparseQueue, VkQueue transferQueue, VkCommandPool commandPool) {
+                        VkQueue sparseQueue, VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.SPARSE);
         this.transferQueue = transferQueue;
-        this.commandPool = commandPool;
 
         if (underlyingStrategy == MemoryStrategy.SPARSE)
             throw new IllegalArgumentException("Cannot nest sparse buffers");
@@ -82,20 +80,14 @@ public class SparseBuffer extends AbstractBuffer {
      * Device-local: delegates to a transient staging pipeline.
      */
     @Override
-    public void write(ByteBuffer data, long offset) {
-        TransferCompletion tc = writeAsync(data, offset);
-        tc.await();
-        tc.close();
-    }
-
-    @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         pages.ensurePagesCommitted(offset, data.remaining());
 
         if (pages.isHostVisible) {
             writeHostVisible(data, offset);
             return TransferCompletion.completed();
         } else {
+            VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
             Arena transferArena = Arena.ofShared();
             VkBuffer tempHost = null;
             VkFence fence = null;
@@ -112,7 +104,7 @@ public class SparseBuffer extends AbstractBuffer {
                 MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, 0, offset, data.remaining());
                 vkCmdCopyBuffer(cmd.handle(), tempHost.handle(), vkBuffer.handle(), 1, copyRegion);
                 vkEndCommandBuffer(cmd.handle());
-                VkSubmit.builder().commandBuffer(cmd).submit(transferQueue.handle(), fence.handle(), transferArena).check();
+                VkSubmit.builder().commandBuffer(cmd).submit(queue.handle(), fence.handle(), transferArena).check();
 
                 return new TransferCompletion(device, fence, transferArena, tempHost);
             } catch (Exception e) {
@@ -137,6 +129,7 @@ public class SparseBuffer extends AbstractBuffer {
             return readHostVisible(offset, length);
         } else {
             System.err.println("WARNING: Synchronous read from device-local sparse buffer requires staging and will stall the pipeline.");
+            VkCommandPool commandPool = device.getOrCreateCommandPool(transferQueue.familyIndex());
             Arena readArena = Arena.ofShared();
             VkBuffer readback = null;
             VkFence fence = null;

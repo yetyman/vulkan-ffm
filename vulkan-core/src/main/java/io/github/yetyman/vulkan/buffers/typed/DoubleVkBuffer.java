@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.buffers.typed;
 
+import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MirroredBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
@@ -26,15 +27,15 @@ public class DoubleVkBuffer implements AutoCloseable {
     /** @return a live double view of the CPU mirror, or {@code null} if not mirrored. */
     public DoubleBuffer mirror() { return mirror; }
 
-    public void write(double[] data, int startIndex) {
-        TransferCompletion tc = writeAsync(data, startIndex);
+    public void write(double[] data, int startIndex, VkQueue queue) {
+        TransferCompletion tc = writeAsync(data, startIndex, queue);
         tc.await(); tc.close();
     }
 
-    public TransferCompletion writeAsync(double[] data, int startIndex) {
+    public TransferCompletion writeAsync(double[] data, int startIndex, VkQueue queue) {
         ByteBuffer bb = ByteBuffer.allocateDirect(data.length * STRIDE);
         bb.asDoubleBuffer().put(data);
-        return buffer.writeAsync(bb, (long) startIndex * STRIDE);
+        return buffer.writeAsync(bb, (long) startIndex * STRIDE, queue);
     }
 
     public double[] read(int startIndex, int length) {

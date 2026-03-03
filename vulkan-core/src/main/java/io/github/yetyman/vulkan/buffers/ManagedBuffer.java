@@ -1,15 +1,13 @@
 package io.github.yetyman.vulkan.buffers;
 
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
 public interface ManagedBuffer extends AutoCloseable {
     
-    // Data access (strategy-agnostic)
-    void write(ByteBuffer data, long offset);
-    TransferCompletion writeAsync(ByteBuffer data, long offset);
+    void write(ByteBuffer data, long offset, VkQueue queue);
+    TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue);
     
     /**
      * Reads data from buffer synchronously.
@@ -18,16 +16,10 @@ public interface ManagedBuffer extends AutoCloseable {
      */
     ByteBuffer read(long offset, long size);
     
-    void flush(); // No-op for coherent memory and device-local buffers
+    void flush();
 
-    /**
-     * Copies a region of this buffer into {@code dst} entirely on the GPU.
-     * Both buffers must have been created with TRANSFER_SRC / TRANSFER_DST usage respectively.
-     */
-    void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool);
-
-    /** @return a {@link TransferCompletion} that resolves when the GPU copy finishes. */
-    TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool);
+    void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue);
+    TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue);
     
     // Vulkan binding (usage-specific)
     MemorySegment handle();

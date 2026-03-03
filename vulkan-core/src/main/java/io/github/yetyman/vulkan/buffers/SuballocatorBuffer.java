@@ -1,6 +1,5 @@
 package io.github.yetyman.vulkan.buffers;
 
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
@@ -23,7 +22,7 @@ public class SuballocatorBuffer extends AbstractBuffer {
     public SuballocatorBuffer(VkDevice device,
                               long totalSize, BufferUsage usage, long slotSize,
                               MemoryStrategy backingStrategy,
-                              VkQueue transferQueue, VkCommandPool commandPool) {
+                              VkQueue transferQueue) {
         super(device, totalSize, usage, MemoryStrategy.SUBALLOCATOR);
 
         long alignment = switch (usage) {
@@ -43,7 +42,7 @@ public class SuballocatorBuffer extends AbstractBuffer {
 
         ManagedBuffer backing = null;
         try {
-            backing = BufferFactory.create(backingStrategy, backingStrategy, totalSize, usage, device, transferQueue, commandPool);
+            backing = BufferFactory.create(backingStrategy, backingStrategy, totalSize, usage, device, transferQueue);
         } catch (Exception e) {
             arena.close();
             throw e;
@@ -88,21 +87,14 @@ public class SuballocatorBuffer extends AbstractBuffer {
     @Override public MemorySegment handle() { return backingBuffer.handle(); }
 
     @Override
-    public void write(ByteBuffer data, long offset) {
-        TransferCompletion tc = writeAsync(data, offset);
-        tc.await();
-        tc.close();
-    }
-
-    @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        return backingBuffer.writeAsync(data, offset);
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+        return backingBuffer.writeAsync(data, offset, queue);
     }
 
     @Override public ByteBuffer read(long offset, long size) { return backingBuffer.read(offset, size); }
     @Override public void flush() { backingBuffer.flush(); }
-    @Override public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) { backingBuffer.copyTo(dst, srcOffset, dstOffset, length, queue, commandPool); }
-    @Override public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) { return backingBuffer.copyToAsync(dst, srcOffset, dstOffset, length, queue, commandPool); }
+    @Override public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) { backingBuffer.copyTo(dst, srcOffset, dstOffset, length, queue); }
+    @Override public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) { return backingBuffer.copyToAsync(dst, srcOffset, dstOffset, length, queue); }
     @Override public void closeImpl() { backingBuffer.close(); }
 
     private static long alignUp(long value, long alignment) {
@@ -134,22 +126,22 @@ public class SuballocatorBuffer extends AbstractBuffer {
         @Override public MemoryStrategy memoryStrategy() { return SuballocatorBuffer.this.memoryStrategy(); }
 
         @Override
-        public void write(ByteBuffer data, long ignored) {
+        public void write(ByteBuffer data, long ignored, VkQueue queue) {
             if (data.remaining() > size) throw new IllegalArgumentException("Data exceeds slot size");
-            SuballocatorBuffer.this.write(data, offset);
+            SuballocatorBuffer.this.write(data, offset, queue);
         }
 
         /** Writes to this slot. Offset parameter is ignored — slot offset is fixed. */
-        public void write(ByteBuffer data) { write(data, 0); }
+        public void write(ByteBuffer data, VkQueue queue) { write(data, 0, queue); }
 
         @Override
-        public TransferCompletion writeAsync(ByteBuffer data, long ignored) {
+        public TransferCompletion writeAsync(ByteBuffer data, long ignored, VkQueue queue) {
             if (data.remaining() > size) throw new IllegalArgumentException("Data exceeds slot size");
-            return SuballocatorBuffer.this.writeAsync(data, offset);
+            return SuballocatorBuffer.this.writeAsync(data, offset, queue);
         }
 
         /** Writes asynchronously to this slot. Offset parameter is ignored — slot offset is fixed. */
-        public TransferCompletion writeAsync(ByteBuffer data) { return writeAsync(data, 0); }
+        public TransferCompletion writeAsync(ByteBuffer data, VkQueue queue) { return writeAsync(data, 0, queue); }
 
         @Override public ByteBuffer read(long ignored, long readSize) { return SuballocatorBuffer.this.read(offset, readSize); }
         public ByteBuffer read() { return SuballocatorBuffer.this.read(offset, size); }
@@ -157,13 +149,13 @@ public class SuballocatorBuffer extends AbstractBuffer {
         @Override public void flush() { SuballocatorBuffer.this.flush(); }
 
         @Override
-        public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
-            SuballocatorBuffer.this.copyTo(dst, offset + srcOffset, dstOffset, length, queue, commandPool);
+        public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+            SuballocatorBuffer.this.copyTo(dst, offset + srcOffset, dstOffset, length, queue);
         }
 
         @Override
-        public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
-            return SuballocatorBuffer.this.copyToAsync(dst, offset + srcOffset, dstOffset, length, queue, commandPool);
+        public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+            return SuballocatorBuffer.this.copyToAsync(dst, offset + srcOffset, dstOffset, length, queue);
         }
 
         /** Returns this slot to the slab. */

@@ -12,20 +12,18 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 
 public class DeviceLocalBuffer extends AbstractBuffer {
     private final VkQueue transferQueue;
-    private final VkCommandPool commandPool;
     private final boolean persistentStaging;
 
     private VkBuffer stagingBuffer;
     private MemorySegment mappedMemory;
 
     public DeviceLocalBuffer(VkDevice device, long size, BufferUsage usage,
-                             VkQueue transferQueue, VkCommandPool commandPool, boolean persistentStaging) {
+                             VkQueue transferQueue, boolean persistentStaging) {
         super(device, size, usage, persistentStaging ? MemoryStrategy.STAGING : MemoryStrategy.DEVICE_LOCAL);
-        if (transferQueue == null || commandPool == null) {
-            throw new IllegalArgumentException("transferQueue and commandPool required");
+        if (transferQueue == null) {
+            throw new IllegalArgumentException("transferQueue required");
         }
         this.transferQueue = transferQueue;
-        this.commandPool = commandPool;
         this.persistentStaging = persistentStaging;
 
         try {
@@ -43,15 +41,11 @@ public class DeviceLocalBuffer extends AbstractBuffer {
         }
     }
 
-    @Override
-    public void write(ByteBuffer data, long offset) {
-        TransferCompletion tc = writeAsync(data, offset);
-        tc.await();
-        tc.close();
-    }
+
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+        VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
         Arena transferArena = Arena.ofShared();
         VkFence fence = null;
         try {
@@ -59,13 +53,13 @@ public class DeviceLocalBuffer extends AbstractBuffer {
 
             if (persistentStaging) {
                 MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
-                copyToDevice(stagingBuffer, offset, offset, data.remaining(), fence, transferArena);
+                copyToDevice(stagingBuffer, offset, offset, data.remaining(), fence, transferArena, queue, commandPool);
                 return new TransferCompletion(device, fence, transferArena);
             } else {
                 VkBuffer tempStaging = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
                 MemorySegment tempMapped = tempStaging.map(transferArena);
                 MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
-                copyToDevice(tempStaging, 0, offset, data.remaining(), fence, transferArena);
+                copyToDevice(tempStaging, 0, offset, data.remaining(), fence, transferArena, queue, commandPool);
                 return new TransferCompletion(device, fence, transferArena, tempStaging);
             }
         } catch (Exception e) {
@@ -75,7 +69,7 @@ public class DeviceLocalBuffer extends AbstractBuffer {
         }
     }
 
-    private void copyToDevice(VkBuffer srcBuffer, long srcOffset, long dstOffset, long copySize, VkFence fence, Arena transferArena) {
+    private void copyToDevice(VkBuffer srcBuffer, long srcOffset, long dstOffset, long copySize, VkFence fence, Arena transferArena, VkQueue queue, VkCommandPool commandPool) {
         VkCommandBuffer[] cmdBuffers = VkCommandBufferAlloc.builder()
             .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
         VkCommandBuffer cmdBuffer = cmdBuffers[0];
@@ -86,14 +80,13 @@ public class DeviceLocalBuffer extends AbstractBuffer {
         vkEndCommandBuffer(cmdBuffer.handle());
 
         VkSubmit.builder().commandBuffer(cmdBuffer)
-            .submit(transferQueue.handle(), fence.handle(), transferArena).check();
+            .submit(queue.handle(), fence.handle(), transferArena).check();
     }
 
     @Override
     public ByteBuffer read(long offset, long readSize) {
-        System.err.println("WARNING: Synchronous read from device-local buffer requires staging buffer and GPU->CPU transfer. "
-                         + "This is extremely slow and will stall the pipeline. Consider using MAPPED/MAPPED_CACHED strategy for frequent reads.");
-
+        System.err.println("WARNING: Synchronous read from device-local buffer stalls the pipeline.");
+        VkCommandPool commandPool = device.getOrCreateCommandPool(transferQueue.familyIndex());
         Arena readArena = Arena.ofShared();
         VkBuffer readbackBuf = null;
         VkFence fence = null;

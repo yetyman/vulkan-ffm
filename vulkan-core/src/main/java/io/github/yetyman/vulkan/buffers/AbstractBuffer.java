@@ -75,14 +75,15 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     }
 
     @Override
-    public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
-        TransferCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue, commandPool);
+    public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+        TransferCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue);
         tc.await();
         tc.close();
     }
 
     @Override
-    public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue, VkCommandPool commandPool) {
+    public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+        VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
         Arena transferArena = Arena.ofShared();
         VkFence fence = null;
         try {
@@ -104,17 +105,19 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
+    public void write(ByteBuffer data, long offset, VkQueue queue) {
+        TransferCompletion tc = writeAsync(data, offset, queue);
+        tc.await();
+        tc.close();
+    }
+
+    @Override
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         throw new UnsupportedOperationException("writeAsync not implemented for " + getClass().getSimpleName());
     }
 
     @Override
     public ByteBuffer read(long offset, long size) {
         throw new UnsupportedOperationException("read not implemented for " + getClass().getSimpleName());
-    }
-
-    @Override
-    public void write(ByteBuffer data, long offset) {
-        throw new UnsupportedOperationException("write not implemented for " + getClass().getSimpleName());
     }
 }

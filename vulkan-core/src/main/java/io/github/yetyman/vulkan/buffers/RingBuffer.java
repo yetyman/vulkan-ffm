@@ -1,6 +1,5 @@
 package io.github.yetyman.vulkan.buffers;
 
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
@@ -18,7 +17,7 @@ public class RingBuffer extends AbstractBuffer {
 
     public RingBuffer(VkDevice device,
                      long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
-                     VkQueue transferQueue, VkCommandPool commandPool) {
+                     VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
@@ -26,7 +25,7 @@ public class RingBuffer extends AbstractBuffer {
 
         try {
             for (int i = 0; i < frameCount; i++) {
-                buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue, commandPool);
+                buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue);
             }
         } catch (Exception e) {
             for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
@@ -40,7 +39,7 @@ public class RingBuffer extends AbstractBuffer {
                      AccessFrequency cpuWrite, AccessFrequency cpuRead,
                      AccessFrequency gpuRead, AccessFrequency gpuWrite,
                      int frameCount,
-                     VkQueue transferQueue, VkCommandPool commandPool) {
+                     VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.buffers = new ManagedBuffer[frameCount];
@@ -50,7 +49,7 @@ public class RingBuffer extends AbstractBuffer {
             for (int i = 0; i < frameCount; i++) {
                 buffers[i] = BufferFactory.createAutomatic(
                     cpuWrite, cpuRead, gpuRead, gpuWrite, size,
-                    usage, device, transferQueue, commandPool
+                    usage, device, transferQueue
                 );
             }
         } catch (Exception e) {
@@ -61,17 +60,10 @@ public class RingBuffer extends AbstractBuffer {
     }
 
     @Override
-    public void write(ByteBuffer data, long offset) {
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         int frame = currentFrame;
         awaitSlot(frame);
-        buffers[frame].write(data, offset);
-    }
-
-    @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
-        int frame = currentFrame;
-        awaitSlot(frame);
-        TransferCompletion tc = buffers[frame].writeAsync(data, offset);
+        TransferCompletion tc = buffers[frame].writeAsync(data, offset, queue);
         inFlight.set(frame, tc);
         return tc;
     }

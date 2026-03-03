@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
@@ -30,7 +31,6 @@ public class ReBarBuffer extends AbstractBuffer {
         }
     }
 
-    @Override
     public void write(ByteBuffer data, long offset) {
         if (offset + data.remaining() > size) {
             throw new IllegalArgumentException("Write exceeds buffer size");
@@ -38,10 +38,14 @@ public class ReBarBuffer extends AbstractBuffer {
         MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
     }
 
-    @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset) {
         write(data, offset);
         return TransferCompletion.completed();
+    }
+
+    @Override
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+        return writeAsync(data, offset);
     }
 
     @Override

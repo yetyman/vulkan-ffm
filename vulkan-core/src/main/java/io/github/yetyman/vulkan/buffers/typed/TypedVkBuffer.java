@@ -1,6 +1,5 @@
 package io.github.yetyman.vulkan.buffers.typed;
 
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
@@ -56,35 +55,31 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     // Single-element write
     // -------------------------------------------------------------------------
 
-    public void write(int index, T value) {
-        TransferCompletion tc = writeAsync(index, value);
+    public void write(int index, T value, VkQueue queue) {
+        TransferCompletion tc = writeAsync(index, value, queue);
         tc.await();
         tc.close();
     }
 
-    public TransferCompletion writeAsync(int index, T value) {
+    public TransferCompletion writeAsync(int index, T value, VkQueue queue) {
         checkIndex(index);
         ByteBuffer scratch = getScratchBuffer(stride);
         value.writeTo(scratch);
-        scratch.rewind();
+        scratch.flip();
         if (mirror != null) {
             T old = mirror.set(index, value);
             if (old != null && old != value) releaseInstance(old);
         }
-        return buffer.writeAsync(scratch, (long) index * stride);
+        return buffer.writeAsync(scratch, (long) index * stride, queue);
     }
 
-    // -------------------------------------------------------------------------
-    // Bulk write
-    // -------------------------------------------------------------------------
-
-    public void write(List<T> values, int startIndex) {
-        TransferCompletion tc = writeAsync(values, startIndex);
+    public void write(List<T> values, int startIndex, VkQueue queue) {
+        TransferCompletion tc = writeAsync(values, startIndex, queue);
         tc.await();
         tc.close();
     }
 
-    public TransferCompletion writeAsync(List<T> values, int startIndex) {
+    public TransferCompletion writeAsync(List<T> values, int startIndex, VkQueue queue) {
         checkIndex(startIndex);
         checkIndex(startIndex + values.size() - 1);
         ByteBuffer scratch = getScratchBuffer(stride * values.size());
@@ -95,8 +90,8 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
                 if (old != null && old != values.get(i)) releaseInstance(old);
             }
         }
-        scratch.rewind();
-        return buffer.writeAsync(scratch, (long) startIndex * stride);
+        scratch.flip();
+        return buffer.writeAsync(scratch, (long) startIndex * stride, queue);
     }
 
     // -------------------------------------------------------------------------
@@ -171,16 +166,14 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     // GPU copy
     // -------------------------------------------------------------------------
 
-    public void copyTo(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount,
-                       VkQueue queue, VkCommandPool commandPool) {
+    public void copyTo(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
         buffer.copyTo(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
-                      (long) elementCount * stride, queue, commandPool);
+                      (long) elementCount * stride, queue);
     }
 
-    public TransferCompletion copyToAsync(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount,
-                                          VkQueue queue, VkCommandPool commandPool) {
+    public TransferCompletion copyToAsync(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
         return buffer.copyToAsync(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
-                                  (long) elementCount * stride, queue, commandPool);
+                                  (long) elementCount * stride, queue);
     }
 
     private ByteBuffer getScratchBuffer(int requiredSize) {

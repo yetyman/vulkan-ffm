@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.buffers.typed;
 
+import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MirroredBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
@@ -26,15 +27,15 @@ public class LongVkBuffer implements AutoCloseable {
     /** @return a live long view of the CPU mirror, or {@code null} if not mirrored. */
     public LongBuffer mirror() { return mirror; }
 
-    public void write(long[] data, int startIndex) {
-        TransferCompletion tc = writeAsync(data, startIndex);
+    public void write(long[] data, int startIndex, VkQueue queue) {
+        TransferCompletion tc = writeAsync(data, startIndex, queue);
         tc.await(); tc.close();
     }
 
-    public TransferCompletion writeAsync(long[] data, int startIndex) {
+    public TransferCompletion writeAsync(long[] data, int startIndex, VkQueue queue) {
         ByteBuffer bb = ByteBuffer.allocateDirect(data.length * STRIDE);
         bb.asLongBuffer().put(data);
-        return buffer.writeAsync(bb, (long) startIndex * STRIDE);
+        return buffer.writeAsync(bb, (long) startIndex * STRIDE, queue);
     }
 
     public long[] read(int startIndex, int length) {

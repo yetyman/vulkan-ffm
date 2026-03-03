@@ -1,7 +1,6 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkQueue;
 
 public class BufferFactory {
@@ -37,18 +36,17 @@ public class BufferFactory {
             long size,
             BufferUsage usage,
             VkDevice device,
-            VkQueue transferQueue,
-            VkCommandPool commandPool) {
+            VkQueue transferQueue) {
 
         return switch (strategy) {
             case MAPPED -> new MappedBuffer(device, size, usage, true);
             case MAPPED_CACHED -> new MappedBuffer(device, size, usage, false);
-            case DEVICE_LOCAL -> new DeviceLocalBuffer(device, size, usage, transferQueue, commandPool, false);
-            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device, size, usage, transferQueue, commandPool);
-            case STAGING -> new DeviceLocalBuffer(device, size, usage, transferQueue, commandPool, true);
+            case DEVICE_LOCAL -> new DeviceLocalBuffer(device, size, usage, transferQueue, false);
+            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device, size, usage, transferQueue);
+            case STAGING -> new DeviceLocalBuffer(device, size, usage, transferQueue, true);
             case REBAR -> new ReBarBuffer(device, size, usage);
-            case RING_BUFFER -> new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue, commandPool);
-            case SPARSE -> new SparseBuffer(device, size, usage, secondaryStrategy, transferQueue, transferQueue, commandPool);
+            case RING_BUFFER -> new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue);
+            case SPARSE -> new SparseBuffer(device, size, usage, secondaryStrategy, transferQueue, transferQueue);
             case SUBALLOCATOR -> throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
         };
     }
@@ -67,9 +65,8 @@ public class BufferFactory {
             BufferUsage usage,
             MemoryStrategy backingStrategy,
             VkDevice device,
-            VkQueue transferQueue,
-            VkCommandPool commandPool) {
-        return new SuballocatorBuffer(device, totalSize, usage, slotSize, backingStrategy, transferQueue, commandPool);
+            VkQueue transferQueue) {
+        return new SuballocatorBuffer(device, totalSize, usage, slotSize, backingStrategy, transferQueue);
     }
 
     /**
@@ -112,12 +109,11 @@ public class BufferFactory {
             long size,
             BufferUsage usage,
             VkDevice device,
-            VkQueue transferQueue,
-            VkCommandPool commandPool) {
+            VkQueue transferQueue) {
 
         DataScale scale = DataScale.fromSize(size, device.physicalDevice());
         BufferStrategySelection selection = BufferStrategySelector.select(cpuWrite, cpuRead, gpuRead, gpuWrite, scale);
 
-        return create(selection.memoryStrategy(), selection.secondaryStrategy(), size, usage, device, transferQueue, commandPool);
+        return create(selection.memoryStrategy(), selection.secondaryStrategy(), size, usage, device, transferQueue);
     }
 }

@@ -18,11 +18,10 @@ public class MirroredBuffer extends AbstractBuffer {
     private final DeviceLocalBuffer deviceBuffer;
     private ByteBuffer mirror;
 
-    public MirroredBuffer(VkDevice device, long size, BufferUsage usage,
-                          VkQueue transferQueue, VkCommandPool commandPool) {
+    public MirroredBuffer(VkDevice device, long size, BufferUsage usage, VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.DEVICE_LOCAL_MIRRORED);
         try {
-            this.deviceBuffer = new DeviceLocalBuffer(device, size, usage, transferQueue, commandPool, false);
+            this.deviceBuffer = new DeviceLocalBuffer(device, size, usage, transferQueue, false);
             this.mirror = ByteBuffer.allocate((int) size);
             // expose the device buffer's VkBuffer handle via vkBuffer field
             this.vkBuffer = deviceBuffer.vkBuffer;
@@ -36,20 +35,13 @@ public class MirroredBuffer extends AbstractBuffer {
     public MemorySegment handle() { return deviceBuffer.handle(); }
 
     @Override
-    public void write(ByteBuffer data, long offset) {
-        TransferCompletion tc = writeAsync(data, offset);
-        tc.await();
-        tc.close();
-    }
-
-    @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset) {
+    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         ByteBuffer slice = data.slice();
         mirror.position((int) offset);
         mirror.put(slice);
         mirror.rewind();
         data.rewind();
-        return deviceBuffer.writeAsync(data, offset);
+        return deviceBuffer.writeAsync(data, offset, queue);
     }
 
     /** @return the raw CPU mirror ByteBuffer — for typed buffer views. */
