@@ -1,0 +1,140 @@
+package io.github.yetyman.vulkan.generated;
+
+import java.lang.foreign.*;
+import java.lang.invoke.*;
+
+public class VkDeviceFunctions {
+
+    public final MethodHandle vkGetDeviceProcAddr;
+    public final MethodHandle vkGetMemoryWin32HandleNV;
+    public final MethodHandle vkGetMemoryWin32HandleKHR;
+    public final MethodHandle vkGetMemoryWin32HandlePropertiesKHR;
+    public final MethodHandle vkGetMemoryZirconHandleFUCHSIA;
+    public final MethodHandle vkGetMemoryZirconHandlePropertiesFUCHSIA;
+    public final MethodHandle vkGetMemorySciBufNV;
+    public final MethodHandle vkGetSemaphoreWin32HandleKHR;
+    public final MethodHandle vkImportSemaphoreWin32HandleKHR;
+    public final MethodHandle vkGetSemaphoreZirconHandleFUCHSIA;
+    public final MethodHandle vkImportSemaphoreZirconHandleFUCHSIA;
+    public final MethodHandle vkGetFenceWin32HandleKHR;
+    public final MethodHandle vkImportFenceWin32HandleKHR;
+    public final MethodHandle vkGetFenceSciSyncFenceNV;
+    public final MethodHandle vkGetFenceSciSyncObjNV;
+    public final MethodHandle vkImportFenceSciSyncFenceNV;
+    public final MethodHandle vkImportFenceSciSyncObjNV;
+    public final MethodHandle vkGetSemaphoreSciSyncObjNV;
+    public final MethodHandle vkImportSemaphoreSciSyncObjNV;
+    public final MethodHandle vkCreateSemaphoreSciSyncPoolNV;
+    public final MethodHandle vkDestroySemaphoreSciSyncPoolNV;
+    public final MethodHandle vkGetSwapchainGrallocUsageANDROID;
+    public final MethodHandle vkGetSwapchainGrallocUsage2ANDROID;
+    public final MethodHandle vkAcquireImageANDROID;
+    public final MethodHandle vkQueueSignalReleaseImageANDROID;
+    public final MethodHandle vkGetAndroidHardwareBufferPropertiesANDROID;
+    public final MethodHandle vkGetMemoryAndroidHardwareBufferANDROID;
+    public final MethodHandle vkGetDeviceGroupSurfacePresentModes2EXT;
+    public final MethodHandle vkAcquireFullScreenExclusiveModeEXT;
+    public final MethodHandle vkReleaseFullScreenExclusiveModeEXT;
+    public final MethodHandle vkGetFaultData;
+    public final MethodHandle vkCmdRefreshObjectsKHR;
+    public final MethodHandle vkGetCommandPoolMemoryConsumption;
+    public final MethodHandle vkCreateBufferCollectionFUCHSIA;
+    public final MethodHandle vkSetBufferCollectionBufferConstraintsFUCHSIA;
+    public final MethodHandle vkSetBufferCollectionImageConstraintsFUCHSIA;
+    public final MethodHandle vkDestroyBufferCollectionFUCHSIA;
+    public final MethodHandle vkGetBufferCollectionPropertiesFUCHSIA;
+    public final MethodHandle vkCreateCudaModuleNV;
+    public final MethodHandle vkGetCudaModuleCacheNV;
+    public final MethodHandle vkCreateCudaFunctionNV;
+    public final MethodHandle vkDestroyCudaModuleNV;
+    public final MethodHandle vkDestroyCudaFunctionNV;
+    public final MethodHandle vkCmdCudaLaunchKernelNV;
+    public final MethodHandle vkExportMetalObjectsEXT;
+    public final MethodHandle vkGetScreenBufferPropertiesQNX;
+    public final MethodHandle vkGetExecutionGraphPipelineScratchSizeAMDX;
+    public final MethodHandle vkGetExecutionGraphPipelineNodeIndexAMDX;
+    public final MethodHandle vkCreateExecutionGraphPipelinesAMDX;
+    public final MethodHandle vkCmdInitializeGraphScratchMemoryAMDX;
+    public final MethodHandle vkCmdDispatchGraphAMDX;
+    public final MethodHandle vkCmdDispatchGraphIndirectAMDX;
+    public final MethodHandle vkCmdDispatchGraphIndirectCountAMDX;
+    public final MethodHandle vkGetMemoryMetalHandleEXT;
+    public final MethodHandle vkGetMemoryMetalHandlePropertiesEXT;
+    public final MethodHandle vkGetNativeBufferPropertiesOHOS;
+    public final MethodHandle vkGetMemoryNativeBufferOHOS;
+    public final MethodHandle vkGetSwapchainGrallocUsageOHOS;
+    public final MethodHandle vkAcquireImageOHOS;
+    public final MethodHandle vkQueueSignalReleaseImageOHOS;
+
+    public VkDeviceFunctions(MemorySegment device) {
+        Linker linker = Linker.nativeLinker();
+        this.vkGetDeviceProcAddr = load(device, linker, "vkGetDeviceProcAddr", FunctionDescriptor.of(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryWin32HandleNV = load(device, linker, "vkGetMemoryWin32HandleNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryWin32HandleKHR = load(device, linker, "vkGetMemoryWin32HandleKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryWin32HandlePropertiesKHR = load(device, linker, "vkGetMemoryWin32HandlePropertiesKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryZirconHandleFUCHSIA = load(device, linker, "vkGetMemoryZirconHandleFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryZirconHandlePropertiesFUCHSIA = load(device, linker, "vkGetMemoryZirconHandlePropertiesFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemorySciBufNV = load(device, linker, "vkGetMemorySciBufNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSemaphoreWin32HandleKHR = load(device, linker, "vkGetSemaphoreWin32HandleKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportSemaphoreWin32HandleKHR = load(device, linker, "vkImportSemaphoreWin32HandleKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSemaphoreZirconHandleFUCHSIA = load(device, linker, "vkGetSemaphoreZirconHandleFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportSemaphoreZirconHandleFUCHSIA = load(device, linker, "vkImportSemaphoreZirconHandleFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetFenceWin32HandleKHR = load(device, linker, "vkGetFenceWin32HandleKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportFenceWin32HandleKHR = load(device, linker, "vkImportFenceWin32HandleKHR", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetFenceSciSyncFenceNV = load(device, linker, "vkGetFenceSciSyncFenceNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetFenceSciSyncObjNV = load(device, linker, "vkGetFenceSciSyncObjNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportFenceSciSyncFenceNV = load(device, linker, "vkImportFenceSciSyncFenceNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportFenceSciSyncObjNV = load(device, linker, "vkImportFenceSciSyncObjNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSemaphoreSciSyncObjNV = load(device, linker, "vkGetSemaphoreSciSyncObjNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkImportSemaphoreSciSyncObjNV = load(device, linker, "vkImportSemaphoreSciSyncObjNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCreateSemaphoreSciSyncPoolNV = load(device, linker, "vkCreateSemaphoreSciSyncPoolNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkDestroySemaphoreSciSyncPoolNV = load(device, linker, "vkDestroySemaphoreSciSyncPoolNV", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSwapchainGrallocUsageANDROID = load(device, linker, "vkGetSwapchainGrallocUsageANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSwapchainGrallocUsage2ANDROID = load(device, linker, "vkGetSwapchainGrallocUsage2ANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkAcquireImageANDROID = load(device, linker, "vkAcquireImageANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkQueueSignalReleaseImageANDROID = load(device, linker, "vkQueueSignalReleaseImageANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetAndroidHardwareBufferPropertiesANDROID = load(device, linker, "vkGetAndroidHardwareBufferPropertiesANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryAndroidHardwareBufferANDROID = load(device, linker, "vkGetMemoryAndroidHardwareBufferANDROID", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetDeviceGroupSurfacePresentModes2EXT = load(device, linker, "vkGetDeviceGroupSurfacePresentModes2EXT", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkAcquireFullScreenExclusiveModeEXT = load(device, linker, "vkAcquireFullScreenExclusiveModeEXT", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkReleaseFullScreenExclusiveModeEXT = load(device, linker, "vkReleaseFullScreenExclusiveModeEXT", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetFaultData = load(device, linker, "vkGetFaultData", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCmdRefreshObjectsKHR = load(device, linker, "vkCmdRefreshObjectsKHR", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetCommandPoolMemoryConsumption = load(device, linker, "vkGetCommandPoolMemoryConsumption", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCreateBufferCollectionFUCHSIA = load(device, linker, "vkCreateBufferCollectionFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkSetBufferCollectionBufferConstraintsFUCHSIA = load(device, linker, "vkSetBufferCollectionBufferConstraintsFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkSetBufferCollectionImageConstraintsFUCHSIA = load(device, linker, "vkSetBufferCollectionImageConstraintsFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkDestroyBufferCollectionFUCHSIA = load(device, linker, "vkDestroyBufferCollectionFUCHSIA", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetBufferCollectionPropertiesFUCHSIA = load(device, linker, "vkGetBufferCollectionPropertiesFUCHSIA", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCreateCudaModuleNV = load(device, linker, "vkCreateCudaModuleNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetCudaModuleCacheNV = load(device, linker, "vkGetCudaModuleCacheNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCreateCudaFunctionNV = load(device, linker, "vkCreateCudaFunctionNV", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkDestroyCudaModuleNV = load(device, linker, "vkDestroyCudaModuleNV", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkDestroyCudaFunctionNV = load(device, linker, "vkDestroyCudaFunctionNV", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCmdCudaLaunchKernelNV = load(device, linker, "vkCmdCudaLaunchKernelNV", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkExportMetalObjectsEXT = load(device, linker, "vkExportMetalObjectsEXT", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetScreenBufferPropertiesQNX = load(device, linker, "vkGetScreenBufferPropertiesQNX", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetExecutionGraphPipelineScratchSizeAMDX = load(device, linker, "vkGetExecutionGraphPipelineScratchSizeAMDX", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetExecutionGraphPipelineNodeIndexAMDX = load(device, linker, "vkGetExecutionGraphPipelineNodeIndexAMDX", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCreateExecutionGraphPipelinesAMDX = load(device, linker, "vkCreateExecutionGraphPipelinesAMDX", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCmdInitializeGraphScratchMemoryAMDX = load(device, linker, "vkCmdInitializeGraphScratchMemoryAMDX", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG, VulkanFFM.C_LONG_LONG));
+        this.vkCmdDispatchGraphAMDX = load(device, linker, "vkCmdDispatchGraphAMDX", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG, VulkanFFM.C_LONG_LONG, VulkanFFM.C_POINTER));
+        this.vkCmdDispatchGraphIndirectAMDX = load(device, linker, "vkCmdDispatchGraphIndirectAMDX", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG, VulkanFFM.C_LONG_LONG, VulkanFFM.C_POINTER));
+        this.vkCmdDispatchGraphIndirectCountAMDX = load(device, linker, "vkCmdDispatchGraphIndirectCountAMDX", FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG, VulkanFFM.C_LONG_LONG, VulkanFFM.C_LONG_LONG));
+        this.vkGetMemoryMetalHandleEXT = load(device, linker, "vkGetMemoryMetalHandleEXT", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryMetalHandlePropertiesEXT = load(device, linker, "vkGetMemoryMetalHandlePropertiesEXT", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetNativeBufferPropertiesOHOS = load(device, linker, "vkGetNativeBufferPropertiesOHOS", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetMemoryNativeBufferOHOS = load(device, linker, "vkGetMemoryNativeBufferOHOS", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkGetSwapchainGrallocUsageOHOS = load(device, linker, "vkGetSwapchainGrallocUsageOHOS", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkAcquireImageOHOS = load(device, linker, "vkAcquireImageOHOS", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkQueueSignalReleaseImageOHOS = load(device, linker, "vkQueueSignalReleaseImageOHOS", FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+    }
+
+    private static MethodHandle load(MemorySegment handle, Linker linker, String name, FunctionDescriptor desc) {
+        try (Arena tmp = Arena.ofConfined()) {
+            MemorySegment fnPtr = VulkanFFM.vkGetDeviceProcAddr(handle, tmp.allocateFrom(name));
+            if (fnPtr.equals(MemorySegment.NULL)) return null;
+            return linker.downcallHandle(fnPtr, desc);
+        }
+    }
+}
