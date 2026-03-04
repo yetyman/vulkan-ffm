@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.VkResult;
+import io.github.yetyman.vulkan.VkTimelineSemaphore;
 import java.lang.foreign.*;
 
 /**
@@ -26,7 +27,7 @@ public class VkSyncManager implements AutoCloseable {
     /**
      * Creates or gets a timeline semaphore by name.
      */
-    public VkSemaphoreManager.TimelineSemaphore getTimelineSemaphore(String name) {
+    public VkTimelineSemaphore getTimelineSemaphore(String name) {
         return semaphoreManager.getTimelineSemaphore(name);
     }
     

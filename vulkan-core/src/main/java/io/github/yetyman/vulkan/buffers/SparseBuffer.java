@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 
 import static io.github.yetyman.vulkan.enums.VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_BINDING_BIT;
 import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.*;
+import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFlushMappedMemoryRanges;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFlushMappedMemoryRanges;
 
 /**
  * Sparse buffer with dynamic page-level memory binding.
@@ -87,32 +87,12 @@ public class SparseBuffer extends AbstractBuffer {
             writeHostVisible(data, offset);
             return TransferCompletion.completed();
         } else {
-            VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
-            Arena transferArena = Arena.ofShared();
-            VkBuffer tempHost = null;
-            VkFence fence = null;
-            try {
-                tempHost = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
-                MemorySegment mapped = tempHost.map(transferArena);
-                MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mapped, 0, data.remaining());
-
-                fence = VkFence.builder().device(device).build(transferArena);
-                VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-                    .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
-                VkCommandBuffer cmd = cmds[0];
-                VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(transferArena);
-                MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, 0, offset, data.remaining());
-                vkCmdCopyBuffer(cmd.handle(), tempHost.handle(), vkBuffer.handle(), 1, copyRegion);
-                vkEndCommandBuffer(cmd.handle());
-                VkSubmit.builder().commandBuffer(cmd).submit(queue.handle(), fence.handle(), transferArena).check();
-
-                return new TransferCompletion(device, fence, transferArena, tempHost);
-            } catch (Exception e) {
-                if (fence != null) fence.close();
-                if (tempHost != null) tempHost.close();
-                transferArena.close();
-                throw e;
-            }
+            Arena stagingArena = Arena.ofShared();
+            VkBuffer tempHost = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(stagingArena);
+            MemorySegment mapped = tempHost.map(stagingArena);
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mapped, 0, data.remaining());
+            TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+            return batch.record(tempHost.handle(), vkBuffer.handle(), 0, offset, data.remaining(), tempHost, stagingArena);
         }
     }
 

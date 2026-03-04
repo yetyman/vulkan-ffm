@@ -350,22 +350,6 @@ public class Vulkan {
         VulkanFFM.vkCmdEndRenderPass(commandBuffer);
     }
 
-    // Timeline semaphore extensions (simplified)
-    public static VkResult getSemaphoreCounterValue(MemorySegment device, MemorySegment semaphore, MemorySegment value) {
-        // Simplified - would need actual extension function
-        return VkResult.VK_SUCCESS;
-    }
-
-    public static VkResult waitSemaphores(MemorySegment device, MemorySegment waitInfo, long timeout) {
-        // Simplified - would need actual extension function
-        return VkResult.VK_SUCCESS;
-    }
-
-    public static VkResult signalSemaphore(MemorySegment device, MemorySegment signalInfo) {
-        // Simplified - would need actual extension function
-        return VkResult.VK_SUCCESS;
-    }
-
     // Debug utils extensions (simplified)
     public static VkResult createDebugUtilsMessengerEXT(MemorySegment instance, MemorySegment createInfo, MemorySegment messenger) {
         // Simplified - would need actual extension function

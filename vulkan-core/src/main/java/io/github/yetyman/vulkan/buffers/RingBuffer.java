@@ -71,7 +71,7 @@ public class RingBuffer extends AbstractBuffer {
     /** Awaits and clears any in-flight completion for the given slot before reuse. */
     private void awaitSlot(int slot) {
         TransferCompletion prev = inFlight.getAndSet(slot, null);
-        if (prev != null) prev.await();
+        if (prev != null) { prev.await(); prev.close(); }
     }
 
     @Override
@@ -103,11 +103,9 @@ public class RingBuffer extends AbstractBuffer {
 
     @Override
     public void closeImpl() {
+        for (int i = 0; i < frameCount; i++) awaitSlot(i);
         for (ManagedBuffer buffer : buffers) {
-            if (buffer != null) {
-                buffer.close();
-            }
+            if (buffer != null) buffer.close();
         }
-        // Don't call super.closeImpl() — child buffers own their own VkBuffers
     }
 }

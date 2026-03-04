@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.VkTimelineSemaphore;
 import io.github.yetyman.vulkan.buffers.typed.TypedVkBuffer;
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkApplicationInfo;
@@ -64,6 +65,7 @@ public class BufferExample {
                 .physicalDevice(physicalDevice)
                 .queueFamily(queueFamily)
                 .enableSparseBinding()
+                .enableTimelineSemaphore()
                 .build(arena);
             if (sparseFamily >= 0 && sparseFamily != queueFamily) {
                 device.close();
@@ -72,6 +74,7 @@ public class BufferExample {
                     .queueFamily(queueFamily)
                     .queueFamily(sparseFamily)
                     .enableSparseBinding()
+                    .enableTimelineSemaphore()
                     .build(arena);
             }
 
@@ -130,7 +133,7 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("MAPPED_CACHED offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.await(); }
+                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                 check("MAPPED_CACHED writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
                 // explicit flush (non-coherent path)
@@ -150,14 +153,16 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("DEVICE_LOCAL offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.await(); }
+                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                 check("DEVICE_LOCAL writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.toFuture().join(); }
+                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.flush(device, queue); tc.toFuture().join(); }
                 check("DEVICE_LOCAL writeAsync+toFuture", buf.read(0, SIZE).getInt(0), MAGIC2);
 
                 CountDownLatch latch = new CountDownLatch(1);
-                buf.writeAsync(data.rewind(), 0, queue).onComplete(latch::countDown);
+                TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
+                tc.onComplete(latch::countDown);
+                tc.flush(device, queue);
                 latch.await(5, TimeUnit.SECONDS);
                 check("DEVICE_LOCAL writeAsync+onComplete", buf.read(0, SIZE).getInt(0), MAGIC);
             }
@@ -173,10 +178,10 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("STAGING offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.await(); }
+                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                 check("STAGING writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.toFuture().join(); }
+                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.flush(device, queue); tc.toFuture().join(); }
                 check("STAGING writeAsync+toFuture", buf.read(0, SIZE).getInt(0), MAGIC2);
             }
 
@@ -195,11 +200,11 @@ public class BufferExample {
                 check("GPU COPY sync offset", dst.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
                 src.write(data.rewind(), 0, queue);
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) { tc.await(); }
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) { tc.flush(device, queue); tc.await(); }
                 check("GPU COPY async+await", dst.read(0, SIZE).getInt(0), MAGIC);
 
                 src.write(data2.rewind(), 0, queue);
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) { tc.toFuture().join(); }
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) { tc.flush(device, queue); tc.toFuture().join(); }
                 check("GPU COPY async+toFuture", dst.read(0, SIZE).getInt(0), MAGIC2);
             }
 
@@ -214,10 +219,10 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("MIRRORED offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.await(); }
+                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                 check("MIRRORED writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.toFuture().join(); }
+                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.flush(device, queue); tc.toFuture().join(); }
                 check("MIRRORED writeAsync+toFuture (mirror)", buf.read(0, SIZE).getInt(0), MAGIC2);
             }
 
@@ -237,6 +242,7 @@ public class BufferExample {
                 for (int frame = 0; frame < 3; frame++) {
                     TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
                     // intentionally do NOT await — nextFrame's awaitSlot should handle it
+                    tc.flush(device, queue);
                     buf.nextFrame();
                     // now write to the same slot again (wraps after 3); awaitSlot must have resolved tc
                 }
@@ -251,7 +257,7 @@ public class BufferExample {
                 buf.write(data.rewind(), 0, queue);
                 check("RING_BUFFER(DEVICE_LOCAL)[0] sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
                 buf.nextFrame();
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.await(); }
+                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                 check("RING_BUFFER(DEVICE_LOCAL)[1] writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC2);
             }
 
@@ -269,7 +275,7 @@ public class BufferExample {
                     check("SUBALLOCATOR sub2 write/read", sub2.read().getInt(0), MAGIC2);
                     check("SUBALLOCATOR sub1 unaffected by sub2", sub1.read().getInt(0), MAGIC);
 
-                    try (TransferCompletion tc = sub1.writeAsync(intBuf(MAGIC2), queue)) { tc.await(); }
+                    try (TransferCompletion tc = sub1.writeAsync(intBuf(MAGIC2), queue)) { tc.flush(device, queue); tc.await(); }
                     check("SUBALLOCATOR sub1 writeAsync+await", sub1.read().getInt(0), MAGIC2);
                 }
                 check("SUBALLOCATOR slots reclaimed", buf.availableSlots(), buf.slotCount());
@@ -290,7 +296,7 @@ public class BufferExample {
                 try (SuballocatorBuffer.Suballocation sub = buf.allocate()) {
                     sub.write(intBuf(MAGIC), queue);
                     check("SUBALLOCATOR(DEVICE_LOCAL) write/read", sub.read().getInt(0), MAGIC);
-                    try (TransferCompletion tc = sub.writeAsync(intBuf(MAGIC2), queue)) { tc.await(); }
+                    try (TransferCompletion tc = sub.writeAsync(intBuf(MAGIC2), queue)) { tc.flush(device, queue); tc.await(); }
                     check("SUBALLOCATOR(DEVICE_LOCAL) writeAsync+await", sub.read().getInt(0), MAGIC2);
                 }
             }
@@ -314,7 +320,7 @@ public class BufferExample {
                     check("SPARSE(DEVICE_LOCAL) first page unaffected", buf.read(0, 4).getInt(0), MAGIC);
 
                     // async write
-                    try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.await(); }
+                    try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) { tc.flush(device, queue); tc.await(); }
                     check("SPARSE(DEVICE_LOCAL) writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC2);
 
                     // multi-page spanning write
@@ -415,8 +421,37 @@ public class BufferExample {
                 src.copyTo(dst, 0, 0, 1, queue);
                 check("TYPED GPU copy[0].x", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
 
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, elemCount, queue)) { tc.await(); }
+                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, elemCount, queue)) { tc.flush(device, queue); tc.await(); }
                 check("TYPED GPU copyAsync full", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
+            }
+
+            // =========================================================
+            // TIMELINE SEMAPHORE
+            // =========================================================
+            section("TIMELINE_SEMAPHORE");
+            try (Arena semArena = Arena.ofShared();
+                 VkTimelineSemaphore timeline = VkTimelineSemaphore.create(device, 0, semArena);
+                 ManagedBuffer buf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue)) {
+
+                // Queue three async writes into the same batch, then attach a signal at value 1
+                TransferBatchManager.signalOn(device, queue, timeline, 1);
+                check("Timeline counter before writes", (int)timeline.counterValue(), 0);
+                buf.writeAsync(intBuf(MAGIC),  0,        queue);
+                buf.writeAsync(intBuf(MAGIC2), SIZE / 2, queue);
+                buf.writeAsync(intBuf(MAGIC), SIZE - 4, queue);
+
+                check("Timeline counter after async writes", (int)timeline.counterValue(), 0);
+                TransferBatchManager.flush(device, queue);
+
+                // CPU waits for the GPU to signal value 1
+                check("Timeline counter after flush", (int)timeline.counterValue(), 0);
+                timeline.await(1);
+                check("Timeline counter after flush+await", (int)timeline.counterValue(), 1);
+
+                check("TIMELINE_SEMAPHORE write[0]",      buf.read(0,        4).getInt(0), MAGIC);
+                check("TIMELINE_SEMAPHORE write[SIZE/2]", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
+                check("TIMELINE_SEMAPHORE write[end]",    buf.read(SIZE - 4, 4).getInt(0), MAGIC);
+                System.out.println("  timeline counter after await: " + timeline.counterValue());
             }
 
             // =========================================================

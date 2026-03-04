@@ -6,7 +6,7 @@ import java.lang.foreign.ValueLayout;
 
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkGetDeviceQueue;
 
-public record VkQueue(MemorySegment handle, int familyIndex) {
+public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex) {
     
     public static Builder builder() {
         return new Builder();
@@ -36,7 +36,7 @@ public record VkQueue(MemorySegment handle, int familyIndex) {
             MemorySegment queuePtr = arena.allocate(ValueLayout.ADDRESS);
             vkGetDeviceQueue(device.handle(), queueFamilyIndex, queueIndex, queuePtr);
             MemorySegment queueHandle = queuePtr.get(ValueLayout.ADDRESS, 0);
-            return new VkQueue(queueHandle, queueFamilyIndex);
+            return new VkQueue(device, queueHandle, queueFamilyIndex);
         }
     }
 }

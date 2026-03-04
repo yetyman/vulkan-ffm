@@ -6,9 +6,6 @@ import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
-
 public abstract class AbstractBuffer implements ManagedBuffer {
     protected final VkDevice device;
     protected final VkPhysicalDevice physicalDevice;
@@ -77,36 +74,21 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     @Override
     public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         TransferCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue);
+        TransferBatchManager.flush(device, queue);
         tc.await();
         tc.close();
     }
 
     @Override
     public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
-        VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
-        Arena transferArena = Arena.ofShared();
-        VkFence fence = null;
-        try {
-            fence = VkFence.builder().device(device).build(transferArena);
-            VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
-            VkCommandBuffer cmd = cmds[0];
-            VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(transferArena);
-            MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, srcOffset, dstOffset, length);
-            vkCmdCopyBuffer(cmd.handle(), handle(), dst.handle(), 1, copyRegion);
-            vkEndCommandBuffer(cmd.handle());
-            VkSubmit.builder().commandBuffer(cmd).submit(queue.handle(), fence.handle(), transferArena).check();
-            return new TransferCompletion(device, fence, transferArena);
-        } catch (Exception e) {
-            if (fence != null) fence.close();
-            transferArena.close();
-            throw e;
-        }
+        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+        return batch.record(handle(), dst.handle(), srcOffset, dstOffset, length);
     }
 
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
         TransferCompletion tc = writeAsync(data, offset, queue);
+        TransferBatchManager.flush(device, queue);
         tc.await();
         tc.close();
     }

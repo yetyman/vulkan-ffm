@@ -1,9 +1,11 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.buffers.TransferBatchManager;
 import io.github.yetyman.vulkan.highlevel.VkCommandPoolRegistry;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
+import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 
 /**
@@ -12,10 +14,48 @@ import java.util.Objects;
 public class VkDevice implements AutoCloseable {
     private final MemorySegment handle;
     private final VkPhysicalDevice physicalDevice;
+    private final MethodHandle vkGetSemaphoreCounterValue;
+    private final MethodHandle vkWaitSemaphores;
+    private final MethodHandle vkSignalSemaphore;
     
     private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
         this.handle = handle;
         this.physicalDevice = physicalDevice;
+        Linker linker = Linker.nativeLinker();
+        this.vkGetSemaphoreCounterValue = loadFn(handle, linker, "vkGetSemaphoreCounterValue",
+            FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkWaitSemaphores = loadFn(handle, linker, "vkWaitSemaphores",
+            FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG));
+        this.vkSignalSemaphore = loadFn(handle, linker, "vkSignalSemaphore",
+            FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+    }
+
+    private static MethodHandle loadFn(MemorySegment device, Linker linker, String name, FunctionDescriptor desc) {
+        try (Arena tmp = Arena.ofConfined()) {
+            MemorySegment fnPtr = VulkanFFM.vkGetDeviceProcAddr(device, tmp.allocateFrom(name));
+            if (fnPtr.equals(MemorySegment.NULL))
+                fnPtr = VulkanFFM.vkGetDeviceProcAddr(device, tmp.allocateFrom(name + "KHR"));
+            if (fnPtr.equals(MemorySegment.NULL)) return null;
+            return linker.downcallHandle(fnPtr, desc);
+        }
+    }
+
+    public VkResult getSemaphoreCounterValue(MemorySegment semaphore, MemorySegment valuePtr) {
+        if (vkGetSemaphoreCounterValue == null) throw new UnsupportedOperationException("vkGetSemaphoreCounterValue not available — enable timeline semaphore feature on device creation");
+        try { return VkResult.fromInt((int) vkGetSemaphoreCounterValue.invokeExact(handle, semaphore, valuePtr)); }
+        catch (Throwable t) { throw new RuntimeException(t); }
+    }
+
+    public VkResult waitSemaphores(MemorySegment waitInfo, long timeout) {
+        if (vkWaitSemaphores == null) throw new UnsupportedOperationException("vkWaitSemaphores not available — enable timeline semaphore feature on device creation");
+        try { return VkResult.fromInt((int) vkWaitSemaphores.invokeExact(handle, waitInfo, timeout)); }
+        catch (Throwable t) { throw new RuntimeException(t); }
+    }
+
+    public VkResult signalSemaphore(MemorySegment signalInfo) {
+        if (vkSignalSemaphore == null) throw new UnsupportedOperationException("vkSignalSemaphore not available — enable timeline semaphore feature on device creation");
+        try { return VkResult.fromInt((int) vkSignalSemaphore.invokeExact(handle, signalInfo)); }
+        catch (Throwable t) { throw new RuntimeException(t); }
     }
     
     /** @return a new builder for configuring device creation */
@@ -108,6 +148,7 @@ public class VkDevice implements AutoCloseable {
 
     @Override
     public void close() {
+        TransferBatchManager.destroyAll(this);
         VkCommandPoolRegistry.destroyAll(this);
         VulkanFFM.vkDestroyDevice(handle, MemorySegment.NULL);
     }
@@ -122,6 +163,7 @@ public class VkDevice implements AutoCloseable {
         private String[] extensions = new String[0];
         private String[] layers = new String[0];
         private boolean sparseBinding = false;
+        private boolean timelineSemaphore = false;
         
         private Builder() {}
         
@@ -167,6 +209,19 @@ public class VkDevice implements AutoCloseable {
             this.sparseBinding = true;
             return this;
         }
+
+        /** Enables the timeline semaphore feature (required for VK_SEMAPHORE_TYPE_TIMELINE) */
+        public Builder enableTimelineSemaphore() {
+            this.timelineSemaphore = true;
+            // VK_KHR_timeline_semaphore is required on Vulkan < 1.2
+            String ext = "VK_KHR_timeline_semaphore";
+            for (String e : extensions) if (e.equals(ext)) return this;
+            String[] newExts = new String[extensions.length + 1];
+            System.arraycopy(extensions, 0, newExts, 0, extensions.length);
+            newExts[extensions.length] = ext;
+            extensions = newExts;
+            return this;
+        }
         
         /** Creates the device */
         public VkDevice build(Arena arena) {
@@ -189,6 +244,7 @@ public class VkDevice implements AutoCloseable {
             // Create device create info
             MemorySegment createInfo = VkDeviceCreateInfo.allocate(arena);
             VkDeviceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO.value());
+            VkDeviceCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkDeviceCreateInfo.queueCreateInfoCount(createInfo, queueFamilyIndices.length);
             VkDeviceCreateInfo.pQueueCreateInfos(createInfo, queueCreateInfos);
             
@@ -218,6 +274,14 @@ public class VkDevice implements AutoCloseable {
                 MemorySegment features = VkPhysicalDeviceFeatures.allocate(arena);
                 VkPhysicalDeviceFeatures.sparseBinding(features, 1);
                 VkDeviceCreateInfo.pEnabledFeatures(createInfo, features);
+            }
+
+            if (timelineSemaphore) {
+                MemorySegment timelineFeatures = VkPhysicalDeviceTimelineSemaphoreFeatures.allocate(arena);
+                VkPhysicalDeviceTimelineSemaphoreFeatures.sType(timelineFeatures, VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES.value());
+                VkPhysicalDeviceTimelineSemaphoreFeatures.pNext(timelineFeatures, MemorySegment.NULL);
+                VkPhysicalDeviceTimelineSemaphoreFeatures.timelineSemaphore(timelineFeatures, 1);
+                VkDeviceCreateInfo.pNext(createInfo, timelineFeatures);
             }
 
             MemorySegment devicePtr = arena.allocate(ValueLayout.ADDRESS);

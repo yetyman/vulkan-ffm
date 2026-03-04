@@ -57,6 +57,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
 
     public void write(int index, T value, VkQueue queue) {
         TransferCompletion tc = writeAsync(index, value, queue);
+        tc.flush(queue.device(), queue);
         tc.await();
         tc.close();
     }

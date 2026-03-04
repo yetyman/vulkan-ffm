@@ -24,6 +24,15 @@ public class VkFenceOps {
         return VkResult.fromInt(result);
     }
     
+    /**
+     * Reset a single fence to unsignaled state.
+     */
+    public static VkResult reset(VkDevice device, VkFence fence, Arena arena) {
+        MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS);
+        fenceArray.set(ValueLayout.ADDRESS, 0, fence.handle());
+        return Vulkan.resetFences(device.handle(), 1, fenceArray);
+    }
+    
     public static class Builder {
         private final VkDevice device;
         private MemorySegment[] fences = new MemorySegment[0];

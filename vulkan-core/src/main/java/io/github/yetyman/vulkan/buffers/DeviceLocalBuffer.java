@@ -45,42 +45,17 @@ public class DeviceLocalBuffer extends AbstractBuffer {
 
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
-        VkCommandPool commandPool = device.getOrCreateCommandPool(queue.familyIndex());
-        Arena transferArena = Arena.ofShared();
-        VkFence fence = null;
-        try {
-            fence = VkFence.builder().device(device).build(transferArena);
-
-            if (persistentStaging) {
-                MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
-                copyToDevice(stagingBuffer, offset, offset, data.remaining(), fence, transferArena, queue, commandPool);
-                return new TransferCompletion(device, fence, transferArena);
-            } else {
-                VkBuffer tempStaging = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(transferArena);
-                MemorySegment tempMapped = tempStaging.map(transferArena);
-                MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
-                copyToDevice(tempStaging, 0, offset, data.remaining(), fence, transferArena, queue, commandPool);
-                return new TransferCompletion(device, fence, transferArena, tempStaging);
-            }
-        } catch (Exception e) {
-            if (fence != null) fence.close();
-            transferArena.close();
-            throw e;
+        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+        if (persistentStaging) {
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mappedMemory, offset, data.remaining());
+            return batch.record(stagingBuffer.handle(), handle(), offset, offset, data.remaining());
+        } else {
+            Arena stagingArena = Arena.ofShared();
+            VkBuffer tempStaging = VkBuffer.builder().device(device).size(data.remaining()).transferSrc().hostVisible().build(stagingArena);
+            MemorySegment tempMapped = tempStaging.map(stagingArena);
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
+            return batch.record(tempStaging.handle(), handle(), 0, offset, data.remaining(), tempStaging, stagingArena);
         }
-    }
-
-    private void copyToDevice(VkBuffer srcBuffer, long srcOffset, long dstOffset, long copySize, VkFence fence, Arena transferArena, VkQueue queue, VkCommandPool commandPool) {
-        VkCommandBuffer[] cmdBuffers = VkCommandBufferAlloc.builder()
-            .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(transferArena);
-        VkCommandBuffer cmdBuffer = cmdBuffers[0];
-
-        VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(transferArena);
-        MemorySegment copyRegion = VkBufferCopy.allocate(transferArena, srcOffset, dstOffset, copySize);
-        vkCmdCopyBuffer(cmdBuffer.handle(), srcBuffer.handle(), handle(), 1, copyRegion);
-        vkEndCommandBuffer(cmdBuffer.handle());
-
-        VkSubmit.builder().commandBuffer(cmdBuffer)
-            .submit(queue.handle(), fence.handle(), transferArena).check();
     }
 
     @Override

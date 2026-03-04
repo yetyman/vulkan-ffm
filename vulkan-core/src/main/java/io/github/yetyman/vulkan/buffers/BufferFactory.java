@@ -98,7 +98,6 @@ public class BufferFactory {
      * @param usage buffer usage flags
      * @param device Vulkan logical device
      * @param transferQueue queue for transfer operations
-     * @param commandPool command pool for transfer commands
      * @return optimally configured managed buffer
      */
     public static ManagedBuffer createAutomatic(
