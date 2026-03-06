@@ -103,7 +103,57 @@ struct SpvReflectShaderModule {
     SpvReflectBlockVariable** push_constant_blocks;
     // Internal data follows...
 };
+// Numeric type flags (subset needed for member type identification)
+typedef enum SpvReflectTypeFlags {
+    SPV_REFLECT_TYPE_FLAG_UNDEFINED  = 0,
+    SPV_REFLECT_TYPE_FLAG_VOID       = 0x00000001,
+    SPV_REFLECT_TYPE_FLAG_BOOL       = 0x00000002,
+    SPV_REFLECT_TYPE_FLAG_INT        = 0x00000004,
+    SPV_REFLECT_TYPE_FLAG_FLOAT      = 0x00000008,
+    SPV_REFLECT_TYPE_FLAG_VECTOR     = 0x00000100,
+    SPV_REFLECT_TYPE_FLAG_MATRIX     = 0x00000200,
+    SPV_REFLECT_TYPE_FLAG_STRUCT     = 0x00000800,
+    SPV_REFLECT_TYPE_FLAG_ARRAY      = 0x00010000,
+} SpvReflectTypeFlags;
 
+typedef struct SpvReflectNumericTraits {
+    struct { uint32_t width; uint32_t signedness; } scalar;
+    struct { uint32_t component_count; } vector;
+    struct { uint32_t column_count; uint32_t row_count; uint32_t stride; } matrix;
+} SpvReflectNumericTraits;
+
+typedef struct SpvReflectArrayTraits {
+    uint32_t dims_count;
+    uint32_t dims[32];
+    uint32_t stride;
+} SpvReflectArrayTraits;
+
+struct SpvReflectTypeDescription {
+    uint32_t id;
+    uint32_t op;
+    const char* type_name;
+    const char* struct_member_name;
+    SpvReflectTypeFlags type_flags;
+    uint32_t decoration_flags;
+    SpvReflectNumericTraits traits;  // numeric/vector/matrix info
+    uint32_t member_count;
+    SpvReflectTypeDescription* members;
+};
+
+struct SpvReflectBlockVariable {
+    uint32_t spirv_id;
+    const char* name;
+    uint32_t offset;
+    uint32_t absolute_offset;
+    uint32_t size;
+    uint32_t padded_size;
+    uint32_t decoration_flags;
+    SpvReflectNumericTraits numeric;
+    SpvReflectArrayTraits array;
+    uint32_t member_count;
+    SpvReflectBlockVariable* members;
+    SpvReflectTypeDescription* type_description;
+};
 // Core API functions
 SpvReflectResult spvReflectCreateShaderModule(size_t size,
                                               const void* pCode,

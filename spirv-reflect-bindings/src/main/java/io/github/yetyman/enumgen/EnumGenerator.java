@@ -58,6 +58,7 @@ public class EnumGenerator {
         if (constantName.startsWith("SPV_REFLECT_RESULT_")) return "SpirvReflectResult";
         if (constantName.startsWith("SPV_REFLECT_SHADER_STAGE_")) return "SpirvReflectShaderStage";
         if (constantName.startsWith("SPV_REFLECT_DESCRIPTOR_TYPE_")) return "SpirvReflectDescriptorType";
+        if (constantName.startsWith("SPV_REFLECT_TYPE_FLAG_")) return "SpirvReflectTypeFlags";
         
         return null;
     }
