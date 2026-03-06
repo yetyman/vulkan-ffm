@@ -1,14 +1,11 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
-import io.github.yetyman.vulkan.generated.VkDescriptorBufferInfo;
-import io.github.yetyman.vulkan.generated.VkFormatProperties;
-import io.github.yetyman.vulkan.generated.VkWriteDescriptorSet;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.culling.Camera;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
-import io.github.yetyman.vulkan.sample.complex.models.GLTFLoader;
+import io.github.yetyman.vulkan.shaders.VulkanShaderManager;
 import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.*;

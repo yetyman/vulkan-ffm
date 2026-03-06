@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.vulkan.VkDescriptorSetLayout;
 import io.github.yetyman.vulkan.VkDevice;
@@ -6,6 +6,7 @@ import io.github.yetyman.vulkan.VkShaderModule;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.shaderc.enums.*;
 import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
+
 import java.lang.foreign.Arena;
 import java.util.*;
 

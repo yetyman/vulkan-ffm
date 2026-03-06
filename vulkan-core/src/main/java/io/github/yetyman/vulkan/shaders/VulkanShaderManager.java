@@ -1,7 +1,9 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkShaderModule;
+import io.github.yetyman.vulkan.highlevel.VulkanContext;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.*;

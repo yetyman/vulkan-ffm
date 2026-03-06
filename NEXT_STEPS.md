@@ -36,17 +36,36 @@ Java-side connections between shader parameters and data sources. The binding me
 (push constant / dynamic offset / descriptor update) is chosen internally from metadata — not user-visible.
 
 ```java
-shader.bind("name").toStatic(value)              // never changes after bind
-shader.bind("name").toFrameData(supplier)         // called once per frame
-shader.bind("name").toPerDraw(supplier)           // called per draw call
-shader.bind("name").toOnChange(supplier, dirty)   // called when dirty flag/observable signals
-shader.bind("name").toHz(supplier, hz)            // called at fixed Hz regardless of frame rate
-shader.bind("name").toEveryNFrames(supplier, n)   // called every N rendered frames
+Class ModelVertShader {
+        
+  final GeneratedShader shader = GenerateShader.from("model.vert");
+  //Set 0
+  public final Uniform<Long> time = shader.getUniform("time", Long.class).build();
+  public final Uniform<Matrix> perspective = shader.getUniform("perspective", Matrix.class).build();//auto generated from shader's Double MatrixNxN?
+  public final StorageBufferSlot<ModelData> models = shader.getStorageBufferSlot("models").withType(ModelData.class).build();
+  public final UniformBufferSlot<Double> outlineThickness = shader.getUniformBufferSlot("outlineThickness").build();
+
+  //Set 1
+  public final TextureSlot tex = shader.getTexSlot("tex").build();
+
+ record ModelData(...) implements BufferWritable {//generated to mirror a struct from the shader file
+ }
+      
+}
+```
+
+example usage
+```java
+ModelVertShader modelVert = new ModelVertShader();//loads shader and creates fields
+modelVert.time.set(System.nanoTime);
+modelVert.perspective.set(defaultPerspective);
+...
+loadingModels.onComplete(modelBuffer->modelVert.models.set(modelBuffer));//where modelBuffer is a managedBuffer or maybe a TypedVkBuffer<ModelData>
+...
+modelVert.cmdDraw(commandBuffer);//probably needs to be more advanced than this.
 ```
 
 - Binding name validated against reflected shader at load time
-- Frequency metadata drives command buffer decisions internally
-- `toOnChange` dirty signal is a version counter or boolean the user increments/sets
 
 ### Reflection & Validation (at shader load time)
 - Warn when shader uses variable-count array bindings but `bindlessDescriptors=false`

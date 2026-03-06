@@ -2,8 +2,7 @@ package io.github.yetyman.vulkan.sample.complex.postprocessing;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.highlevel.CompiledShader;
-import io.github.yetyman.vulkan.highlevel.ShaderLoader;
+import io.github.yetyman.vulkan.shaders.ShaderLoader;
 import io.github.yetyman.vulkan.highlevel.VkTexture;
 import io.github.yetyman.vulkan.highlevel.PoolAllocator;
 import io.github.yetyman.vulkan.util.Logger;

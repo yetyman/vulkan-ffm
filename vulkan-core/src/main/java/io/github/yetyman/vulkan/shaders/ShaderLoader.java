@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.shaderc.generated.*;
 import io.github.yetyman.shaderc.enums.*;
