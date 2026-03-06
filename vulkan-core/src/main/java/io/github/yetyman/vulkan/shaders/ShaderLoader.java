@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.shaderc.generated.*;
 import io.github.yetyman.shaderc.enums.*;
+import io.github.yetyman.spirv.SpirvReflectLoader;
 import io.github.yetyman.spirv.generated.*;
 import io.github.yetyman.spirv.enums.*;
 import io.github.yetyman.vulkan.util.Logger;
@@ -109,7 +110,6 @@ public class ShaderLoader {
         return new CompiledShader(spirv, reflection, shaderKind);
     }
     
-    // Static convenience methods
     public static CompiledShader compileShader(String resourcePath) {
         return load(resourcePath).compileShader();
     }
@@ -196,26 +196,22 @@ public class ShaderLoader {
     public record ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
                                        ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
                                        List<String> includePaths, boolean optimize) {
-            public ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
-                                        ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
-                                        List<String> includePaths, boolean optimize) {
-                this.resourcePath = resourcePath;
-                this.shaderKind = shaderKind;
-                this.sourceLanguage = sourceLanguage;
-                this.defines = new HashMap<>(defines);
-                this.includePaths = new ArrayList<>(includePaths);
-                this.optimize = optimize;
-            }
+        public ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
+                                    ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
+                                    List<String> includePaths, boolean optimize) {
+            this.resourcePath = resourcePath;
+            this.shaderKind = shaderKind;
+            this.sourceLanguage = sourceLanguage;
+            this.defines = new HashMap<>(defines);
+            this.includePaths = new ArrayList<>(includePaths);
+            this.optimize = optimize;
         }
+    }
     
     public static class ShaderReflection {
-        private final byte[] spirv;
-        private final Map<Integer, DescriptorSetInfo> descriptorSets;
-
         // SpvReflectShaderModule is an opaque internal struct; the jextract binding only captures
-        // the public header fields (~80 bytes) but the real C struct contains internal parsing state
-        // (SPIR-V word array, node arrays, etc.) making it several kilobytes. Allocating via the
-        // Java arena would corrupt the heap. We use native calloc so the C runtime owns the memory.
+        // the public header fields but the real C struct contains internal parsing state making it
+        // several kilobytes. We use native calloc so the C runtime owns the memory.
         private static final MethodHandle CALLOC;
         private static final MethodHandle FREE;
         static {
@@ -230,93 +226,195 @@ public class ShaderLoader {
         }
 
         private static MemorySegment nativeCalloc(long count, long size) {
-            try {
-                return (MemorySegment) CALLOC.invokeExact(count, size);
-            } catch (Throwable t) {
-                throw new RuntimeException("calloc failed", t);
-            }
+            try { return (MemorySegment) CALLOC.invokeExact(count, size); }
+            catch (Throwable t) { throw new RuntimeException("calloc failed", t); }
         }
 
         private static void nativeFree(MemorySegment ptr) {
-            try {
-                FREE.invokeExact(ptr);
-            } catch (Throwable t) {
-                throw new RuntimeException("free failed", t);
-            }
+            try { FREE.invokeExact(ptr); }
+            catch (Throwable t) { throw new RuntimeException("free failed", t); }
         }
+
+        private final Map<Integer, DescriptorSetInfo> descriptorSets;
+        private final Map<String, DescriptorBindingInfo> bindingsByName;
+        private final List<PushConstantBlockInfo> pushConstantBlocks;
 
         private ShaderReflection(byte[] spirv) {
-            this.spirv = spirv;
-            this.descriptorSets = parseDescriptorSets(spirv);
-        }
-        
-        public Map<Integer, DescriptorSetInfo> getDescriptorSets() {
-            return Collections.unmodifiableMap(descriptorSets);
-        }
-        
-        public DescriptorSetInfo getDescriptorSet(int set) {
-            return descriptorSets.get(set);
-        }
-        
-        public Set<Integer> getSetNumbers() {
-            return descriptorSets.keySet();
-        }
-        
-        private Map<Integer, DescriptorSetInfo> parseDescriptorSets(byte[] spirv) {
             Map<Integer, DescriptorSetInfo> sets = new HashMap<>();
-            // 4096 bytes is a safe upper bound for SpvReflectShaderModule across all versions
-            MemorySegment module = nativeCalloc(1, 4096);
+            Map<String, DescriptorBindingInfo> byName = new HashMap<>();
+            List<PushConstantBlockInfo> pushConstants = new ArrayList<>();
+            parseAll(spirv, sets, byName, pushConstants);
+            this.descriptorSets = sets;
+            this.bindingsByName = byName;
+            this.pushConstantBlocks = List.copyOf(pushConstants);
+        }
+        
+        public Map<Integer, DescriptorSetInfo> getDescriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
+        public DescriptorSetInfo getDescriptorSet(int set) { return descriptorSets.get(set); }
+        public Set<Integer> getSetNumbers() { return descriptorSets.keySet(); }
+
+        /** @return binding info by shader variable name, or null if not found */
+        public DescriptorBindingInfo getBindingByName(String name) { return bindingsByName.get(name); }
+
+        public List<PushConstantBlockInfo> getPushConstantBlocks() { return pushConstantBlocks; }
+
+        /** @return the first push constant member with the given name across all blocks, or null */
+        public StructMemberInfo getPushConstantMember(String name) {
+            for (PushConstantBlockInfo block : pushConstantBlocks) {
+                StructMemberInfo m = block.getMember(name);
+                if (m != null) return m;
+            }
+            return null;
+        }
+        
+        private void parseAll(byte[] spirv,
+                              Map<Integer, DescriptorSetInfo> sets,
+                              Map<String, DescriptorBindingInfo> byName,
+                              List<PushConstantBlockInfo> pushConstants) {
+            MemorySegment module = nativeCalloc(1, SpvReflectShaderModule.sizeof());
             try (Arena arena = Arena.ofConfined()) {
                 MemorySegment codeSegment = arena.allocateFrom(JAVA_BYTE, spirv);
-
                 SpirvReflectResult result = SpirvReflectResult.fromValue(
                     SpirvReflectFFM.spvReflectCreateShaderModule(spirv.length, codeSegment, module));
                 if (result != SpirvReflectResult.SPV_REFLECT_RESULT_SUCCESS) {
                     Logger.warn("SPIRV-Reflect: spvReflectCreateShaderModule failed with " + result);
-                    return sets;
+                    return;
                 }
                 try {
-                    MemorySegment countPtr = arena.allocate(JAVA_INT);
-                    SpirvReflectFFM.spvReflectEnumerateDescriptorSets(module, countPtr, MemorySegment.NULL);
-                    int setCount = countPtr.get(JAVA_INT, 0);
-                    if (setCount == 0) return sets;
-
-                    MemorySegment setsPtr = arena.allocate(ADDRESS, setCount);
-                    SpirvReflectFFM.spvReflectEnumerateDescriptorSets(module, countPtr, setsPtr);
-
-                    for (int i = 0; i < setCount; i++) {
-                        MemorySegment setPtr = setsPtr.getAtIndex(ADDRESS, i)
-                            .reinterpret(SpvReflectDescriptorSet.sizeof(), arena, null);
-                        int setNumber = SpvReflectDescriptorSet.set(setPtr);
-                        int bindingCount = SpvReflectDescriptorSet.binding_count(setPtr);
-                        DescriptorSetInfo setInfo = new DescriptorSetInfo(setNumber);
-
-                        if (bindingCount > 0) {
-                            MemorySegment bindingsPtrPtr = SpvReflectDescriptorSet.bindings(setPtr)
-                                .reinterpret(ADDRESS.byteSize() * bindingCount, arena, null);
-                            for (int b = 0; b < bindingCount; b++) {
-                                MemorySegment bindingPtr = bindingsPtrPtr.getAtIndex(ADDRESS, b)
-                                    .reinterpret(SpvReflectDescriptorBinding.sizeof(), arena, null);
-                                int bindingIndex = SpvReflectDescriptorBinding.binding(bindingPtr);
-                                int descriptorTypeVal = SpvReflectDescriptorBinding.descriptor_type(bindingPtr);
-                                int count = SpvReflectDescriptorBinding.count(bindingPtr);
-                                setInfo.addBinding(bindingIndex, new DescriptorBindingInfo(
-                                    bindingIndex,
-                                    SpirvReflectDescriptorType.fromValue(descriptorTypeVal),
-                                    count));
-                            }
-                        }
-                        sets.put(setNumber, setInfo);
-                    }
+                    parseDescriptorSets(module, arena, sets, byName);
+                    parsePushConstants(module, arena, pushConstants);
                 } finally {
                     SpirvReflectFFM.spvReflectDestroyShaderModule(module);
                 }
             } catch (Exception e) {
-                Logger.warn("SPIRV-Reflect: failed to parse descriptor sets: " + e.getMessage());
+                Logger.warn("SPIRV-Reflect: failed to parse shader: " + e.getMessage());
             } finally {
                 nativeFree(module);
             }
-            return sets;
+        }
+
+        private void parseDescriptorSets(MemorySegment module, Arena arena,
+                                         Map<Integer, DescriptorSetInfo> sets,
+                                         Map<String, DescriptorBindingInfo> byName) {
+            MemorySegment countPtr = arena.allocate(JAVA_INT);
+            SpirvReflectFFM.spvReflectEnumerateDescriptorSets(module, countPtr, MemorySegment.NULL);
+            int setCount = countPtr.get(JAVA_INT, 0);
+            if (setCount == 0) return;
+
+            MemorySegment setsPtr = arena.allocate(ADDRESS, setCount);
+            SpirvReflectFFM.spvReflectEnumerateDescriptorSets(module, countPtr, setsPtr);
+
+            for (int i = 0; i < setCount; i++) {
+                MemorySegment setPtr = setsPtr.getAtIndex(ADDRESS, i)
+                    .reinterpret(SpvReflectDescriptorSet.sizeof(), arena, null);
+                int setNumber = SpvReflectDescriptorSet.set(setPtr);
+                int bindingCount = SpvReflectDescriptorSet.binding_count(setPtr);
+                DescriptorSetInfo setInfo = new DescriptorSetInfo(setNumber);
+
+                if (bindingCount > 0) {
+                    MemorySegment bindingsPtrPtr = SpvReflectDescriptorSet.bindings(setPtr)
+                        .reinterpret(ADDRESS.byteSize() * bindingCount, arena, null);
+                    for (int b = 0; b < bindingCount; b++) {
+                        MemorySegment bindingPtr = bindingsPtrPtr.getAtIndex(ADDRESS, b)
+                            .reinterpret(SpvReflectDescriptorBinding.sizeof(), arena, null);
+                        int bindingIndex = SpvReflectDescriptorBinding.binding(bindingPtr);
+                        int descriptorTypeVal = SpvReflectDescriptorBinding.descriptor_type(bindingPtr);
+                        int count = SpvReflectDescriptorBinding.count(bindingPtr);
+                        MemorySegment namePtr = SpvReflectDescriptorBinding.name(bindingPtr);
+                        String name = namePtr.equals(MemorySegment.NULL) ? null : namePtr.reinterpret(256, arena, null).getString(0);
+                        DescriptorBindingInfo info = new DescriptorBindingInfo(
+                            bindingIndex, SpirvReflectDescriptorType.fromValue(descriptorTypeVal), count, name);
+                        setInfo.addBinding(bindingIndex, info);
+                        if (name != null && !name.isEmpty()) byName.put(name, info);
+                    }
+                }
+                sets.put(setNumber, setInfo);
+            }
+        }
+
+        private void parsePushConstants(MemorySegment module, Arena arena, List<PushConstantBlockInfo> out) {
+            MemorySegment countPtr = arena.allocate(JAVA_INT);
+            SpirvReflectFFM.spvReflectEnumeratePushConstantBlocks(module, countPtr, MemorySegment.NULL);
+            int blockCount = countPtr.get(JAVA_INT, 0);
+            if (blockCount == 0) return;
+
+            MemorySegment blocksPtr = arena.allocate(ADDRESS, blockCount);
+            SpirvReflectFFM.spvReflectEnumeratePushConstantBlocks(module, countPtr, blocksPtr);
+
+            for (int i = 0; i < blockCount; i++) {
+                MemorySegment blockPtr = blocksPtr.getAtIndex(ADDRESS, i)
+                    .reinterpret(SpvReflectBlockVariable.sizeof(), arena, null);
+                MemorySegment namePtr = SpvReflectBlockVariable.name(blockPtr);
+                String blockName = namePtr.equals(MemorySegment.NULL) ? "" : namePtr.reinterpret(256, arena, null).getString(0);
+                int offset = SpvReflectBlockVariable.offset(blockPtr);
+                int size = SpvReflectBlockVariable.size(blockPtr);
+                int memberCount = SpvReflectBlockVariable.member_count(blockPtr);
+                List<StructMemberInfo> members = new ArrayList<>();
+                if (memberCount > 0) {
+                    MemorySegment membersPtr = SpvReflectBlockVariable.members(blockPtr)
+                        .reinterpret(SpvReflectBlockVariable.sizeof() * memberCount, arena, null);
+                    for (int m = 0; m < memberCount; m++) {
+                        members.add(parseMember(SpvReflectBlockVariable.asSlice(membersPtr, m), arena));
+                    }
+                }
+                // SPIRV-Reflect reports block variable members=0 for single-member push constant blocks.
+                // The member name is in type_description->struct_member_name, and the block variable
+                // itself is the leaf. Synthesize a single member from the block's own type_description.
+                if (memberCount == 0) {
+                    MemorySegment typeDescPtr = SpvReflectBlockVariable.type_description(blockPtr);
+                    if (!typeDescPtr.equals(MemorySegment.NULL)) {
+                        MemorySegment typeDesc = typeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
+                        int tdMemberCount = SpvReflectTypeDescription.member_count(typeDesc);
+                        if (tdMemberCount > 0) {
+                            // Multi-member block exposed only through type_description->members
+                            MemorySegment tdMembersPtr = SpvReflectTypeDescription.members(typeDesc)
+                                .reinterpret(SpvReflectTypeDescription.sizeof() * tdMemberCount, arena, null);
+                            for (int m = 0; m < tdMemberCount; m++) {
+                                MemorySegment tdMember = SpvReflectTypeDescription.asSlice(tdMembersPtr, m);
+                                MemorySegment memberNamePtr = SpvReflectTypeDescription.struct_member_name(tdMember);
+                                String memberName = memberNamePtr.equals(MemorySegment.NULL) ? "" :
+                                    memberNamePtr.reinterpret(256, arena, null).getString(0);
+                                int typeFlags = SpvReflectTypeDescription.type_flags(tdMember);
+                                int memberSize = size / tdMemberCount;
+                                int memberOffset = offset + m * memberSize;
+                                members.add(new StructMemberInfo(memberName, memberOffset, memberSize, typeFlags, List.of()));
+                            }
+                        } else {
+                            // Single-member leaf: struct_member_name on the block's own type_description is the member name
+                            MemorySegment memberNamePtr = SpvReflectTypeDescription.struct_member_name(typeDesc);
+                            String memberName = memberNamePtr.equals(MemorySegment.NULL) ? blockName :
+                                memberNamePtr.reinterpret(256, arena, null).getString(0);
+                            if (memberName.isEmpty()) memberName = blockName;
+                            int typeFlags = SpvReflectTypeDescription.type_flags(typeDesc);
+                            members.add(new StructMemberInfo(memberName, offset, size, typeFlags, List.of()));
+                        }
+                    }
+                }
+                out.add(new PushConstantBlockInfo(blockName, offset, size, List.copyOf(members)));
+            }
+        }
+
+        private StructMemberInfo parseMember(MemorySegment memberPtr, Arena arena) {
+            MemorySegment namePtr = SpvReflectBlockVariable.name(memberPtr);
+            String name = namePtr.equals(MemorySegment.NULL) ? "" : namePtr.reinterpret(256, arena, null).getString(0);
+            int offset = SpvReflectBlockVariable.offset(memberPtr);
+            int size = SpvReflectBlockVariable.size(memberPtr);
+            int memberCount = SpvReflectBlockVariable.member_count(memberPtr);
+            int typeFlags = 0;
+            MemorySegment typeDescPtr = SpvReflectBlockVariable.type_description(memberPtr);
+            if (!typeDescPtr.equals(MemorySegment.NULL)) {
+                MemorySegment typeDesc = typeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
+                typeFlags = SpvReflectTypeDescription.type_flags(typeDesc);
+            }
+            List<StructMemberInfo> nested = new ArrayList<>();
+            if (memberCount > 0) {
+                MemorySegment nestedPtr = SpvReflectBlockVariable.members(memberPtr)
+                    .reinterpret(SpvReflectBlockVariable.sizeof() * memberCount, arena, null);
+                for (int m = 0; m < memberCount; m++) {
+                    nested.add(parseMember(SpvReflectBlockVariable.asSlice(nestedPtr, m), arena));
+                }
+            }
+            return new StructMemberInfo(name, offset, size, typeFlags, List.copyOf(nested));
         }
     }
     
@@ -335,13 +433,9 @@ public class ShaderLoader {
             return Collections.unmodifiableMap(bindings);
         }
         
-        public DescriptorBindingInfo getBinding(int binding) {
-            return bindings.get(binding);
-        }
+        public DescriptorBindingInfo getBinding(int binding) { return bindings.get(binding); }
         
-        void addBinding(int binding, DescriptorBindingInfo info) {
-            bindings.put(binding, info);
-        }
+        void addBinding(int binding, DescriptorBindingInfo info) { bindings.put(binding, info); }
     }
     
     public static class DescriptorBindingInfo {
@@ -349,18 +443,29 @@ public class ShaderLoader {
         private final SpirvReflectDescriptorType descriptorType;
         private final int descriptorCount;
         private final int stageFlags;
+        private final String name;
 
         /** Constructor for reflection-parsed bindings (stage flags determined by shader stage). */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount) {
-            this(binding, descriptorType, descriptorCount, 0);
+            this(binding, descriptorType, descriptorCount, 0, null);
+        }
+
+        /** Constructor for reflection-parsed bindings with name. */
+        public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, String name) {
+            this(binding, descriptorType, descriptorCount, 0, name);
         }
 
         /** Constructor for manually-added bindings with explicit stage flags. */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags) {
+            this(binding, descriptorType, descriptorCount, stageFlags, null);
+        }
+
+        public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name) {
             this.binding = binding;
             this.descriptorType = descriptorType;
             this.descriptorCount = descriptorCount;
             this.stageFlags = stageFlags;
+            this.name = name;
         }
 
         public int getBinding() { return binding; }
@@ -368,5 +473,40 @@ public class ShaderLoader {
         public int getDescriptorCount() { return descriptorCount; }
         /** @return explicit stage flags, or 0 if this binding uses the shader's default stage flags. */
         public int getStageFlags() { return stageFlags; }
+        /** @return shader variable name from reflection, or null if not available */
+        public String getName() { return name; }
+    }
+
+    public static class PushConstantBlockInfo {
+        private final String name;
+        private final int offset;
+        private final int size;
+        private final List<StructMemberInfo> members;
+        private final Map<String, StructMemberInfo> membersByName;
+
+        public PushConstantBlockInfo(String name, int offset, int size, List<StructMemberInfo> members) {
+            this.name = name;
+            this.offset = offset;
+            this.size = size;
+            this.members = members;
+            Map<String, StructMemberInfo> m = new HashMap<>();
+            for (StructMemberInfo member : members) m.put(member.name(), member);
+            this.membersByName = Collections.unmodifiableMap(m);
+        }
+
+        public String name() { return name; }
+        public int offset() { return offset; }
+        public int size() { return size; }
+        public List<StructMemberInfo> members() { return members; }
+        public StructMemberInfo getMember(String name) { return membersByName.get(name); }
+    }
+
+    public record StructMemberInfo(String name, int offset, int size, int typeFlags, List<StructMemberInfo> members) {
+        public boolean isFloat()  { return (typeFlags & 0x00000008) != 0; }
+        public boolean isInt()    { return (typeFlags & 0x00000004) != 0; }
+        public boolean isVector() { return (typeFlags & 0x00000100) != 0; }
+        public boolean isMatrix() { return (typeFlags & 0x00000200) != 0; }
+        public boolean isStruct() { return (typeFlags & 0x00000800) != 0; }
+        public boolean isArray()  { return (typeFlags & 0x00010000) != 0; }
     }
 }
