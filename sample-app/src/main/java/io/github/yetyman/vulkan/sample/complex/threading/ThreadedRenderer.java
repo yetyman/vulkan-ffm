@@ -44,7 +44,7 @@ public class ThreadedRenderer extends BaseRenderer {
     private Mode mode = Mode.ADAPTIVE;
     
     // Rendering
-    private RenderGraph renderGraph;
+    private RenderList renderList;
     
     // Performance tracking
     private long lastFrameTime = System.nanoTime();
@@ -169,15 +169,15 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void createRenderGraph() {
-        renderGraph = RenderGraph.builder()
-            .resource("colorTarget", RenderGraph.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
-            .resource("sceneDepth", RenderGraph.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
-            .resource("geometryBuffer", RenderGraph.ResourceDesc.buffer(1024 * 1024))
+        renderList = RenderList.builder()
+            .resource("colorTarget", RenderList.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
+            .resource("sceneDepth", RenderList.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
+            .resource("geometryBuffer", RenderList.ResourceDesc.buffer(1024 * 1024))
             
             // Main triangle pass
             .graphicsPass("triangle")
-                .write("colorTarget", RenderGraph.ResourceUsage.COLOR_ATTACHMENT)
-                .write("sceneDepth", RenderGraph.ResourceUsage.DEPTH_ATTACHMENT)
+                .write("colorTarget", RenderList.ResourceUsage.COLOR_ATTACHMENT)
+                .write("sceneDepth", RenderList.ResourceUsage.DEPTH_ATTACHMENT)
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing triangle pass");
                     Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
@@ -196,9 +196,9 @@ public class ThreadedRenderer extends BaseRenderer {
             
             // glTF geometry pass
             .graphicsPass("gltfGeometry")
-                .read("geometryBuffer", RenderGraph.ResourceUsage.VERTEX_BUFFER)
-                .write("colorTarget", RenderGraph.ResourceUsage.COLOR_ATTACHMENT)
-                .write("sceneDepth", RenderGraph.ResourceUsage.DEPTH_ATTACHMENT)
+                .read("geometryBuffer", RenderList.ResourceUsage.VERTEX_BUFFER)
+                .write("colorTarget", RenderList.ResourceUsage.COLOR_ATTACHMENT)
+                .write("sceneDepth", RenderList.ResourceUsage.DEPTH_ATTACHMENT)
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing glTF geometry pass");
                     
@@ -479,7 +479,7 @@ public class ThreadedRenderer extends BaseRenderer {
     
     private void renderScene(VkCommandBuffer commandBuffer, Arena frameArena) {
         // EXECUTE RENDER GRAPH - replaces all manual rendering
-        renderGraph.execute(commandBuffer.handle(), frameArena);
+        renderList.execute(commandBuffer.handle(), frameArena);
     }
     
 
@@ -785,7 +785,7 @@ public class ThreadedRenderer extends BaseRenderer {
         }
         
         // Clean up render graph
-        if (renderGraph != null) renderGraph.close();
+        if (renderList != null) renderList.close();
         
         Logger.info("Threaded renderer cleanup complete");
     }

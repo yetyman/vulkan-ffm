@@ -124,9 +124,10 @@ public class ShaderGenerator {
         for (ShaderLoader.PushConstantBlockInfo block : blocks) {
             for (ShaderLoader.StructMemberInfo member : block.members()) {
                 String javaType = inferJavaType(member);
+                String classLiteral = javaType.endsWith("[]") ? "Object.class" : javaType + ".class";
                 sb.append("        this.").append(member.name())
                   .append(" = shader.getPushConstant(\"").append(member.name())
-                  .append("\", ").append(javaType).append(".class);\n");
+                  .append("\", ").append(classLiteral).append(");\n");
             }
         }
 
@@ -173,9 +174,9 @@ public class ShaderGenerator {
 
     private static String slotType(SpirvReflectDescriptorType type) {
         if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER))
-            return "StorageBufferSlot<Object>";
+            return "StorageBufferSlot<?>";
         if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER))
-            return "UniformBufferSlot<Object>";
+            return "UniformBufferSlot<?>";
         if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER))
             return "TextureSlot";
         return "DescriptorSlot";
@@ -199,7 +200,14 @@ public class ShaderGenerator {
         if (member.isFloat()) return "Float";
         if (member.isInt()) return "Integer";
         if (member.isStruct()) return toClassName(member.name());
-        return "Object";
+        // type flags unavailable — infer from size
+        int size = member.size();
+        if (size == 4)  return "Float";   // most common single-value push constant
+        if (size == 8)  return "float[]";
+        if (size == 12) return "float[]";
+        if (size == 16) return "float[]";
+        if (size == 64) return "float[]";
+        return "float[]";
     }
 
     private static String className(String resourcePath) {

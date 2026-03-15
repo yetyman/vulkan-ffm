@@ -4,7 +4,6 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.*;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 /**
  * Declarative render graph for managing complex multi-pass rendering.
@@ -54,13 +53,13 @@ import java.util.function.Supplier;
  * graph.execute(commandBuffer, frameArena);
  * ```
  */
-public class RenderGraph implements AutoCloseable {
+public class RenderList implements AutoCloseable {
     private final Map<String, ResourceDesc> resources = new HashMap<>();
     private final List<Pass> passes = new ArrayList<>();
     private final Map<String, MemorySegment> allocatedResources = new HashMap<>();
     private boolean built = false;
     
-    private RenderGraph() {}
+    private RenderList() {}
     
     public static Builder builder() {
         return new Builder();
@@ -89,7 +88,7 @@ public class RenderGraph implements AutoCloseable {
     }
     
     public static class Builder {
-        private final RenderGraph graph = new RenderGraph();
+        private final RenderList graph = new RenderList();
         
         /**
          * Define a resource that can be used by passes.
@@ -120,7 +119,7 @@ public class RenderGraph implements AutoCloseable {
             return new PassBuilder(this, name, PassType.GENERIC);
         }
         
-        public RenderGraph build() {
+        public RenderList build() {
             // Allocate resources and resolve dependencies
             allocateResources();
             resolveDependencies();

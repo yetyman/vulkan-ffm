@@ -11,6 +11,7 @@ import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static java.lang.foreign.ValueLayout.*;
@@ -24,6 +25,8 @@ public class ShaderLoader {
     }
 
     private static Function<ShaderCompileRequest, byte[]> defaultCompiler = ShaderLoader::shadercCompile;
+    private static final ConcurrentHashMap<String, CompiledShader> compiledCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, CompiledShader> spirvCache = new ConcurrentHashMap<>();
     
     private String resourcePath;
     private Function<ShaderCompileRequest, byte[]> compiler;
@@ -111,11 +114,17 @@ public class ShaderLoader {
     }
     
     public static CompiledShader compileShader(String resourcePath) {
-        return load(resourcePath).compileShader();
+        return compiledCache.computeIfAbsent(resourcePath, p -> load(p).compileShader());
     }
-    
+
     public static CompiledShader loadCompiledShader(String resourcePath) {
-        return load(resourcePath).loadCompiledShader();
+        return spirvCache.computeIfAbsent(resourcePath, p -> load(p).loadCompiledShader());
+    }
+
+    /** Evicts a path from both caches, e.g. after hot-reload. */
+    public static void invalidate(String resourcePath) {
+        compiledCache.remove(resourcePath);
+        spirvCache.remove(resourcePath);
     }
     
     private static byte[] shadercCompile(ShaderCompileRequest request) {
