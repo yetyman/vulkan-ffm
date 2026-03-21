@@ -5,10 +5,8 @@ import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 
 /**
  * Descriptor slot for a storage buffer binding.
- *
- * @param <T> the Java type of the buffer's data (for documentation/type safety at the call site)
  */
-public class StorageBufferSlot<T> extends DescriptorSlot {
+public class StorageBufferSlot extends DescriptorSlot {
     private ManagedBuffer boundBuffer;
 
     StorageBufferSlot(String name, int set, int binding) {

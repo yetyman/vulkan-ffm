@@ -5,10 +5,8 @@ import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 
 /**
  * Descriptor slot for a uniform buffer binding.
- *
- * @param <T> the Java type of the buffer's data (for documentation/type safety at the call site)
  */
-public class UniformBufferSlot<T> extends DescriptorSlot {
+public class UniformBufferSlot extends DescriptorSlot {
     private ManagedBuffer boundBuffer;
 
     UniformBufferSlot(String name, int set, int binding) {

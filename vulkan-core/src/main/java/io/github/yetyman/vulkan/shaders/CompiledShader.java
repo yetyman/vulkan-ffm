@@ -31,17 +31,43 @@ public class CompiledShader implements AutoCloseable {
     private final byte[] spirv;
     private final ShaderLoader.ShaderReflection reflection;
     private final ShadercShaderKind shaderKind;
+    private final String name;
+    private final Map<String, String> defines;
     private final Map<Integer, GeneratedDescriptorSetLayout> generatedLayouts = new HashMap<>();
 
     public CompiledShader(byte[] spirv, ShaderLoader.ShaderReflection reflection, ShadercShaderKind shaderKind) {
+        this(spirv, reflection, shaderKind, null, Map.of());
+    }
+
+    public CompiledShader(byte[] spirv, ShaderLoader.ShaderReflection reflection, ShadercShaderKind shaderKind, String name) {
+        this(spirv, reflection, shaderKind, name, Map.of());
+    }
+
+    public CompiledShader(byte[] spirv, ShaderLoader.ShaderReflection reflection, ShadercShaderKind shaderKind, String name, Map<String, String> defines) {
         this.spirv = spirv;
         this.reflection = reflection;
         this.shaderKind = shaderKind;
+        this.name = name;
+        this.defines = Collections.unmodifiableMap(new HashMap<>(defines));
     }
 
     public byte[] getSpirV() { return spirv.clone(); }
     public ShaderLoader.ShaderReflection getReflection() { return reflection; }
     public ShadercShaderKind getShaderKind() { return shaderKind; }
+    /** @return the logical name set at build time, or null if not set. */
+    public String getName() { return name; }
+    /** @return the preprocessor defines this shader was compiled with, empty if none. */
+    public Map<String, String> getDefines() { return defines; }
+
+    /** @return a new ShaderInstance for this compiled shader on the given device. */
+    public ShaderInstance createInstance(VkDevice device) {
+        return ShaderInstance.builder().of(this).device(device).build();
+    }
+
+    /** @return a Builder pre-configured with this compiled shader. */
+    public ShaderInstance.Builder instanceBuilder(VkDevice device) {
+        return ShaderInstance.builder().of(this).device(device);
+    }
 
     /** Creates a VkShaderModule from the compiled SPIR-V */
     public VkShaderModule createShaderModule(VkDevice device, Arena arena) {

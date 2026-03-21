@@ -3,7 +3,14 @@ package io.github.yetyman.vulkan.shaders;
 import io.github.yetyman.shaderc.generated.*;
 import io.github.yetyman.shaderc.enums.*;
 import io.github.yetyman.spirv.SpirvReflectLoader;
-import io.github.yetyman.spirv.generated.*;
+import io.github.yetyman.spirv.generated.SpvReflectBlockVariable;
+import io.github.yetyman.spirv.generated.SpvReflectDescriptorBinding;
+import io.github.yetyman.spirv.generated.SpvReflectDescriptorSet;
+import io.github.yetyman.spirv.generated.SpvReflectShaderModule;
+import io.github.yetyman.spirv.generated.SpvReflectSpecializationConstant;
+import io.github.yetyman.spirv.generated.SpvReflectNumericTraits;
+import io.github.yetyman.spirv.generated.SpvReflectTypeDescription;
+import io.github.yetyman.spirv.generated.SpirvReflectFFM;
 import io.github.yetyman.spirv.enums.*;
 import io.github.yetyman.vulkan.util.Logger;
 import java.io.*;
@@ -17,7 +24,7 @@ import java.util.function.Function;
 import static java.lang.foreign.ValueLayout.*;
 
 /**
- * Fluent builder for shader loading with direct FFM compilation.
+ * Static facade for shader compilation and loading, with a Builder for multi-step configuration.
  */
 public class ShaderLoader {
     static {
@@ -27,104 +34,150 @@ public class ShaderLoader {
     private static Function<ShaderCompileRequest, byte[]> defaultCompiler = ShaderLoader::shadercCompile;
     private static final ConcurrentHashMap<String, CompiledShader> compiledCache = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, CompiledShader> spirvCache = new ConcurrentHashMap<>();
-    
-    private String resourcePath;
-    private Function<ShaderCompileRequest, byte[]> compiler;
-    private final Map<String, String> defines = new HashMap<>();
-    private final List<String> includePaths = new ArrayList<>();
-    private boolean optimize = false;
-    private ShadercSourceLanguage sourceLanguage = ShadercSourceLanguage.shaderc_source_language_glsl;
-    private ShadercShaderKind shaderKind;
-    
-    private ShaderLoader(String resourcePath) {
-        this.resourcePath = resourcePath;
-        this.compiler = defaultCompiler;
-        this.shaderKind = inferShaderKind(resourcePath);
-    }
-    
-    public static ShaderLoader load(String resourcePath) {
-        return new ShaderLoader(resourcePath);
-    }
-    
+    private static final ConcurrentHashMap<String, CompiledShader> defineVariantCache = new ConcurrentHashMap<>();
+
+    private ShaderLoader() {}
+
     public static void setDefaultCompiler(Function<ShaderCompileRequest, byte[]> compiler) {
         defaultCompiler = compiler;
     }
-    
-    public ShaderLoader compiler(Function<ShaderCompileRequest, byte[]> compiler) {
-        this.compiler = compiler;
-        return this;
+
+    /** @return a Builder for the given resource path, with shader kind inferred from extension. */
+    public static Builder builder(String resourcePath) {
+        return new Builder(resourcePath);
     }
-    
-    public ShaderLoader sourceLanguage(ShadercSourceLanguage language) {
-        this.sourceLanguage = language;
-        return this;
-    }
-    
-    public ShaderLoader shaderKind(ShadercShaderKind kind) {
-        this.shaderKind = kind;
-        return this;
-    }
-    
-    public ShaderLoader hlsl() {
-        this.sourceLanguage = ShadercSourceLanguage.shaderc_source_language_hlsl;
-        return this;
-    }
-    
-    public ShaderLoader define(String name, String value) {
-        defines.put(name, value);
-        return this;
-    }
-    
-    public ShaderLoader includePath(String path) {
-        includePaths.add(path);
-        return this;
-    }
-    
-    public ShaderLoader optimize() {
-        this.optimize = true;
-        return this;
-    }
-    
-    public byte[] compile() {
-        ShaderCompileRequest request = new ShaderCompileRequest(
-            resourcePath, shaderKind, sourceLanguage, defines, includePaths, optimize
-        );
-        return compiler.apply(request);
-    }
-    
-    public byte[] loadSpirV() {
-        try (InputStream is = ShaderLoader.class.getResourceAsStream(resourcePath)) {
-            if (is == null) throw new FileNotFoundException(resourcePath);
-            return is.readAllBytes();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load SPIR-V: " + resourcePath, e);
-        }
-    }
-    
-    public CompiledShader compileShader() {
-        byte[] spirv = compile();
-        ShaderReflection reflection = new ShaderReflection(spirv);
-        return new CompiledShader(spirv, reflection, shaderKind);
-    }
-    
-    public CompiledShader loadCompiledShader() {
-        byte[] spirv = loadSpirV();
-        ShaderReflection reflection = new ShaderReflection(spirv);
-        return new CompiledShader(spirv, reflection, shaderKind);
-    }
-    
+
+    /** Compiles and reflects a shader, caching by path. */
     public static CompiledShader compileShader(String resourcePath) {
-        return compiledCache.computeIfAbsent(resourcePath, p -> load(p).compileShader());
+        return compiledCache.computeIfAbsent(resourcePath, p -> builder(p).compileShader());
     }
 
+    /**
+     * Compiles a shader with preprocessor defines, caching by (path, defines).
+     * Each unique define set produces a distinct CompiledShader.
+     */
+    public static CompiledShader compileShader(String resourcePath, Map<String, String> defines) {
+        if (defines == null || defines.isEmpty()) return compileShader(resourcePath);
+        String cacheKey = defineVariantCacheKey(resourcePath, defines);
+        return defineVariantCache.computeIfAbsent(cacheKey, k -> {
+            Builder b = builder(resourcePath);
+            defines.forEach(b::define);
+            return b.compileShader();
+        });
+    }
+
+    /** Loads a pre-compiled SPIR-V file and reflects it, caching by path. */
     public static CompiledShader loadCompiledShader(String resourcePath) {
-        return spirvCache.computeIfAbsent(resourcePath, p -> load(p).loadCompiledShader());
+        return spirvCache.computeIfAbsent(resourcePath, p -> builder(p).loadCompiledShader());
     }
 
-    /** Evicts a path from both caches, e.g. after hot-reload. */
+    /** Evicts a path from all caches, e.g. after hot-reload. Also removes all define variants. */
     public static void invalidate(String resourcePath) {
         compiledCache.remove(resourcePath);
         spirvCache.remove(resourcePath);
+        defineVariantCache.keySet().removeIf(k -> k.startsWith(resourcePath + "|"));
+    }
+
+    private static String defineVariantCacheKey(String resourcePath, Map<String, String> defines) {
+        StringBuilder sb = new StringBuilder(resourcePath).append('|');
+        defines.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(e -> sb.append(e.getKey()).append('=').append(e.getValue()).append(','));
+        return sb.toString();
+    }
+
+    public static class Builder {
+        private final String resourcePath;
+        private final ShadercShaderKind shaderKind;
+        private Function<ShaderCompileRequest, byte[]> compiler;
+        private final Map<String, String> defines = new HashMap<>();
+        private final List<String> includePaths = new ArrayList<>();
+        private boolean optimize = false;
+        private ShadercSourceLanguage sourceLanguage = ShadercSourceLanguage.shaderc_source_language_glsl;
+
+        private String name;
+
+        private Builder(String resourcePath) {
+            this.resourcePath = resourcePath;
+            this.shaderKind = inferShaderKind(resourcePath);
+            this.compiler = defaultCompiler;
+        }
+
+        /**
+         * Overrides the logical name used for caching and class generation.
+         * Useful when resourcePath is a temp file or inline source rather than a stable classpath resource.
+         */
+        public Builder name(String name) { this.name = name; return this; }
+
+        /** @return the logical name: the explicit override if set, otherwise the resource path. */
+        public String name() { return name != null ? name : resourcePath; }
+
+        /** Sets a custom compile pipeline, replacing the default shaderc compiler. */
+        public Builder compiler(Function<ShaderCompileRequest, byte[]> compiler) {
+            this.compiler = compiler;
+            return this;
+        }
+
+        /** Sets the source language (default: GLSL). */
+        public Builder sourceLanguage(ShadercSourceLanguage language) {
+            this.sourceLanguage = language;
+            return this;
+        }
+
+        /** Shorthand for {@code sourceLanguage(shaderc_source_language_hlsl)}. */
+        public Builder hlsl() {
+            this.sourceLanguage = ShadercSourceLanguage.shaderc_source_language_hlsl;
+            return this;
+        }
+
+        /** Adds a preprocessor define. */
+        public Builder define(String name, String value) {
+            defines.put(name, value);
+            return this;
+        }
+
+        /** Adds an include search path. */
+        public Builder includePath(String path) {
+            includePaths.add(path);
+            return this;
+        }
+
+        /** Enables performance optimization during compilation. */
+        public Builder optimize() {
+            this.optimize = true;
+            return this;
+        }
+
+        /** Compiles to raw SPIR-V bytes. */
+        public byte[] compile() {
+            return compiler.apply(new ShaderCompileRequest(
+                resourcePath, shaderKind, sourceLanguage, defines, includePaths, optimize));
+        }
+
+        /** Loads a pre-compiled SPIR-V resource from the classpath or filesystem. */
+        public byte[] loadSpirV() {
+            try (InputStream is = ShaderLoader.class.getResourceAsStream(resourcePath)) {
+                if (is != null) return is.readAllBytes();
+                java.nio.file.Path fsPath = java.nio.file.Path.of(resourcePath);
+                if (java.nio.file.Files.exists(fsPath))
+                    return java.nio.file.Files.readAllBytes(fsPath);
+                throw new FileNotFoundException(resourcePath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load SPIR-V: " + resourcePath, e);
+            }
+        }
+
+        /** Compiles the shader and returns a reflected CompiledShader. */
+        public CompiledShader compileShader() {
+            byte[] spirv = compile();
+            return new CompiledShader(spirv, new ShaderReflection(spirv), shaderKind, name(), defines);
+        }
+
+        /** Loads a pre-compiled SPIR-V and returns a reflected CompiledShader. */
+        public CompiledShader loadCompiledShader() {
+            byte[] spirv = loadSpirV();
+            return new CompiledShader(spirv, new ShaderReflection(spirv), shaderKind, name(), defines);
+        }
     }
     
     private static byte[] shadercCompile(ShaderCompileRequest request) {
@@ -196,8 +249,14 @@ public class ShaderLoader {
     }
     
     private static String loadResource(String path) throws IOException {
-        try (InputStream is = ShaderLoader.class.getResourceAsStream(path)) {
-            if (is == null) throw new FileNotFoundException(path);
+        InputStream is = ShaderLoader.class.getResourceAsStream(path);
+        if (is == null) {
+            java.nio.file.Path fsPath = java.nio.file.Path.of(path);
+            if (java.nio.file.Files.exists(fsPath))
+                return java.nio.file.Files.readString(fsPath, StandardCharsets.UTF_8);
+            throw new FileNotFoundException(path);
+        }
+        try (is) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
@@ -247,15 +306,22 @@ public class ShaderLoader {
         private final Map<Integer, DescriptorSetInfo> descriptorSets;
         private final Map<String, DescriptorBindingInfo> bindingsByName;
         private final List<PushConstantBlockInfo> pushConstantBlocks;
+        private final List<SpecializationConstantInfo> specializationConstants;
+        private final Map<String, SpecializationConstantInfo> specializationConstantsByName;
 
         private ShaderReflection(byte[] spirv) {
             Map<Integer, DescriptorSetInfo> sets = new HashMap<>();
             Map<String, DescriptorBindingInfo> byName = new HashMap<>();
             List<PushConstantBlockInfo> pushConstants = new ArrayList<>();
-            parseAll(spirv, sets, byName, pushConstants);
+            List<SpecializationConstantInfo> specConstants = new ArrayList<>();
+            parseAll(spirv, sets, byName, pushConstants, specConstants);
             this.descriptorSets = sets;
             this.bindingsByName = byName;
             this.pushConstantBlocks = List.copyOf(pushConstants);
+            this.specializationConstants = List.copyOf(specConstants);
+            Map<String, SpecializationConstantInfo> byNameMap = new HashMap<>();
+            for (SpecializationConstantInfo sc : specConstants) byNameMap.put(sc.name(), sc);
+            this.specializationConstantsByName = Collections.unmodifiableMap(byNameMap);
         }
         
         public Map<Integer, DescriptorSetInfo> getDescriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
@@ -266,6 +332,11 @@ public class ShaderLoader {
         public DescriptorBindingInfo getBindingByName(String name) { return bindingsByName.get(name); }
 
         public List<PushConstantBlockInfo> getPushConstantBlocks() { return pushConstantBlocks; }
+
+        public List<SpecializationConstantInfo> getSpecializationConstants() { return specializationConstants; }
+
+        /** @return specialization constant info by shader variable name, or null if not found */
+        public SpecializationConstantInfo getSpecializationConstant(String name) { return specializationConstantsByName.get(name); }
 
         /** @return the first push constant member with the given name across all blocks, or null */
         public StructMemberInfo getPushConstantMember(String name) {
@@ -279,9 +350,11 @@ public class ShaderLoader {
         private void parseAll(byte[] spirv,
                               Map<Integer, DescriptorSetInfo> sets,
                               Map<String, DescriptorBindingInfo> byName,
-                              List<PushConstantBlockInfo> pushConstants) {
-            MemorySegment module = nativeCalloc(1, SpvReflectShaderModule.sizeof());
+                              List<PushConstantBlockInfo> pushConstants,
+                              List<SpecializationConstantInfo> specializationConstants) {
+            MemorySegment moduleRaw = nativeCalloc(1, SpvReflectShaderModule.sizeof());
             try (Arena arena = Arena.ofConfined()) {
+                MemorySegment module = moduleRaw.reinterpret(SpvReflectShaderModule.sizeof(), arena, null);
                 MemorySegment codeSegment = arena.allocateFrom(JAVA_BYTE, spirv);
                 SpirvReflectResult result = SpirvReflectResult.fromValue(
                     SpirvReflectFFM.spvReflectCreateShaderModule(spirv.length, codeSegment, module));
@@ -292,13 +365,14 @@ public class ShaderLoader {
                 try {
                     parseDescriptorSets(module, arena, sets, byName);
                     parsePushConstants(module, arena, pushConstants);
+                    parseSpecializationConstants(module, arena, specializationConstants);
                 } finally {
                     SpirvReflectFFM.spvReflectDestroyShaderModule(module);
                 }
             } catch (Exception e) {
                 Logger.warn("SPIRV-Reflect: failed to parse shader: " + e.getMessage());
             } finally {
-                nativeFree(module);
+                nativeFree(moduleRaw);
             }
         }
 
@@ -312,7 +386,6 @@ public class ShaderLoader {
 
             MemorySegment setsPtr = arena.allocate(ADDRESS, setCount);
             SpirvReflectFFM.spvReflectEnumerateDescriptorSets(module, countPtr, setsPtr);
-
             for (int i = 0; i < setCount; i++) {
                 MemorySegment setPtr = setsPtr.getAtIndex(ADDRESS, i)
                     .reinterpret(SpvReflectDescriptorSet.sizeof(), arena, null);
@@ -331,8 +404,23 @@ public class ShaderLoader {
                         int count = SpvReflectDescriptorBinding.count(bindingPtr);
                         MemorySegment namePtr = SpvReflectDescriptorBinding.name(bindingPtr);
                         String name = namePtr.equals(MemorySegment.NULL) ? null : namePtr.reinterpret(256, arena, null).getString(0);
+                        // Parse block members for UBO/SSBO bindings
+                        List<StructMemberInfo> blockMembers = new ArrayList<>();
+                        SpirvReflectDescriptorType descType = SpirvReflectDescriptorType.fromValue(descriptorTypeVal);
+                        if (descType == SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+                                || descType == SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER) {
+                            MemorySegment block = SpvReflectDescriptorBinding.block(bindingPtr);
+                            int memberCount = SpvReflectBlockVariable.member_count(block);
+                            if (memberCount > 0) {
+                                MemorySegment membersPtr = SpvReflectBlockVariable.members(block)
+                                    .reinterpret(SpvReflectBlockVariable.sizeof() * memberCount, arena, null);
+                                for (int m = 0; m < memberCount; m++) {
+                                    blockMembers.add(parseMember(SpvReflectBlockVariable.asSlice(membersPtr, m), arena));
+                                }
+                            }
+                        }
                         DescriptorBindingInfo info = new DescriptorBindingInfo(
-                            bindingIndex, SpirvReflectDescriptorType.fromValue(descriptorTypeVal), count, name);
+                            bindingIndex, descType, count, 0, name, blockMembers);
                         setInfo.addBinding(bindingIndex, info);
                         if (name != null && !name.isEmpty()) byName.put(name, info);
                     }
@@ -354,10 +442,10 @@ public class ShaderLoader {
                 MemorySegment blockPtr = blocksPtr.getAtIndex(ADDRESS, i)
                     .reinterpret(SpvReflectBlockVariable.sizeof(), arena, null);
                 MemorySegment namePtr = SpvReflectBlockVariable.name(blockPtr);
-                String blockName = namePtr.equals(MemorySegment.NULL) ? "" : namePtr.reinterpret(256, arena, null).getString(0);
                 int offset = SpvReflectBlockVariable.offset(blockPtr);
                 int size = SpvReflectBlockVariable.size(blockPtr);
                 int memberCount = SpvReflectBlockVariable.member_count(blockPtr);
+                String blockName = namePtr.equals(MemorySegment.NULL) ? "" : namePtr.reinterpret(256, arena, null).getString(0);
                 List<StructMemberInfo> members = new ArrayList<>();
                 if (memberCount > 0) {
                     MemorySegment membersPtr = SpvReflectBlockVariable.members(blockPtr)
@@ -375,7 +463,6 @@ public class ShaderLoader {
                         MemorySegment typeDesc = typeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
                         int tdMemberCount = SpvReflectTypeDescription.member_count(typeDesc);
                         if (tdMemberCount > 0) {
-                            // Multi-member block exposed only through type_description->members
                             MemorySegment tdMembersPtr = SpvReflectTypeDescription.members(typeDesc)
                                 .reinterpret(SpvReflectTypeDescription.sizeof() * tdMemberCount, arena, null);
                             for (int m = 0; m < tdMemberCount; m++) {
@@ -389,7 +476,6 @@ public class ShaderLoader {
                                 members.add(new StructMemberInfo(memberName, memberOffset, memberSize, typeFlags, List.of()));
                             }
                         } else {
-                            // Single-member leaf: struct_member_name on the block's own type_description is the member name
                             MemorySegment memberNamePtr = SpvReflectTypeDescription.struct_member_name(typeDesc);
                             String memberName = memberNamePtr.equals(MemorySegment.NULL) ? blockName :
                                 memberNamePtr.reinterpret(256, arena, null).getString(0);
@@ -403,6 +489,42 @@ public class ShaderLoader {
             }
         }
 
+        private void parseSpecializationConstants(MemorySegment module, Arena arena, List<SpecializationConstantInfo> out) {
+            MemorySegment countPtr = arena.allocate(JAVA_INT);
+            SpirvReflectFFM.spvReflectEnumerateSpecializationConstants(module, countPtr, MemorySegment.NULL);
+            int count = countPtr.get(JAVA_INT, 0);
+            if (count == 0) return;
+
+            MemorySegment constantsPtr = arena.allocate(ADDRESS, count);
+            SpirvReflectFFM.spvReflectEnumerateSpecializationConstants(module, countPtr, constantsPtr);
+
+            for (int i = 0; i < count; i++) {
+                MemorySegment sc = constantsPtr.getAtIndex(ADDRESS, i)
+                    .reinterpret(SpvReflectSpecializationConstant.sizeof(), arena, null);
+                int constantId = SpvReflectSpecializationConstant.constant_id(sc);
+                MemorySegment namePtr = SpvReflectSpecializationConstant.name(sc);
+                String name = namePtr.equals(MemorySegment.NULL) ? "spec" + constantId
+                    : namePtr.reinterpret(256, arena, null).getString(0);
+                int typeFlags = 0;
+                MemorySegment typeDescPtr = SpvReflectSpecializationConstant.type_description(sc);
+                if (!typeDescPtr.equals(MemorySegment.NULL)) {
+                    MemorySegment typeDesc = typeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
+                    // Use type_description->op to discriminate: 20=OpTypeBool, 21=OpTypeInt, 22=OpTypeFloat
+                    int op = SpvReflectTypeDescription.op(typeDesc);
+                    if      (op == 20) typeFlags = 0x00000002; // SPV_REFLECT_TYPE_FLAG_BOOL
+                    else if (op == 21) typeFlags = 0x00000004; // SPV_REFLECT_TYPE_FLAG_INT
+                    else if (op == 22) typeFlags = 0x00000008; // SPV_REFLECT_TYPE_FLAG_FLOAT
+                    else               typeFlags = SpvReflectTypeDescription.type_flags(typeDesc);
+                }
+                int defaultValueSize = SpvReflectSpecializationConstant.default_value_size(sc);
+                MemorySegment defaultValuePtr = SpvReflectSpecializationConstant.default_value(sc);
+                int defaultValueBits = (!defaultValuePtr.equals(MemorySegment.NULL) && defaultValueSize >= 4)
+                    ? defaultValuePtr.reinterpret(defaultValueSize, arena, null).get(JAVA_INT, 0)
+                    : (int) defaultValuePtr.address();
+                out.add(new SpecializationConstantInfo(name, constantId, typeFlags, defaultValueBits));
+            }
+        }
+
         private StructMemberInfo parseMember(MemorySegment memberPtr, Arena arena) {
             MemorySegment namePtr = SpvReflectBlockVariable.name(memberPtr);
             String name = namePtr.equals(MemorySegment.NULL) ? "" : namePtr.reinterpret(256, arena, null).getString(0);
@@ -410,10 +532,57 @@ public class ShaderLoader {
             int size = SpvReflectBlockVariable.size(memberPtr);
             int memberCount = SpvReflectBlockVariable.member_count(memberPtr);
             int typeFlags = 0;
+            String typeName = null;
+            int scalarWidth = 0, scalarSignedness = 0, vectorComponents = 0, matrixColumns = 0, matrixRows = 0;
             MemorySegment typeDescPtr = SpvReflectBlockVariable.type_description(memberPtr);
             if (!typeDescPtr.equals(MemorySegment.NULL)) {
                 MemorySegment typeDesc = typeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
                 typeFlags = SpvReflectTypeDescription.type_flags(typeDesc);
+                MemorySegment typeNamePtr = SpvReflectTypeDescription.type_name(typeDesc);
+                if (!typeNamePtr.equals(MemorySegment.NULL)) {
+                    String raw = typeNamePtr.reinterpret(256, arena, null).getString(0);
+                    if (!raw.isEmpty()) typeName = raw;
+                }
+                // For array-of-struct, type_name is null on the array; try struct_type_description
+                // then type_description->members[0] (runtime array element type)
+                if (typeName == null) {
+                    MemorySegment structTypeDescPtr = SpvReflectTypeDescription.struct_type_description(typeDesc);
+                    if (!structTypeDescPtr.equals(MemorySegment.NULL)) {
+                        MemorySegment structTypeDesc = structTypeDescPtr.reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
+                        MemorySegment elemTypeNamePtr = SpvReflectTypeDescription.type_name(structTypeDesc);
+                        if (!elemTypeNamePtr.equals(MemorySegment.NULL)) {
+                            String raw = elemTypeNamePtr.reinterpret(256, arena, null).getString(0);
+                            if (!raw.isEmpty()) typeName = raw;
+                        }
+                    }
+                }
+                if (typeName == null) {
+                    int tdMemberCount = SpvReflectTypeDescription.member_count(typeDesc);
+                    MemorySegment tdMembersPtr = SpvReflectTypeDescription.members(typeDesc);
+                    if (tdMemberCount > 0 && !tdMembersPtr.equals(MemorySegment.NULL)) {
+                        MemorySegment firstTdMember = tdMembersPtr
+                            .reinterpret(SpvReflectTypeDescription.sizeof(), arena, null);
+                        MemorySegment elemTypeNamePtr = SpvReflectTypeDescription.type_name(firstTdMember);
+                        if (!elemTypeNamePtr.equals(MemorySegment.NULL)) {
+                            String raw = elemTypeNamePtr.reinterpret(256, arena, null).getString(0);
+                            if (!raw.isEmpty()) typeName = raw;
+                        }
+                    }
+                }
+                // Numeric traits — scalar width/signedness, vector component count, matrix dimensions
+                MemorySegment traits = SpvReflectTypeDescription.traits(typeDesc)
+                    .reinterpret(SpvReflectNumericTraits.sizeof(), arena, null);
+                MemorySegment scalar = SpvReflectNumericTraits.scalar(traits)
+                    .reinterpret(SpvReflectNumericTraits.scalar.sizeof(), arena, null);
+                scalarWidth      = SpvReflectNumericTraits.scalar.width(scalar);
+                scalarSignedness = SpvReflectNumericTraits.scalar.signedness(scalar);
+                MemorySegment vector = SpvReflectNumericTraits.vector(traits)
+                    .reinterpret(SpvReflectNumericTraits.vector.sizeof(), arena, null);
+                vectorComponents = SpvReflectNumericTraits.vector.component_count(vector);
+                MemorySegment matrix = SpvReflectNumericTraits.matrix(traits)
+                    .reinterpret(SpvReflectNumericTraits.matrix.sizeof(), arena, null);
+                matrixColumns = SpvReflectNumericTraits.matrix.column_count(matrix);
+                matrixRows    = SpvReflectNumericTraits.matrix.row_count(matrix);
             }
             List<StructMemberInfo> nested = new ArrayList<>();
             if (memberCount > 0) {
@@ -423,7 +592,8 @@ public class ShaderLoader {
                     nested.add(parseMember(SpvReflectBlockVariable.asSlice(nestedPtr, m), arena));
                 }
             }
-            return new StructMemberInfo(name, offset, size, typeFlags, List.copyOf(nested));
+            return new StructMemberInfo(name, offset, size, typeFlags, List.copyOf(nested), typeName,
+                scalarWidth, scalarSignedness, vectorComponents, matrixColumns, matrixRows);
         }
     }
     
@@ -453,28 +623,34 @@ public class ShaderLoader {
         private final int descriptorCount;
         private final int stageFlags;
         private final String name;
+        private final List<StructMemberInfo> blockMembers;
 
         /** Constructor for reflection-parsed bindings (stage flags determined by shader stage). */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount) {
-            this(binding, descriptorType, descriptorCount, 0, null);
+            this(binding, descriptorType, descriptorCount, 0, null, List.of());
         }
 
         /** Constructor for reflection-parsed bindings with name. */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, String name) {
-            this(binding, descriptorType, descriptorCount, 0, name);
+            this(binding, descriptorType, descriptorCount, 0, name, List.of());
         }
 
         /** Constructor for manually-added bindings with explicit stage flags. */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags) {
-            this(binding, descriptorType, descriptorCount, stageFlags, null);
+            this(binding, descriptorType, descriptorCount, stageFlags, null, List.of());
         }
 
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name) {
+            this(binding, descriptorType, descriptorCount, stageFlags, name, List.of());
+        }
+
+        public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name, List<StructMemberInfo> blockMembers) {
             this.binding = binding;
             this.descriptorType = descriptorType;
             this.descriptorCount = descriptorCount;
             this.stageFlags = stageFlags;
             this.name = name;
+            this.blockMembers = List.copyOf(blockMembers);
         }
 
         public int getBinding() { return binding; }
@@ -484,6 +660,8 @@ public class ShaderLoader {
         public int getStageFlags() { return stageFlags; }
         /** @return shader variable name from reflection, or null if not available */
         public String getName() { return name; }
+        /** @return reflected struct members for UBO/SSBO block variables, empty for other types. */
+        public List<StructMemberInfo> getBlockMembers() { return blockMembers; }
     }
 
     public static class PushConstantBlockInfo {
@@ -510,12 +688,39 @@ public class ShaderLoader {
         public StructMemberInfo getMember(String name) { return membersByName.get(name); }
     }
 
-    public record StructMemberInfo(String name, int offset, int size, int typeFlags, List<StructMemberInfo> members) {
+    public record StructMemberInfo(String name, int offset, int size, int typeFlags, List<StructMemberInfo> members, String typeName,
+                                    int scalarWidth, int scalarSignedness, int vectorComponents, int matrixColumns, int matrixRows) {
+        /** Convenience constructor without numeric traits. */
+        public StructMemberInfo(String name, int offset, int size, int typeFlags, List<StructMemberInfo> members) {
+            this(name, offset, size, typeFlags, members, null, 0, 0, 0, 0, 0);
+        }
+        /** Convenience constructor without numeric traits but with typeName. */
+        public StructMemberInfo(String name, int offset, int size, int typeFlags, List<StructMemberInfo> members, String typeName) {
+            this(name, offset, size, typeFlags, members, typeName, 0, 0, 0, 0, 0);
+        }
         public boolean isFloat()  { return (typeFlags & 0x00000008) != 0; }
         public boolean isInt()    { return (typeFlags & 0x00000004) != 0; }
+        public boolean isBool()   { return (typeFlags & 0x00000002) != 0; }
         public boolean isVector() { return (typeFlags & 0x00000100) != 0; }
         public boolean isMatrix() { return (typeFlags & 0x00000200) != 0; }
         public boolean isStruct() { return (typeFlags & 0x00000800) != 0; }
         public boolean isArray()  { return (typeFlags & 0x00010000) != 0; }
+    }
+
+    /**
+     * Reflected specialization constant (layout(constant_id = N) const type name = default).
+     * defaultValueBits is the raw 32-bit representation of the default value from SPIR-V.
+     */
+    public record SpecializationConstantInfo(String name, int constantId, int typeFlags, int defaultValueBits) {
+        public boolean isFloat()  { return (typeFlags & 0x00000008) != 0; }
+        public boolean isInt()    { return (typeFlags & 0x00000004) != 0; }
+        public boolean isBool()   { return (typeFlags & 0x00000002) != 0; }
+
+        /** @return the default value interpreted as float */
+        public float defaultFloat()   { return Float.intBitsToFloat(defaultValueBits); }
+        /** @return the default value interpreted as int */
+        public int defaultInt()       { return defaultValueBits; }
+        /** @return the default value interpreted as boolean (non-zero = true) */
+        public boolean defaultBool()  { return defaultValueBits != 0; }
     }
 }

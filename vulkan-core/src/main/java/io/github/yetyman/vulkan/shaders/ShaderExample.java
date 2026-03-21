@@ -22,6 +22,8 @@ import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -31,6 +33,59 @@ public class ShaderExample {
     // Shaders in sample-app resources — must be on classpath at runtime
     static final String VERT_SIMPLE  = "/shaders/triangle.vert";  // push constant: float time
     static final String VERT_COMPLEX = "/shaders/gltf.vert";      // UBO: camera, push constants: visualizationMode/lodLevel/splitScreenOffset
+
+    /**
+     * Inline shader that densely exercises all specialization features:
+     *   - layout(constant_id=N) spec constants: bool enableFog, float fogDensity, int maxLights
+     *   - #ifdef ENABLE_SHADOWS define-based conditional
+     *   - push constant: float time
+     *   - UBO: camera (set 0, binding 0)
+     *   - SSBO: lights (set 0, binding 1)
+     *   - texture sampler: albedo (set 1, binding 0)
+     *   - optional shadowMap sampler (set 0, binding 2) — only present when ENABLE_SHADOWS defined
+     *
+     * Compiled on-the-fly via compileGlslString() — not a classpath resource.
+     */
+    static final String SPEC_SHADER_GLSL = String.join("\n",
+        "#version 450",
+        "#extension GL_ARB_separate_shader_objects : enable",
+        "",
+        "layout(constant_id = 0) const bool  enableFog  = true;",
+        "layout(constant_id = 1) const float fogDensity = 0.02;",
+        "layout(constant_id = 2) const int   maxLights  = 4;",
+        "",
+        "#ifdef ENABLE_SHADOWS",
+        "layout(set = 0, binding = 2) uniform sampler2D shadowMap;",
+        "#endif",
+        "",
+        "layout(push_constant) uniform PC { float time; } pc;",
+        "",
+        "layout(set = 0, binding = 0) uniform CameraUBO { mat4 viewProj; } camera;",
+        "",
+        "struct Light { vec4 positionAndRadius; vec4 colorAndIntensity; };",
+        "layout(set = 0, binding = 1) readonly buffer LightBuffer { Light lights[]; } lightBuf;",
+        "",
+        "layout(set = 1, binding = 0) uniform sampler2D albedo;",
+        "",
+        "layout(location = 0) in  vec3 inPosition;",
+        "layout(location = 0) out vec4 outColor;",
+        "",
+        "void main() {",
+        "    vec4 color = texture(albedo, vec2(inPosition.xy));",
+        "    for (int i = 0; i < maxLights; i++) {",
+        "        Light l = lightBuf.lights[i];",
+        "        color.rgb += l.colorAndIntensity.rgb * l.colorAndIntensity.a;",
+        "    }",
+        "    if (enableFog) {",
+        "        float fog = exp(-fogDensity * inPosition.z);",
+        "        color.rgb = mix(vec3(0.5), color.rgb, fog);",
+        "    }",
+        "    #ifdef ENABLE_SHADOWS",
+        "    color.rgb *= texture(shadowMap, vec2(inPosition.xy)).r;",
+        "    #endif",
+        "    outColor = color + vec4(pc.time * 0.0001);",
+        "}"
+    );
 
     public static void main(String[] args) throws Exception {
         try (Arena arena = Arena.ofConfined()) {
@@ -84,11 +139,10 @@ public class ShaderExample {
             // 2. SHADER INSTANCE — reflection-driven slot creation
             // =========================================================
             section("SHADER INSTANCE");
-            try (ShaderInstance simple = ShaderInstance.from(VERT_SIMPLE, device)) {
+            try (ShaderInstance simple = ShaderLoader.compileShader(VERT_SIMPLE).createInstance(device)) {
                 check("ShaderInstance created (triangle.vert)", simple != null);
                 check("compiled() not null", simple.compiled() != null);
 
-                // triangle.vert: push constant block 'pc' with member 'time'
                 PushConstant<Float> time = simple.getPushConstant("time", Float.class);
                 check("getPushConstant 'time' not null", time != null);
                 check("'time' not dirty initially", !time.isDirty());
@@ -97,10 +151,9 @@ public class ShaderExample {
                 System.out.println("  push constant 'time': offset=" + time.offset() + " size=" + time.size());
             }
 
-            try (ShaderInstance complex = ShaderInstance.from(VERT_COMPLEX, device)) {
+            try (ShaderInstance complex = ShaderLoader.compileShader(VERT_COMPLEX).createInstance(device)) {
                 check("ShaderInstance created (gltf.vert)", complex != null);
 
-                // gltf.vert has push constants: visualizationMode (int), lodLevel (int), splitScreenOffset (float)
                 PushConstant<Integer> vizMode = complex.getPushConstant("visualizationMode", Integer.class);
                 PushConstant<Integer> lod     = complex.getPushConstant("lodLevel", Integer.class);
                 PushConstant<Float>   split   = complex.getPushConstant("splitScreenOffset", Float.class);
@@ -108,88 +161,326 @@ public class ShaderExample {
                 check("getPushConstant 'lodLevel'", lod != null);
                 check("getPushConstant 'splitScreenOffset'", split != null);
 
-                // gltf.vert has UBO 'camera' at binding 0
-                UniformBufferSlot<Object> cameraSlot = complex.getUniformBufferSlot("camera", Object.class);
+                UniformBufferSlot cameraSlot = complex.getUniformBufferSlot("camera");
                 check("getUniformBufferSlot 'camera'", cameraSlot != null);
                 check("'camera' slot not dirty initially", !cameraSlot.isDirty());
                 System.out.println("  descriptor sets: " + complex.descriptorSets().size());
                 System.out.println("  layouts: " + complex.layouts().size());
+            }
 
-                // =========================================================
-                // 3. GENERATED SHADER CODE PRINTOUT
-                // =========================================================
-                section("GENERATED SHADER CODE (gltf.vert)");
-                Path tmpDir = Files.createTempDirectory("shader-gen-test");
-                ShaderGenerator.generate(VERT_COMPLEX, tmpDir, "io.github.yetyman.vulkan.shaders.generated");
-                Path genFile = tmpDir.resolve("GltfVertShader.java");
-                check("generated file exists", genFile.toFile().exists());
-                String generatedSource = Files.readString(genFile);
-                System.out.println("  --- GltfVertShader.java ---");
-                System.out.println(generatedSource);
-                System.out.println("  --- end ---");
+            // =========================================================
+            // 3. GENERATED SHADER CODE PRINTOUT
+            // =========================================================
+            section("GENERATED SHADER CODE (gltf.vert)");
+            Path tmpDir = Files.createTempDirectory("shader-gen-test");
+            ShaderGenerator.generate(VERT_COMPLEX, tmpDir, "io.github.yetyman.vulkan.shaders.generated");
+            Path genFile = tmpDir.resolve("GltfVertShader.java");
+            check("generated file exists", genFile.toFile().exists());
+            String generatedSource = Files.readString(genFile);
+            System.out.println("  --- GltfVertShader.java ---");
+            System.out.println(generatedSource);
+            System.out.println("  --- end ---");
 
-                // =========================================================
-                // 4. DIRTY FLAG + ASYNC BUFFER LOAD
-                //    Background thread writes camera UBO data; on completion
-                //    it sets the buffer into the 'camera' slot, marking it dirty.
-                // =========================================================
-                section("DIRTY FLAG / ASYNC BUFFER LOAD");
+            // =========================================================
+            // 4. DIRTY FLAG + ASYNC BUFFER LOAD
+            // =========================================================
+            section("DIRTY FLAG / ASYNC BUFFER LOAD");
+            long uboSize = 64;
+            try (ManagedBuffer buf0 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
+                 ManagedBuffer buf1 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
+                 ManagedBuffer buf2 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue)) {
 
-                // Use DEVICE_LOCAL so transfers are genuinely async (GPU staging copy).
-                // Launch 3 concurrent buffer loads; each onComplete sets its slot and counts down.
-                // We verify: slots are not dirty before any completion, then all dirty after all complete.
-                long uboSize = 64; // mat4 = 16 floats
-                try (ManagedBuffer buf0 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
-                     ManagedBuffer buf1 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
-                     ManagedBuffer buf2 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue)) {
+                try (ShaderInstance inst0 = complexCompiled.createInstance(device);
+                     ShaderInstance inst1 = complexCompiled.createInstance(device);
+                     ShaderInstance inst2 = complexCompiled.createInstance(device)) {
 
-                    // Three separate shader instances so each has its own independent camera slot
-                    try (ShaderInstance inst0 = ShaderInstance.from(VERT_COMPLEX, device);
-                         ShaderInstance inst1 = ShaderInstance.from(VERT_COMPLEX, device);
-                         ShaderInstance inst2 = ShaderInstance.from(VERT_COMPLEX, device)) {
+                    UniformBufferSlot slot0 = inst0.getUniformBufferSlot("camera");
+                    UniformBufferSlot slot1 = inst1.getUniformBufferSlot("camera");
+                    UniformBufferSlot slot2 = inst2.getUniformBufferSlot("camera");
 
-                        UniformBufferSlot<Object> slot0 = inst0.getUniformBufferSlot("camera", Object.class);
-                        UniformBufferSlot<Object> slot1 = inst1.getUniformBufferSlot("camera", Object.class);
-                        UniformBufferSlot<Object> slot2 = inst2.getUniformBufferSlot("camera", Object.class);
+                    check("slot0 not dirty before load", !slot0.isDirty());
+                    check("slot1 not dirty before load", !slot1.isDirty());
+                    check("slot2 not dirty before load", !slot2.isDirty());
 
-                        check("slot0 not dirty before load", !slot0.isDirty());
-                        check("slot1 not dirty before load", !slot1.isDirty());
-                        check("slot2 not dirty before load", !slot2.isDirty());
+                    CountDownLatch latch = new CountDownLatch(3);
 
-                        CountDownLatch latch = new CountDownLatch(3);
+                    TransferCompletion tc0 = buf0.writeAsync(identityMat4(), 0, queue);
+                    TransferCompletion tc1 = buf1.writeAsync(identityMat4(), 0, queue);
+                    TransferCompletion tc2 = buf2.writeAsync(identityMat4(), 0, queue);
 
-                        TransferCompletion tc0 = buf0.writeAsync(identityMat4(), 0, queue);
-                        TransferCompletion tc1 = buf1.writeAsync(identityMat4(), 0, queue);
-                        TransferCompletion tc2 = buf2.writeAsync(identityMat4(), 0, queue);
+                    check("slot0 not dirty immediately after writeAsync", !slot0.isDirty());
+                    check("slot1 not dirty immediately after writeAsync", !slot1.isDirty());
+                    check("slot2 not dirty immediately after writeAsync", !slot2.isDirty());
 
-                        check("slot0 not dirty immediately after writeAsync", !slot0.isDirty());
-                        check("slot1 not dirty immediately after writeAsync", !slot1.isDirty());
-                        check("slot2 not dirty immediately after writeAsync", !slot2.isDirty());
+                    tc0.flush(device, queue);
+                    tc1.flush(device, queue);
+                    tc2.flush(device, queue);
 
-                        tc0.flush(device, queue);
-                        tc1.flush(device, queue);
-                        tc2.flush(device, queue);
+                    tc0.onComplete(() -> { slot0.set(buf0); latch.countDown(); });
+                    tc1.onComplete(() -> { slot1.set(buf1); latch.countDown(); });
+                    tc2.onComplete(() -> { slot2.set(buf2); latch.countDown(); });
 
-                        tc0.onComplete(() -> { slot0.set(buf0); latch.countDown(); });
-                        tc1.onComplete(() -> { slot1.set(buf1); latch.countDown(); });
-                        tc2.onComplete(() -> { slot2.set(buf2); latch.countDown(); });
+                    boolean allDone = latch.await(5, TimeUnit.SECONDS);
+                    check("all 3 async loads completed within 5s", allDone);
+                    check("slot0 dirty after completion", slot0.isDirty());
+                    check("slot1 dirty after completion", slot1.isDirty());
+                    check("slot2 dirty after completion", slot2.isDirty());
 
-                        boolean allDone = latch.await(5, TimeUnit.SECONDS);
-                        check("all 3 async loads completed within 5s", allDone);
-                        check("slot0 dirty after completion", slot0.isDirty());
-                        check("slot1 dirty after completion", slot1.isDirty());
-                        check("slot2 dirty after completion", slot2.isDirty());
-
-                        System.out.println("  buf0 size=" + slot0.boundBuffer().size());
-                        System.out.println("  buf1 size=" + slot1.boundBuffer().size());
-                        System.out.println("  buf2 size=" + slot2.boundBuffer().size());
-                    }
+                    System.out.println("  buf0 size=" + slot0.boundBuffer().size());
+                    System.out.println("  buf1 size=" + slot1.boundBuffer().size());
+                    System.out.println("  buf2 size=" + slot2.boundBuffer().size());
                 }
             }
+
+            // =========================================================
+            // 5. SPECIALIZATION CONSTANTS — raw ShaderInstance API
+            //    Compile the inline shader, reflect its spec constants,
+            //    then create two instances with different specializations.
+            //    Each instance gets a distinct VkSpecializationInfo for
+            //    use at pipeline creation time.
+            // =========================================================
+            section("SPECIALIZATION CONSTANTS — raw API");
+
+            CompiledShader specCompiled = ShaderLoader.builder("inline-spec.frag")
+                .name("/shaders/inline-spec.frag")
+                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
+                .compileShader();
+            check("inline spec shader compiled", specCompiled.getSpirV().length > 0);
+
+            List<ShaderLoader.SpecializationConstantInfo> specConstants =
+                specCompiled.getReflection().getSpecializationConstants();
+            check("spec constants reflected", !specConstants.isEmpty());
+            check("3 spec constants reflected", specConstants.size() == 3);
+            System.out.println("  reflected spec constants: " + specConstants.size());
+            for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
+                System.out.println("    constant_id=" + sc.constantId()
+                    + " name='" + sc.name() + "'"
+                    + " isBool=" + sc.isBool()
+                    + " isFloat=" + sc.isFloat()
+                    + " isInt=" + sc.isInt()
+                    + " default=" + (sc.isBool() ? sc.defaultBool() : sc.isFloat() ? sc.defaultFloat() : sc.defaultInt()));
+            }
+
+            // Instance A: defaults — fog on, density 0.02, maxLights 4
+            try (ShaderInstance instA = specCompiled.instanceBuilder(device)
+                    .specialize("enableFog", true).specialize("fogDensity", 0.02f).specialize("maxLights", 4)
+                    .build()) {
+
+                check("instA enableFog = true",   Boolean.TRUE.equals(instA.getSpecializationConstant("enableFog")));
+                check("instA fogDensity = 0.02f", Float.compare(0.02f, (Float) instA.getSpecializationConstant("fogDensity")) == 0);
+                check("instA maxLights = 4",      Integer.valueOf(4).equals(instA.getSpecializationConstant("maxLights")));
+                check("instA defines empty",      instA.defines().isEmpty());
+
+                try (Arena specArena = Arena.ofConfined()) {
+                    MemorySegment specInfo = instA.buildSpecializationInfo(specArena);
+                    check("instA buildSpecializationInfo not NULL", !specInfo.equals(MemorySegment.NULL));
+                    System.out.println("  instA VkSpecializationInfo @ " + specInfo);
+                }
+            }
+
+            // Instance B: fog off, maxLights 8 — different specialization, same SPIR-V
+            try (ShaderInstance instB = specCompiled.instanceBuilder(device)
+                    .specialize("enableFog", false).specialize("fogDensity", 0.5f).specialize("maxLights", 8)
+                    .build()) {
+
+                check("instB enableFog = false", Boolean.FALSE.equals(instB.getSpecializationConstant("enableFog")));
+                check("instB fogDensity = 0.5f", Float.compare(0.5f, (Float) instB.getSpecializationConstant("fogDensity")) == 0);
+                check("instB maxLights = 8",     Integer.valueOf(8).equals(instB.getSpecializationConstant("maxLights")));
+
+                try (Arena specArena = Arena.ofConfined()) {
+                    MemorySegment specInfo = instB.buildSpecializationInfo(specArena);
+                    check("instB buildSpecializationInfo not NULL", !specInfo.equals(MemorySegment.NULL));
+                }
+            }
+
+            // =========================================================
+            // 6. DEFINE-BASED SPECIALIZATION — separate compiled variant
+            //    ENABLE_SHADOWS adds a shadowMap binding to the SPIR-V.
+            //    The two CompiledShaders are distinct objects with different
+            //    SPIR-V; ShaderInstance wraps each independently.
+            // =========================================================
+            section("DEFINE-BASED SPECIALIZATION");
+
+            CompiledShader noShadowsCompiled = ShaderLoader.builder("inline-spec.frag")
+                .name("/shaders/inline-spec.frag")
+                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
+                .compileShader();
+
+            CompiledShader withShadowsCompiled = ShaderLoader.builder("inline-spec.frag")
+                .name("/shaders/inline-spec.frag")
+                .define("ENABLE_SHADOWS", "1")
+                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
+                .compileShader();
+
+            check("distinct compiled variants", noShadowsCompiled != withShadowsCompiled);
+
+            try (ShaderInstance noShadows  = noShadowsCompiled.createInstance(device);
+                 ShaderInstance withShadows = withShadowsCompiled.createInstance(device)) {
+
+                System.out.println("  noShadows  SPIR-V bytes: " + noShadows.compiled().getSpirV().length);
+                System.out.println("  withShadows SPIR-V bytes: " + withShadows.compiled().getSpirV().length);
+
+                boolean noShadowMap   = noShadows.getBindingByName("shadowMap") == null;
+                boolean hasShadowMap  = withShadows.getBindingByName("shadowMap") != null;
+                check("noShadows has no shadowMap binding",   noShadowMap);
+                check("withShadows has shadowMap binding",    hasShadowMap);
+            }
+
+            // =========================================================
+            // 7. GENERATED SHADER CLASS
+            //    Generate GltfVertShader (no spec constants, no defines) to verify
+            //    the plain path. Then generate InlineSpecFragShader from specCompiled
+            //    (has spec constants) and withShadowsCompiled (has defines) and print
+            //    both for comparison against the expected shapes below.
+            //
+            // Expected shape — no spec constants (GltfVertShader):
+            //
+            //   public class GltfVertShader implements AutoCloseable {
+            //       public final ShaderInstance shader;
+            //       public final PushConstant<Integer> visualizationMode;
+            //       public final PushConstant<Integer> lodLevel;
+            //       public final PushConstant<Float>   splitScreenOffset;
+            //       public final UniformBufferSlot<?>  camera;  // set 0
+            //
+            //       private GltfVertShader(ShaderInstance shader) { ... }
+            //       public void flush(VkCommandBuffer cmd) { shader.flush(cmd); }
+            //       public void close() { shader.close(); }
+            //
+            //       public static Builder builder(VkDevice device) { ... }
+            //       public static class Builder {
+            //           private Map<String, String> defines = Map.of();
+            //           public Builder defines(Map<String, String> defines) { ... }
+            //           public GltfVertShader build() { ... }
+            //       }
+            //   }
+            //
+            // Expected shape — spec constants + defines (InlineSpecFragShader, withShadows variant):
+            //
+            //   public class InlineSpecFragShader implements AutoCloseable {
+            //       public final ShaderInstance shader;
+            //
+            //       // Preprocessor defines (static only — baked into SPIR-V at compile time)
+            //       public static final String ENABLE_SHADOWS = "1";
+            //
+            //       // Specialization constant defaults
+            //       public static final boolean DEFAULT_ENABLE_FOG  = true;
+            //       public static final float   DEFAULT_FOG_DENSITY = 0.02f;
+            //       public static final int     DEFAULT_MAX_LIGHTS  = 4;
+            //
+            //       // Specialization constant instance values (set at build time, immutable)
+            //       public final boolean enableFog;
+            //       public final float   fogDensity;
+            //       public final int     maxLights;
+            //
+            //       // Descriptor slots
+            //       public final UniformBufferSlot<?> camera;   // set 0, binding 0
+            //       public final StorageBufferSlot<?> lightBuf; // set 0, binding 1
+            //       public final TextureSlot          shadowMap; // set 0, binding 2 (only present with ENABLE_SHADOWS)
+            //       public final TextureSlot          albedo;   // set 1, binding 0
+            //
+            //       // Push constants
+            //       public final PushConstant<Float> time;
+            //
+            //       public boolean isEnableFog()   { return enableFog; }
+            //       public float   getFogDensity() { return fogDensity; }
+            //       public int     getMaxLights()  { return maxLights; }
+            //
+            //       private InlineSpecFragShader(ShaderInstance shader, boolean enableFog, float fogDensity, int maxLights) { ... }
+            //       public void flush(VkCommandBuffer cmd) { shader.flush(cmd); }
+            //       public void close() { shader.close(); }
+            //
+            //       public static Builder builder(VkDevice device) { ... }
+            //       public static class Builder {
+            //           private Map<String, String> defines = Map.of();
+            //           private boolean enableFog  = DEFAULT_ENABLE_FOG;
+            //           private float   fogDensity = DEFAULT_FOG_DENSITY;
+            //           private int     maxLights  = DEFAULT_MAX_LIGHTS;
+            //
+            //           public Builder defines(Map<String, String> defines) { ... }
+            //           /** Sets specialization constant 'enableFog' (default: true). */
+            //           public Builder enableFog(boolean value) { ... }
+            //           /** Sets specialization constant 'fogDensity' (default: 0.02f). */
+            //           public Builder fogDensity(float value) { ... }
+            //           /** Sets specialization constant 'maxLights' (default: 4). */
+            //           public Builder maxLights(int value) { ... }
+            //
+            //           public InlineSpecFragShader build() { ... }
+            //       }
+            //   }
+            // =========================================================
+            section("GENERATED SHADER CLASS");
+
+            Path specTmpDir = Files.createTempDirectory("shader-gen-spec-test");
+            ShaderGenerator.generate(VERT_COMPLEX, specTmpDir, "io.github.yetyman.vulkan.shaders.generated");
+            Path gltfGenFile = specTmpDir.resolve("GltfVertShader.java");
+            check("GltfVertShader.java generated", gltfGenFile.toFile().exists());
+            String gltfSource = Files.readString(gltfGenFile);
+            check("gltf has no spec constant defaults", !gltfSource.contains("DEFAULT_"));
+            check("gltf has no defines constants",      !gltfSource.contains("public static final String"));
+            check("gltf builder has defines() setter",  gltfSource.contains("defines(Map"));
+            System.out.println("  GltfVertShader.java — no spec constants, no defines");
+            System.out.println(generatedSource);
+
+            // Now generate a class from SPEC_SHADER_GLSL itself and print it for comparison.
+            // Expected shape: Specializations record with enableFog/fogDensity/maxLights fields.
+            Path specGenDir = Files.createTempDirectory("shader-gen-spec");
+            ShaderGenerator.generate(specCompiled, "/shaders/inline-spec.frag", specGenDir, "io.github.yetyman.vulkan.shaders.generated");
+            Path specGenFile = specGenDir.resolve("InlineSpecFragShader.java");
+            check("spec shader class generated", specGenFile.toFile().exists());
+            String specGenSource = Files.readString(specGenFile);
+            check("Builder class present",        specGenSource.contains("public static class Builder"));
+            check("enableFog setter present",      specGenSource.contains("enableFog(boolean"));
+            check("fogDensity setter present",     specGenSource.contains("fogDensity(float"));
+            check("maxLights setter present",      specGenSource.contains("maxLights(int"));
+            check("DEFAULT_ENABLE_FOG present",    specGenSource.contains("DEFAULT_ENABLE_FOG"));
+            check("DEFAULT_FOG_DENSITY present",   specGenSource.contains("DEFAULT_FOG_DENSITY"));
+            check("DEFAULT_MAX_LIGHTS present",    specGenSource.contains("DEFAULT_MAX_LIGHTS"));
+            check("enableFog instance field",      specGenSource.contains("public final boolean enableFog"));
+            check("fogDensity instance field",     specGenSource.contains("public final float fogDensity"));
+            check("maxLights instance field",      specGenSource.contains("public final int maxLights"));
+            check("no defines constant (no-shadows variant)", !specGenSource.contains("public static final String"));
+            System.out.println("  --- InlineSpecFragShader.java (no shadows) ---");
+            System.out.println(specGenSource);
+            System.out.println("  --- end ---");
+
+            // withShadows variant — verify defines are stored on the compiled shader
+            // and that the generator emits them as static final String constants.
+            check("withShadows has ENABLE_SHADOWS define",
+                "1".equals(withShadowsCompiled.getDefines().get("ENABLE_SHADOWS")));
+
+            Path withShadowsGenDir = Files.createTempDirectory("shader-gen-shadows");
+            ShaderGenerator.generate(withShadowsCompiled, "/shaders/inline-spec.frag", withShadowsGenDir, "io.github.yetyman.vulkan.shaders.generated");
+            Path withShadowsGenFile = withShadowsGenDir.resolve("InlineSpecFragShader.java");
+            String withShadowsGenSource = Files.readString(withShadowsGenFile);
+            check("ENABLE_SHADOWS define constant present",
+                withShadowsGenSource.contains("public static final String ENABLE_SHADOWS"));
+            System.out.println("  --- InlineSpecFragShader.java (with shadows) ---");
+            System.out.println(withShadowsGenSource);
+            System.out.println("  --- end ---");
 
             device.close();
             Vulkan.destroyInstance(instance);
             System.out.println("\nAll shader tests passed.");
+        }
+    }
+
+    /**
+     * Compiles a GLSL source string by writing it to a temp file and invoking ShaderLoader.
+     * Applies the given defines. Used to compile SPEC_SHADER_GLSL without a classpath resource.
+     */
+    private static byte[] compileGlslString(String glsl, Map<String, String> defines) {
+        try {
+            java.nio.file.Path tmp = java.nio.file.Files.createTempFile("inline-shader", ".frag");
+            java.nio.file.Files.writeString(tmp, glsl);
+            try {
+                ShaderLoader.Builder b = ShaderLoader.builder(tmp.toAbsolutePath().toString());
+                defines.forEach(b::define);
+                return b.compile();
+            } finally {
+                java.nio.file.Files.deleteIfExists(tmp);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to compile inline shader", e);
         }
     }
 

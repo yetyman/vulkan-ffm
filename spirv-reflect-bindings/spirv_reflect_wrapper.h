@@ -266,8 +266,9 @@ typedef struct SpvReflectSpecializationConstant {
     uint32_t                   spirv_id;
     uint32_t                   constant_id;
     const char*                name;
-    uint32_t                   default_value;
     SpvReflectTypeDescription* type_description;
+    uint32_t                   default_value_size;
+    void*                      default_value;
 } SpvReflectSpecializationConstant;
 
 typedef struct SpvReflectEntryPoint {
