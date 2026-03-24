@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.VkDescriptorSetLayout;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkShaderModule;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.highlevel.DescriptorGroup;
 import io.github.yetyman.shaderc.enums.*;
 import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
 
@@ -72,6 +73,16 @@ public class CompiledShader implements AutoCloseable {
     /** Creates a VkShaderModule from the compiled SPIR-V */
     public VkShaderModule createShaderModule(VkDevice device, Arena arena) {
         return VkShaderModule.create(arena, device, spirv);
+    }
+
+    /** Returns a DescriptorGroup builder pre-wired with this shader's reflected layout (set 0). */
+    public DescriptorGroup.Builder descriptorGroup(VkDevice device) {
+        return descriptorGroup(device, 0);
+    }
+
+    /** Returns a DescriptorGroup builder pre-wired with this shader's reflected layout for the given set. */
+    public DescriptorGroup.Builder descriptorGroup(VkDevice device, int setNumber) {
+        return DescriptorGroup.builder().device(device).reflection(this, setNumber);
     }
 
     /** Gets or creates a descriptor set layout for the specified set number */

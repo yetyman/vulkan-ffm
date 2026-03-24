@@ -76,4 +76,14 @@ public class VkDescriptorSet {
         descriptorSets.set(ValueLayout.ADDRESS, 0, handle);
         Vulkan.cmdBindDescriptorSets(commandBuffer, pipelineBindPoint, pipelineLayout, firstSet, 1, descriptorSets, 0, MemorySegment.NULL);
     }
+
+    /** Binds this descriptor set for a compute pipeline. */
+    public void bind(MemorySegment commandBuffer, VkComputePipeline pipeline, int firstSet, Arena arena) {
+        bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(), pipeline.layout(), firstSet, arena);
+    }
+
+    /** Binds this descriptor set for a graphics pipeline. */
+    public void bind(MemorySegment commandBuffer, VkPipeline pipeline, int firstSet, Arena arena) {
+        bind(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.layout(), firstSet, arena);
+    }
 }

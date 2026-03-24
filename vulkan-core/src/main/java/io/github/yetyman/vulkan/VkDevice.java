@@ -18,6 +18,9 @@ public class VkDevice implements AutoCloseable {
     private final MethodHandle vkWaitSemaphores;
     private final MethodHandle vkSignalSemaphore;
     
+    private VkInstance instance;
+    private final java.util.Map<Integer, VkQueue> queueCache = new java.util.HashMap<>();
+
     private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
         this.handle = handle;
         this.physicalDevice = physicalDevice;
@@ -66,6 +69,12 @@ public class VkDevice implements AutoCloseable {
     /** Wraps an existing device handle */
     public static VkDevice wrap(MemorySegment deviceHandle) {
         return new VkDevice(deviceHandle, null);
+    }
+
+    /** Returns a cached VkQueue for the given family index (queue index 0). */
+    public VkQueue getQueue(int familyIndex, Arena arena) {
+        return queueCache.computeIfAbsent(familyIndex, fi ->
+            VkQueue.builder().device(this).familyIndex(fi).build(arena));
     }
     
     /** @return the VkDevice handle */
@@ -157,6 +166,7 @@ public class VkDevice implements AutoCloseable {
      * Builder for device creation.
      */
     public static class Builder {
+        private VkInstance instance;
         private VkPhysicalDevice physicalDevice;
         private int[] queueFamilyIndices = new int[0];
         private float[] queuePriorities = new float[0];
@@ -167,6 +177,12 @@ public class VkDevice implements AutoCloseable {
         
         private Builder() {}
         
+        /** Sets the owning instance (optional — enables auto-cleanup on instance close). */
+        public Builder instance(VkInstance instance) {
+            this.instance = instance;
+            return this;
+        }
+
         /** Sets the physical device */
         public Builder physicalDevice(VkPhysicalDevice physicalDevice) {
             this.physicalDevice = physicalDevice;
@@ -288,8 +304,11 @@ public class VkDevice implements AutoCloseable {
             int result = VulkanFFM.vkCreateDevice(Objects.requireNonNullElse(physicalDevice.handle(), MemorySegment.NULL), createInfo, MemorySegment.NULL, devicePtr);
             VkResult.fromInt(result).check();
             MemorySegment device = devicePtr.get(ValueLayout.ADDRESS, 0);
-            
-            return new VkDevice(device, physicalDevice);
+
+            VkDevice vkDevice = new VkDevice(device, physicalDevice);
+            vkDevice.instance = instance;
+            if (instance != null) instance.registerDevice(vkDevice);
+            return vkDevice;
         }
     }
 }

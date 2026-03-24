@@ -7,10 +7,8 @@ import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.VkApplicationInfo;
-import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
+import io.github.yetyman.vulkan.highlevel.DescriptorGroup;
 import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
-
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -116,39 +114,20 @@ public class ShaderExample {
 
     public static void main(String[] args) throws Exception {
         try (Arena arena = Arena.ofConfined()) {
-            // --- Vulkan instance ---
-            MemorySegment appInfo = VkApplicationInfo.allocate(arena);
-            VkApplicationInfo.sType(appInfo, VkStructureType.VK_STRUCTURE_TYPE_APPLICATION_INFO.value());
-            VkApplicationInfo.pNext(appInfo, MemorySegment.NULL);
-            VkApplicationInfo.pApplicationName(appInfo, arena.allocateFrom("ShaderExample"));
-            VkApplicationInfo.applicationVersion(appInfo, 1);
-            VkApplicationInfo.pEngineName(appInfo, arena.allocateFrom("NoEngine"));
-            VkApplicationInfo.engineVersion(appInfo, 0);
-            VkApplicationInfo.apiVersion(appInfo, Vulkan.VK_API_VERSION_1_0);
+            // --- Vulkan instance + device ---
+            VkInstance instance = VkInstance.builder()
+                .applicationName("ShaderExample")
+                .build(arena);
 
-            MemorySegment createInfo = VkInstanceCreateInfo.allocate(arena);
-            VkInstanceCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO.value());
-            VkInstanceCreateInfo.pNext(createInfo, MemorySegment.NULL);
-            VkInstanceCreateInfo.flags(createInfo, 0);
-            VkInstanceCreateInfo.pApplicationInfo(createInfo, appInfo);
-            VkInstanceCreateInfo.enabledLayerCount(createInfo, 0);
-            VkInstanceCreateInfo.ppEnabledLayerNames(createInfo, MemorySegment.NULL);
-            VkInstanceCreateInfo.enabledExtensionCount(createInfo, 0);
-            VkInstanceCreateInfo.ppEnabledExtensionNames(createInfo, MemorySegment.NULL);
-
-            MemorySegment instancePtr = arena.allocate(ValueLayout.ADDRESS);
-            Vulkan.createInstance(createInfo, instancePtr).check();
-            MemorySegment instance = instancePtr.get(ValueLayout.ADDRESS, 0);
-
-            MemorySegment physHandle = VkPhysicalDeviceOps.enumerate(instance).first(arena);
-            VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physHandle);
+            VkPhysicalDevice physicalDevice = instance.pickFirstPhysicalDevice(arena);
             int queueFamily = VkQueueFamily.findGraphics(physicalDevice, arena);
 
             VkDevice device = VkDevice.builder()
+                .instance(instance)
                 .physicalDevice(physicalDevice)
                 .queueFamily(queueFamily)
                 .build(arena);
-            VkQueue queue = VkQueue.builder().device(device).familyIndex(queueFamily).build(arena);
+            VkQueue queue = device.getQueue(queueFamily, arena);
 
             // =========================================================
             // 1. COMPILE TEST — both shaders must compile without error
@@ -268,9 +247,8 @@ public class ShaderExample {
             // =========================================================
             section("SPECIALIZATION CONSTANTS — raw API");
 
-            CompiledShader specCompiled = ShaderLoader.builder("inline-spec.frag")
-                .name("/shaders/inline-spec.frag")
-                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
+            CompiledShader specCompiled = ShaderLoader.fragment()
+                .source(SPEC_SHADER_GLSL)
                 .compileShader();
             check("inline spec shader compiled", specCompiled.getSpirV().length > 0);
 
@@ -328,15 +306,13 @@ public class ShaderExample {
             // =========================================================
             section("DEFINE-BASED SPECIALIZATION");
 
-            CompiledShader noShadowsCompiled = ShaderLoader.builder("inline-spec.frag")
-                .name("/shaders/inline-spec.frag")
-                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
+            CompiledShader noShadowsCompiled = ShaderLoader.fragment()
+                .source(SPEC_SHADER_GLSL)
                 .compileShader();
 
-            CompiledShader withShadowsCompiled = ShaderLoader.builder("inline-spec.frag")
-                .name("/shaders/inline-spec.frag")
+            CompiledShader withShadowsCompiled = ShaderLoader.fragment()
+                .source(SPEC_SHADER_GLSL)
                 .define("ENABLE_SHADOWS", "1")
-                .compiler(req -> compileGlslString(SPEC_SHADER_GLSL, req.defines()))
                 .compileShader();
 
             check("distinct compiled variants", noShadowsCompiled != withShadowsCompiled);
@@ -387,7 +363,7 @@ public class ShaderExample {
             //       public final ShaderInstance shader;
             //
             //       // Preprocessor defines (static only — baked into SPIR-V at compile time)
-            //       public static final String ENABLE_SHADOWS = "1";
+            //       public final String ENABLE_SHADOWS = "1";
             //
             //       // Specialization constant defaults
             //       public static final boolean DEFAULT_ENABLE_FOG  = true;
@@ -443,7 +419,7 @@ public class ShaderExample {
             check("GltfVertShader.java generated", gltfGenFile.toFile().exists());
             String gltfSource = Files.readString(gltfGenFile);
             check("gltf has no spec constant defaults", !gltfSource.contains("DEFAULT_"));
-            check("gltf has no defines constants",      !gltfSource.contains("public static final String"));
+            check("gltf has no defines constants",      !gltfSource.contains("public final String"));
             check("gltf builder has defines() setter",  gltfSource.contains("defines(Map"));
             System.out.println("  GltfVertShader.java — no spec constants, no defines");
             System.out.println(generatedSource);
@@ -465,7 +441,7 @@ public class ShaderExample {
             check("enableFog instance field",      specGenSource.contains("public final boolean enableFog"));
             check("fogDensity instance field",     specGenSource.contains("public final float fogDensity"));
             check("maxLights instance field",      specGenSource.contains("public final int maxLights"));
-            check("no defines constant (no-shadows variant)", !specGenSource.contains("public static final String"));
+            check("no defines constant (no-shadows variant)", !specGenSource.contains("public final String"));
             System.out.println("  --- InlineSpecFragShader.java (no shadows) ---");
             System.out.println(specGenSource);
             System.out.println("  --- end ---");
@@ -480,7 +456,7 @@ public class ShaderExample {
             Path withShadowsGenFile = withShadowsGenDir.resolve("InlineSpecFragShader.java");
             String withShadowsGenSource = Files.readString(withShadowsGenFile);
             check("ENABLE_SHADOWS define constant present",
-                withShadowsGenSource.contains("public static final String ENABLE_SHADOWS"));
+                withShadowsGenSource.contains("public final String ENABLE_SHADOWS"));
             System.out.println("  --- InlineSpecFragShader.java (with shadows) ---");
             System.out.println(withShadowsGenSource);
             System.out.println("  --- end ---");
@@ -497,7 +473,9 @@ public class ShaderExample {
                 int multiplier = 3;
 
                 // Compile
-                byte[] compSpirv = compileGlslString(COMPUTE_SHADER_GLSL, Map.of(), ".comp");
+                byte[] compSpirv = ShaderLoader.compute()
+                    .source(COMPUTE_SHADER_GLSL)
+                    .compile();
                 check("compute shader compiled", compSpirv.length > 0);
 
                 // Buffers: host-visible so we can write input and read output directly
@@ -509,43 +487,28 @@ public class ShaderExample {
                     for (int i = 0; i < elementCount; i++) inputData.putInt(i);
                     inputBuf.write(inputData.flip(), 0, queue);
 
-                    // Descriptor set layout: binding 0 = input SSBO, binding 1 = output SSBO
-                    try (VkDescriptorSetLayout dsLayout = VkDescriptorSetLayout.builder()
+                    // Descriptor group: layout + pool + set + buffer bindings in one shot
+                    try (DescriptorGroup descriptors = DescriptorGroup.builder()
                             .device(device)
-                            .storageBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value())
-                            .storageBuffer(1, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value())
-                            .build(arena);
-                         VkDescriptorPool dsPool = VkDescriptorPool.builder()
-                            .device(device).maxSets(1).storageBuffers(2)
+                            .stageFlags(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value())
+                            .storageBuffer(0, inputBuf)
+                            .storageBuffer(1, outputBuf)
                             .build(arena)) {
-
-                        VkDescriptorSet ds = dsPool.allocateDescriptorSet(dsLayout);
-                        ds.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                            inputBuf.handle(), 0, bufferSize, arena);
-                        ds.updateBuffer(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                            outputBuf.handle(), 0, bufferSize, arena);
 
                         // Pipeline
                         try (VkComputePipeline pipeline = VkComputePipeline.builder()
                                 .device(device)
                                 .computeShader(compSpirv)
-                                .descriptorSetLayouts(dsLayout.handle())
+                                .descriptorSetLayouts(descriptors.layoutHandle())
                                 .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, 4)
-                                .build(arena);
-                             VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily)) {
+                                .build(arena)) {
 
-                            // Record and submit
+                            // Record, push constant, dispatch, and wait
+                            VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily);
                             VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
                             pipeline.bind(tcb.handle());
-                            ds.bind(tcb.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(),
-                                pipeline.layout(), 0, arena);
-
-                            // Push the multiplier
-                            MemorySegment pcData = arena.allocate(ValueLayout.JAVA_INT);
-                            pcData.set(ValueLayout.JAVA_INT, 0, multiplier);
-                            Vulkan.cmdPushConstants(tcb.handle(), pipeline.layout(),
-                                VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, 4, pcData);
-
+                            descriptors.set().bind(tcb.handle(), pipeline, 0, arena);
+                            pipeline.pushInt(tcb.handle(), 0, multiplier);
                             VkComputePipeline.dispatch(tcb.handle(), elementCount / 64, 1, 1);
                             tcb.submitAndWait();
                             tcb.close();
@@ -583,24 +546,15 @@ public class ShaderExample {
                 int bufferSize = elementCount * 4;
                 int specMultiplier = 5;
 
-                // Write compute shader to a temp file so ShaderLoader can compile it
-                java.nio.file.Path compTmp = java.nio.file.Files.createTempFile("spec-compute", ".comp");
-                java.nio.file.Files.writeString(compTmp, COMPUTE_SPEC_SHADER_GLSL);
-
-                CompiledShader computeCompiled = ShaderLoader.builder(compTmp.toAbsolutePath().toString())
-                    .name("/shaders/inline-compute-spec.comp")
+                CompiledShader computeShader = ShaderLoader.compute()
+                    .source(COMPUTE_SPEC_SHADER_GLSL)
                     .compileShader();
-                java.nio.file.Files.deleteIfExists(compTmp);
-                check("spec compute shader compiled", computeCompiled.getSpirV().length > 0);
+                check("spec compute shader compiled", computeShader.getSpirV().length > 0);
 
                 // Check what reflection found
-                List<ShaderLoader.SpecializationConstantInfo> compSpecConstants =
-                    computeCompiled.getReflection().getSpecializationConstants();
-                boolean reflectionWorked = !compSpecConstants.isEmpty()
-                    && !computeCompiled.getReflection().getDescriptorSets().isEmpty();
-                System.out.println("  reflection available: " + reflectionWorked
-                    + " (spec constants: " + compSpecConstants.size()
-                    + ", descriptor sets: " + computeCompiled.getReflection().getDescriptorSets().size() + ")");
+                ShaderLoader.ShaderReflection shaderReflection = computeShader.getReflection();
+                System.out.println("spec constants: " + shaderReflection.getSpecializationConstants().size()
+                    + ", descriptor sets: " + shaderReflection.getDescriptorSets().size());
 
                 // Buffers
                 try (ManagedBuffer inputBuf  = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
@@ -610,94 +564,45 @@ public class ShaderExample {
                     for (int i = 0; i < elementCount; i++) inputData.putInt(i + 10); // [10, 11, ..., 73]
                     inputBuf.write(inputData.flip(), 0, queue);
 
-                    // Descriptor setup — use reflected layouts if available, manual otherwise
-                    VkDescriptorSetLayout dsLayout;
-                    VkDescriptorPool dsPool;
-                    VkDescriptorSet ds;
+                    // Reflected layout + pool + set + buffer bindings in one shot
+                    try (DescriptorGroup descriptors = computeShader.descriptorGroup(device)
+                            .buffer(0, inputBuf)
+                            .buffer(1, outputBuf)
+                            .build(arena)) {
 
-                    // Reflection: use generated layouts from CompiledShader
-                    Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> genLayouts =
-                        computeCompiled.getAllDescriptorSetLayouts(device);
-                    var genLayout = genLayouts.get(0);
-                    dsLayout = genLayout.createLayout(arena);
-                    dsPool = VkDescriptorPool.builder()
-                        .device(device).maxSets(1).storageBuffers(2)
-                        .build(arena);
-                    ds = dsPool.allocateDescriptorSet(dsLayout);
-                    System.out.println("  using reflected descriptor set layout");
+                        // Build pipeline with specialization constant + dispatchAndWait
+                        try (VkComputePipeline pipeline = VkComputePipeline.builder()
+                                .device(device)
+                                .computeShader(computeShader.getSpirV())
+                                .descriptorSetLayouts(descriptors.layoutHandle())
+                                .specialize(0, specMultiplier)
+                                .build(arena)) {
 
-                    //bind buffers to layout descriptors
-                    ds.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                        inputBuf.handle(), 0, bufferSize, arena);
-                    ds.updateBuffer(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                        outputBuf.handle(), 0, bufferSize, arena);
+                            pipeline.dispatchAndWait(queue, descriptors.set(), elementCount / 64);
 
-                    // Build pipeline with specialization constant via VkComputePipeline builder
-                    try (VkComputePipeline pipeline = VkComputePipeline.builder()
-                            .device(device)
-                            .computeShader(computeCompiled.getSpirV())
-                            .descriptorSetLayouts(dsLayout.handle())
-                            .specialize(0, specMultiplier) // constant_id=0 for MULTIPLIER
-                            .build(arena);
-                         VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily)) {
-
-                        // Record and submit
-                        VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
-                        pipeline.bind(tcb.handle());
-                        ds.bind(tcb.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(),
-                            pipeline.layout(), 0, arena);
-                        VkComputePipeline.dispatch(tcb.handle(), elementCount / 64, 1, 1);
-                        tcb.submitAndWait();
-                        tcb.close();
-
-                        // Readback and verify
-                        ByteBuffer result = outputBuf.read(0, bufferSize).order(ByteOrder.nativeOrder());
-                        boolean allCorrect = true;
-                        for (int i = 0; i < elementCount; i++) {
-                            int expected = (i + 10) * specMultiplier;
-                            int actual = result.getInt(i * 4);
-                            if (actual != expected) {
-                                System.err.println("    MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
-                                allCorrect = false;
+                            // Readback and verify
+                            ByteBuffer result = outputBuf.read(0, bufferSize).order(ByteOrder.nativeOrder());
+                            boolean allCorrect = true;
+                            for (int i = 0; i < elementCount; i++) {
+                                int expected = (i + 10) * specMultiplier;
+                                int actual = result.getInt(i * 4);
+                                if (actual != expected) {
+                                    System.err.println("    MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
+                                    allCorrect = false;
+                                }
                             }
+                            check("all " + elementCount + " elements = input * " + specMultiplier + " (spec constant)", allCorrect);
+                            System.out.println("  ShaderInstance compute: " + elementCount + " elements verified");
                         }
-                        check("all " + elementCount + " elements = input * " + specMultiplier + " (spec constant)", allCorrect);
-                        System.out.println("  ShaderInstance compute: " + elementCount + " elements verified");
-                    } finally {
-                        dsPool.close();
                     }
                 }
             }
 
-            device.close();
-            Vulkan.destroyInstance(instance);
+            instance.close(); // closes owned devices + instance
             System.out.println("\nAll shader tests passed.");
         }
     }
 
-    /**
-     * Compiles a GLSL source string by writing it to a temp file and invoking ShaderLoader.
-     * Applies the given defines. Used to compile SPEC_SHADER_GLSL without a classpath resource.
-     */
-    private static byte[] compileGlslString(String glsl, Map<String, String> defines) {
-        return compileGlslString(glsl, defines, ".frag");
-    }
-
-    private static byte[] compileGlslString(String glsl, Map<String, String> defines, String extension) {
-        try {
-            java.nio.file.Path tmp = java.nio.file.Files.createTempFile("inline-shader", extension);
-            java.nio.file.Files.writeString(tmp, glsl);
-            try {
-                ShaderLoader.Builder b = ShaderLoader.builder(tmp.toAbsolutePath().toString());
-                defines.forEach(b::define);
-                return b.compile();
-            } finally {
-                java.nio.file.Files.deleteIfExists(tmp);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to compile inline shader", e);
-        }
-    }
 
     /** @return a 4x4 identity matrix as a little-endian float ByteBuffer (64 bytes). */
     private static ByteBuffer identityMat4() {

@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
 import java.lang.foreign.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,31 +31,77 @@ public class VkComputePipeline implements AutoCloseable {
     private final MemorySegment handle;
     private final MemorySegment layout;
     private final VkDevice device;
+    private final int pushConstantStageFlags;
 
-    private VkComputePipeline(MemorySegment handle, MemorySegment layout, VkDevice device) {
+    private VkComputePipeline(MemorySegment handle, MemorySegment layout, VkDevice device, int pushConstantStageFlags) {
         this.handle = handle;
         this.layout = layout;
         this.device = device;
+        this.pushConstantStageFlags = pushConstantStageFlags;
     }
 
     public MemorySegment handle() { return handle; }
 
     public MemorySegment layout() { return layout; }
 
+    public VkDevice device() { return device; }
+
     public static Builder builder() { return new Builder(); }
 
-    /**
-     * Binds this compute pipeline to a command buffer.
-     */
+    /** Binds this compute pipeline to a command buffer. */
     public void bind(MemorySegment commandBuffer) {
         Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(), handle);
     }
 
-    /**
-     * Dispatches compute work groups.
-     */
+    /** Dispatches compute work groups. */
     public static void dispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
         Vulkan.cmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+    }
+
+    /** Pushes an int push constant at the given byte offset. */
+    public void pushInt(MemorySegment commandBuffer, int offset, int value) {
+        try (Arena a = Arena.ofConfined()) {
+            MemorySegment data = a.allocate(ValueLayout.JAVA_INT);
+            data.set(ValueLayout.JAVA_INT, 0, value);
+            Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
+        }
+    }
+
+    /** Pushes a float push constant at the given byte offset. */
+    public void pushFloat(MemorySegment commandBuffer, int offset, float value) {
+        try (Arena a = Arena.ofConfined()) {
+            MemorySegment data = a.allocate(ValueLayout.JAVA_FLOAT);
+            data.set(ValueLayout.JAVA_FLOAT, 0, value);
+            Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
+        }
+    }
+
+    /** Pushes raw bytes as push constants at the given byte offset. */
+    public void pushConstants(MemorySegment commandBuffer, int offset, MemorySegment data, int size) {
+        Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, size, data);
+    }
+
+    /**
+     * Records bind + optional descriptor set bind + optional push constants + dispatch into a
+     * transient command buffer, submits, and waits for completion.
+     */
+    public void dispatchAndWait(VkQueue queue, VkDescriptorSet descriptorSet, int groupCountX, int groupCountY, int groupCountZ) {
+        VkCommandPool cmdPool = device.getOrCreateCommandPool(queue.familyIndex());
+        try (Arena a = Arena.ofConfined()) {
+            VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), a);
+            bind(tcb.handle());
+            if (descriptorSet != null) {
+                descriptorSet.bind(tcb.handle(), this, 0, a);
+            }
+            dispatch(tcb.handle(), groupCountX, groupCountY, groupCountZ);
+            tcb.submitAndWait();
+            tcb.close();
+        }
+    }
+
+    /** Convenience: dispatch with only X groups. */
+    public void dispatchAndWait(VkQueue queue, VkDescriptorSet descriptorSet, int groupCountX) {
+        dispatchAndWait(queue, descriptorSet, groupCountX, 1, 1);
     }
 
     @Override
@@ -220,7 +267,9 @@ public class VkComputePipeline implements AutoCloseable {
                 MemorySegment pipelinePtr = arena.allocate(ValueLayout.ADDRESS);
                 Vulkan.createComputePipelines(device.handle(), pipelineCache, 1, createInfo, pipelinePtr).check();
 
-                return new VkComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device);
+                return new VkComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device,
+                    pushConstantRanges.isEmpty() ? VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value()
+                        : pushConstantRanges.getFirst().stageFlags());
             } finally {
                 shaderModule.close();
             }

@@ -47,6 +47,24 @@ public class ShaderLoader {
         return new Builder(resourcePath);
     }
 
+    /** @return a Builder for an inline vertex shader. */
+    public static Builder vertex() { return new Builder(ShadercShaderKind.shaderc_vertex_shader); }
+
+    /** @return a Builder for an inline fragment shader. */
+    public static Builder fragment() { return new Builder(ShadercShaderKind.shaderc_fragment_shader); }
+
+    /** @return a Builder for an inline compute shader. */
+    public static Builder compute() { return new Builder(ShadercShaderKind.shaderc_compute_shader); }
+
+    /** @return a Builder for an inline geometry shader. */
+    public static Builder geometry() { return new Builder(ShadercShaderKind.shaderc_geometry_shader); }
+
+    /** @return a Builder for an inline tessellation control shader. */
+    public static Builder tessControl() { return new Builder(ShadercShaderKind.shaderc_tess_control_shader); }
+
+    /** @return a Builder for an inline tessellation evaluation shader. */
+    public static Builder tessEval() { return new Builder(ShadercShaderKind.shaderc_tess_evaluation_shader); }
+
     /** Compiles and reflects a shader, caching by path. */
     public static CompiledShader compileShader(String resourcePath) {
         return compiledCache.computeIfAbsent(resourcePath, p -> builder(p).compileShader());
@@ -103,6 +121,12 @@ public class ShaderLoader {
             this.compiler = defaultCompiler;
         }
 
+        private Builder(ShadercShaderKind shaderKind) {
+            this.resourcePath = "<inline>";
+            this.shaderKind = shaderKind;
+            this.compiler = defaultCompiler;
+        }
+
         /**
          * Overrides the logical name used for caching and class generation.
          * Useful when resourcePath is a temp file or inline source rather than a stable classpath resource.
@@ -148,10 +172,18 @@ public class ShaderLoader {
             return this;
         }
 
+        private String inlineSource;
+
+        /** Sets inline GLSL/HLSL source, bypassing file/resource loading. */
+        public Builder source(String source) {
+            this.inlineSource = source;
+            return this;
+        }
+
         /** Compiles to raw SPIR-V bytes. */
         public byte[] compile() {
             return compiler.apply(new ShaderCompileRequest(
-                resourcePath, shaderKind, sourceLanguage, defines, includePaths, optimize));
+                resourcePath, shaderKind, sourceLanguage, defines, includePaths, optimize, inlineSource));
         }
 
         /** Loads a pre-compiled SPIR-V resource from the classpath or filesystem. */
@@ -187,7 +219,7 @@ public class ShaderLoader {
                 throw new RuntimeException("Failed to initialize shaderc compiler");
             }
             try {
-                String source = loadResource(request.resourcePath);
+                String source = request.inlineSource != null ? request.inlineSource : loadResource(request.resourcePath);
                 MemorySegment sourceSegment = arena.allocateFrom(source);
 
                 MemorySegment options = ShadercFFM.shaderc_compile_options_initialize();
@@ -263,16 +295,24 @@ public class ShaderLoader {
 
     public record ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
                                        ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
-                                       List<String> includePaths, boolean optimize) {
+                                       List<String> includePaths, boolean optimize, String inlineSource) {
         public ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
                                     ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
-                                    List<String> includePaths, boolean optimize) {
+                                    List<String> includePaths, boolean optimize, String inlineSource) {
             this.resourcePath = resourcePath;
             this.shaderKind = shaderKind;
             this.sourceLanguage = sourceLanguage;
             this.defines = new HashMap<>(defines);
             this.includePaths = new ArrayList<>(includePaths);
             this.optimize = optimize;
+            this.inlineSource = inlineSource;
+        }
+
+        /** Backwards-compatible constructor without inline source. */
+        public ShaderCompileRequest(String resourcePath, ShadercShaderKind shaderKind,
+                                    ShadercSourceLanguage sourceLanguage, Map<String, String> defines,
+                                    List<String> includePaths, boolean optimize) {
+            this(resourcePath, shaderKind, sourceLanguage, defines, includePaths, optimize, null);
         }
     }
     

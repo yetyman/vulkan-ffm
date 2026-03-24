@@ -94,6 +94,9 @@ public class ShaderGenerator {
         sb.append("import io.github.yetyman.vulkan.VkDevice;\n");
         sb.append("import io.github.yetyman.vulkan.VkCommandBuffer;\n");
         sb.append("import io.github.yetyman.vulkan.buffers.BufferWritable;\n");
+        sb.append("import io.github.yetyman.vulkan.buffers.ManagedBuffer;\n");
+        sb.append("import io.github.yetyman.vulkan.highlevel.DescriptorGroup;\n");
+        sb.append("import java.lang.foreign.Arena;\n");
         sb.append("import java.nio.ByteBuffer;\n");
         sb.append("import java.util.Map;\n");
         sb.append("\n");
@@ -113,16 +116,25 @@ public class ShaderGenerator {
             sb.append("\n");
         }
 
-        // Preprocessor defines as public static final String constants
+        // Preprocessor defines as instance fields (set at build time)
         Map<String, String> defines = compiled.getDefines();
         if (!defines.isEmpty()) {
             sb.append("    // Preprocessor defines\n");
             new TreeMap<>(defines).forEach((k, v) -> {
-                sb.append("    public static final String ").append(toConstantName(k))
-                  .append(" = \"").append(v).append("\";\n");
+                sb.append("    public final String ").append(toConstantName(k)).append(";\n");
             });
             sb.append("\n");
         }
+
+        // Specialization constant instance fields (set at build time)
+        if (!specConstants.isEmpty()) {
+            sb.append("    // Specialization constant values\n");
+            for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
+                sb.append("    public final ").append(specJavaType(sc)).append(" ").append(sc.name()).append(";\n");
+            }
+            sb.append("\n");
+        }
+
         // Push constants
         List<ShaderLoader.PushConstantBlockInfo> blocks = reflection.getPushConstantBlocks();
         if (!blocks.isEmpty()) {
@@ -151,17 +163,11 @@ public class ShaderGenerator {
             sb.append("\n");
         }
 
-        // Specialization constant instance fields (set at build time)
-        if (!specConstants.isEmpty()) {
-            sb.append("    // Specialization constant values\n");
-            for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
-                sb.append("    public final ").append(specJavaType(sc)).append(" ").append(sc.name()).append(";\n");
-            }
-            sb.append("\n");
-        }
-
         // Private constructor — called only from Builder.build()
         sb.append("    private ").append(className).append("(ShaderInstance shader");
+        if (!defines.isEmpty()) {
+            sb.append(", Map<String, String> defines");
+        }
         if (!specConstants.isEmpty()) {
             for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
                 sb.append(", ").append(specJavaType(sc)).append(" ").append(sc.name());
@@ -169,6 +175,12 @@ public class ShaderGenerator {
         }
         sb.append(") {\n");
         sb.append("        this.shader = shader;\n");
+        if (!defines.isEmpty()) {
+            new TreeMap<>(defines).forEach((k, v) -> {
+                sb.append("        this.").append(toConstantName(k))
+                  .append(" = defines.getOrDefault(\"").append(k).append("\", \"").append(v).append("\");\n");
+            });
+        }
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
             sb.append("        this.").append(sc.name()).append(" = ").append(sc.name()).append(";\n");
         }
@@ -195,8 +207,9 @@ public class ShaderGenerator {
         sb.append("    @Override\n");
         sb.append("    public void close() { shader.close(); }\n\n");
 
-        // Specialization constant getters — return instance fields directly
+        // Specialization constant getters
         if (!specConstants.isEmpty()) {
+            sb.append("    // Specialization constant getters\n");
             for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
                 String type = specJavaType(sc);
                 String methodName = sc.isBool()
@@ -208,27 +221,67 @@ public class ShaderGenerator {
             sb.append("\n");
         }
 
-        // Struct records for push constant blocks
+        // Convenience structs mirroring shader layouts for buffer IO
+        sb.append("    /** Convenience objects mirroring shader structs for low speed IO. */\n\n");
         emitStructRecords(sb, blocks);
-
-        // Companion records for UBO/SSBO bindings
         emitBufferRecords(sb, bySet);
 
+        // Descriptors helper — named buffer binding methods wrapping DescriptorGroup
+        emitDescriptorsHelper(sb, bySet);
+
         // Builder
-        emitBuilder(sb, className, resourcePath, specConstants);
+        emitBuilder(sb, className, resourcePath, specConstants, defines);
 
         sb.append("}\n");
         return sb.toString();
     }
 
+    private static void emitDescriptorsHelper(StringBuilder sb,
+                                                Map<Integer, List<ShaderLoader.DescriptorBindingInfo>> bySet) {
+        boolean hasBindings = bySet.values().stream().anyMatch(l -> !l.isEmpty());
+        if (!hasBindings) return;
+
+        for (Map.Entry<Integer, List<ShaderLoader.DescriptorBindingInfo>> entry : bySet.entrySet()) {
+            int setNumber = entry.getKey();
+            List<ShaderLoader.DescriptorBindingInfo> bindings = entry.getValue();
+            if (bindings.isEmpty()) continue;
+
+            String suffix = bySet.size() > 1 ? "Set" + setNumber : "";
+            String helperName = "Descriptors" + suffix;
+
+            sb.append("    /** Creates a descriptor group builder with named binding methods for set ").append(setNumber).append(". */\n");
+            sb.append("    public ").append(helperName).append(" descriptors").append(suffix)
+              .append("() { return new ").append(helperName).append("(shader.compiled(), shader.compiled().descriptorGroup(shader.device(), ").append(setNumber).append(")); }\n\n");
+
+            sb.append("    public static class ").append(helperName).append(" {\n");
+            sb.append("        private final CompiledShader compiled;\n");
+            sb.append("        private final DescriptorGroup.Builder inner;\n");
+            sb.append("        ").append(helperName).append("(CompiledShader compiled, DescriptorGroup.Builder inner) { this.compiled = compiled; this.inner = inner; }\n");
+
+            for (ShaderLoader.DescriptorBindingInfo binding : bindings) {
+                String name = binding.getName() != null ? binding.getName() : "binding" + binding.getBinding();
+                SpirvReflectDescriptorType type = binding.getDescriptorType();
+                if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                        || type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER)) {
+                    sb.append("        public ").append(helperName).append(" ").append(name)
+                      .append("(ManagedBuffer buf) { inner.buffer(").append(binding.getBinding()).append(", buf); return this; }\n");
+                }
+            }
+
+            sb.append("        public DescriptorGroup build(Arena arena) { return inner.build(arena); }\n");
+            sb.append("    }\n\n");
+        }
+    }
+
     private static void emitBuilder(StringBuilder sb, String className, String resourcePath,
-                                    List<ShaderLoader.SpecializationConstantInfo> specConstants) {
+                                    List<ShaderLoader.SpecializationConstantInfo> specConstants,
+                                    Map<String, String> defines) {
         sb.append("    /** @return a new Builder for configuring and creating a ").append(className).append(" instance. */\n");
         sb.append("    public static Builder builder(VkDevice device) { return new Builder(device); }\n\n");
 
         sb.append("    public static class Builder {\n");
         sb.append("        private final VkDevice device;\n");
-        sb.append("        private Map<String, String> defines = Map.of();\n");
+        sb.append("        private Map<String, String> defines = new java.util.HashMap<>();\n");
         // spec constant fields with defaults referencing the static finals
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
             sb.append("        private ").append(specJavaType(sc)).append(" ").append(sc.name())
@@ -238,7 +291,15 @@ public class ShaderGenerator {
         sb.append("        private Builder(VkDevice device) { this.device = device; }\n\n");
 
         sb.append("        /** Sets preprocessor defines for this shader variant. */\n");
-        sb.append("        public Builder defines(Map<String, String> defines) { this.defines = defines; return this; }\n");
+        sb.append("        public Builder defines(Map<String, String> defines) { this.defines = new java.util.HashMap<>(defines); return this; }\n");
+
+        // Typed setter per known define
+        for (Map.Entry<String, String> def : new TreeMap<>(defines).entrySet()) {
+            String methodName = toCamelCase(def.getKey());
+            sb.append("\n        /** Sets preprocessor define '").append(def.getKey()).append("' (default: \"").append(def.getValue()).append("\"). */\n");
+            sb.append("        public Builder ").append(methodName).append("(String value) ")
+              .append("{ this.defines.put(\"").append(def.getKey()).append("\", value); return this; }\n");
+        }
 
         // fluent setter per spec constant
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
@@ -250,7 +311,9 @@ public class ShaderGenerator {
         sb.append("\n        public ").append(className).append(" build() {\n");
         if (specConstants.isEmpty()) {
             sb.append("            CompiledShader compiled = ShaderLoader.compileShader(\"").append(resourcePath).append("\", defines);\n");
-            sb.append("            return new ").append(className).append("(compiled.createInstance(device));\n");
+            sb.append("            return new ").append(className).append("(compiled.createInstance(device)");
+            if (!defines.isEmpty()) sb.append(", this.defines");
+            sb.append(");\n");
         } else {
             sb.append("            CompiledShader compiled = ShaderLoader.compileShader(\"").append(resourcePath).append("\", defines);\n");
             sb.append("            ShaderInstance instance = compiled.instanceBuilder(device)\n");
@@ -259,6 +322,7 @@ public class ShaderGenerator {
             }
             sb.append("                .build();\n");
             sb.append("            return new ").append(className).append("(instance");
+            if (!defines.isEmpty()) sb.append(", this.defines");
             for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
                 sb.append(", ").append(sc.name());
             }
@@ -559,6 +623,22 @@ public class ShaderGenerator {
             char c = name.charAt(i);
             if (Character.isUpperCase(c) && i > 0 && Character.isLowerCase(name.charAt(i - 1))) sb.append('_');
             sb.append(Character.toUpperCase(c));
+        }
+        return sb.toString();
+    }
+
+    /** Converts a SCREAMING_SNAKE or camelCase name to camelCase for method names. */
+    private static String toCamelCase(String name) {
+        if (!name.contains("_")) {
+            return Character.toLowerCase(name.charAt(0)) + name.substring(1);
+        }
+        StringBuilder sb = new StringBuilder();
+        boolean nextUpper = false;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c == '_') { nextUpper = true; continue; }
+            sb.append(nextUpper ? Character.toUpperCase(c) : Character.toLowerCase(c));
+            nextUpper = false;
         }
         return sb.toString();
     }

@@ -3,6 +3,9 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class VkInstance implements AutoCloseable {
     private final MemorySegment handle;
@@ -126,9 +129,33 @@ public class VkInstance implements AutoCloseable {
     public MemorySegment handle() {
         return handle;
     }
-    
+
+    /** Enumerates physical devices on this instance. */
+    public VkPhysicalDevice[] enumeratePhysicalDevices(Arena arena) {
+        MemorySegment[] raw = VkPhysicalDeviceOps.enumerate(handle).execute(arena);
+        VkPhysicalDevice[] result = new VkPhysicalDevice[raw.length];
+        for (int i = 0; i < raw.length; i++) result[i] = VkPhysicalDevice.wrap(raw[i]);
+        return result;
+    }
+
+    /** Returns the first available physical device. */
+    public VkPhysicalDevice pickFirstPhysicalDevice(Arena arena) {
+        return VkPhysicalDevice.wrap(VkPhysicalDeviceOps.enumerate(handle).first(arena));
+    }
+
+    /** Tracks a device created from this instance for cleanup on close. */
+    void registerDevice(VkDevice device) {
+        ownedDevices.add(device);
+    }
+
+    private final List<VkDevice> ownedDevices = new ArrayList<>();
+
     @Override
     public void close() {
+        for (int i = ownedDevices.size() - 1; i >= 0; i--) {
+            ownedDevices.get(i).close();
+        }
+        ownedDevices.clear();
         Vulkan.destroyInstance(handle);
     }
 }

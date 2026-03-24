@@ -220,6 +220,7 @@ public class ShaderInstance implements AutoCloseable {
     // ---- Accessors ----
 
     public CompiledShader compiled() { return compiled; }
+    public VkDevice device() { return device; }
     public Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
     public Map<Integer, VkDescriptorSet> descriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
     /** @return the preprocessor defines this instance was compiled with. */
