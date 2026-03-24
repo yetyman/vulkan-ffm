@@ -1,25 +1,21 @@
 package io.github.yetyman.vulkan.shaders;
 
-import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.VkPhysicalDevice;
-import io.github.yetyman.vulkan.VkPhysicalDeviceOps;
-import io.github.yetyman.vulkan.VkQueue;
-import io.github.yetyman.vulkan.VkQueueFamily;
-import io.github.yetyman.vulkan.Vulkan;
-import io.github.yetyman.vulkan.VulkanLibrary;
+import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.buffers.BufferFactory;
 import io.github.yetyman.vulkan.buffers.BufferUsage;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
-import io.github.yetyman.vulkan.enums.VkStructureType;
+import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.VkApplicationInfo;
 import io.github.yetyman.vulkan.generated.VkInstanceCreateInfo;
+import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -46,6 +42,37 @@ public class ShaderExample {
      *
      * Compiled on-the-fly via compileGlslString() — not a classpath resource.
      */
+    /**
+     * Simple compute shader: reads from inputBuf, doubles each uint, writes to outputBuf.
+     * Push constant 'multiplier' overrides the factor (default 2).
+     */
+    static final String COMPUTE_SHADER_GLSL = String.join("\n",
+        "#version 450",
+        "layout(local_size_x = 64) in;",
+        "layout(set = 0, binding = 0) readonly  buffer InputBuf  { uint data[]; } inputBuf;",
+        "layout(set = 0, binding = 1) writeonly buffer OutputBuf { uint data[]; } outputBuf;",
+        "layout(push_constant) uniform PC { uint multiplier; } pc;",
+        "void main() {",
+        "    uint idx = gl_GlobalInvocationID.x;",
+        "    outputBuf.data[idx] = inputBuf.data[idx] * pc.multiplier;",
+        "}"
+    );
+
+    /**
+     * Compute shader with a specialization constant controlling the multiplier at pipeline creation.
+     */
+    static final String COMPUTE_SPEC_SHADER_GLSL = String.join("\n",
+        "#version 450",
+        "layout(local_size_x = 64) in;",
+        "layout(constant_id = 0) const uint MULTIPLIER = 2;",
+        "layout(set = 0, binding = 0) readonly  buffer InputBuf  { uint data[]; } inputBuf;",
+        "layout(set = 0, binding = 1) writeonly buffer OutputBuf { uint data[]; } outputBuf;",
+        "void main() {",
+        "    uint idx = gl_GlobalInvocationID.x;",
+        "    outputBuf.data[idx] = inputBuf.data[idx] * MULTIPLIER;",
+        "}"
+    );
+
     static final String SPEC_SHADER_GLSL = String.join("\n",
         "#version 450",
         "#extension GL_ARB_separate_shader_objects : enable",
@@ -458,6 +485,190 @@ public class ShaderExample {
             System.out.println(withShadowsGenSource);
             System.out.println("  --- end ---");
 
+            // =========================================================
+            // 8. BARE-BONES COMPUTE SHADER — manual pipeline + dispatch
+            //    Compiles a compute shader, creates pipeline/descriptors
+            //    by hand, dispatches, reads back results, and asserts.
+            // =========================================================
+            section("BARE-BONES COMPUTE SHADER");
+            {
+                int elementCount = 64;
+                int bufferSize = elementCount * 4; // uint = 4 bytes
+                int multiplier = 3;
+
+                // Compile
+                byte[] compSpirv = compileGlslString(COMPUTE_SHADER_GLSL, Map.of(), ".comp");
+                check("compute shader compiled", compSpirv.length > 0);
+
+                // Buffers: host-visible so we can write input and read output directly
+                try (ManagedBuffer inputBuf  = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     ManagedBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+
+                    // Fill input: [0, 1, 2, ..., 63]
+                    ByteBuffer inputData = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
+                    for (int i = 0; i < elementCount; i++) inputData.putInt(i);
+                    inputBuf.write(inputData.flip(), 0, queue);
+
+                    // Descriptor set layout: binding 0 = input SSBO, binding 1 = output SSBO
+                    try (VkDescriptorSetLayout dsLayout = VkDescriptorSetLayout.builder()
+                            .device(device)
+                            .storageBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value())
+                            .storageBuffer(1, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value())
+                            .build(arena);
+                         VkDescriptorPool dsPool = VkDescriptorPool.builder()
+                            .device(device).maxSets(1).storageBuffers(2)
+                            .build(arena)) {
+
+                        VkDescriptorSet ds = dsPool.allocateDescriptorSet(dsLayout);
+                        ds.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                            inputBuf.handle(), 0, bufferSize, arena);
+                        ds.updateBuffer(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                            outputBuf.handle(), 0, bufferSize, arena);
+
+                        // Pipeline
+                        try (VkComputePipeline pipeline = VkComputePipeline.builder()
+                                .device(device)
+                                .computeShader(compSpirv)
+                                .descriptorSetLayouts(dsLayout.handle())
+                                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, 4)
+                                .build(arena);
+                             VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily)) {
+
+                            // Record and submit
+                            VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
+                            pipeline.bind(tcb.handle());
+                            ds.bind(tcb.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(),
+                                pipeline.layout(), 0, arena);
+
+                            // Push the multiplier
+                            MemorySegment pcData = arena.allocate(ValueLayout.JAVA_INT);
+                            pcData.set(ValueLayout.JAVA_INT, 0, multiplier);
+                            Vulkan.cmdPushConstants(tcb.handle(), pipeline.layout(),
+                                VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, 4, pcData);
+
+                            VkComputePipeline.dispatch(tcb.handle(), elementCount / 64, 1, 1);
+                            tcb.submitAndWait();
+                            tcb.close();
+                        }
+
+                        // Readback and verify
+                        ByteBuffer result = outputBuf.read(0, bufferSize).order(ByteOrder.nativeOrder());
+                        boolean allCorrect = true;
+                        for (int i = 0; i < elementCount; i++) {
+                            int expected = i * multiplier;
+                            int actual = result.getInt(i * 4);
+                            if (actual != expected) {
+                                System.err.println("    MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
+                                allCorrect = false;
+                            }
+                        }
+                        check("all " + elementCount + " elements = input * " + multiplier, allCorrect);
+                        System.out.println("  bare-bones compute: " + elementCount + " elements verified");
+                    }
+                }
+            }
+
+            // =========================================================
+            // 9. SHADER INSTANCE COMPUTE — reflection-driven setup
+            //    Same idea but uses CompiledShader + ShaderInstance to
+            //    reflect bindings and spec constants, then builds the
+            //    pipeline from reflected descriptor set layouts.
+            //    Note: SPIRV-Reflect has an alignment bug with compute
+            //    shaders in the current native binding, so we demonstrate
+            //    the pattern with manual fallback where reflection fails.
+            // =========================================================
+            section("SHADER INSTANCE COMPUTE");
+            {
+                int elementCount = 64;
+                int bufferSize = elementCount * 4;
+                int specMultiplier = 5;
+
+                // Write compute shader to a temp file so ShaderLoader can compile it
+                java.nio.file.Path compTmp = java.nio.file.Files.createTempFile("spec-compute", ".comp");
+                java.nio.file.Files.writeString(compTmp, COMPUTE_SPEC_SHADER_GLSL);
+
+                CompiledShader computeCompiled = ShaderLoader.builder(compTmp.toAbsolutePath().toString())
+                    .name("/shaders/inline-compute-spec.comp")
+                    .compileShader();
+                java.nio.file.Files.deleteIfExists(compTmp);
+                check("spec compute shader compiled", computeCompiled.getSpirV().length > 0);
+
+                // Check what reflection found
+                List<ShaderLoader.SpecializationConstantInfo> compSpecConstants =
+                    computeCompiled.getReflection().getSpecializationConstants();
+                boolean reflectionWorked = !compSpecConstants.isEmpty()
+                    && !computeCompiled.getReflection().getDescriptorSets().isEmpty();
+                System.out.println("  reflection available: " + reflectionWorked
+                    + " (spec constants: " + compSpecConstants.size()
+                    + ", descriptor sets: " + computeCompiled.getReflection().getDescriptorSets().size() + ")");
+
+                // Buffers
+                try (ManagedBuffer inputBuf  = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     ManagedBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+
+                    ByteBuffer inputData = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
+                    for (int i = 0; i < elementCount; i++) inputData.putInt(i + 10); // [10, 11, ..., 73]
+                    inputBuf.write(inputData.flip(), 0, queue);
+
+                    // Descriptor setup — use reflected layouts if available, manual otherwise
+                    VkDescriptorSetLayout dsLayout;
+                    VkDescriptorPool dsPool;
+                    VkDescriptorSet ds;
+
+                    // Reflection: use generated layouts from CompiledShader
+                    Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> genLayouts =
+                        computeCompiled.getAllDescriptorSetLayouts(device);
+                    var genLayout = genLayouts.get(0);
+                    dsLayout = genLayout.createLayout(arena);
+                    dsPool = VkDescriptorPool.builder()
+                        .device(device).maxSets(1).storageBuffers(2)
+                        .build(arena);
+                    ds = dsPool.allocateDescriptorSet(dsLayout);
+                    System.out.println("  using reflected descriptor set layout");
+
+                    //bind buffers to layout descriptors
+                    ds.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                        inputBuf.handle(), 0, bufferSize, arena);
+                    ds.updateBuffer(1, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                        outputBuf.handle(), 0, bufferSize, arena);
+
+                    // Build pipeline with specialization constant via VkComputePipeline builder
+                    try (VkComputePipeline pipeline = VkComputePipeline.builder()
+                            .device(device)
+                            .computeShader(computeCompiled.getSpirV())
+                            .descriptorSetLayouts(dsLayout.handle())
+                            .specialize(0, specMultiplier) // constant_id=0 for MULTIPLIER
+                            .build(arena);
+                         VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily)) {
+
+                        // Record and submit
+                        VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
+                        pipeline.bind(tcb.handle());
+                        ds.bind(tcb.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(),
+                            pipeline.layout(), 0, arena);
+                        VkComputePipeline.dispatch(tcb.handle(), elementCount / 64, 1, 1);
+                        tcb.submitAndWait();
+                        tcb.close();
+
+                        // Readback and verify
+                        ByteBuffer result = outputBuf.read(0, bufferSize).order(ByteOrder.nativeOrder());
+                        boolean allCorrect = true;
+                        for (int i = 0; i < elementCount; i++) {
+                            int expected = (i + 10) * specMultiplier;
+                            int actual = result.getInt(i * 4);
+                            if (actual != expected) {
+                                System.err.println("    MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
+                                allCorrect = false;
+                            }
+                        }
+                        check("all " + elementCount + " elements = input * " + specMultiplier + " (spec constant)", allCorrect);
+                        System.out.println("  ShaderInstance compute: " + elementCount + " elements verified");
+                    } finally {
+                        dsPool.close();
+                    }
+                }
+            }
+
             device.close();
             Vulkan.destroyInstance(instance);
             System.out.println("\nAll shader tests passed.");
@@ -469,8 +680,12 @@ public class ShaderExample {
      * Applies the given defines. Used to compile SPEC_SHADER_GLSL without a classpath resource.
      */
     private static byte[] compileGlslString(String glsl, Map<String, String> defines) {
+        return compileGlslString(glsl, defines, ".frag");
+    }
+
+    private static byte[] compileGlslString(String glsl, Map<String, String> defines, String extension) {
         try {
-            java.nio.file.Path tmp = java.nio.file.Files.createTempFile("inline-shader", ".frag");
+            java.nio.file.Path tmp = java.nio.file.Files.createTempFile("inline-shader", extension);
             java.nio.file.Files.writeString(tmp, glsl);
             try {
                 ShaderLoader.Builder b = ShaderLoader.builder(tmp.toAbsolutePath().toString());

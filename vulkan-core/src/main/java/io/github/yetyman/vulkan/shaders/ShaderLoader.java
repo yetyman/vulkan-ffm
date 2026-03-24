@@ -573,16 +573,16 @@ public class ShaderLoader {
                 MemorySegment traits = SpvReflectTypeDescription.traits(typeDesc)
                     .reinterpret(SpvReflectNumericTraits.sizeof(), arena, null);
                 MemorySegment scalar = SpvReflectNumericTraits.scalar(traits)
-                    .reinterpret(SpvReflectNumericTraits.scalar.sizeof(), arena, null);
-                scalarWidth      = SpvReflectNumericTraits.scalar.width(scalar);
-                scalarSignedness = SpvReflectNumericTraits.scalar.signedness(scalar);
+                    .reinterpret(SpvReflectNumericTraits.Scalar.sizeof(), arena, null);
+                scalarWidth      = SpvReflectNumericTraits.Scalar.width(scalar);
+                scalarSignedness = SpvReflectNumericTraits.Scalar.signedness(scalar);
                 MemorySegment vector = SpvReflectNumericTraits.vector(traits)
-                    .reinterpret(SpvReflectNumericTraits.vector.sizeof(), arena, null);
-                vectorComponents = SpvReflectNumericTraits.vector.component_count(vector);
+                    .reinterpret(SpvReflectNumericTraits.Vector.sizeof(), arena, null);
+                vectorComponents = SpvReflectNumericTraits.Vector.component_count(vector);
                 MemorySegment matrix = SpvReflectNumericTraits.matrix(traits)
-                    .reinterpret(SpvReflectNumericTraits.matrix.sizeof(), arena, null);
-                matrixColumns = SpvReflectNumericTraits.matrix.column_count(matrix);
-                matrixRows    = SpvReflectNumericTraits.matrix.row_count(matrix);
+                    .reinterpret(SpvReflectNumericTraits.Matrix.sizeof(), arena, null);
+                matrixColumns = SpvReflectNumericTraits.Matrix.column_count(matrix);
+                matrixRows    = SpvReflectNumericTraits.Matrix.row_count(matrix);
             }
             List<StructMemberInfo> nested = new ArrayList<>();
             if (memberCount > 0) {

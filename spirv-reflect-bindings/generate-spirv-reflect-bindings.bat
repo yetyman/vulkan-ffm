@@ -11,6 +11,12 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
+REM Ensure SPIRV-Reflect is cloned
+if not exist "build\SPIRV-Reflect\spirv_reflect.h" (
+    echo SPIRV-Reflect source not found. Run build-spirv-reflect.bat first.
+    exit /b 1
+)
+
 REM Clean previous generated files
 if exist "src\main\java\io\github\yetyman\spirv\generated" (
     echo Cleaning previous generated files...
@@ -20,14 +26,19 @@ if exist "src\main\java\io\github\yetyman\spirv\generated" (
 REM Create output directory
 mkdir "src\main\java\io\github\yetyman\spirv\generated" 2>nul
 
-REM Generate bindings
-echo Running jextract...
+REM Generate bindings from the real upstream header.
+REM jextract-shims/ provides a stub string.h (spirv_reflect.h includes it for
+REM memcpy, which jextract doesn't need). The shim path comes first so it
+REM shadows the system header.
+echo Running jextract against upstream spirv_reflect.h...
 jextract ^
     --output "src\main\java" ^
     --target-package "io.github.yetyman.spirv.generated" ^
     --library "spirv-reflect" ^
     --header-class-name "SpirvReflectFFM" ^
-    "spirv_reflect_wrapper.h"
+    -I "jextract-shims" ^
+    -I "build\SPIRV-Reflect\include" ^
+    "build\SPIRV-Reflect\spirv_reflect.h"
 
 if %ERRORLEVEL% neq 0 (
     echo Error: jextract failed
@@ -35,13 +46,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo SPIRV-Reflect bindings generated successfully!
-echo.
-echo Next steps:
-echo 1. Download spirv-reflect library from:
-echo    https://github.com/KhronosGroup/SPIRV-Reflect/releases
-echo 2. Place spirv-reflect.dll in src\main\resources\natives\
-echo 3. Build with: mvn clean compile
+echo SPIRV-Reflect bindings generated successfully from upstream header!
 echo.
 
 pause
