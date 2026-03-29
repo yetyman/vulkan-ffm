@@ -185,6 +185,82 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image, 
             VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, region);
     }
+
+    /**
+     * Copies data from image to buffer (readback).
+     * @param image the source VkImage handle
+     * @param imageLayout the current layout of the image (must be TRANSFER_SRC_OPTIMAL or GENERAL)
+     * @param buffer the destination VkBuffer handle
+     * @param width image width in pixels
+     * @param height image height in pixels
+     */
+    public void copyImageToBuffer(MemorySegment image, int imageLayout, MemorySegment buffer,
+                                  int width, int height) {
+        copyImageToBuffer(image, imageLayout, buffer, width, height, 1);
+    }
+
+    /**
+     * Copies data from image to buffer (readback) with depth.
+     */
+    public void copyImageToBuffer(MemorySegment image, int imageLayout, MemorySegment buffer,
+                                  int width, int height, int depth) {
+        MemorySegment region = VkBufferImageCopy.allocate(arena);
+        VkBufferImageCopy.bufferOffset(region, 0);
+        VkBufferImageCopy.bufferRowLength(region, 0);
+        VkBufferImageCopy.bufferImageHeight(region, 0);
+
+        MemorySegment imageSubresource = VkBufferImageCopy.imageSubresource(region);
+        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
+        VkImageSubresourceLayers.mipLevel(imageSubresource, 0);
+        VkImageSubresourceLayers.baseArrayLayer(imageSubresource, 0);
+        VkImageSubresourceLayers.layerCount(imageSubresource, 1);
+
+        MemorySegment imageOffset = VkBufferImageCopy.imageOffset(region);
+        VkOffset3D.x(imageOffset, 0);
+        VkOffset3D.y(imageOffset, 0);
+        VkOffset3D.z(imageOffset, 0);
+
+        MemorySegment imageExtent = VkBufferImageCopy.imageExtent(region);
+        VkExtent3D.width(imageExtent, width);
+        VkExtent3D.height(imageExtent, height);
+        VkExtent3D.depth(imageExtent, depth);
+
+        Vulkan.cmdCopyImageToBuffer(commandBuffer, image, imageLayout, buffer, 1, region);
+    }
+
+    /**
+     * Copies a region from one image to another.
+     * Both images must be in appropriate transfer layouts.
+     */
+    public void copyImage(MemorySegment srcImage, int srcLayout, MemorySegment dstImage, int dstLayout,
+                          int width, int height) {
+        MemorySegment region = VkImageCopy.allocate(arena);
+
+        MemorySegment srcSubresource = VkImageCopy.srcSubresource(region);
+        VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
+        VkImageSubresourceLayers.mipLevel(srcSubresource, 0);
+        VkImageSubresourceLayers.baseArrayLayer(srcSubresource, 0);
+        VkImageSubresourceLayers.layerCount(srcSubresource, 1);
+
+        MemorySegment srcOffset = VkImageCopy.srcOffset(region);
+        VkOffset3D.x(srcOffset, 0); VkOffset3D.y(srcOffset, 0); VkOffset3D.z(srcOffset, 0);
+
+        MemorySegment dstSubresource = VkImageCopy.dstSubresource(region);
+        VkImageSubresourceLayers.aspectMask(dstSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
+        VkImageSubresourceLayers.mipLevel(dstSubresource, 0);
+        VkImageSubresourceLayers.baseArrayLayer(dstSubresource, 0);
+        VkImageSubresourceLayers.layerCount(dstSubresource, 1);
+
+        MemorySegment dstOffset = VkImageCopy.dstOffset(region);
+        VkOffset3D.x(dstOffset, 0); VkOffset3D.y(dstOffset, 0); VkOffset3D.z(dstOffset, 0);
+
+        MemorySegment extent = VkImageCopy.extent(region);
+        VkExtent3D.width(extent, width);
+        VkExtent3D.height(extent, height);
+        VkExtent3D.depth(extent, 1);
+
+        Vulkan.cmdCopyImage(commandBuffer, srcImage, srcLayout, dstImage, dstLayout, 1, region);
+    }
     
     /**
      * Transitions image layout using a pipeline barrier.

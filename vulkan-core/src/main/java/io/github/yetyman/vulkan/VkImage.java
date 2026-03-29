@@ -22,6 +22,11 @@ public class VkImage implements AutoCloseable {
     public static Builder builder() {
         return new Builder();
     }
+
+    /** Wraps an existing image handle without memory ownership (e.g. swapchain images). */
+    public static VkImage wrap(MemorySegment handle, VkDevice device) {
+        return new VkImage(handle, device, MemorySegment.NULL);
+    }
     
     /** @return the VkImage handle */
     public MemorySegment handle() { return handle; }
@@ -46,6 +51,7 @@ public class VkImage implements AutoCloseable {
         private int samples = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
         private int mipLevels = 1;
         private int arrayLayers = 1;
+        private int flags = 0;
         
         private Builder() {}
         
@@ -93,9 +99,23 @@ public class VkImage implements AutoCloseable {
             return this;
         }
         
-        /** Sets array layers */
-        public Builder arrayLayers(int arrayLayers) {
-            this.arrayLayers = arrayLayers;
+        /** Sets creation flags (e.g. VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) */
+        public Builder flags(int flags) {
+            this.flags = flags;
+            return this;
+        }
+
+        /** Configures as a cube map (6 array layers, CUBE_COMPATIBLE flag). */
+        public Builder cubeMap() {
+            this.arrayLayers = 6;
+            this.flags |= VkImageCreateFlagBits.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT.value();
+            return this;
+        }
+
+        /** Configures as a cube map array (layerCount must be a multiple of 6). */
+        public Builder cubeMapArray(int cubeCount) {
+            this.arrayLayers = cubeCount * 6;
+            this.flags |= VkImageCreateFlagBits.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT.value();
             return this;
         }
         
@@ -108,7 +128,7 @@ public class VkImage implements AutoCloseable {
             MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
             VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
             VkImageCreateInfo.pNext(imageInfo, MemorySegment.NULL);
-            VkImageCreateInfo.flags(imageInfo, 0);
+            VkImageCreateInfo.flags(imageInfo, flags);
             VkImageCreateInfo.imageType(imageInfo, depth > 1 ? VkImageType.VK_IMAGE_TYPE_3D.value() : 
                                                    height > 1 ? VkImageType.VK_IMAGE_TYPE_2D.value() : 
                                                                 VkImageType.VK_IMAGE_TYPE_1D.value());

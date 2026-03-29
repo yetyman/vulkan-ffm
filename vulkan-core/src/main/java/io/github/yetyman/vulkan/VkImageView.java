@@ -126,13 +126,25 @@ public class VkImageView implements AutoCloseable {
         public VkImageView build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (image == null) throw new IllegalStateException("image not set");
+
+            // Auto-promote view type for arrays and cube maps when caller left it at the 2D default
+            int resolvedViewType = viewType;
+            if (resolvedViewType == VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value()) {
+                if (layerCount == 6) {
+                    resolvedViewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_CUBE.value();
+                } else if (layerCount > 1) {
+                    resolvedViewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_2D_ARRAY.value();
+                }
+            } else if (resolvedViewType == VkImageViewType.VK_IMAGE_VIEW_TYPE_CUBE.value() && layerCount > 6) {
+                resolvedViewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_CUBE_ARRAY.value();
+            }
             
             MemorySegment createInfo = VkImageViewCreateInfo.allocate(arena);
             VkImageViewCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO.value());
             VkImageViewCreateInfo.pNext(createInfo, MemorySegment.NULL);
             VkImageViewCreateInfo.flags(createInfo, flags);
             VkImageViewCreateInfo.image(createInfo, image);
-            VkImageViewCreateInfo.viewType(createInfo, viewType);
+            VkImageViewCreateInfo.viewType(createInfo, resolvedViewType);
             VkImageViewCreateInfo.format(createInfo, format);
             
             MemorySegment components = VkImageViewCreateInfo.components(createInfo);
