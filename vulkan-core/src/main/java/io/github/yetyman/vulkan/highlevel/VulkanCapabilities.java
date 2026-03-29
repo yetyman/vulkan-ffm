@@ -25,6 +25,7 @@ public class VulkanCapabilities {
     public static boolean conditionalRendering = false;
     public static boolean transformFeedback = false;
     public static boolean reBar = false;
+    public static boolean dynamicRendering = false;
     
     private static boolean initialized = false;
     
@@ -42,6 +43,7 @@ public class VulkanCapabilities {
         
         // Check each extension we care about
         reBar = physicalDevice.supportsReBar();
+        dynamicRendering = availableExtensions.contains("VK_KHR_dynamic_rendering") || isVulkan13OrHigher(physicalDevice);
         multiDraw = availableExtensions.contains("VK_EXT_multi_draw");
         meshShaders = availableExtensions.contains("VK_EXT_mesh_shader") || 
                      availableExtensions.contains("VK_NV_mesh_shader");
@@ -98,6 +100,18 @@ public class VulkanCapabilities {
         Logger.info("  Conditional rendering: " + conditionalRendering);
         Logger.info("  Transform feedback: " + transformFeedback);
         Logger.info("  Resizable BAR (ReBAR): " + reBar);
+        Logger.info("  Dynamic rendering: " + dynamicRendering);
+    }
+
+    private static boolean isVulkan13OrHigher(VkPhysicalDevice physicalDevice) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment props = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.allocate(arena);
+            io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceProperties(physicalDevice.handle(), props);
+            int apiVersion = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.apiVersion(props);
+            int major = (apiVersion >> 22) & 0x7F;
+            int minor = (apiVersion >> 12) & 0x3FF;
+            return major > 1 || (major == 1 && minor >= 3);
+        }
     }
     
     /**
@@ -157,5 +171,6 @@ public class VulkanCapabilities {
         conditionalRendering = false;
         transformFeedback = false;
         reBar = false;
+        dynamicRendering = false;
     }
 }

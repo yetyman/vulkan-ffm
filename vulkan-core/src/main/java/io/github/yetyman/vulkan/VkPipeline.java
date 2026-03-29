@@ -117,7 +117,14 @@ public class VkPipeline implements AutoCloseable {
         // Pipeline layout
         private MemorySegment[] descriptorSetLayouts = null;
         private java.util.List<PushConstantRange> pushConstantRanges = new java.util.ArrayList<>();
-        
+
+        // Dynamic rendering (Vulkan 1.3) — when set, renderPass must be null
+        private boolean useDynamicRendering = false;
+        private int[] dynamicColorFormats = null;
+        private int dynamicDepthFormat = 0;
+        private int dynamicStencilFormat = 0;
+        private int dynamicViewMask = 0;
+
         private Builder() {}
         
         public Builder device(VkDevice device) {
@@ -127,6 +134,31 @@ public class VkPipeline implements AutoCloseable {
         
         public Builder renderPass(MemorySegment renderPass) {
             this.renderPass = renderPass;
+            return this;
+        }
+
+        /**
+         * Configures this pipeline for dynamic rendering (Vulkan 1.3 / VK_KHR_dynamic_rendering).
+         * Mutually exclusive with renderPass — do not call both.
+         * @param colorFormats VkFormat values for each color attachment
+         * @param depthFormat VkFormat for depth attachment, or 0 for none
+         */
+        public Builder dynamicRendering(int depthFormat, int... colorFormats) {
+            this.useDynamicRendering = true;
+            this.dynamicColorFormats = colorFormats;
+            this.dynamicDepthFormat = depthFormat;
+            return this;
+        }
+
+        /** Sets the stencil format for dynamic rendering (default: 0 = none). */
+        public Builder dynamicRenderingStencilFormat(int stencilFormat) {
+            this.dynamicStencilFormat = stencilFormat;
+            return this;
+        }
+
+        /** Sets the view mask for dynamic rendering multiview (default: 0 = disabled). */
+        public Builder dynamicRenderingViewMask(int viewMask) {
+            this.dynamicViewMask = viewMask;
             return this;
         }
         
@@ -524,7 +556,8 @@ public class VkPipeline implements AutoCloseable {
         
         public VkPipeline build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            if (renderPass == null) throw new IllegalStateException("renderPass not set");
+            if (!useDynamicRendering && renderPass == null) throw new IllegalStateException("renderPass not set (or call dynamicRendering())");
+            if (useDynamicRendering && renderPass != null) throw new IllegalStateException("renderPass and dynamicRendering() are mutually exclusive");
             if (vertShader == null) throw new IllegalStateException("vertex shader not set");
             
             // Create shader modules
@@ -819,6 +852,28 @@ public class VkPipeline implements AutoCloseable {
                 MemorySegment pipelineInfo = VkGraphicsPipelineCreateInfo.allocate(arena);
                 VkGraphicsPipelineCreateInfo.sType(pipelineInfo, VkStructureType.VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO.value());
                 VkGraphicsPipelineCreateInfo.flags(pipelineInfo, flags);
+
+                if (useDynamicRendering) {
+                    MemorySegment dynRenderInfo = VkPipelineRenderingCreateInfo.allocate(arena);
+                    VkPipelineRenderingCreateInfo.sType(dynRenderInfo, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO.value());
+                    VkPipelineRenderingCreateInfo.pNext(dynRenderInfo, MemorySegment.NULL);
+                    VkPipelineRenderingCreateInfo.viewMask(dynRenderInfo, dynamicViewMask);
+                    VkPipelineRenderingCreateInfo.depthAttachmentFormat(dynRenderInfo, dynamicDepthFormat);
+                    VkPipelineRenderingCreateInfo.stencilAttachmentFormat(dynRenderInfo, dynamicStencilFormat);
+                    if (dynamicColorFormats != null && dynamicColorFormats.length > 0) {
+                        MemorySegment formatsArray = arena.allocate(ValueLayout.JAVA_INT, dynamicColorFormats.length);
+                        for (int i = 0; i < dynamicColorFormats.length; i++) {
+                            formatsArray.setAtIndex(ValueLayout.JAVA_INT, i, dynamicColorFormats[i]);
+                        }
+                        VkPipelineRenderingCreateInfo.colorAttachmentCount(dynRenderInfo, dynamicColorFormats.length);
+                        VkPipelineRenderingCreateInfo.pColorAttachmentFormats(dynRenderInfo, formatsArray);
+                    }
+                    VkGraphicsPipelineCreateInfo.pNext(pipelineInfo, dynRenderInfo);
+                    VkGraphicsPipelineCreateInfo.renderPass(pipelineInfo, MemorySegment.NULL);
+                } else {
+                    VkGraphicsPipelineCreateInfo.pNext(pipelineInfo, MemorySegment.NULL);
+                    VkGraphicsPipelineCreateInfo.renderPass(pipelineInfo, renderPass);
+                }
                 VkGraphicsPipelineCreateInfo.stageCount(pipelineInfo, stages.size());
                 VkGraphicsPipelineCreateInfo.pStages(pipelineInfo, stagesArray);
                 VkGraphicsPipelineCreateInfo.pVertexInputState(pipelineInfo, vertexInputInfo);
@@ -831,7 +886,6 @@ public class VkPipeline implements AutoCloseable {
                 VkGraphicsPipelineCreateInfo.pColorBlendState(pipelineInfo, colorBlending);
                 VkGraphicsPipelineCreateInfo.pDynamicState(pipelineInfo, dynamicState);
                 VkGraphicsPipelineCreateInfo.layout(pipelineInfo, pipelineLayout);
-                VkGraphicsPipelineCreateInfo.renderPass(pipelineInfo, renderPass);
                 VkGraphicsPipelineCreateInfo.subpass(pipelineInfo, subpass);
                 VkGraphicsPipelineCreateInfo.basePipelineHandle(pipelineInfo, basePipeline);
                 VkGraphicsPipelineCreateInfo.basePipelineIndex(pipelineInfo, basePipelineIndex);

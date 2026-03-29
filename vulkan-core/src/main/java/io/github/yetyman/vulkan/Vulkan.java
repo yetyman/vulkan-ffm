@@ -458,4 +458,24 @@ public class Vulkan {
         int result = VulkanFFM.vkEnumerateDeviceExtensionProperties(physicalDevice, layerName, propertyCount, properties);
         return VkResult.fromInt(result);
     }
+
+    // Dynamic rendering (Vulkan 1.3 / VK_KHR_dynamic_rendering)
+    public static void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) {
+        VulkanFFM.vkCmdBeginRendering(commandBuffer, renderingInfo);
+    }
+
+    public static void cmdEndRendering(MemorySegment commandBuffer) {
+        VulkanFFM.vkCmdEndRendering(commandBuffer);
+    }
+
+    // Image copy operations (#5)
+    public static void cmdCopyImage(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout,
+                                    MemorySegment dstImage, int dstImageLayout, int regionCount, MemorySegment regions) {
+        VulkanFFM.vkCmdCopyImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, regions);
+    }
+
+    public static void cmdCopyImageToBuffer(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout,
+                                            MemorySegment dstBuffer, int regionCount, MemorySegment regions) {
+        VulkanFFM.vkCmdCopyImageToBuffer(commandBuffer, srcImage, srcImageLayout, dstBuffer, regionCount, regions);
+    }
 }

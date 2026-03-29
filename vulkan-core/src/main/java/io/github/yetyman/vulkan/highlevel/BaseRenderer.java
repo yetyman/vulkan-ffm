@@ -25,23 +25,41 @@ public abstract class BaseRenderer implements AutoCloseable {
     protected final MemorySegment queue;
     protected final MemorySegment surface;
     protected int width, height;
-    
+
+    /** When true, skips VkRenderPass/VkFramebuffer creation and uses dynamic rendering instead. */
+    protected final boolean useDynamicRendering;
+    /** MSAA sample count. VK_SAMPLE_COUNT_1_BIT = no MSAA. */
+    protected final int sampleCount;
+
     // Core Vulkan objects
     protected VkSwapchain swapchain;
     protected VkImageView[] swapchainImageViews;
-    protected VkRenderPass renderPass;
-    protected VkFramebuffer[] framebuffers;
+    protected VkRenderPass renderPass;       // null when useDynamicRendering = true
+    protected VkFramebuffer[] framebuffers;  // null when useDynamicRendering = true
     protected VkCommandPool commandPool;
     protected VkCommandBuffer[] commandBuffers;
     protected VkSemaphore[] imageAvailableSemaphores;
     protected VkSemaphore[] renderFinishedSemaphores;
     protected VkFence[] inFlightFences;
-    
+
     private int currentFrame = 0;
     private final int maxFramesInFlight;
-    
-    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue, 
+
+    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight) {
+        this(arena, device, queue, surface, width, height, maxFramesInFlight, false);
+    }
+
+    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
+                          MemorySegment surface, int width, int height, int maxFramesInFlight,
+                          boolean useDynamicRendering) {
+        this(arena, device, queue, surface, width, height, maxFramesInFlight, useDynamicRendering,
+            VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
+    }
+
+    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
+                          MemorySegment surface, int width, int height, int maxFramesInFlight,
+                          boolean useDynamicRendering, int sampleCount) {
         this.arena = arena;
         this.device = device;
         this.queue = queue;
@@ -49,22 +67,19 @@ public abstract class BaseRenderer implements AutoCloseable {
         this.width = width;
         this.height = height;
         this.maxFramesInFlight = maxFramesInFlight;
+        this.useDynamicRendering = useDynamicRendering;
+        this.sampleCount = sampleCount;
     }
     
     public final void init(int queueFamilyIndex) {
         createSwapchain();
         createImageViews();
-        createRenderPass();
-        
-        // Initialize subclass resources after render pass exists but before framebuffers
-        // (subclasses may create depth targets or other attachments needed by createFramebufferImpl)
+        if (!useDynamicRendering) createRenderPass();
         initializeResources(queueFamilyIndex);
-        
-        createFramebuffers();
+        if (!useDynamicRendering) createFramebuffers();
         createCommandPool(queueFamilyIndex);
         createCommandBuffers();
         createSyncObjects();
-        
         postRenderPassInit();
     }
     
@@ -134,82 +149,75 @@ public abstract class BaseRenderer implements AutoCloseable {
             VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
                 .reset(frameArena).check();
-            
+
             int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
                 .semaphore(imageAvailableSemaphores[currentFrame].handle())
                 .execute(frameArena);
-            
+
             recordCommandBuffer(commandBuffers[currentFrame], imgIdx, frameArena);
-            
+
             VkSubmit.builder()
-                .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(), 
+                .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(),
                               VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
                 .commandBuffer(commandBuffers[currentFrame])
                 .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
                 .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();
-            
+
             VkPresent.builder()
                 .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
                 .swapchain(swapchain.handle(), imgIdx)
                 .present(queue, frameArena);
-            
+
             currentFrame = (currentFrame + 1) % maxFramesInFlight;
         }
     }
     
     public final void resize(int newWidth, int newHeight) {
-        // Clean up old resources
-        for (VkFramebuffer framebuffer : framebuffers) {
+        for (VkFramebuffer framebuffer : framebuffers != null ? framebuffers : new VkFramebuffer[0]) {
             framebuffer.close();
         }
         for (VkImageView imageView : swapchainImageViews) {
             imageView.close();
         }
         swapchain.close();
-        
-        // Update dimensions
+
         width = newWidth;
         height = newHeight;
-        
-        // Recreate resources (physicalDevice not needed for recreation)
+
         createSwapchain();
         createImageViews();
-        
-        // Allow subclass to handle resize before creating framebuffers
         onResize(newWidth, newHeight);
-        
-        createFramebuffers();
+        if (!useDynamicRendering) createFramebuffers();
     }
     
     @Override
     public final void close() {
-        // Cleanup sync objects
         for (int i = 0; i < maxFramesInFlight; i++) {
             imageAvailableSemaphores[i].close();
             renderFinishedSemaphores[i].close();
             inFlightFences[i].close();
         }
-        
-        // Cleanup resources
         commandPool.close();
-        for (VkFramebuffer framebuffer : framebuffers) {
-            framebuffer.close();
+        if (framebuffers != null) {
+            for (VkFramebuffer framebuffer : framebuffers) framebuffer.close();
         }
-        renderPass.close();
-        for (VkImageView imageView : swapchainImageViews) {
-            imageView.close();
-        }
+        if (renderPass != null) renderPass.close();
+        for (VkImageView imageView : swapchainImageViews) imageView.close();
         swapchain.close();
-        
-        // Allow subclass cleanup
         cleanupResources();
     }
     
     // Abstract methods for subclasses
+    /**
+     * Called to create the render pass. Not called when useDynamicRendering = true.
+     */
     protected abstract VkRenderPass createRenderPassImpl();
+    /**
+     * Called to create each framebuffer. Not called when useDynamicRendering = true.
+     */
     protected abstract VkFramebuffer createFramebufferImpl(int imageIndex);
     protected abstract void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena);
-    
+
     // Optional hooks
     protected void initializeResources(int queueFamilyIndex) {}
     protected void postRenderPassInit() {}
