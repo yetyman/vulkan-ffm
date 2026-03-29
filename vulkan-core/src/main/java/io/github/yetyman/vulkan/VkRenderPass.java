@@ -73,6 +73,34 @@ public class VkRenderPass implements AutoCloseable {
                 VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
             return this;
         }
+
+        /**
+         * Adds an MSAA color attachment with an automatic resolve attachment.
+         * The MSAA image is attachment[n], the resolve image is attachment[n+1].
+         * @param format image format for both MSAA and resolve attachments
+         * @param samples MSAA sample count (e.g. VK_SAMPLE_COUNT_4_BIT)
+         */
+        public Builder colorAttachmentMSAA(int format, int samples) {
+            int msaaIndex = attachments.size();
+            int resolveIndex = msaaIndex + 1;
+            // MSAA attachment — store op DONT_CARE, we only care about the resolved result
+            attachments.add(new AttachmentConfig(msaaIndex, format, samples,
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(), 0));
+            // Resolve attachment — single-sample, presentable
+            attachments.add(new AttachmentConfig(resolveIndex, format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
+            return this;
+        }
         
         /** Adds a depth attachment */
         public Builder depthAttachment(int format, int loadOp, int storeOp) {
@@ -139,21 +167,39 @@ public class VkRenderPass implements AutoCloseable {
             
             // If no subpasses defined, create a default one
             if (subpasses.isEmpty()) {
-                List<Integer> colorAttachments = new ArrayList<>();
+                List<Integer> colorAttachmentIndices = new ArrayList<>();
+                List<Integer> resolveAttachmentIndices = new ArrayList<>();
                 int depthAttachment = ~0;
-                
-                for (AttachmentConfig att : attachments) {
-                    if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value() ||
-                        att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value()) {
-                        colorAttachments.add(att.index());
-                    } else if (att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value()) {
+
+                for (int i = 0; i < attachments.size(); i++) {
+                    AttachmentConfig att = attachments.get(i);
+                    boolean isDepth = att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value();
+                    boolean isResolve = !isDepth
+                        && att.samples() == VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value()
+                        && i > 0
+                        && attachments.get(i - 1).samples() != VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
+
+                    if (isDepth) {
                         depthAttachment = att.index();
+                    } else if (isResolve) {
+                        resolveAttachmentIndices.add(att.index());
+                    } else {
+                        colorAttachmentIndices.add(att.index());
                     }
                 }
-                
-                subpasses.add(new SubpassConfig(VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-                    new int[0], colorAttachments.stream().mapToInt(i -> i).toArray(),
-                    new int[0], depthAttachment, new int[0], 0));
+
+                // Pad resolve list to match color list length (VK requires same count or empty)
+                while (resolveAttachmentIndices.size() < colorAttachmentIndices.size()) {
+                    resolveAttachmentIndices.add(~0); // VK_ATTACHMENT_UNUSED
+                }
+
+                subpasses.add(new SubpassConfig(
+                    VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
+                    new int[0],
+                    colorAttachmentIndices.stream().mapToInt(i -> i).toArray(),
+                    resolveAttachmentIndices.stream().mapToInt(i -> i).toArray(),
+                    depthAttachment,
+                    new int[0], 0));
             }
             
             // Allocate attachments

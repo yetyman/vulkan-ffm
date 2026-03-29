@@ -2,52 +2,33 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 
 /**
  * Manages a render target (image + memory + view).
+ * Supports MSAA via the sampleCount builder option.
  */
 public class VulkanRenderTarget implements AutoCloseable {
     private final Arena arena;
     private final VkDevice device;
     private final VkImage image;
     private final VkImageView imageView;
+    private final int sampleCount;
 
-    
     private VulkanRenderTarget(Arena arena, VkDevice device,
-                              int format, int width, int height, int usage, int aspectMask) {
+                              int format, int width, int height, int usage, int aspectMask, int sampleCount) {
         this.arena = arena;
         this.device = device;
+        this.sampleCount = sampleCount;
 
-        // Create image
-        MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
-        VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
-        VkImageCreateInfo.imageType(imageInfo, VkImageType.VK_IMAGE_TYPE_2D.value());
-        VkImageCreateInfo.format(imageInfo, format);
-        MemorySegment extent = VkImageCreateInfo.extent(imageInfo);
-        VkExtent3D.width(extent, width);
-        VkExtent3D.height(extent, height);
-        VkExtent3D.depth(extent, 1);
-        VkImageCreateInfo.mipLevels(imageInfo, 1);
-        VkImageCreateInfo.arrayLayers(imageInfo, 1);
-        VkImageCreateInfo.samples(imageInfo, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
-        VkImageCreateInfo.tiling(imageInfo, VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value());
-        VkImageCreateInfo.usage(imageInfo, usage);
-        VkImageCreateInfo.sharingMode(imageInfo, VkSharingMode.VK_SHARING_MODE_EXCLUSIVE.value());
-        VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
-        
-        // Create image using builder
         image = VkImage.builder()
             .device(device)
             .dimensions(width, height, 1)
             .format(format)
             .usage(usage)
+            .samples(sampleCount)
             .build(arena);
-        
 
-        
-        // Create image view
         imageView = VkImageView.builder()
             .device(device)
             .image(image.handle())
@@ -63,6 +44,8 @@ public class VulkanRenderTarget implements AutoCloseable {
     
     public VkImage image() { return image; }
     public VkImageView imageView() { return imageView; }
+    /** @return the MSAA sample count for this render target */
+    public int sampleCount() { return sampleCount; }
 
     
     @Override
@@ -79,6 +62,7 @@ public class VulkanRenderTarget implements AutoCloseable {
         private int width, height;
         private int usage;
         private int aspectMask = VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value();
+        private int sampleCount = VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
         
         public Builder arena(Arena arena) {
             this.arena = arena;
@@ -116,12 +100,18 @@ public class VulkanRenderTarget implements AutoCloseable {
             this.aspectMask = aspectMask;
             return this;
         }
+
+        /** Sets the MSAA sample count (default: VK_SAMPLE_COUNT_1_BIT = no MSAA). */
+        public Builder sampleCount(int sampleCount) {
+            this.sampleCount = sampleCount;
+            return this;
+        }
         
         public VulkanRenderTarget build() {
             if (arena == null) throw new IllegalStateException("arena not set");
             if (device == null) throw new IllegalStateException("device not set");
             if (width <= 0 || height <= 0) throw new IllegalStateException("invalid extent");
-            return new VulkanRenderTarget(arena, device, format, width, height, usage, aspectMask);
+            return new VulkanRenderTarget(arena, device, format, width, height, usage, aspectMask, sampleCount);
         }
     }
 }
