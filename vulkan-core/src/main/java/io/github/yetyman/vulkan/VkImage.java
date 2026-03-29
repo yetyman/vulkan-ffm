@@ -105,6 +105,11 @@ public class VkImage implements AutoCloseable {
             return this;
         }
 
+        public Builder arrayLayers(int layers) {
+            this.arrayLayers = layers;
+            return this;
+        }
+
         /** Configures as a cube map (6 array layers, CUBE_COMPATIBLE flag). */
         public Builder cubeMap() {
             this.arrayLayers = 6;
