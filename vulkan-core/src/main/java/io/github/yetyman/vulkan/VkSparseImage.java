@@ -4,8 +4,6 @@ import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
 import java.lang.foreign.ValueLayout;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -23,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *         .usage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
  *         .sparseQueue(sparseQueue)
  *         .build(arena)) {
- *     sparseImage.commitRegion(0, 0, 256, 256, 0); // commit mip 0 tile at (0,0)
+ *     sparseImage.commitRegion(0, 0, 0); // commit mip 0 tile at (0,0)
  * }
  * }</pre>
  */
@@ -36,7 +34,7 @@ public class VkSparseImage implements AutoCloseable {
     private final int mipLevels;
     private final Arena arena;
 
-    // Tracks committed page memories: key = encoded (mip << 48 | tileY << 24 | tileX)
+    // key = encoded (mip << 48 | tileY << 24 | tileX)
     private final ConcurrentHashMap<Long, MemorySegment> committedPages = new ConcurrentHashMap<>();
     private final long tileWidth, tileHeight;
     private final int memoryTypeIndex;
@@ -89,17 +87,15 @@ public class VkSparseImage implements AutoCloseable {
 
     private MemorySegment allocateAndBindTile(int tileX, int tileY, int mipLevel) {
         try (Arena tmp = Arena.ofConfined()) {
-            // Allocate one tile's worth of device memory
-            MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(tmp);
-            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
-            VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
-
             MemorySegment req = VkMemoryRequirements.allocate(tmp);
             Vulkan.getImageMemoryRequirements(device.handle(), handle, req);
             long alignment = VkMemoryRequirements.alignment(req);
-            long tileSize = tileWidth * tileHeight * 4; // approximate — 4 bytes per texel for RGBA8
+            long tileSize = tileWidth * tileHeight * 4;
             tileSize = ((tileSize + alignment - 1) / alignment) * alignment;
 
+            MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(tmp);
+            VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
+            VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
             VkMemoryAllocateInfo.allocationSize(allocInfo, tileSize);
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
 
@@ -107,51 +103,18 @@ public class VkSparseImage implements AutoCloseable {
             Vulkan.allocateMemory(device.handle(), allocInfo, memPtr).check();
             MemorySegment memory = memPtr.get(ValueLayout.ADDRESS, 0);
 
-            // Bind the tile via sparse binding
-            MemorySegment bind = VkSparseImageMemoryBind.allocate(tmp);
-            MemorySegment subresource = VkSparseImageMemoryBind.subresource(bind);
-            VkImageSubresource.aspectMask(subresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-            VkImageSubresource.mipLevel(subresource, mipLevel);
-            VkImageSubresource.arrayLayer(subresource, 0);
+            MemorySegment bind = VkSparseImageMemoryBind.builder()
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                .mipLevel(mipLevel)
+                .arrayLayer(0)
+                .offset((int)(tileX * tileWidth), (int)(tileY * tileHeight), 0)
+                .extent((int) tileWidth, (int) tileHeight, 1)
+                .memory(memory)
+                .memoryOffset(0)
+                .flags(0)
+                .build(tmp);
 
-            MemorySegment offset = VkSparseImageMemoryBind.offset(bind);
-            VkOffset3D.x(offset, (int)(tileX * tileWidth));
-            VkOffset3D.y(offset, (int)(tileY * tileHeight));
-            VkOffset3D.z(offset, 0);
-
-            MemorySegment extent = VkSparseImageMemoryBind.extent(bind);
-            VkExtent3D.width(extent, (int) tileWidth);
-            VkExtent3D.height(extent, (int) tileHeight);
-            VkExtent3D.depth(extent, 1);
-
-            VkSparseImageMemoryBind.memory(bind, memory);
-            VkSparseImageMemoryBind.memoryOffset(bind, 0);
-            VkSparseImageMemoryBind.flags(bind, 0);
-
-            MemorySegment imageBindInfo = VkSparseImageMemoryBindInfo.allocate(tmp);
-            VkSparseImageMemoryBindInfo.image(imageBindInfo, handle);
-            VkSparseImageMemoryBindInfo.bindCount(imageBindInfo, 1);
-            VkSparseImageMemoryBindInfo.pBinds(imageBindInfo, bind);
-
-            MemorySegment bindSparseInfo = VkBindSparseInfo.allocate(tmp);
-            VkBindSparseInfo.sType(bindSparseInfo, VkStructureType.VK_STRUCTURE_TYPE_BIND_SPARSE_INFO.value());
-            VkBindSparseInfo.pNext(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.imageBindCount(bindSparseInfo, 1);
-            VkBindSparseInfo.pImageBinds(bindSparseInfo, imageBindInfo);
-            VkBindSparseInfo.waitSemaphoreCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pWaitSemaphores(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.signalSemaphoreCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pSignalSemaphores(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.bufferBindCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pBufferBinds(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.imageOpaqueBindCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pImageOpaqueBinds(bindSparseInfo, MemorySegment.NULL);
-
-            VkFence fence = VkFence.builder().device(device).build(tmp);
-            io.github.yetyman.vulkan.generated.VulkanFFM.vkQueueBindSparse(
-                sparseQueue.handle(), 1, bindSparseInfo, fence.handle());
-            VkFenceOps.wait(device, fence, Long.MAX_VALUE, tmp).check();
-            fence.close();
+            bindAndWait(tmp, bind);
 
             return memory;
         }
@@ -159,52 +122,36 @@ public class VkSparseImage implements AutoCloseable {
 
     private void unbindAndFreeMemory(MemorySegment memory, int tileX, int tileY, int mipLevel) {
         try (Arena tmp = Arena.ofConfined()) {
-            MemorySegment bind = VkSparseImageMemoryBind.allocate(tmp);
-            MemorySegment subresource = VkSparseImageMemoryBind.subresource(bind);
-            VkImageSubresource.aspectMask(subresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-            VkImageSubresource.mipLevel(subresource, mipLevel);
-            VkImageSubresource.arrayLayer(subresource, 0);
+            MemorySegment bind = VkSparseImageMemoryBind.builder()
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                .mipLevel(mipLevel)
+                .arrayLayer(0)
+                .offset((int)(tileX * tileWidth), (int)(tileY * tileHeight), 0)
+                .extent((int) tileWidth, (int) tileHeight, 1)
+                .memory(MemorySegment.NULL)
+                .memoryOffset(0)
+                .flags(0)
+                .build(tmp);
 
-            MemorySegment offset = VkSparseImageMemoryBind.offset(bind);
-            VkOffset3D.x(offset, (int)(tileX * tileWidth));
-            VkOffset3D.y(offset, (int)(tileY * tileHeight));
-            VkOffset3D.z(offset, 0);
-
-            MemorySegment extent = VkSparseImageMemoryBind.extent(bind);
-            VkExtent3D.width(extent, (int) tileWidth);
-            VkExtent3D.height(extent, (int) tileHeight);
-            VkExtent3D.depth(extent, 1);
-
-            VkSparseImageMemoryBind.memory(bind, MemorySegment.NULL);
-            VkSparseImageMemoryBind.memoryOffset(bind, 0);
-            VkSparseImageMemoryBind.flags(bind, 0);
-
-            MemorySegment imageBindInfo = VkSparseImageMemoryBindInfo.allocate(tmp);
-            VkSparseImageMemoryBindInfo.image(imageBindInfo, handle);
-            VkSparseImageMemoryBindInfo.bindCount(imageBindInfo, 1);
-            VkSparseImageMemoryBindInfo.pBinds(imageBindInfo, bind);
-
-            MemorySegment bindSparseInfo = VkBindSparseInfo.allocate(tmp);
-            VkBindSparseInfo.sType(bindSparseInfo, VkStructureType.VK_STRUCTURE_TYPE_BIND_SPARSE_INFO.value());
-            VkBindSparseInfo.pNext(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.imageBindCount(bindSparseInfo, 1);
-            VkBindSparseInfo.pImageBinds(bindSparseInfo, imageBindInfo);
-            VkBindSparseInfo.waitSemaphoreCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pWaitSemaphores(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.signalSemaphoreCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pSignalSemaphores(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.bufferBindCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pBufferBinds(bindSparseInfo, MemorySegment.NULL);
-            VkBindSparseInfo.imageOpaqueBindCount(bindSparseInfo, 0);
-            VkBindSparseInfo.pImageOpaqueBinds(bindSparseInfo, MemorySegment.NULL);
-
-            VkFence fence = VkFence.builder().device(device).build(tmp);
-            io.github.yetyman.vulkan.generated.VulkanFFM.vkQueueBindSparse(
-                sparseQueue.handle(), 1, bindSparseInfo, fence.handle());
-            VkFenceOps.wait(device, fence, Long.MAX_VALUE, tmp).check();
-            fence.close();
+            bindAndWait(tmp, bind);
         }
         Vulkan.freeMemory(device.handle(), memory);
+    }
+
+    private void bindAndWait(Arena tmp, MemorySegment bind) {
+        MemorySegment imageBindInfo = VkSparseImageMemoryBindInfo.builder()
+            .image(handle)
+            .binds(bind)
+            .build(tmp);
+
+        MemorySegment bindSparseInfo = VkBindSparseInfo.builder()
+            .imageBinds(imageBindInfo)
+            .build(tmp);
+
+        try (VkFence fence = VkFence.builder().device(device).build(tmp)) {
+            Vulkan.queueBindSparse(sparseQueue.handle(), 1, bindSparseInfo, fence.handle()).check();
+            VkFenceOps.wait(device, fence, Long.MAX_VALUE, tmp).check();
+        }
     }
 
     @Override
@@ -269,19 +216,15 @@ public class VkSparseImage implements AutoCloseable {
 
                 // Query sparse image memory requirements for tile dimensions
                 MemorySegment countPtr = arena.allocate(ValueLayout.JAVA_INT);
-                io.github.yetyman.vulkan.generated.VulkanFFM.vkGetImageSparseMemoryRequirements(
-                    device.handle(), image, countPtr, MemorySegment.NULL);
+                VulkanFFM.vkGetImageSparseMemoryRequirements(device.handle(), image, countPtr, MemorySegment.NULL);
                 int reqCount = countPtr.get(ValueLayout.JAVA_INT, 0);
-                long tileW = 256, tileH = 256; // sensible fallback
+                long tileW = 256, tileH = 256;
                 if (reqCount > 0) {
-                    MemorySegment reqs = arena.allocate(
-                        VkSparseImageMemoryRequirements.layout(), reqCount);
-                    io.github.yetyman.vulkan.generated.VulkanFFM.vkGetImageSparseMemoryRequirements(
-                        device.handle(), image, countPtr, reqs);
+                    MemorySegment reqs = arena.allocate(VkSparseImageMemoryRequirements.layout(), reqCount);
+                    VulkanFFM.vkGetImageSparseMemoryRequirements(device.handle(), image, countPtr, reqs);
                     MemorySegment first = reqs.asSlice(0, VkSparseImageMemoryRequirements.layout());
-                    MemorySegment granularity = VkSparseImageMemoryRequirements.formatProperties(first);
-                    // formatProperties contains VkSparseImageFormatProperties; imageGranularity is at offset 4
-                    MemorySegment gran = VkSparseImageFormatProperties.imageGranularity(granularity);
+                    MemorySegment formatProps = VkSparseImageMemoryRequirements.formatProperties(first);
+                    MemorySegment gran = VkSparseImageFormatProperties.imageGranularity(formatProps);
                     tileW = VkExtent3D.width(gran);
                     tileH = VkExtent3D.height(gran);
                 }

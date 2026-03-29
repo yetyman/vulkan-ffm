@@ -468,6 +468,11 @@ public class Vulkan {
         VulkanFFM.vkCmdEndRendering(commandBuffer);
     }
 
+    public static VkResult queueBindSparse(MemorySegment queue, int bindInfoCount, MemorySegment bindInfo, MemorySegment fence) {
+        int result = VulkanFFM.vkQueueBindSparse(queue, bindInfoCount, bindInfo, fence);
+        return VkResult.fromInt(result);
+    }
+
     // Image copy operations (#5)
     public static void cmdCopyImage(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout,
                                     MemorySegment dstImage, int dstImageLayout, int regionCount, MemorySegment regions) {
