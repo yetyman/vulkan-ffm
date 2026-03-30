@@ -1,51 +1,76 @@
 package io.github.yetyman.vulkan;
 
 /**
- * Vulkan result codes representing success or various error conditions.
- * Positive values indicate success, negative values indicate errors.
+ * Vulkan result codes. Negative values are errors, positive values are success variants.
  */
 public enum VkResult {
-    VK_SUCCESS(0),
-    VK_NOT_READY(1),
-    VK_TIMEOUT(2),
-    VK_EVENT_SET(3),
-    VK_EVENT_RESET(4),
-    VK_INCOMPLETE(5),
-    VK_ERROR_OUT_OF_HOST_MEMORY(-1),
-    VK_ERROR_OUT_OF_DEVICE_MEMORY(-2),
-    VK_ERROR_INITIALIZATION_FAILED(-3),
-    VK_ERROR_DEVICE_LOST(-4),
-    VK_ERROR_MEMORY_MAP_FAILED(-5),
-    VK_ERROR_LAYER_NOT_PRESENT(-6),
-    VK_ERROR_EXTENSION_NOT_PRESENT(-7),
-    VK_ERROR_FEATURE_NOT_PRESENT(-8),
-    VK_ERROR_INCOMPATIBLE_DRIVER(-9);
-    
+    SUCCESS(0),
+    NOT_READY(1),
+    TIMEOUT(2),
+    EVENT_SET(3),
+    EVENT_RESET(4),
+    INCOMPLETE(5),
+    SUBOPTIMAL_KHR(1000001003),
+    THREAD_IDLE_KHR(1000268000),
+    THREAD_DONE_KHR(1000268001),
+    OPERATION_DEFERRED_KHR(1000268002),
+    OPERATION_NOT_DEFERRED_KHR(1000268003),
+    PIPELINE_COMPILE_REQUIRED(1000297000),
+    PIPELINE_BINARY_MISSING_KHR(1000483000),
+
+    OUT_OF_HOST_MEMORY(-1),
+    OUT_OF_DEVICE_MEMORY(-2),
+    INITIALIZATION_FAILED(-3),
+    DEVICE_LOST(-4),
+    MEMORY_MAP_FAILED(-5),
+    LAYER_NOT_PRESENT(-6),
+    EXTENSION_NOT_PRESENT(-7),
+    FEATURE_NOT_PRESENT(-8),
+    INCOMPATIBLE_DRIVER(-9),
+    TOO_MANY_OBJECTS(-10),
+    FORMAT_NOT_SUPPORTED(-11),
+    FRAGMENTED_POOL(-12),
+    UNKNOWN(-13),
+    OUT_OF_POOL_MEMORY(-1000069000),
+    INVALID_EXTERNAL_HANDLE(-1000072003),
+    FRAGMENTATION(-1000161000),
+    INVALID_OPAQUE_CAPTURE_ADDRESS(-1000257000),
+    SURFACE_LOST_KHR(-1000000000),
+    NATIVE_WINDOW_IN_USE_KHR(-1000000001),
+    OUT_OF_DATE_KHR(-1000001004),
+    INCOMPATIBLE_DISPLAY_KHR(-1000003001),
+    VALIDATION_FAILED(-1000011001),
+    INVALID_SHADER_NV(-1000012000),
+    IMAGE_USAGE_NOT_SUPPORTED_KHR(-1000023000),
+    VIDEO_PICTURE_LAYOUT_NOT_SUPPORTED_KHR(-1000023001),
+    VIDEO_PROFILE_OPERATION_NOT_SUPPORTED_KHR(-1000023002),
+    VIDEO_PROFILE_FORMAT_NOT_SUPPORTED_KHR(-1000023003),
+    VIDEO_PROFILE_CODEC_NOT_SUPPORTED_KHR(-1000023004),
+    VIDEO_STD_VERSION_NOT_SUPPORTED_KHR(-1000023005),
+    INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT(-1000158000),
+    NOT_PERMITTED(-1000174001),
+    FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT(-1000255000),
+    INVALID_VIDEO_STD_PARAMETERS_KHR(-1000299000),
+    COMPRESSION_EXHAUSTED_EXT(-1000338000),
+    INCOMPATIBLE_SHADER_BINARY_EXT(1000482000),
+    PRESENT_TIMING_QUEUE_FULL_EXT(-1000208000),
+    NOT_ENOUGH_SPACE_KHR(-1000483000);
+
     public final int value;
-    
+
     VkResult(int value) {
         this.value = value;
     }
-    
-    /**
-     * Converts an integer result code to a VkResult enum value.
-     * @param value the integer result code from Vulkan
-     * @return the corresponding VkResult, or VK_ERROR_INITIALIZATION_FAILED if unknown
-     */
+
     public static VkResult fromInt(int value) {
-        for (VkResult result : values()) {
-            if (result.value == value) return result;
+        for (VkResult r : values()) {
+            if (r.value == value) return r;
         }
-        return VK_ERROR_INITIALIZATION_FAILED;
+        return UNKNOWN;
     }
-    
-    /**
-     * Throws a VulkanException if this result indicates an error (value < 0).
-     * @throws VulkanException if the result is an error
-     */
+
+    /** Throws VulkanException if this result is an error (value < 0). */
     public void check() {
-        if (value < 0) {
-            throw new VulkanException("Vulkan error: " + this);
-        }
+        if (value < 0) throw new VulkanException("Vulkan error: " + this + " (" + value + ")");
     }
 }

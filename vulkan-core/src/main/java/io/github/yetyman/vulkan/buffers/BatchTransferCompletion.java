@@ -40,7 +40,7 @@ class BatchTransferCompletion {
 
     boolean isComplete() {
         if (!submitted) return false;
-        return VkFenceOps.getStatus(fence.device(), fence) == VkResult.VK_SUCCESS;
+        return VkFenceOps.getStatus(fence.device(), fence) == VkResult.SUCCESS;
     }
 
     void retain() { refCount.incrementAndGet(); }

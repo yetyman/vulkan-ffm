@@ -41,7 +41,7 @@ public class VkFence implements AutoCloseable {
         try (Arena tmp = Arena.ofConfined()) {
             // Only wait if fence is actually in use
             VkResult status = VkFenceOps.getStatus(device, this);
-            if (status == VkResult.VK_NOT_READY) {
+            if (status == VkResult.NOT_READY) {
                 VkFenceOps.wait(device, this, Long.MAX_VALUE, tmp).check();
             }
             VkFenceOps.reset(device, this, tmp).check();

@@ -360,7 +360,7 @@ public class Vulkan {
     // Debug utils extensions (simplified)
     public static VkResult createDebugUtilsMessengerEXT(MemorySegment instance, MemorySegment createInfo, MemorySegment messenger) {
         // Simplified - would need actual extension function
-        return VkResult.VK_SUCCESS;
+        return VkResult.SUCCESS;
     }
 
     public static void destroyDebugUtilsMessengerEXT(MemorySegment instance, MemorySegment messenger) {
