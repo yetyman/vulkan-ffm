@@ -2,17 +2,6 @@
 
 ## Buffer System
 
-- `BufferStrategySelection` add recommended `BufferUsage` (UBO vs SSBO) as output field
-- Add `rotates` boolean to selection logic, derived from whether `RING_BUFFER` strategy was chosen
-  - UBO recommended only when: `rotates=false`, size ≤ SMALL, gpuWrite=NEVER
-  - 3x-size single-buffer branch is the primary case where `rotates=false` is meaningful
-- `RingBuffer` constructor parameter for layout strategy:
-  - `SEPARATE_BUFFERS` — N separate allocations, current impl
-  - `SINGLE_OFFSET_BUFFER` — one Nx allocation, frame region selected by offset
-- Single-offset branch uses `STORAGE_BUFFER_DYNAMIC` / `UNIFORM_BUFFER_DYNAMIC` descriptor type
-- Prefer dynamic descriptor offset over push constant offset when `VulkanCapabilities` confirms support
-  - Dynamic offset: same `vkCmdBindDescriptorSets` call, cheaper driver path, better prefetch visibility
-  - Push constant offset: one extra ALU op in shader, driver has less visibility — fallback only
 - CPU-side ring buffering only warranted when data changes every frame
   - Large rarely-updated data: 1 CPU copy + dirty flag + staged upload on change, no CPU ring buffer
 

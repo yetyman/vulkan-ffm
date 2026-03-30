@@ -45,7 +45,15 @@ public class BufferFactory {
             case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device, size, usage, transferQueue);
             case STAGING -> new DeviceLocalBuffer(device, size, usage, transferQueue, true);
             case REBAR -> new ReBarBuffer(device, size, usage);
-            case RING_BUFFER -> new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue);
+            case RING_BUFFER -> {
+                boolean singleOffset = switch (secondaryStrategy) {
+                    case MAPPED, MAPPED_CACHED, REBAR -> true;
+                    case DEVICE_LOCAL, DEVICE_LOCAL_MIRRORED ->
+                        io.github.yetyman.vulkan.highlevel.VulkanCapabilities.unifiedMemory;
+                    default -> false;
+                };
+                yield new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue, singleOffset);
+            }
             case SPARSE -> new SparseBuffer(device, size, usage, secondaryStrategy, transferQueue, transferQueue);
             case SUBALLOCATOR -> throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
         };

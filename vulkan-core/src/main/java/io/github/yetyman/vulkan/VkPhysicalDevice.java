@@ -209,6 +209,49 @@ public class VkPhysicalDevice {
         }
         return false;
     }
+
+    /**
+     * Returns whether this device uses unified memory architecture (UMA).
+     * On UMA devices (integrated GPUs), all memory is simultaneously DEVICE_LOCAL and HOST_VISIBLE
+     * — there is no separate VRAM. Single-offset ring buffers are beneficial here since
+     * HOST_VISIBLE memory is also the fastest GPU memory.
+     * Detected by checking that no heap is exclusively DEVICE_LOCAL (i.e. all device-local
+     * heaps are also accessible by the CPU).
+     */
+    public boolean isUMA() {
+        ensureCached();
+        int heapCount = VkPhysicalDeviceMemoryProperties.memoryHeapCount(cachedMemoryProperties);
+        int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(cachedMemoryProperties);
+        int deviceLocalBit = io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
+        int hostVisibleBit = io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value();
+
+        // Find all heaps that have at least one DEVICE_LOCAL memory type
+        boolean[] heapIsDeviceLocal = new boolean[heapCount];
+        boolean[] heapIsHostVisible = new boolean[heapCount];
+        for (int i = 0; i < typeCount; i++) {
+            MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(cachedMemoryProperties, i);
+            int props = io.github.yetyman.vulkan.generated.VkMemoryType.propertyFlags(memType);
+            int heapIndex = io.github.yetyman.vulkan.generated.VkMemoryType.heapIndex(memType);
+            if ((props & deviceLocalBit) != 0) heapIsDeviceLocal[heapIndex] = true;
+            if ((props & hostVisibleBit) != 0) heapIsHostVisible[heapIndex] = true;
+        }
+
+        // UMA: every device-local heap is also host-visible
+        for (int i = 0; i < heapCount; i++) {
+            if (heapIsDeviceLocal[i] && !heapIsHostVisible[i]) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether single-offset ring buffers are beneficial on this device.
+     * True on UMA (integrated GPU) or when ReBAR is available (discrete GPU with full BAR mapping).
+     * On these devices HOST_VISIBLE memory is also optimal GPU memory, so a single
+     * N-frame allocation with dynamic offsets avoids per-frame buffer rebinding.
+     */
+    public boolean prefersSingleOffsetRingBuffer() {
+        return isUMA() || supportsReBar();
+    }
     
     // Wrapper classes for return values
     public static class VkPhysicalDeviceMemoryPropertiesWrapper {

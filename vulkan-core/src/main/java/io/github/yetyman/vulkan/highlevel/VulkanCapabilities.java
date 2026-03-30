@@ -26,6 +26,7 @@ public class VulkanCapabilities {
     public static boolean transformFeedback = false;
     public static boolean reBar = false;
     public static boolean dynamicRendering = false;
+    public static boolean unifiedMemory = false; // true on UMA or ReBAR — single-offset ring buffers are beneficial
     
     private static boolean initialized = false;
     
@@ -44,6 +45,7 @@ public class VulkanCapabilities {
         // Check each extension we care about
         reBar = physicalDevice.supportsReBar();
         dynamicRendering = availableExtensions.contains("VK_KHR_dynamic_rendering") || isVulkan13OrHigher(physicalDevice);
+        unifiedMemory = physicalDevice.prefersSingleOffsetRingBuffer();
         multiDraw = availableExtensions.contains("VK_EXT_multi_draw");
         meshShaders = availableExtensions.contains("VK_EXT_mesh_shader") || 
                      availableExtensions.contains("VK_NV_mesh_shader");
@@ -101,6 +103,7 @@ public class VulkanCapabilities {
         Logger.info("  Transform feedback: " + transformFeedback);
         Logger.info("  Resizable BAR (ReBAR): " + reBar);
         Logger.info("  Dynamic rendering: " + dynamicRendering);
+        Logger.info("  Unified memory (UMA/ReBAR): " + unifiedMemory);
     }
 
     private static boolean isVulkan13OrHigher(VkPhysicalDevice physicalDevice) {
@@ -172,5 +175,6 @@ public class VulkanCapabilities {
         transformFeedback = false;
         reBar = false;
         dynamicRendering = false;
+        unifiedMemory = false;
     }
 }
