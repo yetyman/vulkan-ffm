@@ -17,6 +17,8 @@ public class VkDevice implements AutoCloseable {
     private final MethodHandle vkGetSemaphoreCounterValue;
     private final MethodHandle vkWaitSemaphores;
     private final MethodHandle vkSignalSemaphore;
+    private final MethodHandle vkCmdBeginRendering;
+    private final MethodHandle vkCmdEndRendering;
     
     private VkInstance instance;
     private final java.util.Map<Integer, VkQueue> queueCache = new java.util.HashMap<>();
@@ -31,6 +33,10 @@ public class VkDevice implements AutoCloseable {
             FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER, VulkanFFM.C_LONG_LONG));
         this.vkSignalSemaphore = loadFn(handle, linker, "vkSignalSemaphore",
             FunctionDescriptor.of(VulkanFFM.C_INT, VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCmdBeginRendering = loadFn(handle, linker, "vkCmdBeginRendering",
+            FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER, VulkanFFM.C_POINTER));
+        this.vkCmdEndRendering = loadFn(handle, linker, "vkCmdEndRendering",
+            FunctionDescriptor.ofVoid(VulkanFFM.C_POINTER));
     }
 
     private static MethodHandle loadFn(MemorySegment device, Linker linker, String name, FunctionDescriptor desc) {
@@ -58,6 +64,18 @@ public class VkDevice implements AutoCloseable {
     public VkResult signalSemaphore(MemorySegment signalInfo) {
         if (vkSignalSemaphore == null) throw new UnsupportedOperationException("vkSignalSemaphore not available — enable timeline semaphore feature on device creation");
         try { return VkResult.fromInt((int) vkSignalSemaphore.invokeExact(handle, signalInfo)); }
+        catch (Throwable t) { throw new RuntimeException(t); }
+    }
+
+    public void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) {
+        if (vkCmdBeginRendering == null) throw new UnsupportedOperationException("vkCmdBeginRendering not available — enable dynamic rendering feature on device creation");
+        try { vkCmdBeginRendering.invokeExact(commandBuffer, renderingInfo); }
+        catch (Throwable t) { throw new RuntimeException(t); }
+    }
+
+    public void cmdEndRendering(MemorySegment commandBuffer) {
+        if (vkCmdEndRendering == null) throw new UnsupportedOperationException("vkCmdEndRendering not available — enable dynamic rendering feature on device creation");
+        try { vkCmdEndRendering.invokeExact(commandBuffer); }
         catch (Throwable t) { throw new RuntimeException(t); }
     }
     
@@ -174,6 +192,7 @@ public class VkDevice implements AutoCloseable {
         private String[] layers = new String[0];
         private boolean sparseBinding = false;
         private boolean timelineSemaphore = false;
+        private boolean dynamicRendering = false;
         
         private Builder() {}
         
@@ -230,13 +249,26 @@ public class VkDevice implements AutoCloseable {
         public Builder enableTimelineSemaphore() {
             this.timelineSemaphore = true;
             // VK_KHR_timeline_semaphore is required on Vulkan < 1.2
-            String ext = "VK_KHR_timeline_semaphore";
-            for (String e : extensions) if (e.equals(ext)) return this;
+            addExtensionIfAbsent("VK_KHR_timeline_semaphore");
+            return this;
+        }
+
+        /** Enables dynamic rendering (Vulkan 1.3 / VK_KHR_dynamic_rendering) */
+        public Builder enableDynamicRendering() {
+            this.dynamicRendering = true;
+            // VK_KHR_dynamic_rendering and its required dependencies on Vulkan < 1.3
+            addExtensionIfAbsent("VK_KHR_depth_stencil_resolve");
+            addExtensionIfAbsent("VK_KHR_create_renderpass2");
+            addExtensionIfAbsent("VK_KHR_dynamic_rendering");
+            return this;
+        }
+
+        private void addExtensionIfAbsent(String ext) {
+            for (String e : extensions) if (e.equals(ext)) return;
             String[] newExts = new String[extensions.length + 1];
             System.arraycopy(extensions, 0, newExts, 0, extensions.length);
             newExts[extensions.length] = ext;
             extensions = newExts;
-            return this;
         }
         
         /** Creates the device */
@@ -292,23 +324,37 @@ public class VkDevice implements AutoCloseable {
                 VkDeviceCreateInfo.pEnabledFeatures(createInfo, features);
             }
 
+            // Build pNext chain for optional features
+            MemorySegment pNextHead = MemorySegment.NULL;
+
+            if (dynamicRendering) {
+                MemorySegment dynFeatures = VkPhysicalDeviceDynamicRenderingFeatures.allocate(arena);
+                VkPhysicalDeviceDynamicRenderingFeatures.sType(dynFeatures, VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES.value());
+                VkPhysicalDeviceDynamicRenderingFeatures.pNext(dynFeatures, pNextHead);
+                VkPhysicalDeviceDynamicRenderingFeatures.dynamicRendering(dynFeatures, 1);
+                pNextHead = dynFeatures;
+            }
+
             if (timelineSemaphore) {
                 MemorySegment timelineFeatures = VkPhysicalDeviceTimelineSemaphoreFeatures.allocate(arena);
                 VkPhysicalDeviceTimelineSemaphoreFeatures.sType(timelineFeatures, VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES.value());
-                VkPhysicalDeviceTimelineSemaphoreFeatures.pNext(timelineFeatures, MemorySegment.NULL);
+                VkPhysicalDeviceTimelineSemaphoreFeatures.pNext(timelineFeatures, pNextHead);
                 VkPhysicalDeviceTimelineSemaphoreFeatures.timelineSemaphore(timelineFeatures, 1);
-                VkDeviceCreateInfo.pNext(createInfo, timelineFeatures);
+                pNextHead = timelineFeatures;
             }
+
+            VkDeviceCreateInfo.pNext(createInfo, pNextHead);
 
             MemorySegment devicePtr = arena.allocate(ValueLayout.ADDRESS);
             int result = VulkanFFM.vkCreateDevice(Objects.requireNonNullElse(physicalDevice.handle(), MemorySegment.NULL), createInfo, MemorySegment.NULL, devicePtr);
             VkResult.fromInt(result).check();
             MemorySegment device = devicePtr.get(ValueLayout.ADDRESS, 0);
 
-            VkDevice vkDevice = new VkDevice(device, physicalDevice);
-            vkDevice.instance = instance;
-            if (instance != null) instance.registerDevice(vkDevice);
-            return vkDevice;
+        VkDevice vkDevice = new VkDevice(device, physicalDevice);
+        vkDevice.instance = instance;
+        if (instance != null) instance.registerDevice(vkDevice);
+        Vulkan.setDevice(vkDevice);
+        return vkDevice;
         }
     }
 }

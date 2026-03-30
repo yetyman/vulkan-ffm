@@ -166,9 +166,23 @@ public class VkPipeline implements AutoCloseable {
             this.vertShader = shader;
             return this;
         }
-        
+
+        /** Configures the vertex shader from a ShaderInstance. */
+        public Builder vertexShader(io.github.yetyman.vulkan.shaders.ShaderInstance instance) {
+            this.vertShader = instance.compiled().getSpirV();
+            addPushConstantRangesFromReflection(instance, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value());
+            return this;
+        }
+
         public Builder fragmentShader(byte[] shader) {
             this.fragShader = shader;
+            return this;
+        }
+
+        /** Configures the fragment shader from a ShaderInstance. */
+        public Builder fragmentShader(io.github.yetyman.vulkan.shaders.ShaderInstance instance) {
+            this.fragShader = instance.compiled().getSpirV();
+            addPushConstantRangesFromReflection(instance, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value());
             return this;
         }
         
@@ -554,6 +568,16 @@ public class VkPipeline implements AutoCloseable {
             return this;
         }
         
+        private void addPushConstantRangesFromReflection(
+                io.github.yetyman.vulkan.shaders.ShaderInstance instance, int stageFlags) {
+            for (io.github.yetyman.vulkan.shaders.ShaderLoader.PushConstantBlockInfo block
+                    : instance.compiled().getReflection().getPushConstantBlocks()) {
+                if (block.size() > 0) {
+                    pushConstantRanges.add(new PushConstantRange(stageFlags, block.offset(), block.size()));
+                }
+            }
+        }
+
         public VkPipeline build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (!useDynamicRendering && renderPass == null) throw new IllegalStateException("renderPass not set (or call dynamicRendering())");

@@ -55,6 +55,8 @@ public class CompiledShader implements AutoCloseable {
     public byte[] getSpirV() { return spirv.clone(); }
     public ShaderLoader.ShaderReflection getReflection() { return reflection; }
     public ShadercShaderKind getShaderKind() { return shaderKind; }
+    /** @return the VkShaderStageFlagBits int value for this shader's stage. */
+    public int getShaderStageFlags() { return getVkShaderStage().value(); }
     /** @return the logical name set at build time, or null if not set. */
     public String getName() { return name; }
     /** @return the preprocessor defines this shader was compiled with, empty if none. */

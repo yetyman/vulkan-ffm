@@ -172,12 +172,17 @@ public abstract class VulkanApplication implements AutoCloseable {
         }
     }
     
+    private boolean cleanedUp = false;
+
     @Override
     public void close() {
         cleanup();
     }
     
     private void cleanup() {
+        if (cleanedUp) return;
+        cleanedUp = true;
+
         if (vulkanContext != null && vulkanContext.device() != null) {
             Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
         }

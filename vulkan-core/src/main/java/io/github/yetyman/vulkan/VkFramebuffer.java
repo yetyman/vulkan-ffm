@@ -100,7 +100,7 @@ public class VkFramebuffer implements AutoCloseable {
         
         /** Adds an attachment using MemorySegment with explicit type */
         public Builder attachment(MemorySegment imageView, VkFramebufferAttachment.AttachmentType type) {
-            this.attachments.add(new VkFramebufferAttachment(new VkImageView(imageView, device), 
+            this.attachments.add(new VkFramebufferAttachment(new VkImageView(imageView, MemorySegment.NULL, device),
                 type, 0, attachments.size()));
             return this;
         }

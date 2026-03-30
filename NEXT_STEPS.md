@@ -194,3 +194,37 @@ After
 - Per-thread secondary command buffer pre-allocation in `RenderList`
 - `RenderList.setRecordingThreads(int)` runtime configuration method
 - Integration with dynamic rendering inheritance info once dynamic rendering is in place
+
+---
+
+## Scene / Shader Graph
+
+### Concept
+A scene graph layer sits above `RenderList` and owns the mapping from logical scene objects to draw calls.
+It does not replace `RenderList` — it feeds it.
+
+### Natural inputs already available
+- `ShaderInstance` — owns push constants, descriptor slots, pipeline layout
+- `DescriptorGroup` — bundles layout + pool + set + buffer bindings
+- `VulkanMesh` — vertex/index buffers with vertex format
+- `VkPipeline` — built from shader instances with reflection-inferred push constant ranges
+
+### What a scene graph would add
+- `Material` — owns a `VkPipeline` + one or more `ShaderInstance` + `DescriptorGroup` per set
+  - `material.bind(commandBuffer)` — binds pipeline, flushes shader instances, binds descriptor sets
+- `Drawable` — owns a `VulkanMesh` + `Material` + per-object push constant values
+  - `drawable.draw(commandBuffer, arena)` — binds mesh, sets push constants, issues draw call
+- `Scene` — list of `Drawable` objects, sorted by material to minimize pipeline switches
+  - `scene.buildPassExecutor()` — returns a `RenderList.GraphicsExecutor` lambda that iterates drawables
+- Frustum culling integrates here: `scene.buildPassExecutor(frustum)` filters drawables before recording
+
+### Relationship to RenderList
+```java
+renderList.graphicsPass("geometry")
+    .write("sceneColor", COLOR_ATTACHMENT)
+    .write("sceneDepth", DEPTH_ATTACHMENT)
+    .execute(scene.buildPassExecutor(camera.frustum()))
+```
+- `RenderList` owns: attachment setup, begin/end, barrier placement
+- Scene graph owns: pipeline selection, descriptor binding, draw call generation
+- Neither layer knows about the other's internals

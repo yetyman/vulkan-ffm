@@ -9,6 +9,13 @@ import java.lang.foreign.*;
  */
 public class Vulkan {
     static { VulkanLibrary.load(); }
+
+    // Active device for routing extension functions that must be loaded per-device.
+    // Set automatically when VkDevice is created via VulkanContext, or manually via setDevice().
+    private static volatile VkDevice activeDevice;
+
+    public static void setDevice(VkDevice device) { activeDevice = device; }
+    public static VkDevice getDevice() { return activeDevice; }
     
     /**
      * Creates a Vulkan instance.
@@ -461,11 +468,19 @@ public class Vulkan {
 
     // Dynamic rendering (Vulkan 1.3 / VK_KHR_dynamic_rendering)
     public static void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) {
-        VulkanFFM.vkCmdBeginRendering(commandBuffer, renderingInfo);
+        if (activeDevice != null) {
+            activeDevice.cmdBeginRendering(commandBuffer, renderingInfo);
+        } else {
+            VulkanFFM.vkCmdBeginRendering(commandBuffer, renderingInfo);
+        }
     }
 
     public static void cmdEndRendering(MemorySegment commandBuffer) {
-        VulkanFFM.vkCmdEndRendering(commandBuffer);
+        if (activeDevice != null) {
+            activeDevice.cmdEndRendering(commandBuffer);
+        } else {
+            VulkanFFM.vkCmdEndRendering(commandBuffer);
+        }
     }
 
     public static VkResult queueBindSparse(MemorySegment queue, int bindInfoCount, MemorySegment bindInfo, MemorySegment fence) {

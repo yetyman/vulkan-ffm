@@ -221,6 +221,7 @@ public class ShaderInstance implements AutoCloseable {
 
     public CompiledShader compiled() { return compiled; }
     public VkDevice device() { return device; }
+    public io.github.yetyman.shaderc.enums.ShadercShaderKind shaderKind() { return compiled.getShaderKind(); }
     public Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
     public Map<Integer, VkDescriptorSet> descriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
     /** @return the preprocessor defines this instance was compiled with. */
@@ -366,8 +367,7 @@ public class ShaderInstance implements AutoCloseable {
         if (value == null) return;
         MemorySegment data = serializePushConstant(value, pc.size(), flushArena);
         if (data == null) return;
-        // Use all shader stages for push constants — the pipeline layout defines the actual range
-        int stageFlags = VkShaderStageFlagBits.VK_SHADER_STAGE_ALL.value();
+        int stageFlags = compiled.getShaderStageFlags();
         Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, pc.offset(), pc.size(), data);
     }
 

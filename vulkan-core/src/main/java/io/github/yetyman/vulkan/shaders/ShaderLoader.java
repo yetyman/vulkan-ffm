@@ -96,6 +96,14 @@ public class ShaderLoader {
         defineVariantCache.keySet().removeIf(k -> k.startsWith(resourcePath + "|"));
     }
 
+    /**
+     * Compiles the shader at the given path and returns a ready-to-use ShaderInstance for the device.
+     * The underlying CompiledShader is cached; the ShaderInstance is not.
+     */
+    public static io.github.yetyman.vulkan.shaders.ShaderInstance load(String resourcePath, io.github.yetyman.vulkan.VkDevice device) {
+        return io.github.yetyman.vulkan.shaders.ShaderInstance.from(resourcePath, device);
+    }
+
     private static String defineVariantCacheKey(String resourcePath, Map<String, String> defines) {
         StringBuilder sb = new StringBuilder(resourcePath).append('|');
         defines.entrySet().stream()

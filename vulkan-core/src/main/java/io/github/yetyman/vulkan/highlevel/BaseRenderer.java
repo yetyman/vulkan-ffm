@@ -47,7 +47,8 @@ public abstract class BaseRenderer implements AutoCloseable {
 
     protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight) {
-        this(arena, device, queue, surface, width, height, maxFramesInFlight, false);
+        this(arena, device, queue, surface, width, height, maxFramesInFlight,
+            VulkanCapabilities.dynamicRendering);
     }
 
     protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
@@ -208,17 +209,25 @@ public abstract class BaseRenderer implements AutoCloseable {
     }
     
     // Abstract methods for subclasses
-    /**
-     * Called to create the render pass. Not called when useDynamicRendering = true.
-     */
-    protected abstract VkRenderPass createRenderPassImpl();
-    /**
-     * Called to create each framebuffer. Not called when useDynamicRendering = true.
-     */
-    protected abstract VkFramebuffer createFramebufferImpl(int imageIndex);
     protected abstract void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena);
 
     // Optional hooks
+    /**
+     * Called to create the render pass. Only called when useDynamicRendering = false.
+     * Override when using the render pass path.
+     */
+    protected VkRenderPass createRenderPassImpl() {
+        throw new UnsupportedOperationException(
+            getClass().getSimpleName() + " must override createRenderPassImpl() when not using dynamic rendering. Dynamic rendering may not be available on older devices");
+    }
+    /**
+     * Called to create each framebuffer. Only called when useDynamicRendering = false.
+     * Override when using the render pass path.
+     */
+    protected VkFramebuffer createFramebufferImpl(int imageIndex) {
+        throw new UnsupportedOperationException(
+            getClass().getSimpleName() + " must override createFramebufferImpl() when not using dynamic rendering. Dynamic rendering may not be available on older devices");
+    }
     protected void initializeResources(int queueFamilyIndex) {}
     protected void postRenderPassInit() {}
     protected void onResize(int width, int height) {}

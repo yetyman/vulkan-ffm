@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.highlevel;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import java.lang.foreign.*;
+import java.util.Set;
 
 /**
  * High-level encapsulation of core Vulkan objects and operations.
@@ -196,6 +197,32 @@ public class VulkanContext implements AutoCloseable {
             return this;
         }
         
+        private static Set<String> getAvailableExtensions(VkPhysicalDevice physicalDevice, Arena arena) {
+            Set<String> extensions = new java.util.HashSet<>();
+            MemorySegment countPtr = arena.allocate(ValueLayout.JAVA_INT);
+            Vulkan.enumerateDeviceExtensionProperties(physicalDevice.handle(), MemorySegment.NULL, countPtr, MemorySegment.NULL);
+            int count = countPtr.get(ValueLayout.JAVA_INT, 0);
+            if (count > 0) {
+                MemorySegment props = arena.allocate(io.github.yetyman.vulkan.generated.VkExtensionProperties.layout(), count);
+                Vulkan.enumerateDeviceExtensionProperties(physicalDevice.handle(), MemorySegment.NULL, countPtr, props);
+                for (int i = 0; i < count; i++) {
+                    MemorySegment ext = props.asSlice(i * io.github.yetyman.vulkan.generated.VkExtensionProperties.layout().byteSize(),
+                        io.github.yetyman.vulkan.generated.VkExtensionProperties.layout());
+                    extensions.add(io.github.yetyman.vulkan.generated.VkExtensionProperties.extensionName(ext).getString(0));
+                }
+            }
+            return extensions;
+        }
+
+        private static boolean isVulkan13(VkPhysicalDevice physicalDevice, Arena arena) {
+            MemorySegment props = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.allocate(arena);
+            io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceProperties(physicalDevice.handle(), props);
+            int apiVersion = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.apiVersion(props);
+            int major = (apiVersion >> 22) & 0x7F;
+            int minor = (apiVersion >> 12) & 0x3FF;
+            return major > 1 || (major == 1 && minor >= 3);
+        }
+
         /** Creates the Vulkan context */
         public VulkanContext build() {
             Arena arena = Arena.ofConfined();
@@ -233,7 +260,16 @@ public class VulkanContext implements AutoCloseable {
                 if (deviceExtensions != null) {
                     deviceBuilder.extensions(deviceExtensions);
                 }
-                
+
+                // Auto-enable dynamic rendering if the physical device supports it
+                // We check before VulkanCapabilities.initialize() since that requires a device
+                Set<String> availableExts = getAvailableExtensions(physicalDevice, arena);
+                boolean supportsDynamicRendering = availableExts.contains("VK_KHR_dynamic_rendering")
+                    || isVulkan13(physicalDevice, arena);
+                if (supportsDynamicRendering) {
+                    deviceBuilder.enableDynamicRendering();
+                }
+
                 VkDevice device = deviceBuilder.build(arena);
                 
                 // Initialize capabilities after device creation

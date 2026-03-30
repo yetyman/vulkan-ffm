@@ -19,14 +19,21 @@ public class VkFramebufferAttachment {
     }
     
     public VkFramebufferAttachment(MemorySegment imageViewHandle, AttachmentType type, int format, int index) {
-        this.imageView = new VkImageView(imageViewHandle, null); // Create wrapper with null device for compatibility
+        this.imageView = new VkImageView(imageViewHandle, MemorySegment.NULL, null);
         this.type = type;
         this.format = format;
         this.index = index;
     }
-    
+
+    public VkFramebufferAttachment(MemorySegment imageViewHandle, MemorySegment imageHandle, AttachmentType type, int format, int index) {
+        this.imageView = new VkImageView(imageViewHandle, imageHandle, null);
+        this.type = type;
+        this.format = format;
+        this.index = index;
+    }
+
     public VkFramebufferAttachment(io.github.yetyman.vulkan.highlevel.VkTexture texture, AttachmentType type, int index) {
-        this.imageView = new VkImageView(texture.imageView(), null);
+        this.imageView = new VkImageView(texture.imageView(), texture.image(), null);
         this.type = type;
         this.format = texture.format();
         this.index = index;

@@ -169,7 +169,7 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void createRenderGraph() {
-        renderList = RenderList.builder()
+        renderList = RenderList.builder(device)
             .resource("colorTarget", RenderList.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
             .resource("sceneDepth", RenderList.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
             .resource("geometryBuffer", RenderList.ResourceDesc.buffer(1024 * 1024))
@@ -427,7 +427,7 @@ public class ThreadedRenderer extends BaseRenderer {
             
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
-            renderScene(commandBuffer, frameArena);
+            renderScene(commandBuffer, imageIndex, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
@@ -438,7 +438,7 @@ public class ThreadedRenderer extends BaseRenderer {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            renderScene(commandBuffer, frameArena);
+            renderScene(commandBuffer, imageIndex, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer.handle());
         }
         
@@ -459,7 +459,7 @@ public class ThreadedRenderer extends BaseRenderer {
             
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
-            renderScene(commandBuffer, frameArena);
+            renderScene(commandBuffer, imageIndex, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer.handle());
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
@@ -470,16 +470,16 @@ public class ThreadedRenderer extends BaseRenderer {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            renderScene(commandBuffer, frameArena);
+            renderScene(commandBuffer, imageIndex, frameArena);
             Vulkan.cmdEndRenderPass(commandBuffer.handle());
         }
         
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
     
-    private void renderScene(VkCommandBuffer commandBuffer, Arena frameArena) {
+    private void renderScene(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         // EXECUTE RENDER GRAPH - replaces all manual rendering
-        renderList.execute(commandBuffer.handle(), frameArena);
+        renderList.execute(commandBuffer.handle(), swapchainImageViews[imageIndex], frameArena);
     }
     
 

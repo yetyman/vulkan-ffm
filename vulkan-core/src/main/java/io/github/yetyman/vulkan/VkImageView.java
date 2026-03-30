@@ -10,12 +10,19 @@ import java.lang.foreign.*;
  */
 public class VkImageView implements AutoCloseable {
     private final MemorySegment handle;
+    private final MemorySegment image;
     private final VkDevice device;
-    
-    // Package-private constructor for VkFramebufferAttachment
-    VkImageView(MemorySegment handle, VkDevice device) {
+
+    // Package-private constructor for VkFramebufferAttachment and other internal uses
+    VkImageView(MemorySegment handle, MemorySegment image, VkDevice device) {
         this.handle = handle;
+        this.image = image != null ? image : MemorySegment.NULL;
         this.device = device;
+    }
+
+    // Package-private constructor without image — image() will return NULL
+    VkImageView(MemorySegment handle, VkDevice device) {
+        this(handle, MemorySegment.NULL, device);
     }
     
     /**
@@ -42,6 +49,9 @@ public class VkImageView implements AutoCloseable {
     
     /** @return the VkImageView handle */
     public MemorySegment handle() { return handle; }
+
+    /** @return the VkImage handle this view was created from */
+    public MemorySegment image() { return image; }
     
     @Override
     public void close() {
@@ -163,7 +173,7 @@ public class VkImageView implements AutoCloseable {
             
             MemorySegment imageViewPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createImageView(device.handle(), createInfo, imageViewPtr).check();
-            return new VkImageView(imageViewPtr.get(ValueLayout.ADDRESS, 0), device);
+            return new VkImageView(imageViewPtr.get(ValueLayout.ADDRESS, 0), image, device);
         }
     }
 }
