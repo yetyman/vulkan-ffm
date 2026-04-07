@@ -95,7 +95,7 @@ public class ShaderGenerator {
         sb.append("import io.github.yetyman.vulkan.VkCommandBuffer;\n");
         sb.append("import io.github.yetyman.vulkan.buffers.BufferWritable;\n");
         sb.append("import io.github.yetyman.vulkan.buffers.ManagedBuffer;\n");
-        sb.append("import io.github.yetyman.vulkan.highlevel.DescriptorGroup;\n");
+        sb.append("import io.github.yetyman.vulkan.shaders.DescriptorGroup;\n");
         sb.append("import java.lang.foreign.Arena;\n");
         sb.append("import java.nio.ByteBuffer;\n");
         sb.append("import java.util.Map;\n");
@@ -601,12 +601,15 @@ public class ShaderGenerator {
     }
 
     private static String className(String resourcePath) {
-        String filename = Paths.get(resourcePath).getFileName().toString();
-        String[] parts = filename.split("[.\\-_]");
+        String filename = resourcePath;
+        int slash = Math.max(resourcePath.lastIndexOf('/'), resourcePath.lastIndexOf('\\'));
+        if (slash >= 0) filename = resourcePath.substring(slash + 1);
+        String[] parts = filename.split("[^a-zA-Z0-9]+");
         StringBuilder name = new StringBuilder();
         for (String part : parts) {
             if (!part.isEmpty()) name.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
         }
+        if (name.isEmpty()) name.append("Inline");
         name.append("Shader");
         return name.toString();
     }

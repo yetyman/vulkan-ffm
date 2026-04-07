@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.buffers.TransferBatchManager;
-import io.github.yetyman.vulkan.highlevel.VkCommandPoolRegistry;
+import io.github.yetyman.vulkan.commands.CommandPoolRegistry;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
@@ -170,13 +170,13 @@ public class VkDevice implements AutoCloseable {
     }
     
     public VkCommandPool getOrCreateCommandPool(int queueFamilyIndex) {
-        return VkCommandPoolRegistry.getOrCreate(this, queueFamilyIndex);
+        return CommandPoolRegistry.getOrCreate(this, queueFamilyIndex);
     }
 
     @Override
     public void close() {
         TransferBatchManager.destroyAll(this);
-        VkCommandPoolRegistry.destroyAll(this);
+        CommandPoolRegistry.destroyAll(this);
         VulkanFFM.vkDestroyDevice(handle, MemorySegment.NULL);
     }
     

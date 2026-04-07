@@ -11,12 +11,12 @@ import java.util.*;
 /**
  * Manages shader loading and module creation.
  */
-public class VulkanShaderManager implements AutoCloseable {
+public class ShaderManager implements AutoCloseable {
     private final VkDevice device;
     private final Map<String, CompiledShader> shaderCache = new HashMap<>();
     private final List<VkShaderModule> shaderModules = new ArrayList<>();
 
-    private VulkanShaderManager(VkDevice device) {
+    private ShaderManager(VkDevice device) {
         this.device = device;
     }
 
@@ -47,9 +47,6 @@ public class VulkanShaderManager implements AutoCloseable {
             module.close();
         }
         shaderModules.clear();
-        for (CompiledShader shader : shaderCache.values()) {
-            shader.close();
-        }
         shaderCache.clear();
     }
 
@@ -71,10 +68,10 @@ public class VulkanShaderManager implements AutoCloseable {
         public Set<String> stages() { return shaders.keySet(); }
 
         public static class Builder {
-            private final VulkanShaderManager manager;
+            private final ShaderManager manager;
             private final Map<String, CompiledShader> shaders = new HashMap<>();
 
-            Builder(VulkanShaderManager manager) {
+            Builder(ShaderManager manager) {
                 this.manager = manager;
             }
 
@@ -105,9 +102,9 @@ public class VulkanShaderManager implements AutoCloseable {
             return this;
         }
 
-        public VulkanShaderManager build() {
+        public ShaderManager build() {
             if (device == null) throw new IllegalStateException("device not set");
-            return new VulkanShaderManager(device);
+            return new ShaderManager(device);
         }
     }
 }

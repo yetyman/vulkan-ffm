@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.sync;
 
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkSemaphore;
@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Manages timeline and binary semaphores for Vulkan synchronization.
  */
-public class VkSemaphoreManager implements AutoCloseable {
+public class SemaphoreManager implements AutoCloseable {
     private final VkDevice device;
     private final Arena arena;
     private final Map<String, VkTimelineSemaphore> semaphores = new ConcurrentHashMap<>();
 
-    private VkSemaphoreManager(VkDevice device, Arena arena) {
+    private SemaphoreManager(VkDevice device, Arena arena) {
         this.device = device;
         this.arena = arena;
     }
@@ -43,9 +43,9 @@ public class VkSemaphoreManager implements AutoCloseable {
 
         public Builder device(VkDevice device) { this.device = device; return this; }
 
-        public VkSemaphoreManager build(Arena arena) {
+        public SemaphoreManager build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            return new VkSemaphoreManager(device, arena);
+            return new SemaphoreManager(device, arena);
         }
     }
 }

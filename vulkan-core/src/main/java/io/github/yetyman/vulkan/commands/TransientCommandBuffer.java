@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.commands;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
@@ -27,7 +27,7 @@ import java.util.function.Consumer;
  * }
  * ```
  */
-public class VkTransientCommandBuffer implements AutoCloseable {
+public class TransientCommandBuffer implements AutoCloseable {
     private final MemorySegment commandBuffer;
     private final VkCommandPool commandPool;
     private final MemorySegment queue;
@@ -36,7 +36,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
     private boolean recorded = false;
     private boolean submitted = false;
     
-    private VkTransientCommandBuffer(MemorySegment commandBuffer, VkCommandPool commandPool, 
+    private TransientCommandBuffer(MemorySegment commandBuffer, VkCommandPool commandPool,
                                    MemorySegment queue, VkDevice device, Arena arena) {
         this.commandBuffer = commandBuffer;
         this.commandPool = commandPool;
@@ -48,7 +48,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
     /**
      * Creates a transient command buffer and begins recording.
      */
-    public static VkTransientCommandBuffer begin(VkCommandPool commandPool, MemorySegment queue, Arena arena) {
+    public static TransientCommandBuffer begin(VkCommandPool commandPool, MemorySegment queue, Arena arena) {
         VkDevice device = commandPool.device();
         
         // Allocate command buffer
@@ -69,7 +69,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
         
         Vulkan.beginCommandBuffer(commandBuffer, beginInfo).check();
         
-        VkTransientCommandBuffer transient1 = new VkTransientCommandBuffer(commandBuffer, commandPool, queue, device, arena);
+        TransientCommandBuffer transient1 = new TransientCommandBuffer(commandBuffer, commandPool, queue, device, arena);
         transient1.recorded = true;
         return transient1;
     }
@@ -79,7 +79,7 @@ public class VkTransientCommandBuffer implements AutoCloseable {
      */
     public static void execute(VkCommandPool commandPool, MemorySegment queue, Arena arena, 
                               Consumer<MemorySegment> commands) {
-        try (VkTransientCommandBuffer cmd = begin(commandPool, queue, arena)) {
+        try (TransientCommandBuffer cmd = begin(commandPool, queue, arena)) {
             commands.accept(cmd.commandBuffer);
             cmd.submitAndWait();
         }

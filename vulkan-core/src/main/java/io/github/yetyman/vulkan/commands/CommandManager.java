@@ -1,13 +1,15 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.commands;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.highlevel.VulkanContext;
+
 import java.lang.foreign.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages command pools and buffers, with optional thread-local support.
  */
-public class VulkanCommandManager implements AutoCloseable {
+public class CommandManager implements AutoCloseable {
     private final Arena arena;
     private final VkDevice device;
     private final int queueFamilyIndex;
@@ -17,7 +19,7 @@ public class VulkanCommandManager implements AutoCloseable {
     private final ConcurrentHashMap<Thread, VkCommandPool> threadPools = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Thread, Arena> threadArenas = new ConcurrentHashMap<>();
     
-    private VulkanCommandManager(Arena arena, VkDevice device, int queueFamilyIndex, boolean threaded) {
+    private CommandManager(Arena arena, VkDevice device, int queueFamilyIndex, boolean threaded) {
         this.arena = arena;
         this.device = device;
         this.queueFamilyIndex = queueFamilyIndex;
@@ -111,10 +113,10 @@ public class VulkanCommandManager implements AutoCloseable {
             return this;
         }
         
-        public VulkanCommandManager build() {
+        public CommandManager build() {
             if (arena == null) throw new IllegalStateException("arena not set");
             if (device == null) throw new IllegalStateException("device not set");
-            return new VulkanCommandManager(arena, device, queueFamilyIndex, threaded);
+            return new CommandManager(arena, device, queueFamilyIndex, threaded);
         }
     }
 }

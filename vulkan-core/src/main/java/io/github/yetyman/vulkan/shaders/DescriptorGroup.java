@@ -1,10 +1,8 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.shaders.CompiledShader;
-import io.github.yetyman.vulkan.shaders.ShaderLoader;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -61,6 +59,8 @@ public class DescriptorGroup implements AutoCloseable {
         private int defaultStageFlags = VkShaderStageFlagBits.VK_SHADER_STAGE_ALL.value();
         private final List<BindingEntry> bindings = new ArrayList<>();
         private VkDescriptorSetLayout prebuiltLayout;
+        private CompiledShader reflectionSource;
+        private int reflectionSetNumber;
         private boolean ownsLayout = true;
 
         private Builder() {}
@@ -77,23 +77,18 @@ public class DescriptorGroup implements AutoCloseable {
 
         /** Uses a reflected descriptor set layout from a CompiledShader for the given set number. */
         public Builder reflection(CompiledShader compiled, int setNumber) {
-            this.prebuiltLayout = null; // will be created during build from reflection
-            // Store the compiled shader info so we can infer pool sizes
             ShaderLoader.DescriptorSetInfo setInfo = compiled.getReflection().getDescriptorSet(setNumber);
             if (setInfo == null) throw new IllegalArgumentException("Shader has no descriptor set " + setNumber);
             for (var binding : setInfo.getBindings().values()) {
                 VkDescriptorType vkType = VkDescriptorType.fromValue(binding.getDescriptorType().value());
-                bindings.add(new BindingEntry(binding.getBinding(), vkType, -1, null, null));
+                bindings.add(new BindingEntry(binding.getName(), binding.getBinding(), vkType,
+                    binding.getStageFlags(), binding.getDescriptorCount(), null, null));
             }
-            // Get the layout from the compiled shader's generated layouts
-            CompiledShader.GeneratedDescriptorSetLayout genLayout = compiled.getDescriptorSetLayout(setNumber, device);
-            this.prebuiltLayout = null; // marker: will use genLayout in build
-            this._genLayout = genLayout;
+            this.reflectionSource = compiled;
+            this.reflectionSetNumber = setNumber;
             this.ownsLayout = false;
             return this;
         }
-
-        private CompiledShader.GeneratedDescriptorSetLayout _genLayout;
 
         /** Uses a pre-built descriptor set layout (caller retains ownership). */
         public Builder layout(VkDescriptorSetLayout layout) {
@@ -104,22 +99,34 @@ public class DescriptorGroup implements AutoCloseable {
 
         /** Adds a storage buffer binding and immediately binds the buffer. */
         public Builder storageBuffer(int binding, ManagedBuffer buffer) {
-            return bufferBinding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, -1, buffer);
+            return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, -1, 1, buffer);
         }
 
         /** Adds a storage buffer binding with explicit stage flags. */
         public Builder storageBuffer(int binding, ManagedBuffer buffer, int stageFlags) {
-            return bufferBinding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stageFlags, buffer);
+            return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stageFlags, 1, buffer);
         }
 
         /** Adds a uniform buffer binding and immediately binds the buffer. */
         public Builder uniformBuffer(int binding, ManagedBuffer buffer) {
-            return bufferBinding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, -1, buffer);
+            return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, -1, 1, buffer);
         }
 
         /** Adds a uniform buffer binding with explicit stage flags. */
         public Builder uniformBuffer(int binding, ManagedBuffer buffer, int stageFlags) {
-            return bufferBinding(binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags, buffer);
+            return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags, 1, buffer);
+        }
+
+        /** Binds a buffer by shader variable name, inferring binding index and type from reflection. Only works with reflection(). */
+        public Builder buffer(String name, ManagedBuffer buffer) {
+            for (int i = 0; i < bindings.size(); i++) {
+                if (name.equals(bindings.get(i).name)) {
+                    BindingEntry old = bindings.get(i);
+                    bindings.set(i, new BindingEntry(old.name, old.binding, old.type, old.stageFlags, old.descriptorCount, buffer, null));
+                    return this;
+                }
+            }
+            throw new IllegalArgumentException("No reflected binding named '" + name + "' — use storageBuffer()/uniformBuffer() for manual layouts");
         }
 
         /** Binds a buffer to a binding index, inferring descriptor type from reflection. Only works with reflection(). */
@@ -127,36 +134,37 @@ public class DescriptorGroup implements AutoCloseable {
             for (int i = 0; i < bindings.size(); i++) {
                 if (bindings.get(i).binding == binding) {
                     BindingEntry old = bindings.get(i);
-                    bindings.set(i, new BindingEntry(binding, old.type, old.stageFlags, buffer, null));
+                    bindings.set(i, new BindingEntry(old.name, old.binding, old.type, old.stageFlags, old.descriptorCount, buffer, null));
                     return this;
                 }
             }
             throw new IllegalArgumentException("No reflected binding at index " + binding + " — use storageBuffer()/uniformBuffer() for non-reflected layouts");
         }
 
-        private Builder bufferBinding(int binding, VkDescriptorType type, int stageFlags, ManagedBuffer buffer) {
-            // Update existing entry (e.g. from reflection) or add new
+        private Builder bufferBinding(String name, int binding, VkDescriptorType type, int stageFlags, int descriptorCount, ManagedBuffer buffer) {
             for (int i = 0; i < bindings.size(); i++) {
                 if (bindings.get(i).binding == binding) {
                     BindingEntry old = bindings.get(i);
-                    bindings.set(i, new BindingEntry(binding, old.type, stageFlags >= 0 ? stageFlags : old.stageFlags, buffer, null));
+                    bindings.set(i, new BindingEntry(
+                        old.name != null ? old.name : name, binding, old.type,
+                        stageFlags >= 0 ? stageFlags : old.stageFlags, old.descriptorCount, buffer, null));
                     return this;
                 }
             }
-            bindings.add(new BindingEntry(binding, type, stageFlags, buffer, null));
+            bindings.add(new BindingEntry(name, binding, type, stageFlags, descriptorCount, buffer, null));
             return this;
         }
 
-        /** Adds a combined image sampler binding (image info provided as raw segment). */
+        /** Adds a combined image sampler binding. */
         public Builder combinedImageSampler(int binding, ImageBinding imageBinding) {
-            bindings.add(new BindingEntry(binding,
-                VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, -1, null, imageBinding));
+            bindings.add(new BindingEntry(null, binding,
+                VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, -1, 1, null, imageBinding));
             return this;
         }
 
-        /** Adds a raw binding with no buffer attached (for manual update later). */
+        /** Adds a raw binding with no resource attached (for manual update later). */
         public Builder binding(int bindingIndex, VkDescriptorType type) {
-            bindings.add(new BindingEntry(bindingIndex, type, -1, null, null));
+            bindings.add(new BindingEntry(null, bindingIndex, type, -1, 1, null, null));
             return this;
         }
 
@@ -165,8 +173,8 @@ public class DescriptorGroup implements AutoCloseable {
 
             // Resolve layout
             VkDescriptorSetLayout layout;
-            if (_genLayout != null) {
-                layout = _genLayout.createLayout(arena);
+            if (reflectionSource != null) {
+                layout = reflectionSource.getLayout(device, reflectionSetNumber, arena);
             } else if (prebuiltLayout != null) {
                 layout = prebuiltLayout;
             } else {
@@ -174,7 +182,7 @@ public class DescriptorGroup implements AutoCloseable {
                 VkDescriptorSetLayout.Builder layoutBuilder = VkDescriptorSetLayout.builder().device(device);
                 for (BindingEntry e : bindings) {
                     int stageFlags = e.stageFlags >= 0 ? e.stageFlags : defaultStageFlags;
-                    layoutBuilder.binding(e.binding, e.type.value(), 1, stageFlags);
+                    layoutBuilder.binding(e.binding, e.type.value(), e.descriptorCount, stageFlags);
                 }
                 layout = layoutBuilder.build(arena);
                 ownsLayout = true;
@@ -213,8 +221,8 @@ public class DescriptorGroup implements AutoCloseable {
             return new DescriptorGroup(layout, pool, set, ownsLayout);
         }
 
-        private record BindingEntry(int binding, VkDescriptorType type, int stageFlags,
-                                    ManagedBuffer buffer, ImageBinding imageBinding) {}
+        private record BindingEntry(String name, int binding, VkDescriptorType type, int stageFlags,
+                                    int descriptorCount, ManagedBuffer buffer, ImageBinding imageBinding) {}
     }
 
     /** Image binding info for combined image samplers. */

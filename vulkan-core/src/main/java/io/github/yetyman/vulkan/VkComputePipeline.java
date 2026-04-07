@@ -2,7 +2,8 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
-import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
+import io.github.yetyman.vulkan.commands.TransientCommandBuffer;
+import io.github.yetyman.vulkan.shaders.CompiledShader;
 import java.lang.foreign.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -82,16 +83,17 @@ public class VkComputePipeline implements AutoCloseable {
     }
 
     /**
-     * Records bind + optional descriptor set bind + optional push constants + dispatch into a
-     * transient command buffer, submits, and waits for completion.
+     * Records bind + descriptor set binds + dispatch into a transient command buffer, submits, and waits.
+     * Each descriptor set is bound at its array index as the set number.
      */
-    public void dispatchAndWait(VkQueue queue, VkDescriptorSet descriptorSet, int groupCountX, int groupCountY, int groupCountZ) {
+    public void dispatchAndWait(VkQueue queue, int groupCountX, int groupCountY, int groupCountZ, VkDescriptorSet... descriptorSets) {
         VkCommandPool cmdPool = device.getOrCreateCommandPool(queue.familyIndex());
         try (Arena a = Arena.ofConfined()) {
-            VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), a);
+            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue.handle(), a);
             bind(tcb.handle());
-            if (descriptorSet != null) {
-                descriptorSet.bind(tcb.handle(), this, 0, a);
+            for (int i = 0; i < descriptorSets.length; i++) {
+                if (descriptorSets[i] != null)
+                    descriptorSets[i].bind(tcb.handle(), this, i, a);
             }
             dispatch(tcb.handle(), groupCountX, groupCountY, groupCountZ);
             tcb.submitAndWait();
@@ -100,8 +102,8 @@ public class VkComputePipeline implements AutoCloseable {
     }
 
     /** Convenience: dispatch with only X groups. */
-    public void dispatchAndWait(VkQueue queue, VkDescriptorSet descriptorSet, int groupCountX) {
-        dispatchAndWait(queue, descriptorSet, groupCountX, 1, 1);
+    public void dispatchAndWait(VkQueue queue, int groupCountX, VkDescriptorSet... descriptorSets) {
+        dispatchAndWait(queue, groupCountX, 1, 1, descriptorSets);
     }
 
     @Override
@@ -113,6 +115,7 @@ public class VkComputePipeline implements AutoCloseable {
     public static class Builder {
         private VkDevice device;
         private byte[] shaderCode;
+        private CompiledShader compiledShader;
         private String entryPoint = "main";
         private int flags = 0;
         private MemorySegment basePipeline = MemorySegment.NULL;
@@ -135,6 +138,13 @@ public class VkComputePipeline implements AutoCloseable {
 
         public Builder computeShader(byte[] spirv) {
             this.shaderCode = spirv;
+            return this;
+        }
+
+        /** Sets the compute shader from a CompiledShader, inferring descriptor set layouts and push constant ranges at build() time. */
+        public Builder computeShader(CompiledShader compiled) {
+            this.compiledShader = compiled;
+            this.shaderCode = compiled.getSpirV();
             return this;
         }
 
@@ -206,6 +216,22 @@ public class VkComputePipeline implements AutoCloseable {
         public VkComputePipeline build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (shaderCode == null) throw new IllegalStateException("compute shader not set");
+
+            if (compiledShader != null) {
+                if (descriptorSetLayouts == null) {
+                    var setNumbers = new java.util.TreeSet<>(compiledShader.getReflection().getSetNumbers());
+                    MemorySegment[] layoutHandles = new MemorySegment[setNumbers.size()];
+                    int i = 0;
+                    for (int setNumber : setNumbers)
+                        layoutHandles[i++] = compiledShader.getLayout(device, setNumber, arena).handle();
+                    this.descriptorSetLayouts = layoutHandles;
+                }
+                if (pushConstantRanges.isEmpty()) {
+                    for (var block : compiledShader.getReflection().getPushConstantBlocks())
+                        pushConstantRanges.add(new PushConstantRange(
+                            compiledShader.getShaderStageFlags(), block.offset(), block.size()));
+                }
+            }
 
             VkShaderModule shaderModule = VkShaderModule.create(arena, device, shaderCode);
             try {

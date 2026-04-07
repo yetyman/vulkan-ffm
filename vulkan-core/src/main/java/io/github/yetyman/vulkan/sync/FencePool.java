@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.sync;
 
 import io.github.yetyman.vulkan.*;
 import java.lang.foreign.*;

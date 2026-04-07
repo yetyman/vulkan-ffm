@@ -3,7 +3,7 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.VkTimelineSemaphore;
-import io.github.yetyman.vulkan.highlevel.VkCommandPoolRegistry;
+import io.github.yetyman.vulkan.commands.CommandPoolRegistry;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +28,7 @@ public class TransferBatchManager {
                 .computeIfAbsent(threadKey, k -> new ConcurrentHashMap<>())
                 .computeIfAbsent(queueKey, k -> new TransferBatch(
                         device, queue,
-                        VkCommandPoolRegistry.getOrCreate(device, queue.familyIndex())));
+                        CommandPoolRegistry.getOrCreate(device, queue.familyIndex())));
     }
 
     /**

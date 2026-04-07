@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.sync;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.VkResult;
@@ -9,14 +9,14 @@ import java.lang.foreign.*;
  * High-level synchronization manager that delegates to focused components.
  * Provides a unified interface for semaphores, fences, and barriers.
  */
-public class VkSyncManager implements AutoCloseable {
-    private final VkSemaphoreManager semaphoreManager;
+public class SyncManager implements AutoCloseable {
+    private final SemaphoreManager semaphoreManager;
     private final FencePool fencePool;
     private final Arena arena;
     
-    private VkSyncManager(VkDevice device, Arena arena) {
+    private SyncManager(VkDevice device, Arena arena) {
         this.arena = arena;
-        this.semaphoreManager = VkSemaphoreManager.builder().device(device).build(arena);
+        this.semaphoreManager = SemaphoreManager.builder().device(device).build(arena);
         this.fencePool = FencePool.builder().device(device).build(arena);
     }
     
@@ -189,14 +189,14 @@ public class VkSyncManager implements AutoCloseable {
      * Frame-in-flight synchronization helper for common rendering patterns.
      */
     public static class FrameSync implements AutoCloseable {
-        private final VkSyncManager syncManager;
+        private final SyncManager syncManager;
         private final VkSemaphore[] imageAvailable;
         private final VkSemaphore[] renderFinished;
         private final VkFence[] inFlight;
         private final int maxFramesInFlight;
         private int currentFrame = 0;
         
-        FrameSync(VkSyncManager syncManager, int framesInFlight) {
+        FrameSync(SyncManager syncManager, int framesInFlight) {
             this.syncManager = syncManager;
             this.maxFramesInFlight = framesInFlight;
             this.imageAvailable = new VkSemaphore[framesInFlight];
@@ -264,9 +264,9 @@ public class VkSyncManager implements AutoCloseable {
             return this;
         }
         
-        public VkSyncManager build(Arena arena) {
+        public SyncManager build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            return new VkSyncManager(device, arena);
+            return new SyncManager(device, arena);
         }
     }
 }

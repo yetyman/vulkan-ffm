@@ -141,8 +141,8 @@ public class ShaderLoader {
          */
         public Builder name(String name) { this.name = name; return this; }
 
-        /** @return the logical name: the explicit override if set, otherwise the resource path. */
-        public String name() { return name != null ? name : resourcePath; }
+        /** @return the logical name: the explicit override if set, the resource path if it's a real path, or null for inline shaders. */
+        public String name() { return name != null ? name : (resourcePath.equals("<inline>") ? null : resourcePath); }
 
         /** Sets a custom compile pipeline, replacing the default shaderc compiler. */
         public Builder compiler(Function<ShaderCompileRequest, byte[]> compiler) {

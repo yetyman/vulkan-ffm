@@ -7,17 +7,14 @@ import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.highlevel.DescriptorGroup;
-import io.github.yetyman.vulkan.highlevel.VkTransientCommandBuffer;
+import io.github.yetyman.vulkan.commands.TransientCommandBuffer;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -505,7 +502,7 @@ public class ShaderExample {
 
                             // Record, push constant, dispatch, and wait
                             VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily);
-                            VkTransientCommandBuffer tcb = VkTransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
+                            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
                             pipeline.bind(tcb.handle());
                             descriptors.set().bind(tcb.handle(), pipeline, 0, arena);
                             pipeline.pushInt(tcb.handle(), 0, multiplier);
@@ -566,19 +563,18 @@ public class ShaderExample {
 
                     // Reflected layout + pool + set + buffer bindings in one shot
                     try (DescriptorGroup descriptors = computeShader.descriptorGroup(device)
-                            .buffer(0, inputBuf)
-                            .buffer(1, outputBuf)
+                            .buffer("inputBuf", inputBuf)
+                            .buffer("outputBuf", outputBuf)
                             .build(arena)) {
 
                         // Build pipeline with specialization constant + dispatchAndWait
                         try (VkComputePipeline pipeline = VkComputePipeline.builder()
                                 .device(device)
-                                .computeShader(computeShader.getSpirV())
-                                .descriptorSetLayouts(descriptors.layoutHandle())
+                                .computeShader(computeShader)
                                 .specialize(0, specMultiplier)
                                 .build(arena)) {
 
-                            pipeline.dispatchAndWait(queue, descriptors.set(), elementCount / 64);
+                            pipeline.dispatchAndWait(queue, elementCount / 64, descriptors.set());
 
                             // Readback and verify
                             ByteBuffer result = outputBuf.read(0, bufferSize).order(ByteOrder.nativeOrder());
@@ -595,6 +591,87 @@ public class ShaderExample {
                             System.out.println("  ShaderInstance compute: " + elementCount + " elements verified");
                         }
                     }
+                }
+            }
+
+            // =========================================================
+            // 10. SHADER INSTANCE COMPUTE — swap descriptor group only
+            //     Same pipeline, same shader, same spec constant.
+            //     Two independent descriptor groups bound to different
+            //     buffer pairs — demonstrates re-binding descriptors
+            //     without rebuilding the pipeline.
+            // =========================================================
+            section("SHADER INSTANCE COMPUTE — SWAP DESCRIPTOR GROUP");
+            {
+                int elementCount = 64;
+                int bufferSize = elementCount * 4;
+                int specMultiplier = 5;
+
+                CompiledShader computeShader = ShaderLoader.compute()
+                    .source(COMPUTE_SPEC_SHADER_GLSL)
+                    .compileShader();
+
+                // First pair: [10..73]
+                try (ManagedBuffer inputBufA  = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     ManagedBuffer outputBufA = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     // Second pair: [100..163]
+                     ManagedBuffer inputBufB  = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     ManagedBuffer outputBufB = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+
+                    ByteBuffer inputDataA = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
+                    for (int i = 0; i < elementCount; i++) inputDataA.putInt(i + 10);
+                    inputBufA.write(inputDataA.flip(), 0, queue);
+
+                    ByteBuffer inputDataB = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
+                    for (int i = 0; i < elementCount; i++) inputDataB.putInt(i + 100);
+                    inputBufB.write(inputDataB.flip(), 0, queue);
+
+                    try (DescriptorGroup descriptorsA = computeShader.descriptorGroup(device)
+                                .buffer("inputBuf", inputBufA)
+                                .buffer("outputBuf", outputBufA)
+                                .build(arena);
+                         DescriptorGroup descriptorsB = computeShader.descriptorGroup(device)
+                                .buffer("inputBuf", inputBufB)
+                                .buffer("outputBuf", outputBufB)
+                                .build(arena)) {
+
+                        try (VkComputePipeline pipeline = VkComputePipeline.builder()
+                                .device(device)
+                                .computeShader(computeShader)
+                                .specialize(0, specMultiplier)
+                                .build(arena)) {
+
+                            pipeline.dispatchAndWait(queue, elementCount / 64, descriptorsA.set());
+                            pipeline.dispatchAndWait(queue, elementCount / 64, descriptorsB.set());
+                        }
+                    }
+
+                    // Verify A: [10..73] * 5
+                    ByteBuffer resultA = outputBufA.read(0, bufferSize).order(ByteOrder.nativeOrder());
+                    boolean allCorrectA = true;
+                    for (int i = 0; i < elementCount; i++) {
+                        int expected = (i + 10) * specMultiplier;
+                        int actual = resultA.getInt(i * 4);
+                        if (actual != expected) {
+                            System.err.println("    A MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
+                            allCorrectA = false;
+                        }
+                    }
+                    check("descriptorA: all " + elementCount + " elements = (i+10) * " + specMultiplier, allCorrectA);
+
+                    // Verify B: [100..163] * 5
+                    ByteBuffer resultB = outputBufB.read(0, bufferSize).order(ByteOrder.nativeOrder());
+                    boolean allCorrectB = true;
+                    for (int i = 0; i < elementCount; i++) {
+                        int expected = (i + 100) * specMultiplier;
+                        int actual = resultB.getInt(i * 4);
+                        if (actual != expected) {
+                            System.err.println("    B MISMATCH [" + i + "]: expected=" + expected + " actual=" + actual);
+                            allCorrectB = false;
+                        }
+                    }
+                    check("descriptorB: all " + elementCount + " elements = (i+100) * " + specMultiplier, allCorrectB);
+                    System.out.println("  swap descriptor group: both passes verified");
                 }
             }
 

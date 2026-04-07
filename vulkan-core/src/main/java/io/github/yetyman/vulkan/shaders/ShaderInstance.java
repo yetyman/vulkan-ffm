@@ -24,7 +24,7 @@ public class ShaderInstance implements AutoCloseable {
     private final CompiledShader compiled;
     private final VkDevice device;
     private final Arena arena;
-    private final Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> layouts;
+    private final Map<Integer, GeneratedDescriptorSetLayout> layouts;
     private final Map<Integer, VkDescriptorSet> descriptorSets;
     private final VkDescriptorPool descriptorPool;
     private MemorySegment pipelineLayout = MemorySegment.NULL;
@@ -83,7 +83,7 @@ public class ShaderInstance implements AutoCloseable {
         this.defines = Collections.unmodifiableMap(new HashMap<>(defines));
         this.specializationValues = Collections.unmodifiableMap(new HashMap<>(specializationValues));
         this.arena = Arena.ofConfined();
-        this.layouts = compiled.getAllDescriptorSetLayouts(device);
+        this.layouts = buildLayouts();
         this.descriptorPool = buildPool();
         this.descriptorSets = allocateDescriptorSets();
     }
@@ -222,7 +222,7 @@ public class ShaderInstance implements AutoCloseable {
     public CompiledShader compiled() { return compiled; }
     public VkDevice device() { return device; }
     public io.github.yetyman.shaderc.enums.ShadercShaderKind shaderKind() { return compiled.getShaderKind(); }
-    public Map<Integer, CompiledShader.GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
+    public Map<Integer, GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
     public Map<Integer, VkDescriptorSet> descriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
     /** @return the preprocessor defines this instance was compiled with. */
     public Map<String, String> defines() { return defines; }
@@ -302,12 +302,21 @@ public class ShaderInstance implements AutoCloseable {
 
     @Override
     public void close() {
-        for (CompiledShader.GeneratedDescriptorSetLayout layout : layouts.values()) layout.close();
+        for (GeneratedDescriptorSetLayout layout : layouts.values()) layout.close();
         descriptorPool.close();
         arena.close();
     }
 
     // ---- Private helpers ----
+
+    private Map<Integer, GeneratedDescriptorSetLayout> buildLayouts() {
+        Map<Integer, GeneratedDescriptorSetLayout> result = new HashMap<>();
+        for (int setNumber : compiled.getReflection().getSetNumbers()) {
+            ShaderLoader.DescriptorSetInfo setInfo = compiled.getReflection().getDescriptorSet(setNumber);
+            result.put(setNumber, new GeneratedDescriptorSetLayout(setInfo, device, compiled.getVkShaderStage()));
+        }
+        return result;
+    }
 
     private ShaderLoader.DescriptorBindingInfo requireBinding(String name, SpirvReflectDescriptorType expectedType) {
         ShaderLoader.DescriptorBindingInfo info = compiled.getReflection().getBindingByName(name);
@@ -353,7 +362,7 @@ public class ShaderInstance implements AutoCloseable {
 
     private Map<Integer, VkDescriptorSet> allocateDescriptorSets() {
         Map<Integer, VkDescriptorSet> sets = new HashMap<>();
-        for (Map.Entry<Integer, CompiledShader.GeneratedDescriptorSetLayout> entry : layouts.entrySet()) {
+        for (Map.Entry<Integer, GeneratedDescriptorSetLayout> entry : layouts.entrySet()) {
             VkDescriptorSetLayout layout = entry.getValue().createLayout(arena);
             VkDescriptorSet set = descriptorPool.allocateDescriptorSet(layout);
             sets.put(entry.getKey(), set);

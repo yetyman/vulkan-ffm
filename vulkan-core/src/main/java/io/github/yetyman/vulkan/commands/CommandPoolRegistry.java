@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.highlevel;
+package io.github.yetyman.vulkan.commands;
 
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Thread-local command pool registry keyed by device and queue family index.
  * Pools are created on demand and destroyed when the device is closed.
  */
-public class VkCommandPoolRegistry {
+public class CommandPoolRegistry {
     // device identity (by handle address) -> thread id -> family index -> pool
     private static final ConcurrentHashMap<Long, ConcurrentHashMap<Long, ConcurrentHashMap<Integer, VkCommandPool>>> REGISTRY
             = new ConcurrentHashMap<>();

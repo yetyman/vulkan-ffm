@@ -1,11 +1,12 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.commands.CommandManager;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.sample.complex.culling.Camera;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
-import io.github.yetyman.vulkan.shaders.VulkanShaderManager;
+import io.github.yetyman.vulkan.shaders.ShaderManager;
 import io.github.yetyman.vulkan.util.Logger;
 
 import java.lang.foreign.*;
@@ -29,9 +30,9 @@ public class ThreadedRenderer extends BaseRenderer {
     private VkRenderPass directRenderPass;
     private VkPipeline pipeline;
     private VkPipeline gltfPipeline;
-    private VulkanCommandManager commandManager;
+    private CommandManager commandManager;
     private VulkanRenderTarget depthTarget;
-    private VulkanShaderManager shaderManager;
+    private ShaderManager shaderManager;
     
     // Camera uniform buffer
     private VkBuffer cameraUniformBuffer;
@@ -104,14 +105,14 @@ public class ThreadedRenderer extends BaseRenderer {
     }
     
     private void createManagers(int queueFamilyIndex) {
-        commandManager = VulkanCommandManager.builder()
+        commandManager = CommandManager.builder()
             .arena(arena)
             .device(device)
             .queueFamilyIndex(queueFamilyIndex)
             .threaded(true)
             .build();
         
-        shaderManager = VulkanShaderManager.builder()
+        shaderManager = ShaderManager.builder()
             .device(device)
             .build();
         
@@ -250,13 +251,13 @@ public class ThreadedRenderer extends BaseRenderer {
         if (cameraUniformBuffer != null) { cameraUniformBuffer.close(); cameraUniformBuffer = null; }
 
         // Original triangle pipeline
-        VulkanShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
+        ShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
             .vertex("/shaders/triangle.vert")
             .fragment("/shaders/triangle.frag")
             .build();
         
         // glTF pipeline
-        VulkanShaderManager.ShaderSet gltfShaders = shaderManager.createShaderSet()
+        ShaderManager.ShaderSet gltfShaders = shaderManager.createShaderSet()
             .vertex("/shaders/gltf.vert")
             .fragment("/shaders/gltf.frag")
             .build();

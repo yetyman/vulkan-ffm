@@ -4,29 +4,25 @@ import io.github.yetyman.vulkan.VkDescriptorSetLayout;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkShaderModule;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.highlevel.DescriptorGroup;
 import io.github.yetyman.shaderc.enums.*;
-import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
 
 import java.lang.foreign.Arena;
 import java.util.*;
 
-import static io.github.yetyman.vulkan.enums.VkDescriptorType.*;
-
 /**
- * A compiled shader with SPIR-V bytecode, reflection data, and descriptor set layout generation.
+ * A compiled shader: SPIR-V bytecode plus reflection data. Device-agnostic and immutable.
  */
-public class CompiledShader implements AutoCloseable {
-    private static final Map<Integer, VkShaderStageFlagBits> SHADER_KIND_TO_STAGE;
+public class CompiledShader {
+    static final Map<ShadercShaderKind, VkShaderStageFlagBits> SHADER_KIND_TO_STAGE;
     static {
-        Map<Integer, VkShaderStageFlagBits> m = new HashMap<>();
-        m.put(ShadercShaderKind.shaderc_vertex_shader.value(),        VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT);
-        m.put(ShadercShaderKind.shaderc_fragment_shader.value(),      VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT);
-        m.put(ShadercShaderKind.shaderc_compute_shader.value(),       VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT);
-        m.put(ShadercShaderKind.shaderc_geometry_shader.value(),      VkShaderStageFlagBits.VK_SHADER_STAGE_GEOMETRY_BIT);
-        m.put(ShadercShaderKind.shaderc_tess_control_shader.value(),  VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT);
-        m.put(ShadercShaderKind.shaderc_tess_evaluation_shader.value(), VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT);
-        SHADER_KIND_TO_STAGE = Collections.unmodifiableMap(m);
+        SHADER_KIND_TO_STAGE = Map.of(
+                ShadercShaderKind.shaderc_vertex_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 
+                ShadercShaderKind.shaderc_fragment_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 
+                ShadercShaderKind.shaderc_compute_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 
+                ShadercShaderKind.shaderc_geometry_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_GEOMETRY_BIT, 
+                ShadercShaderKind.shaderc_tess_control_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 
+                ShadercShaderKind.shaderc_tess_evaluation_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT
+        );
     }
 
     private final byte[] spirv;
@@ -34,7 +30,6 @@ public class CompiledShader implements AutoCloseable {
     private final ShadercShaderKind shaderKind;
     private final String name;
     private final Map<String, String> defines;
-    private final Map<Integer, GeneratedDescriptorSetLayout> generatedLayouts = new HashMap<>();
 
     public CompiledShader(byte[] spirv, ShaderLoader.ShaderReflection reflection, ShadercShaderKind shaderKind) {
         this(spirv, reflection, shaderKind, null, Map.of());
@@ -72,121 +67,31 @@ public class CompiledShader implements AutoCloseable {
         return ShaderInstance.builder().of(this).device(device);
     }
 
-    /** Creates a VkShaderModule from the compiled SPIR-V */
+    /** Creates a VkShaderModule from the compiled SPIR-V. */
     public VkShaderModule createShaderModule(VkDevice device, Arena arena) {
         return VkShaderModule.create(arena, device, spirv);
     }
 
-    /** Returns a DescriptorGroup builder pre-wired with this shader's reflected layout (set 0). */
+    /**
+     * Creates a new VkDescriptorSetLayout for the given device and set number.
+     */
+    public VkDescriptorSetLayout getLayout(VkDevice device, int setNumber, Arena arena) {
+        ShaderLoader.DescriptorSetInfo setInfo = reflection.getDescriptorSet(setNumber);
+        if (setInfo == null) throw new IllegalArgumentException("Shader has no descriptor set " + setNumber);
+        return new GeneratedDescriptorSetLayout(setInfo, device, getVkShaderStage()).createLayout(arena);
+    }
+
+    /** @return a DescriptorGroup builder pre-wired with this shader's reflected layout (set 0). */
     public DescriptorGroup.Builder descriptorGroup(VkDevice device) {
         return descriptorGroup(device, 0);
     }
 
-    /** Returns a DescriptorGroup builder pre-wired with this shader's reflected layout for the given set. */
+    /** @return a DescriptorGroup builder pre-wired with this shader's reflected layout for the given set. */
     public DescriptorGroup.Builder descriptorGroup(VkDevice device, int setNumber) {
         return DescriptorGroup.builder().device(device).reflection(this, setNumber);
     }
 
-    /** Gets or creates a descriptor set layout for the specified set number */
-    public GeneratedDescriptorSetLayout getDescriptorSetLayout(int setNumber, VkDevice device) {
-        return generatedLayouts.computeIfAbsent(setNumber, set -> {
-            ShaderLoader.DescriptorSetInfo setInfo = reflection.getDescriptorSet(set);
-            if (setInfo == null) {
-                throw new IllegalArgumentException("Shader does not have descriptor set " + set);
-            }
-            return new GeneratedDescriptorSetLayout(setInfo, device, getVkShaderStage());
-        });
-    }
-
-    /** Gets all descriptor set layouts used by this shader */
-    public Map<Integer, GeneratedDescriptorSetLayout> getAllDescriptorSetLayouts(VkDevice device) {
-        Map<Integer, GeneratedDescriptorSetLayout> layouts = new HashMap<>();
-        for (int setNumber : reflection.getSetNumbers()) {
-            layouts.put(setNumber, getDescriptorSetLayout(setNumber, device));
-        }
-        return layouts;
-    }
-
-    @Override
-    public void close() {
-        for (GeneratedDescriptorSetLayout layout : generatedLayouts.values()) {
-            layout.close();
-        }
-        generatedLayouts.clear();
-    }
-
-    private VkShaderStageFlagBits getVkShaderStage() {
-        return SHADER_KIND_TO_STAGE.getOrDefault(shaderKind.value(), VkShaderStageFlagBits.VK_SHADER_STAGE_ALL);
-    }
-
-    /**
-     * A descriptor set layout generated from shader reflection with methods to create descriptor sets.
-     */
-    public static class GeneratedDescriptorSetLayout implements AutoCloseable {
-        private final ShaderLoader.DescriptorSetInfo setInfo;
-        private final VkDevice device;
-        private final VkShaderStageFlagBits defaultStageFlags;
-        private VkDescriptorSetLayout layout;
-
-        public GeneratedDescriptorSetLayout(ShaderLoader.DescriptorSetInfo setInfo, VkDevice device, VkShaderStageFlagBits defaultStageFlags) {
-            this.setInfo = setInfo;
-            this.device = device;
-            this.defaultStageFlags = defaultStageFlags;
-        }
-
-        /** Creates the VkDescriptorSetLayout */
-        public VkDescriptorSetLayout createLayout(Arena arena) {
-            if (layout != null) return layout;
-
-            VkDescriptorSetLayout.Builder builder = VkDescriptorSetLayout.builder().device(device);
-            for (ShaderLoader.DescriptorBindingInfo binding : setInfo.getBindings().values()) {
-                VkDescriptorType vkType = VkDescriptorType.fromValue(binding.getDescriptorType().value());
-                int stageFlags = binding.getStageFlags() != 0 ? binding.getStageFlags() : defaultStageFlags.value();
-                builder.binding(binding.getBinding(), vkType.value(), binding.getDescriptorCount(), stageFlags);
-            }
-
-            layout = builder.build(arena);
-            return layout;
-        }
-
-        /** Gets the existing layout or throws if not created yet */
-        public VkDescriptorSetLayout getLayout() {
-            if (layout == null) throw new IllegalStateException("Layout not created yet - call createLayout() first");
-            return layout;
-        }
-
-        /** Adds a manual binding that wasn't in the shader reflection */
-        public GeneratedDescriptorSetLayout addBinding(int binding, VkDescriptorType type, VkShaderStageFlagBits stages, int count) {
-            if (layout != null) throw new IllegalStateException("Cannot add bindings after layout is created");
-            SpirvReflectDescriptorType spirvType = SpirvReflectDescriptorType.fromValue(type.value());
-            setInfo.addBinding(binding, new ShaderLoader.DescriptorBindingInfo(binding, spirvType, count, stages.value()));
-            return this;
-        }
-
-        /** Adds a uniform buffer binding */
-        public GeneratedDescriptorSetLayout addUniformBuffer(int binding, VkShaderStageFlagBits stages) {
-            return addBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stages, 1);
-        }
-
-        /** Adds a combined image sampler binding */
-        public GeneratedDescriptorSetLayout addTexture(int binding, VkShaderStageFlagBits stages) {
-            return addBinding(binding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, stages, 1);
-        }
-
-        /** Adds a storage buffer binding */
-        public GeneratedDescriptorSetLayout addStorageBuffer(int binding, VkShaderStageFlagBits stages) {
-            return addBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stages, 1);
-        }
-
-        @Override
-        public void close() {
-            if (layout != null) {
-                layout.close();
-                layout = null;
-            }
-        }
-
-        public ShaderLoader.DescriptorSetInfo getSetInfo() { return setInfo; }
-        public int getSetNumber() { return setInfo.getSetNumber(); }
+    public VkShaderStageFlagBits getVkShaderStage() {
+        return SHADER_KIND_TO_STAGE.getOrDefault(shaderKind, VkShaderStageFlagBits.VK_SHADER_STAGE_ALL);
     }
 }
