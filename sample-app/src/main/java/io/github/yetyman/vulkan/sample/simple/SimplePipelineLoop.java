@@ -2,77 +2,42 @@ package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.highlevel.GraphicsRenderer;
 import io.github.yetyman.vulkan.highlevel.DrawCommand;
-import io.github.yetyman.vulkan.shaders.PushConstant;
-import io.github.yetyman.vulkan.shaders.ShaderInstance;
-import io.github.yetyman.vulkan.shaders.ShaderLoader;
-import io.github.yetyman.vulkan.util.Logger;
+import io.github.yetyman.vulkan.highlevel.GraphicsRenderer;
+
 import java.lang.foreign.*;
 
-public class SimpleRenderer extends GraphicsRenderer {
+/**
+ * Abstract renderer that owns a single graphics pipeline and handles the standard
+ * per-frame command buffer structure: begin, viewport/scissor, pipeline bind, draw, end.
+ *
+ * Subclasses provide the pipeline and per-frame logic via {@link #createPipeline()}
+ * and {@link #onFrame(VkCommandBuffer, Arena)}.
+ */
+public abstract class SimplePipelineLoop extends GraphicsRenderer {
 
-    private VkPipeline pipeline;
-    private ShaderInstance vertShader;
-    private ShaderInstance fragShader;
-    private PushConstant<Float> time;
+    protected VkPipeline pipeline;
 
-    private final long startTime = System.nanoTime();
-
-    public SimpleRenderer(Arena arena, VkDevice device, MemorySegment queue,
-                          MemorySegment surface, int width, int height) {
-        super(arena, device, queue, surface, width, height, 3);
+    protected SimplePipelineLoop(Arena arena, VkDevice device, MemorySegment queue,
+                                  MemorySegment surface, int width, int height, int maxFramesInFlight) {
+        super(arena, device, queue, surface, width, height, maxFramesInFlight);
     }
 
-    @Override
-    protected VkRenderPass createRenderPassImpl() {
-        return VkRenderPass.builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(),
-                           VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
-                           VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .subpassDependency(~0, 0,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
-            .build(arena);
-    }
+    /** @return the pipeline to use for rendering. Called once during {@link #initializeResources}. */
+    protected abstract VkPipeline createPipeline();
 
-    @Override
-    protected VkFramebuffer createFramebufferImpl(int imageIndex) {
-        return VkFramebuffer.builder()
-            .device(device)
-            .renderPass(renderPass.handle())
-            .attachment(new VkFramebufferAttachment(
-                swapchainImageViews[imageIndex],
-                VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
-            .dimensions(width, height)
-            .build(arena);
-    }
+    /** Called each frame after pipeline bind and viewport/scissor setup, before the draw call. */
+    protected abstract void onFrame(VkCommandBuffer commandBuffer, Arena frameArena);
+
+    /** @return the number of vertices to draw each frame. */
+    protected abstract int vertexCount();
+
+    /** @return the number of instances to draw each frame. Defaults to 1. */
+    protected int instanceCount() { return 1; }
 
     @Override
     protected void initializeResources(int queueFamilyIndex) {
-        vertShader = ShaderLoader.load("/shaders/triangle.vert", device);
-        fragShader = ShaderLoader.load("/shaders/triangle.frag", device);
-        time = vertShader.getPushConstant("time", Float.class);
-
-        VkPipeline.Builder builder = VkPipeline.builder()
-            .device(device)
-            .vertexShader(vertShader)
-            .fragmentShader(fragShader)
-            .triangleTopology()
-            .dynamicViewport()
-            .dynamicScissor();
-
-        if (useDynamicRendering) {
-            builder.dynamicRendering(0, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value());
-        } else {
-            builder.renderPass(renderPass.handle());
-        }
-
-        pipeline = builder.build(arena);
-        vertShader.pipelineLayout(pipeline.layout());
-        Logger.info("Simple renderer initialized (dynamic rendering: " + useDynamicRendering + ")");
+        pipeline = createPipeline();
     }
 
     @Override
@@ -119,10 +84,9 @@ public class SimpleRenderer extends GraphicsRenderer {
             .offset(0, 0).extent(width, height).build(frameArena);
         Vulkan.cmdSetScissor(commandBuffer.handle(), 0, 1, scissor);
 
-        time.set((System.nanoTime() - startTime) / 1_000_000_000.0f);
-        vertShader.flush(commandBuffer);
+        onFrame(commandBuffer, frameArena);
 
-        DrawCommand.direct(3, 1000).execute(commandBuffer.handle());
+        DrawCommand.direct(vertexCount(), instanceCount()).execute(commandBuffer.handle());
 
         if (useDynamicRendering) {
             VkRendering.end(commandBuffer.handle());
@@ -148,7 +112,5 @@ public class SimpleRenderer extends GraphicsRenderer {
     @Override
     protected void cleanupResources() {
         if (pipeline != null) pipeline.close();
-        if (vertShader != null) vertShader.close();
-        if (fragShader != null) fragShader.close();
     }
 }

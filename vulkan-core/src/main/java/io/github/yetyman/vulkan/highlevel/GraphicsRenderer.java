@@ -18,7 +18,7 @@ import java.lang.foreign.*;
  * 4. resize() - recreates swapchain and framebuffers
  * 5. close() - destroys all Vulkan resources in reverse order
  */
-public abstract class BaseRenderer implements AutoCloseable {
+public abstract class GraphicsRenderer implements AutoCloseable {
     
     protected final Arena arena;
     protected final VkDevice device;
@@ -45,20 +45,20 @@ public abstract class BaseRenderer implements AutoCloseable {
     private int currentFrame = 0;
     private final int maxFramesInFlight;
 
-    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
+    protected GraphicsRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight,
             VulkanCapabilities.dynamicRendering);
     }
 
-    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
+    protected GraphicsRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight,
                           boolean useDynamicRendering) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight, useDynamicRendering,
             VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
     }
 
-    protected BaseRenderer(Arena arena, VkDevice device, MemorySegment queue,
+    protected GraphicsRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight,
                           boolean useDynamicRendering, int sampleCount) {
         this.arena = arena;

@@ -12,7 +12,7 @@ import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 import java.util.*;
 
-public class ThreadedRenderer extends BaseRenderer {
+public class ThreadedRenderer extends GraphicsRenderer {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
     
     private static final int TRIANGLES_COUNT = 1000;
