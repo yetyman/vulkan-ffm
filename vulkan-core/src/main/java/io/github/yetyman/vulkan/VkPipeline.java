@@ -444,6 +444,23 @@ public class VkPipeline implements AutoCloseable {
             return this;
         }
         
+        /**
+         * Enables standard src-alpha / one-minus-src-alpha blending on a single color attachment.
+         * Equivalent to: src=SRC_ALPHA, dst=ONE_MINUS_SRC_ALPHA, op=ADD for both color and alpha.
+         */
+        public Builder alphaBlend() {
+            colorAttachments.add(new ColorBlendAttachment(
+                true,
+                VkBlendFactor.VK_BLEND_FACTOR_SRC_ALPHA.value(),
+                VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA.value(),
+                VkBlendOp.VK_BLEND_OP_ADD.value(),
+                VkBlendFactor.VK_BLEND_FACTOR_ONE.value(),
+                VkBlendFactor.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA.value(),
+                VkBlendOp.VK_BLEND_OP_ADD.value(),
+                0xF));
+            return this;
+        }
+
         public Builder blendConstants(float r, float g, float b, float a) {
             this.blendConstants = new float[]{r, g, b, a};
             return this;
