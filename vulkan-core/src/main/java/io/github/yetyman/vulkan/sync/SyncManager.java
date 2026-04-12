@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sync;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.VkResult;
 import io.github.yetyman.vulkan.VkTimelineSemaphore;
+import io.github.yetyman.vulkan.command.VkBarrierCmd;
 import java.lang.foreign.*;
 
 /**
@@ -168,7 +169,7 @@ public class SyncManager implements AutoCloseable {
             }
         }
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        VkBarrierCmd.pipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             memBarrierCount, memBarriersArray, bufBarrierCount, bufBarriersArray, imgBarrierCount, imgBarriersArray);
     }
     

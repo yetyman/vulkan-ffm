@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.command.VkBarrierCmd;
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -26,11 +27,11 @@ public abstract class VkBarrier {
      */
     public void execute(MemorySegment commandBuffer, int srcStage, int dstStage) {
         switch (getType()) {
-            case MEMORY -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+            case MEMORY -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
                 0, 1, handle, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
-            case BUFFER -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+            case BUFFER -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
                 0, 0, MemorySegment.NULL, 1, handle, 0, MemorySegment.NULL);
-            case IMAGE -> Vulkan.cmdPipelineBarrier(commandBuffer, srcStage, dstStage,
+            case IMAGE -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
                 0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, handle);
         }
     }

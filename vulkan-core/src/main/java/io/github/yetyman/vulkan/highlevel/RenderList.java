@@ -271,14 +271,14 @@ public class RenderList implements AutoCloseable {
 
         private void endGraphics(MemorySegment commandBuffer) {
             if (VulkanCapabilities.dynamicRendering) {
-                VkRendering.end(commandBuffer);
+                VkRendering.end(owner.device, commandBuffer);
             } else {
                 Vulkan.cmdEndRenderPass(commandBuffer);
             }
         }
 
         private void beginDynamic(MemorySegment commandBuffer, VkImageView swapchainImageView, Arena frameArena) {
-            VkRendering.Builder b = VkRendering.builder();
+            VkRendering.Builder b = VkRendering.builder().device(owner.device);
 
             // Determine render area from first color attachment's resource desc
             int w = 0, h = 0;

@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkCopy;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -8,7 +9,6 @@ import java.nio.ByteBuffer;
 import static io.github.yetyman.vulkan.enums.VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_BINDING_BIT;
 import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.*;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFlushMappedMemoryRanges;
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 
 /**
@@ -120,8 +120,7 @@ public class SparseBuffer extends AbstractBuffer {
                     .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
                 VkCommandBuffer cmd = cmds[0];
                 VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(readArena);
-                MemorySegment copyRegion = VkBufferCopy.allocate(readArena, offset, 0, length);
-                vkCmdCopyBuffer(cmd.handle(), vkBuffer.handle(), readback.handle(), 1, copyRegion);
+                VkCopy.copyBuffer(cmd, vkBuffer, readback, offset, 0, length);
                 vkEndCommandBuffer(cmd.handle());
                 VkSubmit.builder().commandBuffer(cmd).submit(transferQueue.handle(), fence.handle(), readArena).check();
                 try (Arena waitArena = Arena.ofConfined()) {

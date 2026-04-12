@@ -1,6 +1,10 @@
 package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkBind;
+import io.github.yetyman.vulkan.command.VkDraw;
+import io.github.yetyman.vulkan.command.VkDrawIndexed;
+import io.github.yetyman.vulkan.generated.VulkanFFM;
 import io.github.yetyman.vulkan.enums.*;
 
 import java.lang.foreign.*;
@@ -104,12 +108,12 @@ public class VulkanMesh implements AutoCloseable {
                 }
             }
             
-            Vulkan.cmdBindVertexBuffers(commandBuffer, 0, maxBinding + 1, bufferArray, offsetArray);
+            VkBind.bindVertexBuffers(commandBuffer, 0, maxBinding + 1, bufferArray, offsetArray);
         }
         
         // Bind index buffer if present
         if (indexBuffer != null) {
-            Vulkan.cmdBindIndexBuffer(commandBuffer, indexBuffer.handle(), 0, indexType);
+            VkBind.bindIndexBuffer(commandBuffer, indexBuffer.handle(), 0, indexType);
         }
     }
     
@@ -129,9 +133,9 @@ public class VulkanMesh implements AutoCloseable {
         int vertexCount = calculateVertexCount();
         
         if (isIndexed()) {
-            Vulkan.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, firstInstance);
+            VkDrawIndexed.drawIndexed(commandBuffer, indexCount, instanceCount, 0, 0, firstInstance);
         } else {
-            Vulkan.cmdDraw(commandBuffer, vertexCount, instanceCount, 0, firstInstance);
+            VkDraw.draw(commandBuffer, vertexCount, instanceCount, 0, firstInstance);
         }
     }
     
@@ -169,7 +173,7 @@ public class VulkanMesh implements AutoCloseable {
         if (!isIndexed()) {
             throw new IllegalStateException("Mesh is not indexed");
         }
-        Vulkan.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        VkDrawIndexed.drawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
     }
     
     @Override

@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.generated.VulkanFFM;
+import io.github.yetyman.vulkan.command.VkBind;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -40,6 +42,6 @@ public class VkVertexBufferBinding {
             offsetArray.setAtIndex(ValueLayout.JAVA_LONG, i, offsets.get(i));
         }
         
-        Vulkan.cmdBindVertexBuffers(commandBuffer, firstBinding, buffers.size(), bufferArray, offsetArray);
+        VkBind.bindVertexBuffers(commandBuffer, firstBinding, buffers.size(), bufferArray, offsetArray);
     }
 }

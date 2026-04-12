@@ -1,6 +1,10 @@
 package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkCopy;
+import io.github.yetyman.vulkan.command.VkBlit;
+import io.github.yetyman.vulkan.command.VkBarrierCmd;
+import io.github.yetyman.vulkan.generated.VulkanFFM;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import java.lang.foreign.*;
@@ -98,7 +102,7 @@ public class VkTexture implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        VkBarrierCmd.pipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
@@ -106,29 +110,10 @@ public class VkTexture implements AutoCloseable {
      * Copies data from a buffer to this texture.
      */
     public void copyFromBuffer(MemorySegment commandBuffer, MemorySegment buffer, int mipLevel) {
-        MemorySegment region = VkBufferImageCopy.allocate(Arena.ofAuto());
-        VkBufferImageCopy.bufferOffset(region, 0);
-        VkBufferImageCopy.bufferRowLength(region, 0);
-        VkBufferImageCopy.bufferImageHeight(region, 0);
-        
-        MemorySegment imageSubresource = VkBufferImageCopy.imageSubresource(region);
-        VkImageSubresourceLayers.aspectMask(imageSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-        VkImageSubresourceLayers.mipLevel(imageSubresource, mipLevel);
-        VkImageSubresourceLayers.baseArrayLayer(imageSubresource, 0);
-        VkImageSubresourceLayers.layerCount(imageSubresource, 1);
-        
-        MemorySegment imageOffset = VkBufferImageCopy.imageOffset(region);
-        VkOffset3D.x(imageOffset, 0);
-        VkOffset3D.y(imageOffset, 0);
-        VkOffset3D.z(imageOffset, 0);
-        
-        MemorySegment imageExtent = VkBufferImageCopy.imageExtent(region);
-        VkExtent3D.width(imageExtent, Math.max(1, width >> mipLevel));
-        VkExtent3D.height(imageExtent, Math.max(1, height >> mipLevel));
-        VkExtent3D.depth(imageExtent, Math.max(1, depth >> mipLevel));
-        
-        Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image.handle(),
-            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, region);
+        int mipWidth = Math.max(1, width >> mipLevel);
+        int mipHeight = Math.max(1, height >> mipLevel);
+        int mipDepth = Math.max(1, depth >> mipLevel);
+        VkCopy.copyBufferToImage(commandBuffer, buffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), mipWidth, mipHeight, mipDepth);
     }
     
     /**
@@ -189,43 +174,18 @@ public class VkTexture implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        VkBarrierCmd.pipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
     private void blitMipLevel(MemorySegment commandBuffer, int srcMip, int dstMip) {
-        MemorySegment blit = VkImageBlit.allocate(Arena.ofAuto());
-        
-        MemorySegment srcSubresource = VkImageBlit.srcSubresource(blit);
-        VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-        VkImageSubresourceLayers.mipLevel(srcSubresource, srcMip);
-        VkImageSubresourceLayers.baseArrayLayer(srcSubresource, 0);
-        VkImageSubresourceLayers.layerCount(srcSubresource, 1);
-        
-        MemorySegment srcOffsets = VkImageBlit.srcOffsets(blit);
-        VkOffset3D.x(srcOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.y(srcOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.z(srcOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.x(srcOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, width >> srcMip));
-        VkOffset3D.y(srcOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, height >> srcMip));
-        VkOffset3D.z(srcOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, depth >> srcMip));
-        
-        MemorySegment dstSubresource = VkImageBlit.dstSubresource(blit);
-        VkImageSubresourceLayers.aspectMask(dstSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
-        VkImageSubresourceLayers.mipLevel(dstSubresource, dstMip);
-        VkImageSubresourceLayers.baseArrayLayer(dstSubresource, 0);
-        VkImageSubresourceLayers.layerCount(dstSubresource, 1);
-        
-        MemorySegment dstOffsets = VkImageBlit.dstOffsets(blit);
-        VkOffset3D.x(dstOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.y(dstOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.z(dstOffsets.asSlice(0, VkOffset3D.layout().byteSize()), 0);
-        VkOffset3D.x(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, width >> dstMip));
-        VkOffset3D.y(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, height >> dstMip));
-        VkOffset3D.z(dstOffsets.asSlice(VkOffset3D.layout().byteSize(), VkOffset3D.layout().byteSize()), Math.max(1, depth >> dstMip));
-        
-        Vulkan.cmdBlitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.value(),
-            image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, blit, VkFilter.VK_FILTER_LINEAR.value());
+        int mipWidth = Math.max(1, width >> srcMip);
+        int mipHeight = Math.max(1, height >> srcMip);
+        int nextMipWidth = Math.max(1, width >> dstMip);
+        int nextMipHeight = Math.max(1, height >> dstMip);
+        VkBlit.blitImage(commandBuffer, image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.value(),
+            image.handle(), VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(),
+            mipWidth, mipHeight, nextMipWidth, nextMipHeight, VkFilter.VK_FILTER_LINEAR.value());
     }
     
     @Override

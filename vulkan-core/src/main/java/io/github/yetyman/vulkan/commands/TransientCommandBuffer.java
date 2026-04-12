@@ -2,6 +2,8 @@ package io.github.yetyman.vulkan.commands;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.VkQueue;
+import io.github.yetyman.vulkan.command.VkCopy;
+import io.github.yetyman.vulkan.command.VkBarrierCmd;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.generated.VkBufferCopy;
@@ -143,12 +145,7 @@ public class TransientCommandBuffer implements AutoCloseable {
      */
     public void copyBuffer(MemorySegment srcBuffer, MemorySegment dstBuffer, 
                           long srcOffset, long dstOffset, long size) {
-        MemorySegment copyRegion = VkBufferCopy.allocate(arena);
-        VkBufferCopy.srcOffset(copyRegion, srcOffset);
-        VkBufferCopy.dstOffset(copyRegion, dstOffset);
-        VkBufferCopy.size(copyRegion, size);
-        
-        Vulkan.cmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, copyRegion);
+        VkCopy.copyBuffer(commandBuffer, srcBuffer, dstBuffer, srcOffset, dstOffset, size);
     }
     
     /**
@@ -183,8 +180,7 @@ public class TransientCommandBuffer implements AutoCloseable {
         VkExtent3D.height(imageExtent, height);
         VkExtent3D.depth(imageExtent, depth);
         
-        Vulkan.cmdCopyBufferToImage(commandBuffer, buffer, image, 
-            VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), 1, region);
+        VkCopy.copyBufferToImage(commandBuffer, buffer, image, VkImageLayout.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.value(), width, height, depth);
     }
 
     /**
@@ -226,7 +222,7 @@ public class TransientCommandBuffer implements AutoCloseable {
         VkExtent3D.height(imageExtent, height);
         VkExtent3D.depth(imageExtent, depth);
 
-        Vulkan.cmdCopyImageToBuffer(commandBuffer, image, imageLayout, buffer, 1, region);
+        VkCopy.copyImageToBuffer(commandBuffer, image, imageLayout, buffer, width, height, depth);
     }
 
     /**
@@ -260,7 +256,7 @@ public class TransientCommandBuffer implements AutoCloseable {
         VkExtent3D.height(extent, height);
         VkExtent3D.depth(extent, 1);
 
-        Vulkan.cmdCopyImage(commandBuffer, srcImage, srcLayout, dstImage, dstLayout, 1, region);
+        VkCopy.copyImage(commandBuffer, srcImage, srcLayout, dstImage, dstLayout, width, height, 1);
     }
     
     /**
@@ -285,7 +281,7 @@ public class TransientCommandBuffer implements AutoCloseable {
         VkImageSubresourceRange.baseArrayLayer(subresourceRange, 0);
         VkImageSubresourceRange.layerCount(subresourceRange, 1);
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        VkBarrierCmd.pipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, barrier);
     }
     
@@ -298,7 +294,7 @@ public class TransientCommandBuffer implements AutoCloseable {
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
         io.github.yetyman.vulkan.generated.VkMemoryBarrier.dstAccessMask(barrier, dstAccessMask);
         
-        Vulkan.cmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
+        VkBarrierCmd.pipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0,
             1, barrier, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
     }
     

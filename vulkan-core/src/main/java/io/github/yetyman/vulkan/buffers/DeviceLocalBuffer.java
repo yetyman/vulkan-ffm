@@ -1,13 +1,13 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkCopy;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
 import static io.github.yetyman.vulkan.enums.VkBufferUsageFlagBits.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 
 public class DeviceLocalBuffer extends AbstractBuffer {
@@ -74,8 +74,7 @@ public class DeviceLocalBuffer extends AbstractBuffer {
             VkCommandBuffer cmdBuffer = cmdBuffers[0];
 
             VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(readArena);
-            MemorySegment copyRegion = VkBufferCopy.allocate(readArena, offset, 0, readSize);
-            vkCmdCopyBuffer(cmdBuffer.handle(), handle(), readbackBuf.handle(), 1, copyRegion);
+            VkCopy.copyBuffer(cmdBuffer, vkBuffer, readbackBuf, offset, 0, readSize);
             vkEndCommandBuffer(cmdBuffer.handle());
 
             transferQueue.submit(

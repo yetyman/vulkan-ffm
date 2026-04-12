@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
-import io.github.yetyman.vulkan.VkBufferCopy;
+import io.github.yetyman.vulkan.command.VkCopy;
 import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkSubmitInfo;
 import io.github.yetyman.vulkan.generated.VkTimelineSemaphoreSubmitInfo;
@@ -12,7 +12,6 @@ import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdCopyBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkQueueSubmit;
 import static io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT;
@@ -61,8 +60,7 @@ class TransferBatch {
     TransferCompletion record(MemorySegment srcHandle, MemorySegment dstHandle,
                               long srcOffset, long dstOffset, long size,
                               AutoCloseable... toOwn) {
-        MemorySegment copyRegion = VkBufferCopy.allocate(batchArena, srcOffset, dstOffset, size);
-        vkCmdCopyBuffer(commandBuffer.handle(), srcHandle, dstHandle, 1, copyRegion);
+        VkCopy.copyBuffer(commandBuffer.handle(), srcHandle, dstHandle, srcOffset, dstOffset, size);
 
         for (AutoCloseable obj : toOwn) if (obj != null) ownedObjects.add(obj);
         stagedBytes += size;

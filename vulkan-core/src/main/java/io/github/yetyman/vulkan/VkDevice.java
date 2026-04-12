@@ -367,7 +367,6 @@ public class VkDevice implements AutoCloseable {
         VkDevice vkDevice = new VkDevice(device, physicalDevice);
         vkDevice.instance = instance;
         if (instance != null) instance.registerDevice(vkDevice);
-        Vulkan.setDevice(vkDevice);
         return vkDevice;
         }
     }

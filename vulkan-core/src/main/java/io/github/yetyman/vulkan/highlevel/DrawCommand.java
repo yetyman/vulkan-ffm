@@ -1,6 +1,10 @@
 package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.Vulkan;
+import io.github.yetyman.vulkan.command.VkDraw;
+import io.github.yetyman.vulkan.command.VkDrawIndexed;
+import io.github.yetyman.vulkan.command.VkDrawIndirect;
+import io.github.yetyman.vulkan.command.VkDrawIndexedIndirect;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -82,7 +86,7 @@ public abstract class DrawCommand {
         
         @Override
         public void execute(MemorySegment commandBuffer) {
-            Vulkan.cmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
+            VkDraw.draw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
         }
     }
     
@@ -111,7 +115,7 @@ public abstract class DrawCommand {
         
         @Override
         public void execute(MemorySegment commandBuffer) {
-            Vulkan.cmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+            VkDrawIndexed.drawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
     }
     
@@ -137,7 +141,7 @@ public abstract class DrawCommand {
         
         @Override
         public void execute(MemorySegment commandBuffer) {
-            Vulkan.cmdDrawIndirect(commandBuffer, buffer, offset, drawCount, stride);
+            VkDrawIndirect.drawIndirect(commandBuffer, buffer, offset, drawCount, stride);
         }
     }
     
@@ -163,7 +167,7 @@ public abstract class DrawCommand {
         
         @Override
         public void execute(MemorySegment commandBuffer) {
-            Vulkan.cmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
+            VkDrawIndexedIndirect.drawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
         }
     }
     
@@ -201,8 +205,8 @@ public abstract class DrawCommand {
             } else {
                 // Fallback to individual draws
                 for (DrawInfo draw : draws) {
-                    Vulkan.cmdDraw(commandBuffer, draw.vertexCount, draw.instanceCount, 
-                                 draw.firstVertex, draw.firstInstance);
+                    VkDraw.draw(commandBuffer, draw.vertexCount, draw.instanceCount, 
+                             draw.firstVertex, draw.firstInstance);
                 }
             }
         }

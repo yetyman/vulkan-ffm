@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import java.lang.foreign.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
  *
  * <pre>{@code
  * VkRendering.builder()
+ *     .device(device)
  *     .renderArea(0, 0, width, height)
  *     .colorAttachment(swapchainImageView, VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
  *                      VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -22,7 +24,7 @@ import java.util.List;
  *                      VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE)
  *     .begin(commandBuffer, arena);
  * // ... draw calls ...
- * VkRendering.end(commandBuffer);
+ * VkRendering.end(device, commandBuffer);
  * }</pre>
  */
 public class VkRendering {
@@ -32,11 +34,12 @@ public class VkRendering {
     public static Builder builder() { return new Builder(); }
 
     /** Ends a dynamic rendering pass. */
-    public static void end(MemorySegment commandBuffer) {
-        Vulkan.cmdEndRendering(commandBuffer);
+    public static void end(VkDevice device, MemorySegment commandBuffer) {
+        VkRenderPassCmd.endRendering(device, commandBuffer);
     }
 
     public static class Builder {
+        private VkDevice device;
         private int x = 0, y = 0, width = 0, height = 0;
         private int layers = 1;
         private int viewMask = 0;
@@ -46,6 +49,9 @@ public class VkRendering {
         private AttachmentConfig stencilAttachment = null;
 
         private Builder() {}
+
+        /** Sets the device for dynamic rendering function loading. */
+        public Builder device(VkDevice device) { this.device = device; return this; }
 
         /** Sets the render area. */
         public Builder renderArea(int x, int y, int width, int height) {
@@ -142,6 +148,8 @@ public class VkRendering {
          * Builds the VkRenderingInfo and calls vkCmdBeginRendering.
          */
         public void begin(MemorySegment commandBuffer, Arena arena) {
+            if (device == null) throw new IllegalStateException("device not set");
+            
             MemorySegment renderingInfo = VkRenderingInfo.allocate(arena);
             VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
             VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
@@ -185,7 +193,7 @@ public class VkRendering {
                 VkRenderingInfo.pStencilAttachment(renderingInfo, MemorySegment.NULL);
             }
 
-            Vulkan.cmdBeginRendering(commandBuffer, renderingInfo);
+            VkRenderPassCmd.beginRendering(device, commandBuffer, renderingInfo);
         }
 
         private void fillAttachment(MemorySegment slot, AttachmentConfig cfg, Arena arena) {

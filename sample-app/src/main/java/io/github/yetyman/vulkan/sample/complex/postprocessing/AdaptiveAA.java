@@ -1,6 +1,9 @@
 package io.github.yetyman.vulkan.sample.complex.postprocessing;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkBind;
+import io.github.yetyman.vulkan.command.VkDraw;
+import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.shaders.ShaderLoader;
 import io.github.yetyman.vulkan.highlevel.VkTexture;
@@ -352,10 +355,10 @@ public class AdaptiveAA {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
             descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
-            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkDraw.draw(commandBuffer, 3, 1, 0, 0);
+            VkRenderPassCmd.endRenderPass(commandBuffer);
         } else {
             // Post-process AA mode - edge detection + adaptive AA
             // Transition previous frame for sampling (only if first frame)
@@ -369,10 +372,10 @@ public class AdaptiveAA {
                 .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
+            VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.handle());
             descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), edgePipeline.layout(), 0, frameArena);
-            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkDraw.draw(commandBuffer, 3, 1, 0, 0);
+            VkRenderPassCmd.endRenderPass(commandBuffer);
             
             // Adaptive AA pass to swapchain
             VkCommandBuffer.beginRenderPass(commandBuffer, aaRenderPass.handle(), finalFramebuffer.handle())
@@ -381,7 +384,7 @@ public class AdaptiveAA {
                 .clearDepth(1.0f, 0)
                 .execute(frameArena);
             
-            Vulkan.cmdBindPipeline(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
+            VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.handle());
             descriptorSet.bind(commandBuffer.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), aaPipeline.layout(), 0, frameArena);
             
             // Push constants for frame info
@@ -391,8 +394,8 @@ public class AdaptiveAA {
                 .build()
                 .push(commandBuffer.handle(), aaPipeline.layout(), VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0);
             
-            Vulkan.cmdDraw(commandBuffer.handle(), 3, 1, 0, 0);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkDraw.draw(commandBuffer, 3, 1, 0, 0);
+            VkRenderPassCmd.endRenderPass(commandBuffer);
             
             frameIndex++;
         }

@@ -2,11 +2,13 @@ package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import io.github.yetyman.vulkan.enums.VkDescriptorType;
 import io.github.yetyman.vulkan.enums.VkImageLayout;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
 import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 
+import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -384,7 +386,7 @@ public class ShaderInstance implements AutoCloseable {
         MemorySegment data = serializePushConstant(value, pc.size(), flushArena);
         if (data == null) return;
         int stageFlags = compiled.getShaderStageFlags();
-        Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, pc.offset(), pc.size(), data);
+        VkPushConstantsCmd.pushConstants(commandBuffer, pipelineLayout, stageFlags, pc.offset(), data, pc.size());
     }
 
     private MemorySegment serializePushConstant(Object value, int size, Arena arena) {

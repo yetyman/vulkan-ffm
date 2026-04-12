@@ -3,6 +3,8 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.commands.TransientCommandBuffer;
+import io.github.yetyman.vulkan.command.VkBind;
+import io.github.yetyman.vulkan.command.VkDispatch;
 import io.github.yetyman.vulkan.shaders.CompiledShader;
 import java.lang.foreign.*;
 import java.nio.ByteBuffer;
@@ -51,12 +53,12 @@ public class VkComputePipeline implements AutoCloseable {
 
     /** Binds this compute pipeline to a command buffer. */
     public void bind(MemorySegment commandBuffer) {
-        Vulkan.cmdBindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_COMPUTE.value(), handle);
+        VkBind.bindPipeline(commandBuffer, this);
     }
 
     /** Dispatches compute work groups. */
     public static void dispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
-        Vulkan.cmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
+        VkDispatch.dispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
     }
 
     /** Pushes an int push constant at the given byte offset. */
@@ -64,7 +66,7 @@ public class VkComputePipeline implements AutoCloseable {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment data = a.allocate(ValueLayout.JAVA_INT);
             data.set(ValueLayout.JAVA_INT, 0, value);
-            Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
+            VulkanFFM.vkCmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
         }
     }
 
@@ -73,13 +75,13 @@ public class VkComputePipeline implements AutoCloseable {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment data = a.allocate(ValueLayout.JAVA_FLOAT);
             data.set(ValueLayout.JAVA_FLOAT, 0, value);
-            Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
+            VulkanFFM.vkCmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, 4, data);
         }
     }
 
     /** Pushes raw bytes as push constants at the given byte offset. */
     public void pushConstants(MemorySegment commandBuffer, int offset, MemorySegment data, int size) {
-        Vulkan.cmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, size, data);
+        VulkanFFM.vkCmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, size, data);
     }
 
     /**

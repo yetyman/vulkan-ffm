@@ -10,13 +10,6 @@ import java.lang.foreign.*;
 public class Vulkan {
     static { VulkanLibrary.load(); }
 
-    // Active device for routing extension functions that must be loaded per-device.
-    // Set automatically when VkDevice is created via VulkanContext, or manually via setDevice().
-    private static volatile VkDevice activeDevice;
-
-    public static void setDevice(VkDevice device) { activeDevice = device; }
-    public static VkDevice getDevice() { return activeDevice; }
-    
     /**
      * Creates a Vulkan instance.
      * @param createInfo pointer to VkInstanceCreateInfo structure
@@ -119,11 +112,6 @@ public class Vulkan {
     public static VkResult bindBufferMemory(MemorySegment device, MemorySegment buffer, MemorySegment memory, long offset) {
         int result = VulkanFFM.vkBindBufferMemory(device, buffer, memory, offset);
         return VkResult.fromInt(result);
-    }
-    
-    public static void cmdCopyBuffer(MemorySegment commandBuffer, MemorySegment srcBuffer, MemorySegment dstBuffer, 
-                                     int regionCount, MemorySegment regions) {
-        VulkanFFM.vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, regionCount, regions);
     }
     
     public static int makeVersion(int major, int minor, int patch) {
@@ -295,59 +283,6 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
-    public static void cmdPipelineBarrier(MemorySegment commandBuffer, int srcStageMask, int dstStageMask, int dependencyFlags,
-                                          int memoryBarrierCount, MemorySegment memoryBarriers,
-                                          int bufferMemoryBarrierCount, MemorySegment bufferMemoryBarriers,
-                                          int imageMemoryBarrierCount, MemorySegment imageMemoryBarriers) {
-        VulkanFFM.vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags,
-                memoryBarrierCount, memoryBarriers, bufferMemoryBarrierCount, bufferMemoryBarriers,
-                imageMemoryBarrierCount, imageMemoryBarriers);
-    }
-
-    public static void cmdCopyBufferToImage(MemorySegment commandBuffer, MemorySegment srcBuffer, MemorySegment dstImage, int dstImageLayout, int regionCount, MemorySegment regions) {
-        VulkanFFM.vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, dstImageLayout, regionCount, regions);
-    }
-
-    public static void cmdBlitImage(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout, MemorySegment dstImage, int dstImageLayout, int regionCount, MemorySegment regions, int filter) {
-        VulkanFFM.vkCmdBlitImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, regions, filter);
-    }
-
-    public static void cmdBindPipeline(MemorySegment commandBuffer, int pipelineBindPoint, MemorySegment pipeline) {
-        VulkanFFM.vkCmdBindPipeline(commandBuffer, pipelineBindPoint, pipeline);
-    }
-
-    public static void cmdDispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
-        VulkanFFM.vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
-    }
-
-    public static void cmdBindDescriptorSets(MemorySegment commandBuffer, int pipelineBindPoint, MemorySegment layout, int firstSet, int descriptorSetCount, MemorySegment descriptorSets, int dynamicOffsetCount, MemorySegment dynamicOffsets) {
-        VulkanFFM.vkCmdBindDescriptorSets(commandBuffer, pipelineBindPoint, layout, firstSet, descriptorSetCount, descriptorSets, dynamicOffsetCount, dynamicOffsets);
-    }
-
-    public static void cmdPushConstants(MemorySegment commandBuffer, MemorySegment layout, int stageFlags, int offset, int size, MemorySegment values) {
-        VulkanFFM.vkCmdPushConstants(commandBuffer, layout, stageFlags, offset, size, values);
-    }
-
-    public static void cmdBindVertexBuffers(MemorySegment commandBuffer, int firstBinding, int bindingCount, MemorySegment buffers, MemorySegment offsets) {
-        VulkanFFM.vkCmdBindVertexBuffers(commandBuffer, firstBinding, bindingCount, buffers, offsets);
-    }
-
-    public static void cmdBindIndexBuffer(MemorySegment commandBuffer, MemorySegment buffer, long offset, int indexType) {
-        VulkanFFM.vkCmdBindIndexBuffer(commandBuffer, buffer, offset, indexType);
-    }
-
-    public static void cmdDraw(MemorySegment commandBuffer, int vertexCount, int instanceCount, int firstVertex, int firstInstance) {
-        VulkanFFM.vkCmdDraw(commandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
-    }
-
-    public static void cmdDrawIndexed(MemorySegment commandBuffer, int indexCount, int instanceCount, int firstIndex, int vertexOffset, int firstInstance) {
-        VulkanFFM.vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-    }
-
-    public static void cmdBeginRenderPass(MemorySegment commandBuffer, MemorySegment renderPassBegin, int contents) {
-        VulkanFFM.vkCmdBeginRenderPass(commandBuffer, renderPassBegin, contents);
-    }
-
     public static void cmdEndRenderPass(MemorySegment commandBuffer) {
         VulkanFFM.vkCmdEndRenderPass(commandBuffer);
     }
@@ -432,50 +367,9 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
-    public static void cmdSetViewport(MemorySegment commandBuffer, int firstViewport, int viewportCount, MemorySegment viewports) {
-        VulkanFFM.vkCmdSetViewport(commandBuffer, firstViewport, viewportCount, viewports);
-    }
-
-    public static void cmdSetScissor(MemorySegment commandBuffer, int firstScissor, int scissorCount, MemorySegment scissors) {
-        VulkanFFM.vkCmdSetScissor(commandBuffer, firstScissor, scissorCount, scissors);
-    }
-
-    public static void cmdExecuteCommands(MemorySegment commandBuffer, int commandBufferCount, MemorySegment commandBuffers) {
-        VulkanFFM.vkCmdExecuteCommands(commandBuffer, commandBufferCount, commandBuffers);
-    }
-
-    public static void getPhysicalDeviceFormatProperties(MemorySegment physicalDevice, int format, MemorySegment formatProperties) {
-        VulkanFFM.vkGetPhysicalDeviceFormatProperties(physicalDevice, format, formatProperties);
-    }
-
-    public static void cmdDrawIndirect(MemorySegment commandBuffer, MemorySegment buffer, long offset, int drawCount, int stride) {
-        VulkanFFM.vkCmdDrawIndirect(commandBuffer, buffer, offset, drawCount, stride);
-    }
-
-    public static void cmdDrawIndexedIndirect(MemorySegment commandBuffer, MemorySegment buffer, long offset, int drawCount, int stride) {
-        VulkanFFM.vkCmdDrawIndexedIndirect(commandBuffer, buffer, offset, drawCount, stride);
-    }
-
     public static VkResult enumerateDeviceExtensionProperties(MemorySegment physicalDevice, MemorySegment layerName, MemorySegment propertyCount, MemorySegment properties) {
         int result = VulkanFFM.vkEnumerateDeviceExtensionProperties(physicalDevice, layerName, propertyCount, properties);
         return VkResult.fromInt(result);
-    }
-
-    // Dynamic rendering (Vulkan 1.3 / VK_KHR_dynamic_rendering)
-    public static void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) {
-        if (activeDevice != null) {
-            activeDevice.cmdBeginRendering(commandBuffer, renderingInfo);
-        } else {
-            VulkanFFM.vkCmdBeginRendering(commandBuffer, renderingInfo);
-        }
-    }
-
-    public static void cmdEndRendering(MemorySegment commandBuffer) {
-        if (activeDevice != null) {
-            activeDevice.cmdEndRendering(commandBuffer);
-        } else {
-            VulkanFFM.vkCmdEndRendering(commandBuffer);
-        }
     }
 
     public static VkResult queueBindSparse(MemorySegment queue, int bindInfoCount, MemorySegment bindInfo, MemorySegment fence) {
@@ -483,14 +377,4 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
-    // Image copy operations (#5)
-    public static void cmdCopyImage(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout,
-                                    MemorySegment dstImage, int dstImageLayout, int regionCount, MemorySegment regions) {
-        VulkanFFM.vkCmdCopyImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, regions);
-    }
-
-    public static void cmdCopyImageToBuffer(MemorySegment commandBuffer, MemorySegment srcImage, int srcImageLayout,
-                                            MemorySegment dstBuffer, int regionCount, MemorySegment regions) {
-        VulkanFFM.vkCmdCopyImageToBuffer(commandBuffer, srcImage, srcImageLayout, dstBuffer, regionCount, regions);
-    }
 }

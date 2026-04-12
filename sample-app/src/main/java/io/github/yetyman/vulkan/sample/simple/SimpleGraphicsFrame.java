@@ -1,6 +1,9 @@
 package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkBind;
+import io.github.yetyman.vulkan.command.VkSetState;
+import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.highlevel.DrawCommand;
 import io.github.yetyman.vulkan.highlevel.GraphicsFrame;
@@ -83,6 +86,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
 
             VkRendering.builder()
+                .device(device)
                 .renderArea(0, 0, width, height)
                 .colorAttachment(
                     swapchainImageViews[imageIndex].handle(),
@@ -98,20 +102,17 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                 .execute(frameArena);
         }
 
-        Vulkan.cmdBindPipeline(commandBuffer.handle(),
-            VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
+        VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
 
-        Vulkan.cmdSetViewport(commandBuffer.handle(), 0, 1,
-            VkViewport.builder().position(0, 0).size(width, height).depthRange(0.0f, 1.0f).build(frameArena));
-        Vulkan.cmdSetScissor(commandBuffer.handle(), 0, 1,
-            VkRect2D.builder().offset(0, 0).extent(width, height).build(frameArena));
+        VkSetState.setViewport(commandBuffer, 0, 0, 0, width, height, 0.0f, 1.0f);
+        VkSetState.setScissor(commandBuffer, 0, 0, 0, width, height);
 
         onDraw(commandBuffer, frameArena);
 
         DrawCommand.direct(vertexCount(), instanceCount()).execute(commandBuffer.handle());
 
         if (useDynamicRendering) {
-            VkRendering.end(commandBuffer.handle());
+            VkRendering.end(device, commandBuffer.handle());
 
             VkImageBarrier.builder()
                 .image(swapchainImageViews[imageIndex].image())
@@ -125,7 +126,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
         } else {
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkRenderPassCmd.endRenderPass(commandBuffer);
         }
 
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();

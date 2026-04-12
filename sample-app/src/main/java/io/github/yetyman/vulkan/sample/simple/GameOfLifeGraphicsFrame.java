@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.sample.simple;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.loop.ComputeLoop;
 import io.github.yetyman.vulkan.loop.LoopDriver;
@@ -160,15 +161,13 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
         long gen = computeLoop.completedGeneration();
         VkDescriptorSet fragSet = (gen % 2 == 0 && gen > 0) ? fragSetB : fragSetA;
 
-        fragSet.bind(commandBuffer.handle(),
-            VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-            pipeline.layout(), 0, frameArena);
+        fragSet.bind(commandBuffer, pipeline, 0, frameArena);
 
         MemorySegment pcData = frameArena.allocate(8);
         pcData.set(ValueLayout.JAVA_INT, 0, GRID_W);
         pcData.set(ValueLayout.JAVA_INT, 4, GRID_H);
-        Vulkan.cmdPushConstants(commandBuffer.handle(), pipeline.layout(),
-            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8, pcData);
+        VkPushConstantsCmd.pushConstants(commandBuffer, pipeline.layout(),
+            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, pcData, 8);
     }
 
     @Override protected int vertexCount() { return 3; }

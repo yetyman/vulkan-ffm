@@ -1,6 +1,9 @@
 package io.github.yetyman.vulkan.sample.complex.threading;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkBind;
+import io.github.yetyman.vulkan.command.VkSetState;
+import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import io.github.yetyman.vulkan.commands.CommandManager;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
@@ -181,7 +184,7 @@ public class ThreadedRenderer extends GraphicsFrame {
                 .write("sceneDepth", RenderList.ResourceUsage.DEPTH_ATTACHMENT)
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing triangle pass");
-                    Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
+                    VkBind.bindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
                     
                     // Push time constant for rotation
                     float elapsedTime = (System.nanoTime() - startTime) / 1_000_000_000.0f;
@@ -189,8 +192,8 @@ public class ThreadedRenderer extends GraphicsFrame {
                         VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
                         .push(cmd, pipeline.layout());
                     
-                    Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
-                    Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
+                    VkSetState.setViewport(cmd, 0, 0, 0, width, height, 0.0f, 1.0f);
+                    VkSetState.setScissor(cmd, 0, 0, 0, width, height);
                     
                     DrawCommand.direct(3, 1).execute(cmd);
                 })
@@ -216,14 +219,14 @@ public class ThreadedRenderer extends GraphicsFrame {
                         cameraUniformBuffer.unmap();
                     }
                     
-                    Vulkan.cmdBindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
+                    VkBind.bindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
                     
                     // Bind descriptor set with camera uniform
                     descriptorSet.bind(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
                         gltfPipeline.layout(), 0, frameArena);
                     
-                    Vulkan.cmdSetViewport(cmd, 0, 1, cachedViewport);
-                    Vulkan.cmdSetScissor(cmd, 0, 1, cachedScissor);
+                    VkSetState.setViewport(cmd, 0, 0, 0, width, height, 0.0f, 1.0f);
+                    VkSetState.setScissor(cmd, 0, 0, 0, width, height);
                     
                     // Render loaded meshes
                     synchronized (loadedMeshes) {
@@ -429,7 +432,7 @@ public class ThreadedRenderer extends GraphicsFrame {
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, imageIndex, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkRenderPassCmd.endRenderPass(commandBuffer);
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
@@ -440,7 +443,7 @@ public class ThreadedRenderer extends GraphicsFrame {
                 .execute(frameArena);
             
             renderScene(commandBuffer, imageIndex, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkRenderPassCmd.endRenderPass(commandBuffer);
         }
         
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
@@ -461,7 +464,7 @@ public class ThreadedRenderer extends GraphicsFrame {
             builder.clearDepth(1.0f, 0).execute(frameArena);
             
             renderScene(commandBuffer, imageIndex, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkRenderPassCmd.endRenderPass(commandBuffer);
             
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
@@ -472,7 +475,7 @@ public class ThreadedRenderer extends GraphicsFrame {
                 .execute(frameArena);
             
             renderScene(commandBuffer, imageIndex, frameArena);
-            Vulkan.cmdEndRenderPass(commandBuffer.handle());
+            VkRenderPassCmd.endRenderPass(commandBuffer);
         }
         
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();

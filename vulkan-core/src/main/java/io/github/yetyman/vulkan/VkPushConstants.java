@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan;
 
+import io.github.yetyman.vulkan.generated.VulkanFFM;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -83,11 +84,11 @@ public class VkPushConstants {
     }
     
     public void push(MemorySegment commandBuffer, MemorySegment pipelineLayout) {
-        Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
+        VulkanFFM.vkCmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
     }
     
     public void push(MemorySegment commandBuffer, MemorySegment pipelineLayout, int stageFlags, int offset) {
-        Vulkan.cmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
+        VulkanFFM.vkCmdPushConstants(commandBuffer, pipelineLayout, stageFlags, offset, (int)data.byteSize(), data);
     }
     
     public static class Builder {
