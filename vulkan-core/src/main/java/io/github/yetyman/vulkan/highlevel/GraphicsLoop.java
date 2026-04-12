@@ -1,16 +1,18 @@
 package io.github.yetyman.vulkan.highlevel;
 
+import io.github.yetyman.vulkan.ILifecycle;
+import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.loop.LoopDriver;
 import io.github.yetyman.vulkan.loop.LoopThread;
 import io.github.yetyman.vulkan.loop.TimingStrategy;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
 
 /**
- * Composes a {@link GraphicsRenderer} with a {@link LoopThread}, handling the standard
+ * Composes a {@link GraphicsFrame} with a {@link LoopThread}, handling the standard
  * concerns of a render loop: frame gating, resize coordination, idle sleeping, and FPS tracking.
  *
  * <pre>{@code
@@ -30,11 +32,11 @@ import java.util.function.IntSupplier;
  */
 public class GraphicsLoop implements AutoCloseable {
 
-    private final GraphicsRenderer renderer;
+    private final GraphicsFrame renderer;
     private final LoopThread loopThread;
     private final BooleanSupplier shouldClose;
 
-    private GraphicsLoop(GraphicsRenderer renderer, LoopThread loopThread, BooleanSupplier shouldClose) {
+    private GraphicsLoop(GraphicsFrame renderer, LoopThread loopThread, BooleanSupplier shouldClose) {
         this.renderer = renderer;
         this.loopThread = loopThread;
         this.shouldClose = shouldClose;
@@ -46,7 +48,7 @@ public class GraphicsLoop implements AutoCloseable {
     public void stop()  { loopThread.stop(); }
     public boolean isRunning() { return loopThread.isRunning(); }
     public void driver(LoopDriver driver) { loopThread.driver(driver); }
-    public GraphicsRenderer renderer() { return renderer; }
+    public GraphicsFrame renderer() { return renderer; }
     public LoopThread loopThread() { return loopThread; }
 
     /** Runs the loop on the calling thread, blocking until {@code shouldClose} returns true. */
@@ -56,7 +58,7 @@ public class GraphicsLoop implements AutoCloseable {
     public void close() { loopThread.stop(); }
 
     public static class Builder {
-        private GraphicsRenderer renderer;
+        private GraphicsFrame renderer;
         private LoopDriver driver = LoopDriver.uncapped();
         private TimingStrategy timing = TimingStrategy.none();
         private String name = "GraphicsLoop";
@@ -69,10 +71,11 @@ public class GraphicsLoop implements AutoCloseable {
         private Consumer<int[]> onResize = null;
         private IntConsumer onFpsUpdate = null;
         private int idleSleepMs = 10;
+        private final java.util.List<ILifecycle> lifecycleDeps = new java.util.ArrayList<>();
 
         private Builder() {}
 
-        public Builder renderer(GraphicsRenderer renderer) { this.renderer = renderer; return this; }
+        public Builder renderer(GraphicsFrame renderer) { this.renderer = renderer; return this; }
         public Builder driver(LoopDriver driver) { this.driver = driver; return this; }
         public Builder timing(TimingStrategy timing) { this.timing = timing; return this; }
         public Builder name(String name) { this.name = name; return this; }
@@ -95,10 +98,14 @@ public class GraphicsLoop implements AutoCloseable {
         /** Milliseconds to sleep when shouldRender() returns false. Default: 10. */
         public Builder idleSleepMs(int ms) { this.idleSleepMs = ms; return this; }
 
+        /** Registers a lifecycle dependency to stop before resize and restart after. */
+        public Builder lifecycleDependency(ILifecycle dep) { this.lifecycleDeps.add(dep); return this; }
+
         public GraphicsLoop build() {
             if (renderer == null) throw new IllegalStateException("renderer not set");
 
             Consumer<int[]> resizeHandler = onResize;
+            java.util.List<ILifecycle> deps = java.util.List.copyOf(lifecycleDeps);
             BooleanSupplier closeCheck = shouldClose;
             BooleanSupplier renderCheck = shouldRender;
             Runnable poll = pollEvents;
@@ -110,15 +117,17 @@ public class GraphicsLoop implements AutoCloseable {
 
             long[] fpsState = {System.nanoTime(), 0}; // [lastTime, frameCount]
 
+            AtomicReference<LoopThread> loopRef = new AtomicReference<>();
+
             LoopThread loop = LoopThread.builder()
                 .name(name)
-                .driver(LoopDriver.uncapped()) // outer driver is uncapped; inner rate control via shouldRender/idle
+                .driver(LoopDriver.uncapped())
                 .timing(timing)
                 .work(t -> {
                     poll.run();
 
                     if (closeCheck.getAsBoolean()) {
-                        // Signal the loop to stop — LoopDriver checks running flag
+                        loopRef.get().signal();
                         return;
                     }
 
@@ -130,7 +139,9 @@ public class GraphicsLoop implements AutoCloseable {
                         if (rw != -1) pendingResize[0] = pendingResize[1] = -1;
                     }
                     if (rw != -1 && resizeHandler != null) {
+                        for (ILifecycle dep : deps) { dep.beforeStop(); dep.stop(); dep.awaitStopped(); dep.afterStop(); }
                         resizeHandler.accept(new int[]{rw, rh});
+                        for (int i = deps.size() - 1; i >= 0; i--) { ILifecycle dep = deps.get(i); dep.beforeStart(); dep.start(); dep.afterStart(); }
                     }
 
                     if (!renderCheck.getAsBoolean()) {
@@ -152,6 +163,8 @@ public class GraphicsLoop implements AutoCloseable {
                     }
                 })
                 .build();
+
+            loopRef.set(loop);
 
             // Expose signalResize via the GraphicsLoop instance — store pending in the array
             GraphicsLoop graphicsLoop = new GraphicsLoop(renderer, loop, closeCheck) {

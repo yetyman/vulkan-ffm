@@ -14,16 +14,16 @@ public class VulkanContext implements AutoCloseable {
     private final VkInstance instance;
     private final VkPhysicalDevice physicalDevice;
     private final VkDevice device;
-    private final MemorySegment graphicsQueue;
-    private final MemorySegment presentQueue;
-    private final MemorySegment computeQueue;
+    private final VkQueue graphicsQueue;
+    private final VkQueue presentQueue;
+    private final VkQueue computeQueue;
     private final int graphicsQueueFamily;
     private final int presentQueueFamily;
     private final int computeQueueFamily;
     
     private VulkanContext(Arena arena, VkInstance instance, VkPhysicalDevice physicalDevice, 
-                         VkDevice device, MemorySegment graphicsQueue, MemorySegment presentQueue,
-                         MemorySegment computeQueue, int graphicsQueueFamily, int presentQueueFamily,
+                         VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue,
+                         VkQueue computeQueue, int graphicsQueueFamily, int presentQueueFamily,
                          int computeQueueFamily) {
         this.arena = arena;
         this.instance = instance;
@@ -55,13 +55,22 @@ public class VulkanContext implements AutoCloseable {
     public VkDevice device() { return device; }
     
     /** @return the graphics queue handle */
-    public MemorySegment graphicsQueue() { return graphicsQueue; }
+    public MemorySegment graphicsQueue() { return graphicsQueue.handle(); }
+
+    /** @return the graphics queue */
+    public VkQueue graphicsVkQueue() { return graphicsQueue; }
 
     /** @return the present queue handle */
-    public MemorySegment presentQueue() { return presentQueue; }
+    public MemorySegment presentQueue() { return presentQueue.handle(); }
 
-    /** @return a dedicated compute queue handle, always distinct from graphicsQueue() */
-    public MemorySegment computeQueue() { return computeQueue; }
+    /** @return the present queue */
+    public VkQueue presentVkQueue() { return presentQueue; }
+
+    /** @return the compute queue handle */
+    public MemorySegment computeQueue() { return computeQueue.handle(); }
+
+    /** @return the compute queue */
+    public VkQueue computeVkQueue() { return computeQueue; }
     
     /** @return the graphics queue family index */
     public int graphicsQueueFamily() { return graphicsQueueFamily; }
@@ -297,9 +306,9 @@ public class VulkanContext implements AutoCloseable {
                 VkDevice device = deviceBuilder.build(arena);
                 VulkanCapabilities.initialize(physicalDevice);
 
-                MemorySegment graphicsQueue = device.getQueue(graphicsFamily, 0);
-                MemorySegment presentQueue  = device.getQueue(presentFamily, 0);
-                MemorySegment computeQueue  = device.getQueue(computeFamily, computeQueueIndex);
+                VkQueue graphicsQueue = new VkQueue(device, device.getQueue(graphicsFamily, 0), graphicsFamily);
+                VkQueue presentQueue  = new VkQueue(device, device.getQueue(presentFamily, 0), presentFamily);
+                VkQueue computeQueue  = new VkQueue(device, device.getQueue(computeFamily, computeQueueIndex), computeFamily);
 
                 return new VulkanContext(arena, instance, physicalDevice, device,
                     graphicsQueue, presentQueue, computeQueue,

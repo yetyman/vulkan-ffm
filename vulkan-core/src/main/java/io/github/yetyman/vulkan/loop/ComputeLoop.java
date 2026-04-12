@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.loop;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.ILifecycle;
+import io.github.yetyman.vulkan.queue.MutexSubmitter;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
@@ -47,7 +48,7 @@ public class ComputeLoop implements ILifecycle {
     }
 
     private final VkDevice device;
-    private final MemorySegment queueHandle;
+    private final VkQueue queue;
     private final int queueFamilyIndex;
     private final VkTimelineSemaphore semaphore;
     private final LoopDriver driver;
@@ -64,10 +65,10 @@ public class ComputeLoop implements ILifecycle {
 
     private LoopThread loopThread;
 
-    private ComputeLoop(VkDevice device, MemorySegment queueHandle, int queueFamilyIndex,
+    private ComputeLoop(VkDevice device, VkQueue queue, int queueFamilyIndex,
                         VkTimelineSemaphore semaphore, LoopDriver driver, Work work, String threadName) {
         this.device = device;
-        this.queueHandle = queueHandle;
+        this.queue = queue;
         this.queueFamilyIndex = queueFamilyIndex;
         this.semaphore = semaphore;
         this.driver = driver;
@@ -166,7 +167,7 @@ public class ComputeLoop implements ILifecycle {
 
             VkSubmit.Builder submitBuilder = VkSubmit.builder().commandBuffer(cmd);
             if (semaphore != null) submitBuilder.signalTimelineSemaphore(semaphore, signalValue);
-            submitBuilder.submit(queueHandle, fence.handle(), frameArena).check();
+            submitBuilder.submit(queue, fence.handle(), frameArena);
             completedGen.set(signalValue);
         }
     }
@@ -175,7 +176,7 @@ public class ComputeLoop implements ILifecycle {
 
     public static class Builder {
         private VkDevice device;
-        private MemorySegment queueHandle;
+        private VkQueue queue;
         private int queueFamilyIndex;
         private VkTimelineSemaphore semaphore;
         private LoopDriver driver = LoopDriver.uncapped();
@@ -187,8 +188,8 @@ public class ComputeLoop implements ILifecycle {
         /** Sets the logical device. */
         public Builder device(VkDevice device) { this.device = device; return this; }
 
-        /** Sets the queue handle to submit compute work to. */
-        public Builder queue(MemorySegment queueHandle) { this.queueHandle = queueHandle; return this; }
+        /** Sets the queue to submit compute work to. */
+        public Builder queue(VkQueue queue) { this.queue = queue; return this; }
 
         /** Sets the queue family index for command pool creation. */
         public Builder queueFamilyIndex(int index) { this.queueFamilyIndex = index; return this; }
@@ -209,10 +210,10 @@ public class ComputeLoop implements ILifecycle {
         public Builder name(String name) { this.threadName = name; return this; }
 
         public ComputeLoop build() {
-            if (device == null)      throw new IllegalStateException("device not set");
-            if (queueHandle == null) throw new IllegalStateException("queue not set");
-            if (work == null)        throw new IllegalStateException("work not set");
-            return new ComputeLoop(device, queueHandle, queueFamilyIndex, semaphore, driver, work, threadName);
+            if (device == null) throw new IllegalStateException("device not set");
+            if (queue == null)  throw new IllegalStateException("queue not set");
+            if (work == null)   throw new IllegalStateException("work not set");
+            return new ComputeLoop(device, queue, queueFamilyIndex, semaphore, driver, work, threadName);
         }
     }
 }

@@ -22,9 +22,9 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkGetDeviceQueue;
 public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex,
                       AtomicReference<IQueueSubmitter> submitterRef) {
 
-    /** Canonical constructor — initialises the submitter to MutexSubmitter (safe default for shared access). */
+    /** Canonical constructor — initialises the submitter to DirectSubmitter. */
     public VkQueue(VkDevice device, MemorySegment handle, int familyIndex) {
-        this(device, handle, familyIndex, new AtomicReference<>(new MutexSubmitter(handle)));
+        this(device, handle, familyIndex, new AtomicReference<>(new DirectSubmitter(handle)));
     }
 
     /** @return the current submission strategy */
@@ -80,7 +80,7 @@ public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex,
             MemorySegment queuePtr = arena.allocate(ValueLayout.ADDRESS);
             vkGetDeviceQueue(device.handle(), queueFamilyIndex, queueIndex, queuePtr);
             MemorySegment handle = queuePtr.get(ValueLayout.ADDRESS, 0);
-            IQueueSubmitter s = submitter != null ? submitter : new MutexSubmitter(handle);
+            IQueueSubmitter s = submitter != null ? submitter : new DirectSubmitter(handle);
             return new VkQueue(device, handle, queueFamilyIndex, new AtomicReference<>(s));
         }
     }

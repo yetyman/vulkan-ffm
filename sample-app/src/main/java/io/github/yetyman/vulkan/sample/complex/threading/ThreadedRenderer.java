@@ -12,7 +12,7 @@ import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 import java.util.*;
 
-public class ThreadedRenderer extends GraphicsRenderer {
+public class ThreadedRenderer extends GraphicsFrame {
     public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
     
     private static final int TRIANGLES_COUNT = 1000;
@@ -64,7 +64,7 @@ public class ThreadedRenderer extends GraphicsRenderer {
     private MainThreadWorkQueue mainThreadWork;
     private final List<VulkanMesh> loadedMeshes = new ArrayList<>();
     
-    public ThreadedRenderer(Arena arena, VkDevice device, MemorySegment queue, 
+    public ThreadedRenderer(Arena arena, VkDevice device, VkQueue queue, 
                            MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3);
         

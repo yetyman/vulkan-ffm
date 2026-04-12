@@ -35,7 +35,7 @@ public class GeneratedDescriptorSetLayout implements AutoCloseable {
         return layout;
     }
 
-    VkDescriptorSetLayout getLayout() {
+    public VkDescriptorSetLayout getLayout() {
         if (layout == null) throw new IllegalStateException("Layout not created yet — call createLayout() first");
         return layout;
     }

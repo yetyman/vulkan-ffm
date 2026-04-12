@@ -57,12 +57,15 @@ public class LoopThread implements AutoCloseable {
     /** Signals the loop to stop and waits for the thread to finish. */
     public synchronized void stop() {
         running.set(false);
-        if (thread != null) {
+        if (thread != null && thread != Thread.currentThread()) {
             try { thread.join(); }
             catch (InterruptedException e) { Thread.currentThread().interrupt(); }
             thread = null;
         }
     }
+
+    /** Signals the loop to stop without blocking. Safe to call from within the work function. */
+    public void signal() { running.set(false); }
 
     /** Runs the loop on the calling thread, blocking until stopped. */
     public void runOnCurrentThread() {
