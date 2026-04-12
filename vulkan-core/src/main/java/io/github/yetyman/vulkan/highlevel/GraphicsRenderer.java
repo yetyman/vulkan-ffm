@@ -38,12 +38,33 @@ public abstract class GraphicsRenderer implements AutoCloseable {
     protected VkFramebuffer[] framebuffers;  // null when useDynamicRendering = true
     protected VkCommandPool commandPool;
     protected VkCommandBuffer[] commandBuffers;
-    protected VkSemaphore[] imageAvailableSemaphores;
-    protected VkSemaphore[] renderFinishedSemaphores;
+    // Semaphores are private: both are keyed by swapchain image index (imgIdx), NOT frame-in-flight.
+    // The present engine holds them until the image retires; subclasses must never index by currentFrame.
+    private VkSemaphore[] imageAvailableSemaphores;
+    private VkSemaphore[] renderFinishedSemaphores;
     protected VkFence[] inFlightFences;
 
+    // imageAvailableSemaphores[i] is the semaphore last used to acquire swapchain image i.
+    // acquireSemaphorePool holds one extra semaphore used as the "next" acquire semaphore
+    // before we know which image index will be returned.
+    private VkSemaphore acquireSemaphorePool;
     private int currentFrame = 0;
     private final int maxFramesInFlight;
+
+    // Per-frame ring arenas: one per frame-in-flight, reset at the start of each frame.
+    // Subclasses access the current frame's arena via frameArena().
+    private Arena[] frameArenas;
+    private Arena currentFrameArena;
+
+    /**
+     * Optional lock acquired around vkQueueSubmit and vkQueuePresentKHR.
+     * Set this when the graphics queue handle is shared with another thread (e.g. a compute worker)
+     * to prevent simultaneous queue access violations.
+     */
+    private java.util.concurrent.locks.Lock queueLock = null;
+
+    /** Sets a lock to be held during queue submit and present. */
+    public void setQueueLock(java.util.concurrent.locks.Lock lock) { this.queueLock = lock; }
 
     protected GraphicsRenderer(Arena arena, VkDevice device, MemorySegment queue,
                           MemorySegment surface, int width, int height, int maxFramesInFlight) {
@@ -131,46 +152,84 @@ public abstract class GraphicsRenderer implements AutoCloseable {
     }
     
     private void createSyncObjects() {
-        imageAvailableSemaphores = new VkSemaphore[maxFramesInFlight];
-        renderFinishedSemaphores = new VkSemaphore[maxFramesInFlight];
+        // Both acquire and render-finished semaphores are per-swapchain-image:
+        // the present engine holds them until the image is retired, so they must
+        // not be reused until that image is re-acquired.
+        imageAvailableSemaphores = new VkSemaphore[swapchainImageViews.length];
+        renderFinishedSemaphores = new VkSemaphore[swapchainImageViews.length];
         inFlightFences = new VkFence[maxFramesInFlight];
-        
-        for (int i = 0; i < maxFramesInFlight; i++) {
+
+        for (int i = 0; i < swapchainImageViews.length; i++) {
             imageAvailableSemaphores[i] = VkSemaphore.create(arena, device);
             renderFinishedSemaphores[i] = VkSemaphore.create(arena, device);
+        }
+        acquireSemaphorePool = VkSemaphore.create(arena, device);
+        for (int i = 0; i < maxFramesInFlight; i++) {
             inFlightFences[i] = VkFence.create(arena, device, true);
         }
+        frameArenas = new Arena[maxFramesInFlight];
+        for (int i = 0; i < maxFramesInFlight; i++) {
+            frameArenas[i] = Arena.ofConfined();
+        }
     }
-    
+
+    /** @return the arena for the current frame-in-flight. Valid from fence-wait through present. */
+    protected Arena frameArena() { return currentFrameArena; }
+
+    /** @return the current frame-in-flight index (0..maxFramesInFlight-1). */
+    protected int currentFrame() { return currentFrame; }
+
+    /** @return the renderFinished semaphore handle for the given swapchain image index. */
+    protected MemorySegment renderFinishedSemaphoreHandle(int imgIdx) {
+        return renderFinishedSemaphores[imgIdx].handle();
+    }
+
     public void drawFrame() {
-        try (Arena frameArena = Arena.ofConfined()) {
-            VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .execute(frameArena).check();
-            VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .reset(frameArena).check();
+        currentFrameArena = frameArenas[currentFrame];
+        currentFrameArena.close();
+        frameArenas[currentFrame] = Arena.ofConfined();
+        currentFrameArena = frameArenas[currentFrame];
 
-            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
-                .semaphore(imageAvailableSemaphores[currentFrame].handle())
-                .execute(frameArena);
+        VkFenceOps.waitFor(device)
+            .fence(inFlightFences[currentFrame].handle())
+            .execute(currentFrameArena).check();
+        VkFenceOps.waitFor(device)
+            .fence(inFlightFences[currentFrame].handle())
+            .reset(currentFrameArena).check();
 
-            recordCommandBuffer(commandBuffers[currentFrame], imgIdx, frameArena);
+        // Acquire using the pool semaphore. After we learn imgIdx, swap it with
+        // imageAvailableSemaphores[imgIdx]. The swapped-out semaphore is now safe
+        // to reuse next frame because re-acquiring that image proves its prior
+        // present has retired and the semaphore is no longer in use by the swapchain.
+        int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
+            .semaphore(acquireSemaphorePool.handle())
+            .execute(currentFrameArena);
 
+        // Swap: acquireSemaphorePool ↔ imageAvailableSemaphores[imgIdx]
+        VkSemaphore justSignaled = acquireSemaphorePool;
+        acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
+        imageAvailableSemaphores[imgIdx] = justSignaled;
+
+        recordCommandBuffer(commandBuffers[currentFrame], imgIdx, currentFrameArena);
+
+        if (queueLock != null) queueLock.lock();
+        try {
             VkSubmit.builder()
-                .waitSemaphore(imageAvailableSemaphores[currentFrame].handle(),
+                .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
                               VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
                 .commandBuffer(commandBuffers[currentFrame])
-                .signalSemaphore(renderFinishedSemaphores[currentFrame].handle())
-                .submit(queue, inFlightFences[currentFrame].handle(), frameArena).check();
+                .signalSemaphore(renderFinishedSemaphores[imgIdx].handle())
+                .submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena).check();
 
             VkPresent.builder()
-                .waitSemaphore(renderFinishedSemaphores[currentFrame].handle())
+                .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
                 .swapchain(swapchain.handle(), imgIdx)
-                .present(queue, frameArena);
-
-            currentFrame = (currentFrame + 1) % maxFramesInFlight;
+                .present(queue, currentFrameArena);
+        } finally {
+            if (queueLock != null) queueLock.unlock();
         }
+
+        currentFrame = (currentFrame + 1) % maxFramesInFlight;
     }
     
     public final void resize(int newWidth, int newHeight) {
@@ -187,16 +246,34 @@ public abstract class GraphicsRenderer implements AutoCloseable {
 
         createSwapchain();
         createImageViews();
+        recreateImageAvailableSemaphores();
         onResize(newWidth, newHeight);
         if (!useDynamicRendering) createFramebuffers();
+    }
+
+    private void recreateImageAvailableSemaphores() {
+        for (VkSemaphore sem : imageAvailableSemaphores) sem.close();
+        for (VkSemaphore sem : renderFinishedSemaphores) sem.close();
+        acquireSemaphorePool.close();
+        imageAvailableSemaphores = new VkSemaphore[swapchainImageViews.length];
+        renderFinishedSemaphores = new VkSemaphore[swapchainImageViews.length];
+        for (int i = 0; i < swapchainImageViews.length; i++) {
+            imageAvailableSemaphores[i] = VkSemaphore.create(arena, device);
+            renderFinishedSemaphores[i] = VkSemaphore.create(arena, device);
+        }
+        acquireSemaphorePool = VkSemaphore.create(arena, device);
     }
     
     @Override
     public final void close() {
+        for (VkSemaphore sem : imageAvailableSemaphores) sem.close();
+        for (VkSemaphore sem : renderFinishedSemaphores) sem.close();
+        acquireSemaphorePool.close();
         for (int i = 0; i < maxFramesInFlight; i++) {
-            imageAvailableSemaphores[i].close();
-            renderFinishedSemaphores[i].close();
             inFlightFences[i].close();
+        }
+        if (frameArenas != null) {
+            for (Arena a : frameArenas) a.close();
         }
         commandPool.close();
         if (framebuffers != null) {

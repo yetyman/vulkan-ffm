@@ -229,9 +229,9 @@ public class ShaderExample {
                     check("slot1 dirty after completion", slot1.isDirty());
                     check("slot2 dirty after completion", slot2.isDirty());
 
-                    System.out.println("  buf0 size=" + slot0.boundBuffer().size());
-                    System.out.println("  buf1 size=" + slot1.boundBuffer().size());
-                    System.out.println("  buf2 size=" + slot2.boundBuffer().size());
+                    System.out.println("  buf0 size=" + slot0.buffer().size());
+                    System.out.println("  buf1 size=" + slot1.buffer().size());
+                    System.out.println("  buf2 size=" + slot2.buffer().size());
                 }
             }
 
@@ -502,7 +502,7 @@ public class ShaderExample {
 
                             // Record, push constant, dispatch, and wait
                             VkCommandPool cmdPool = VkCommandPool.create(arena, device, queueFamily);
-                            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue.handle(), arena);
+                            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue, arena);
                             pipeline.bind(tcb.handle());
                             descriptors.set().bind(tcb.handle(), pipeline, 0, arena);
                             pipeline.pushInt(tcb.handle(), 0, multiplier);

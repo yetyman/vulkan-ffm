@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.commands;
 
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.generated.VkBufferCopy;
@@ -30,14 +31,14 @@ import java.util.function.Consumer;
 public class TransientCommandBuffer implements AutoCloseable {
     private final MemorySegment commandBuffer;
     private final VkCommandPool commandPool;
-    private final MemorySegment queue;
+    private final VkQueue queue;
     private final VkDevice device;
     private final Arena arena;
     private boolean recorded = false;
     private boolean submitted = false;
     
     private TransientCommandBuffer(MemorySegment commandBuffer, VkCommandPool commandPool,
-                                   MemorySegment queue, VkDevice device, Arena arena) {
+                                   VkQueue queue, VkDevice device, Arena arena) {
         this.commandBuffer = commandBuffer;
         this.commandPool = commandPool;
         this.queue = queue;
@@ -48,7 +49,7 @@ public class TransientCommandBuffer implements AutoCloseable {
     /**
      * Creates a transient command buffer and begins recording.
      */
-    public static TransientCommandBuffer begin(VkCommandPool commandPool, MemorySegment queue, Arena arena) {
+    public static TransientCommandBuffer begin(VkCommandPool commandPool, VkQueue queue, Arena arena) {
         VkDevice device = commandPool.device();
         
         // Allocate command buffer
@@ -77,7 +78,7 @@ public class TransientCommandBuffer implements AutoCloseable {
     /**
      * Executes a function with a transient command buffer and automatically submits it.
      */
-    public static void execute(VkCommandPool commandPool, MemorySegment queue, Arena arena, 
+    public static void execute(VkCommandPool commandPool, VkQueue queue, Arena arena,
                               Consumer<MemorySegment> commands) {
         try (TransientCommandBuffer cmd = begin(commandPool, queue, arena)) {
             commands.accept(cmd.commandBuffer);
@@ -117,7 +118,7 @@ public class TransientCommandBuffer implements AutoCloseable {
             commandBuffers.set(ValueLayout.ADDRESS, 0, commandBuffer);
             VkSubmitInfo.pCommandBuffers(submitInfo, commandBuffers);
             
-            Vulkan.queueSubmit(queue, 1, submitInfo, fence).check();
+            queue.submit(submitInfo, fence);
             
             // Wait for completion
             MemorySegment fences = arena.allocate(ValueLayout.ADDRESS);

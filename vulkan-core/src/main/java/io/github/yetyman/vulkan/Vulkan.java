@@ -295,11 +295,6 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
-    public static VkResult queueSubmit(MemorySegment queue, int submitCount, MemorySegment submits, MemorySegment fence) {
-        int result = VulkanFFM.vkQueueSubmit(queue, submitCount, submits, fence);
-        return VkResult.fromInt(result);
-    }
-
     public static void cmdPipelineBarrier(MemorySegment commandBuffer, int srcStageMask, int dstStageMask, int dependencyFlags,
                                           int memoryBarrierCount, MemorySegment memoryBarriers,
                                           int bufferMemoryBarrierCount, MemorySegment bufferMemoryBarriers,

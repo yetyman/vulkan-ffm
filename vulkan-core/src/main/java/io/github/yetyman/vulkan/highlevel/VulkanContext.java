@@ -16,20 +16,25 @@ public class VulkanContext implements AutoCloseable {
     private final VkDevice device;
     private final MemorySegment graphicsQueue;
     private final MemorySegment presentQueue;
+    private final MemorySegment computeQueue;
     private final int graphicsQueueFamily;
     private final int presentQueueFamily;
+    private final int computeQueueFamily;
     
     private VulkanContext(Arena arena, VkInstance instance, VkPhysicalDevice physicalDevice, 
                          VkDevice device, MemorySegment graphicsQueue, MemorySegment presentQueue,
-                         int graphicsQueueFamily, int presentQueueFamily) {
+                         MemorySegment computeQueue, int graphicsQueueFamily, int presentQueueFamily,
+                         int computeQueueFamily) {
         this.arena = arena;
         this.instance = instance;
         this.physicalDevice = physicalDevice;
         this.device = device;
         this.graphicsQueue = graphicsQueue;
         this.presentQueue = presentQueue;
+        this.computeQueue = computeQueue;
         this.graphicsQueueFamily = graphicsQueueFamily;
         this.presentQueueFamily = presentQueueFamily;
+        this.computeQueueFamily = computeQueueFamily;
     }
     
     /** @return a new builder for configuring Vulkan context creation */
@@ -51,15 +56,21 @@ public class VulkanContext implements AutoCloseable {
     
     /** @return the graphics queue handle */
     public MemorySegment graphicsQueue() { return graphicsQueue; }
-    
+
     /** @return the present queue handle */
     public MemorySegment presentQueue() { return presentQueue; }
+
+    /** @return a dedicated compute queue handle, always distinct from graphicsQueue() */
+    public MemorySegment computeQueue() { return computeQueue; }
     
     /** @return the graphics queue family index */
     public int graphicsQueueFamily() { return graphicsQueueFamily; }
     
     /** @return the present queue family index */
     public int presentQueueFamily() { return presentQueueFamily; }
+
+    /** @return the compute queue family index (may equal graphicsQueueFamily if no dedicated compute family exists) */
+    public int computeQueueFamily() { return computeQueueFamily; }
     
     /** Creates a command pool for graphics operations */
     public VkCommandPool createGraphicsCommandPool() {
@@ -249,20 +260,31 @@ public class VulkanContext implements AutoCloseable {
                 
                 // Find queue families
                 int graphicsFamily = VkQueueFamily.findGraphics(physicalDevice, arena);
-                int presentFamily = surface != null ? 
+                int presentFamily = surface != null ?
                     VkQueueFamily.findPresent(physicalDevice, surface, arena) : graphicsFamily;
-                
+                int computeFamily = VkQueueFamily.findCompute(physicalDevice, arena);
+
+                // Query how many queues the compute family exposes
+                int computeQueueCount = VkQueueFamily.queueCount(physicalDevice, computeFamily, arena);
+                // When compute shares the graphics family we need a second queue index for isolation.
+                // Only request 2 if the family actually has 2+ queues.
+                boolean sharedFamily = computeFamily == graphicsFamily;
+                int computeQueueIndex = (sharedFamily && computeQueueCount >= 2) ? 1 : 0;
+                int computeQueuesToRequest = (sharedFamily && computeQueueCount >= 2) ? 2 : 1;
+
                 // Create logical device
                 VkDevice.Builder deviceBuilder = VkDevice.builder()
                     .physicalDevice(physicalDevice)
-                    .queueFamily(graphicsFamily);
-                
+                    .queueFamily(graphicsFamily, computeQueuesToRequest, 1.0f);
+
+                if (!sharedFamily) {
+                    deviceBuilder.queueFamily(computeFamily);
+                }
+
                 if (deviceExtensions != null) {
                     deviceBuilder.extensions(deviceExtensions);
                 }
 
-                // Auto-enable dynamic rendering if the physical device supports it
-                // We check before VulkanCapabilities.initialize() since that requires a device
                 Set<String> availableExts = getAvailableExtensions(physicalDevice, arena);
                 boolean supportsDynamicRendering = availableExts.contains("VK_KHR_dynamic_rendering")
                     || isVulkan13(physicalDevice, arena);
@@ -270,17 +292,18 @@ public class VulkanContext implements AutoCloseable {
                     deviceBuilder.enableDynamicRendering();
                 }
 
+                deviceBuilder.enableTimelineSemaphore();
+
                 VkDevice device = deviceBuilder.build(arena);
-                
-                // Initialize capabilities after device creation
                 VulkanCapabilities.initialize(physicalDevice);
-                
-                // Get queues
+
                 MemorySegment graphicsQueue = device.getQueue(graphicsFamily, 0);
-                MemorySegment presentQueue = device.getQueue(presentFamily, 0);
-                
-                return new VulkanContext(arena, instance, physicalDevice, device, 
-                                       graphicsQueue, presentQueue, graphicsFamily, presentFamily);
+                MemorySegment presentQueue  = device.getQueue(presentFamily, 0);
+                MemorySegment computeQueue  = device.getQueue(computeFamily, computeQueueIndex);
+
+                return new VulkanContext(arena, instance, physicalDevice, device,
+                    graphicsQueue, presentQueue, computeQueue,
+                    graphicsFamily, presentFamily, computeFamily);
             } catch (Exception e) {
                 arena.close();
                 throw e;

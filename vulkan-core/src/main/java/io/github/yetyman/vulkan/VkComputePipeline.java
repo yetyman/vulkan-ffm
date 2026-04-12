@@ -89,7 +89,7 @@ public class VkComputePipeline implements AutoCloseable {
     public void dispatchAndWait(VkQueue queue, int groupCountX, int groupCountY, int groupCountZ, VkDescriptorSet... descriptorSets) {
         VkCommandPool cmdPool = device.getOrCreateCommandPool(queue.familyIndex());
         try (Arena a = Arena.ofConfined()) {
-            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue.handle(), a);
+            TransientCommandBuffer tcb = TransientCommandBuffer.begin(cmdPool, queue, a);
             bind(tcb.handle());
             for (int i = 0; i < descriptorSets.length; i++) {
                 if (descriptorSets[i] != null)

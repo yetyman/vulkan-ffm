@@ -78,8 +78,8 @@ public class DeviceLocalBuffer extends AbstractBuffer {
             vkCmdCopyBuffer(cmdBuffer.handle(), handle(), readbackBuf.handle(), 1, copyRegion);
             vkEndCommandBuffer(cmdBuffer.handle());
 
-            VkSubmit.builder().commandBuffer(cmdBuffer)
-                .submit(transferQueue.handle(), fence.handle(), readArena).check();
+            transferQueue.submit(
+                VkSubmit.builder().commandBuffer(cmdBuffer).build(fence.handle(), readArena), fence.handle());
 
             try (Arena waitArena = Arena.ofConfined()) {
                 VkFenceOps.wait(device, fence, Long.MAX_VALUE, waitArena).check();

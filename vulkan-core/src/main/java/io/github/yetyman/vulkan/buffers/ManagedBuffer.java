@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.buffers;
 
+import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -23,6 +24,9 @@ public interface ManagedBuffer extends AutoCloseable {
     
     // Vulkan binding (usage-specific)
     MemorySegment handle();
+
+    /** @return the underlying VkBuffer. */
+    VkBuffer vkBuffer();
     
     // Resource management
     long size();

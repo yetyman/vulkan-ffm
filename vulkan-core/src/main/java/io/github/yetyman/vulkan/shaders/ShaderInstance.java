@@ -224,6 +224,13 @@ public class ShaderInstance implements AutoCloseable {
     public io.github.yetyman.shaderc.enums.ShadercShaderKind shaderKind() { return compiled.getShaderKind(); }
     public Map<Integer, GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
     public Map<Integer, VkDescriptorSet> descriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
+
+    /** @return the VkDescriptorSetLayout handle for the given set number, for use in pipeline builders. */
+    public MemorySegment layoutHandle(int setNumber) {
+        GeneratedDescriptorSetLayout layout = layouts.get(setNumber);
+        if (layout == null) throw new IllegalArgumentException("No layout for set " + setNumber);
+        return layout.getLayout().handle();
+    }
     /** @return the preprocessor defines this instance was compiled with. */
     public Map<String, String> defines() { return defines; }
     /** @return the specialization constant values set at construction, keyed by name. */
@@ -412,14 +419,14 @@ public class ShaderInstance implements AutoCloseable {
         VkDescriptorSet descriptorSet = descriptorSets.get(slot.set());
         if (descriptorSet == null) return;
 
-        if (slot instanceof UniformBufferSlot ubo && ubo.boundBuffer() != null) {
+        if (slot instanceof UniformBufferSlot ubo && ubo.buffer() != null) {
             descriptorSet.updateBuffer(slot.binding(),
                 VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
-                ubo.boundBuffer().handle(), 0, ubo.boundBuffer().size(), flushArena);
-        } else if (slot instanceof StorageBufferSlot ssbo && ssbo.boundBuffer() != null) {
+                ubo.buffer().handle(), 0, ubo.buffer().size(), flushArena);
+        } else if (slot instanceof StorageBufferSlot ssbo && ssbo.buffer() != null) {
             descriptorSet.updateBuffer(slot.binding(),
                 VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                ssbo.boundBuffer().handle(), 0, ssbo.boundBuffer().size(), flushArena);
+                ssbo.buffer().handle(), 0, ssbo.buffer().size(), flushArena);
         } else if (slot instanceof TextureSlot tex && tex.boundImageView() != null && tex.boundSampler() != null) {
             descriptorSet.updateImageSampler(slot.binding(),
                 tex.boundSampler().handle(), tex.boundImageView().handle(),

@@ -48,6 +48,15 @@ public class VkDescriptorSet {
      * Updates this descriptor set to bind an image sampler
      */
     public void updateImageSampler(int binding, MemorySegment sampler, MemorySegment imageView, int imageLayout, Arena arena) {
+        updateImageSampler(binding, sampler, imageView, imageLayout, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value(), arena);
+    }
+
+    /**
+     * Updates this descriptor set to bind an image with a specific descriptor type.
+     * Use {@code VK_DESCRIPTOR_TYPE_STORAGE_IMAGE} for compute storage images (sampler must be NULL).
+     * Use {@code VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER} for sampled images.
+     */
+    public void updateImageSampler(int binding, MemorySegment sampler, MemorySegment imageView, int imageLayout, int descriptorType, Arena arena) {
         MemorySegment imageInfo = VkDescriptorImageInfo.allocate(arena);
         VkDescriptorImageInfo.sampler(imageInfo, sampler);
         VkDescriptorImageInfo.imageView(imageInfo, imageView);
@@ -60,7 +69,7 @@ public class VkDescriptorSet {
         VkWriteDescriptorSet.dstBinding(writeDescriptorSet, binding);
         VkWriteDescriptorSet.dstArrayElement(writeDescriptorSet, 0);
         VkWriteDescriptorSet.descriptorCount(writeDescriptorSet, 1);
-        VkWriteDescriptorSet.descriptorType(writeDescriptorSet, VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value());
+        VkWriteDescriptorSet.descriptorType(writeDescriptorSet, descriptorType);
         VkWriteDescriptorSet.pImageInfo(writeDescriptorSet, imageInfo);
         VkWriteDescriptorSet.pBufferInfo(writeDescriptorSet, MemorySegment.NULL);
         VkWriteDescriptorSet.pTexelBufferView(writeDescriptorSet, MemorySegment.NULL);

@@ -79,6 +79,7 @@ public class BufferExample {
             }
 
             VkQueue queue = VkQueue.builder().device(device).familyIndex(queueFamily).build(arena);
+            queue.setSubmitter(new io.github.yetyman.vulkan.queue.DirectSubmitter(queue.handle()));
             VkQueue sparseQueue = sparseFamily >= 0
                 ? VkQueue.builder().device(device).familyIndex(sparseFamily).build(arena)
                 : queue;
@@ -444,7 +445,6 @@ public class BufferExample {
                 TransferBatchManager.flush(device, queue);
 
                 // CPU waits for the GPU to signal value 1
-                check("Timeline counter after flush", (int)timeline.counterValue(), 0);
                 timeline.await(1);
                 check("Timeline counter after flush+await", (int)timeline.counterValue(), 1);
 

@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.highlevel;
 
+import io.github.yetyman.vulkan.ILifecycle;
+import io.github.yetyman.vulkan.ILifecycleListener;
 import io.github.yetyman.vulkan.VkSurface;
 import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.VulkanLibrary;
@@ -9,6 +11,18 @@ import io.github.yetyman.vulkan.util.Logger;
 import java.lang.foreign.*;
 import java.util.function.Consumer;
 
+/**
+ * Base class for Vulkan applications. Manages the window, Vulkan context, input, and main loop.
+ *
+ * <p>Subclasses implement {@link #initialize()}, {@link #render()}, {@link #onResize}, and
+ * {@link #shutdown()} for application lifecycle.
+ *
+ * <h3>Background GPU work and lifecycle coordination</h3>
+ * Use {@link #registerLifecycleDependency(ILifecycle)} for managed components (stop/start handled
+ * automatically) or {@link #addLifecycleListener(ILifecycleListener)} for components that manage
+ * their own sequencing. Both are notified before {@code vkDeviceWaitIdle} during resize and
+ * shutdown, and after the swapchain is rebuilt.
+ */
 public abstract class VulkanApplication implements AutoCloseable {
     public static class Config {
         public String[] validationLayers = {};
@@ -45,6 +59,26 @@ public abstract class VulkanApplication implements AutoCloseable {
     private MemorySegment callbackStub;
     private boolean framebufferResized = false;
     private InputManager inputManager;
+    private final java.util.List<ILifecycle> lifecycleDependencies = new java.util.ArrayList<>();
+    private final java.util.List<ILifecycleListener> lifecycleListeners = new java.util.ArrayList<>();
+
+    /**
+     * Registers a lifecycle dependency that will be stopped before deviceWaitIdle
+     * during resize and shutdown, and restarted after resize completes.
+     * Dependencies are stopped in registration order and restarted in reverse order.
+     */
+    protected void registerLifecycleDependency(ILifecycle dep) {
+        lifecycleDependencies.add(dep);
+    }
+
+    /**
+     * Registers a lifecycle listener that will be notified of lifecycle events.
+     * If the listener also implements {@link ILifecycle}, prefer
+     * {@link #registerLifecycleDependency(ILifecycle)} which provides managed stop/start sequencing.
+     */
+    protected void addLifecycleListener(ILifecycleListener listener) {
+        lifecycleListeners.add(listener);
+    }
     
     protected VulkanApplication(String title, int width, int height, WindowSystem windowSystem, io.github.yetyman.vulkan.input.InputSystem inputSystem) {
         this(title, width, height, Config.development(windowSystem, inputSystem));
@@ -150,15 +184,27 @@ public abstract class VulkanApplication implements AutoCloseable {
     
     private void handleResize() {
         try (Arena tempArena = Arena.ofConfined()) {
+            for (ILifecycleListener l : lifecycleListeners) l.onBeforeStop();
+            for (ILifecycle dep : lifecycleDependencies) { dep.beforeStop(); dep.stop(); dep.awaitStopped(); dep.afterStop(); }
             Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
-            
+            for (ILifecycleListener l : lifecycleListeners) l.onAfterStop();
+
             var size = io.github.yetyman.vulkan.util.VkFramebufferSize.query(
                 config.windowSystem::getFramebufferSize, window, tempArena);
-            
+
             if (size.isValid()) {
+                for (ILifecycleListener l : lifecycleListeners) l.onBeforeResize(size.width, size.height);
+                for (ILifecycle dep : lifecycleDependencies) dep.beforeResize(size.width, size.height);
                 onResize(size.width, size.height);
+                for (int i = lifecycleDependencies.size() - 1; i >= 0; i--) lifecycleDependencies.get(i).afterResize(size.width, size.height);
+                for (ILifecycleListener l : lifecycleListeners) l.onAfterResize(size.width, size.height);
                 log("Resized to " + size.width + "x" + size.height);
             }
+            for (int i = lifecycleDependencies.size() - 1; i >= 0; i--) {
+                ILifecycle dep = lifecycleDependencies.get(i);
+                dep.beforeStart(); dep.start(); dep.afterStart();
+            }
+            for (ILifecycleListener l : lifecycleListeners) l.onAfterStart();
         }
     }
     
@@ -183,9 +229,14 @@ public abstract class VulkanApplication implements AutoCloseable {
         if (cleanedUp) return;
         cleanedUp = true;
 
+        for (ILifecycleListener l : lifecycleListeners) l.onBeforeStop();
+        for (ILifecycle dep : lifecycleDependencies) { dep.beforeStop(); dep.stop(); dep.awaitStopped(); dep.afterStop(); }
+
         if (vulkanContext != null && vulkanContext.device() != null) {
             Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
         }
+        for (ILifecycleListener l : lifecycleListeners) l.onAfterStop();
+        for (ILifecycleListener l : lifecycleListeners) l.onBeforeShutdown();
         
         shutdown();
         

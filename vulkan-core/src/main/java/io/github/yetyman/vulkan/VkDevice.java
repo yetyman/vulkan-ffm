@@ -188,6 +188,7 @@ public class VkDevice implements AutoCloseable {
         private VkPhysicalDevice physicalDevice;
         private int[] queueFamilyIndices = new int[0];
         private float[] queuePriorities = new float[0];
+        private int[] queueCounts = new int[0];
         private String[] extensions = new String[0];
         private String[] layers = new String[0];
         private boolean sparseBinding = false;
@@ -208,23 +209,35 @@ public class VkDevice implements AutoCloseable {
             return this;
         }
         
-        /** Adds a queue family */
-        public Builder queueFamily(int familyIndex) {
-            return queueFamily(familyIndex, 1.0f);
-        }
-        
-        /** Adds a queue family with priority */
-        public Builder queueFamily(int familyIndex, float priority) {
+        /** Adds a queue family requesting a specific number of queues */
+        public Builder queueFamily(int familyIndex, int queueCount, float priority) {
             int[] newIndices = new int[queueFamilyIndices.length + 1];
             System.arraycopy(queueFamilyIndices, 0, newIndices, 0, queueFamilyIndices.length);
             newIndices[queueFamilyIndices.length] = familyIndex;
             queueFamilyIndices = newIndices;
-            
+
+            // Store queueCount in the upper 16 bits of the priority float's int representation
+            // — actually just track separately via a parallel array
             float[] newPriorities = new float[queuePriorities.length + 1];
             System.arraycopy(queuePriorities, 0, newPriorities, 0, queuePriorities.length);
             newPriorities[queuePriorities.length] = priority;
             queuePriorities = newPriorities;
+
+            int[] newCounts = new int[queueCounts.length + 1];
+            System.arraycopy(queueCounts, 0, newCounts, 0, queueCounts.length);
+            newCounts[queueCounts.length] = queueCount;
+            queueCounts = newCounts;
             return this;
+        }
+
+        /** Adds a queue family */
+        public Builder queueFamily(int familyIndex) {
+            return queueFamily(familyIndex, 1, 1.0f);
+        }
+
+        /** Adds a queue family with priority */
+        public Builder queueFamily(int familyIndex, float priority) {
+            return queueFamily(familyIndex, 1, priority);
         }
         
         /** Sets device extensions */
@@ -279,14 +292,16 @@ public class VkDevice implements AutoCloseable {
             // Create queue create infos
             MemorySegment queueCreateInfos = arena.allocate(VkDeviceQueueCreateInfo.layout(), queueFamilyIndices.length);
             for (int i = 0; i < queueFamilyIndices.length; i++) {
+                int qCount = (queueCounts.length > i) ? queueCounts[i] : 1;
                 MemorySegment queueCreateInfo = queueCreateInfos.asSlice(i * VkDeviceQueueCreateInfo.layout().byteSize());
                 VkDeviceQueueCreateInfo.sType(queueCreateInfo, VkStructureType.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO.value());
                 VkDeviceQueueCreateInfo.queueFamilyIndex(queueCreateInfo, queueFamilyIndices[i]);
-                VkDeviceQueueCreateInfo.queueCount(queueCreateInfo, 1);
-                
-                MemorySegment priorityPtr = arena.allocate(ValueLayout.JAVA_FLOAT);
-                priorityPtr.set(ValueLayout.JAVA_FLOAT, 0, queuePriorities[i]);
-                VkDeviceQueueCreateInfo.pQueuePriorities(queueCreateInfo, priorityPtr);
+                VkDeviceQueueCreateInfo.queueCount(queueCreateInfo, qCount);
+
+                MemorySegment priorityArray = arena.allocate(ValueLayout.JAVA_FLOAT, qCount);
+                for (int q = 0; q < qCount; q++)
+                    priorityArray.setAtIndex(ValueLayout.JAVA_FLOAT, q, queuePriorities[i]);
+                VkDeviceQueueCreateInfo.pQueuePriorities(queueCreateInfo, priorityArray);
             }
             
             // Create device create info
@@ -318,11 +333,10 @@ public class VkDevice implements AutoCloseable {
                 VkDeviceCreateInfo.ppEnabledLayerNames(createInfo, layerNames);
             }
             
-            if (sparseBinding) {
-                MemorySegment features = VkPhysicalDeviceFeatures.allocate(arena);
-                VkPhysicalDeviceFeatures.sparseBinding(features, 1);
-                VkDeviceCreateInfo.pEnabledFeatures(createInfo, features);
-            }
+            MemorySegment features = VkPhysicalDeviceFeatures.allocate(arena);
+            if (sparseBinding) VkPhysicalDeviceFeatures.sparseBinding(features, 1);
+            VkPhysicalDeviceFeatures.shaderStorageImageExtendedFormats(features, 1);
+            VkDeviceCreateInfo.pEnabledFeatures(createInfo, features);
 
             // Build pNext chain for optional features
             MemorySegment pNextHead = MemorySegment.NULL;

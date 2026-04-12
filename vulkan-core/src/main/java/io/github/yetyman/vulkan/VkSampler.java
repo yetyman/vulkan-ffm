@@ -57,6 +57,7 @@ public class VkSampler implements AutoCloseable {
         public Builder nearest() {
             this.magFilter = VkFilter.VK_FILTER_NEAREST.value();
             this.minFilter = VkFilter.VK_FILTER_NEAREST.value();
+            this.mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_NEAREST.value();
             return this;
         }
         

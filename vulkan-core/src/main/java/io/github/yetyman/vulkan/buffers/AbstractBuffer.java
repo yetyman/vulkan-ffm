@@ -34,6 +34,9 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     }
 
     @Override
+    public VkBuffer vkBuffer() { return vkBuffer; }
+
+    @Override
     public long size() {
         return size;
     }

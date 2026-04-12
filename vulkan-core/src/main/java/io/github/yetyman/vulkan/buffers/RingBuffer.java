@@ -150,6 +150,23 @@ public class RingBuffer extends AbstractBuffer {
     }
 
     /**
+     * Returns the VkBuffer handle for a specific slot.
+     * In single-offset mode all slots share the same handle.
+     * In separate-buffers mode each slot has its own handle — use this to build
+     * descriptor sets for all slots upfront (e.g. for GPU-GPU ping-pong).
+     */
+    public MemorySegment handleAt(int slot) {
+        if (slot < 0 || slot >= frameCount) throw new IndexOutOfBoundsException("slot " + slot + " out of range [0, " + frameCount + ")");
+        return singleOffset ? buffers[0].handle() : buffers[slot].handle();
+    }
+
+    /** @return the number of buffer slots in this ring. */
+    public int slotCount() { return frameCount; }
+
+    /** @return the current active slot index. */
+    public int currentSlot() { return currentFrame; }
+
+    /**
      * Returns the byte offset into the backing buffer for the current frame.
      * Only meaningful in single-offset mode — pass this to vkCmdBindDescriptorSets
      * as the dynamic offset for UNIFORM_BUFFER_DYNAMIC / STORAGE_BUFFER_DYNAMIC descriptors.

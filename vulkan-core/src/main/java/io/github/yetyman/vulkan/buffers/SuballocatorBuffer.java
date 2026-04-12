@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.buffers;
 
+import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
@@ -121,6 +122,12 @@ public class SuballocatorBuffer extends AbstractBuffer {
         public long offset() { return offset; }
 
         @Override public MemorySegment handle() { return backingBuffer.handle(); }
+
+        @Override
+        public VkBuffer vkBuffer() {
+            return backingBuffer.vkBuffer();
+        }
+
         @Override public long size() { return size; }
         @Override public BufferUsage usage() { return SuballocatorBuffer.this.usage(); }
         @Override public MemoryStrategy memoryStrategy() { return SuballocatorBuffer.this.memoryStrategy(); }
