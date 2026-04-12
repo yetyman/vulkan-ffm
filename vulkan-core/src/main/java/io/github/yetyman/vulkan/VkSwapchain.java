@@ -14,10 +14,15 @@ public class VkSwapchain implements AutoCloseable {
     private final VkDevice device;
     private final MemorySegment[] images;
     
-    private VkSwapchain(MemorySegment handle, VkDevice device, MemorySegment[] images) {
+    private final int width;
+    private final int height;
+
+    private VkSwapchain(MemorySegment handle, VkDevice device, MemorySegment[] images, int width, int height) {
         this.handle = handle;
         this.device = device;
         this.images = images;
+        this.width = width;
+        this.height = height;
     }
     
     /**
@@ -54,6 +59,12 @@ public class VkSwapchain implements AutoCloseable {
     
     /** @return array of VkImage handles from the swapchain */
     public MemorySegment[] getImages() { return images; }
+
+    /** @return the actual width the swapchain was created with */
+    public int width() { return width; }
+
+    /** @return the actual height the swapchain was created with */
+    public int height() { return height; }
     
     @Override
     public void close() {
@@ -162,6 +173,13 @@ public class VkSwapchain implements AutoCloseable {
             if (device == null) throw new IllegalStateException("device not set");
             if (surface == null) throw new IllegalStateException("surface not set");
             if (width <= 0 || height <= 0) throw new IllegalStateException("invalid extent");
+
+            // Always use the actual surface extent at creation time — the passed-in dimensions
+            // may be stale by the time the render thread calls this during resize.
+            int[] surfaceExtent = device.physicalDevice().getSurfaceExtent(surface, arena);
+            width = surfaceExtent[0];
+            height = surfaceExtent[1];
+            if (width <= 0 || height <= 0) throw new IllegalStateException("surface extent is zero (window minimized?)");
             
             MemorySegment createInfo = VkSwapchainCreateInfoKHR.allocate(arena);
             VkSwapchainCreateInfoKHR.sType(createInfo, 1000001000); // VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
@@ -211,7 +229,7 @@ public class VkSwapchain implements AutoCloseable {
                 images[i] = imagesArray.getAtIndex(ValueLayout.ADDRESS, i);
             }
             
-            return new VkSwapchain(swapchain, device, images);
+            return new VkSwapchain(swapchain, device, images, width, height);
         }
     }
 }

@@ -44,6 +44,16 @@ public class VkPhysicalDevice {
         }
     }
     
+    /**
+     * @return [width, height] from vkGetPhysicalDeviceSurfaceCapabilitiesKHR currentExtent.
+     */
+    public int[] getSurfaceExtent(MemorySegment surface, Arena arena) {
+        MemorySegment caps = VkSurfaceCapabilitiesKHR.allocate(arena);
+        VulkanFFM.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(handle, surface, caps);
+        MemorySegment extent = VkSurfaceCapabilitiesKHR.currentExtent(caps);
+        return new int[]{ VkExtent2D.width(extent), VkExtent2D.height(extent) };
+    }
+
     public void getFormatProperties(int format, MemorySegment properties) {
         VulkanFFM.vkGetPhysicalDeviceFormatProperties(handle, format, properties);
     }

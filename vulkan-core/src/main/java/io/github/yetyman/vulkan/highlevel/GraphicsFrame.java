@@ -81,20 +81,24 @@ public abstract class GraphicsFrame implements AutoCloseable {
     }
 
     private void createSwapchain() {
-        swapchain = VkSwapchain.create(arena, device, surface, width, height);
+        try (Arena tmp = Arena.ofConfined()) {
+            swapchain = VkSwapchain.create(tmp, device, surface, width, height);
+        }
     }
 
     private void createImageViews() {
         MemorySegment[] images = swapchain.getImages();
         swapchainImageViews = new VkImageView[images.length];
-        for (int i = 0; i < images.length; i++) {
-            swapchainImageViews[i] = VkImageView.builder()
-                .device(device)
-                .image(images[i])
-                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
-                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
-                .build(arena);
+        try (Arena tmp = Arena.ofConfined()) {
+            for (int i = 0; i < images.length; i++) {
+                swapchainImageViews[i] = VkImageView.builder()
+                    .device(device)
+                    .image(images[i])
+                    .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                    .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                    .build(tmp);
+            }
         }
     }
 
@@ -141,7 +145,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
         }
         frameArenas = new Arena[maxFramesInFlight];
         for (int i = 0; i < maxFramesInFlight; i++) {
-            frameArenas[i] = Arena.ofConfined();
+            frameArenas[i] = Arena.ofShared();
         }
     }
 
@@ -163,9 +167,13 @@ public abstract class GraphicsFrame implements AutoCloseable {
     public VkQueue graphicsQueue() { return queue; }
 
     public void drawFrame() {
+        if (swapchain == null) {
+            try { Thread.sleep(10); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            return;
+        }
         currentFrameArena = frameArenas[currentFrame];
         currentFrameArena.close();
-        frameArenas[currentFrame] = Arena.ofConfined();
+        frameArenas[currentFrame] = Arena.ofShared();
         currentFrameArena = frameArenas[currentFrame];
 
         VkFenceOps.waitFor(device)
@@ -206,18 +214,22 @@ public abstract class GraphicsFrame implements AutoCloseable {
     }
 
     private void doResize(int newWidth, int newHeight) {
-        for (VkFramebuffer framebuffer : framebuffers != null ? framebuffers : new VkFramebuffer[0]) {
-            framebuffer.close();
-        }
-        for (VkImageView imageView : swapchainImageViews) {
-            imageView.close();
-        }
-        swapchain.close();
+        for (VkFramebuffer framebuffer : framebuffers != null ? framebuffers : new VkFramebuffer[0]) framebuffer.close();
+        if (swapchainImageViews != null) for (VkImageView imageView : swapchainImageViews) imageView.close();
+        if (swapchain != null) swapchain.close();
 
         width = newWidth;
         height = newHeight;
 
-        createSwapchain();
+        try {
+            createSwapchain();
+        } catch (IllegalStateException e) {
+            swapchain = null;
+            swapchainImageViews = null;
+            return;
+        }
+        width = swapchain.width();
+        height = swapchain.height();
         createImageViews();
         recreateImageAvailableSemaphores();
         onResize(newWidth, newHeight);
@@ -230,11 +242,13 @@ public abstract class GraphicsFrame implements AutoCloseable {
         acquireSemaphorePool.close();
         imageAvailableSemaphores = new VkSemaphore[swapchainImageViews.length];
         renderFinishedSemaphores = new VkSemaphore[swapchainImageViews.length];
-        for (int i = 0; i < swapchainImageViews.length; i++) {
-            imageAvailableSemaphores[i] = VkSemaphore.create(arena, device);
-            renderFinishedSemaphores[i] = VkSemaphore.create(arena, device);
+        try (Arena tmp = Arena.ofConfined()) {
+            for (int i = 0; i < swapchainImageViews.length; i++) {
+                imageAvailableSemaphores[i] = VkSemaphore.create(tmp, device);
+                renderFinishedSemaphores[i] = VkSemaphore.create(tmp, device);
+            }
+            acquireSemaphorePool = VkSemaphore.create(tmp, device);
         }
-        acquireSemaphorePool = VkSemaphore.create(arena, device);
     }
 
     @Override
@@ -254,8 +268,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
             for (VkFramebuffer framebuffer : framebuffers) framebuffer.close();
         }
         if (renderPass != null) renderPass.close();
-        for (VkImageView imageView : swapchainImageViews) imageView.close();
-        swapchain.close();
+        if (swapchainImageViews != null) for (VkImageView imageView : swapchainImageViews) imageView.close();
+        if (swapchain != null) swapchain.close();
         cleanupResources();
     }
 

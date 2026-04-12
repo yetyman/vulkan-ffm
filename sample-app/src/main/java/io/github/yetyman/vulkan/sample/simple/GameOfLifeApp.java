@@ -54,13 +54,18 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
             .renderer(frame)
             .driver(LoopDriver.uncapped())
             .shouldClose(() -> windowSystem().shouldClose(window()))
-            .pollEvents(() -> windowSystem().pollEvents())
             .onResize(dims -> frame.resize(dims[0], dims[1]))
             .lifecycleDependency(computeLoop)
             .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
             .build();
 
-        loop.runOnCurrentThread();
+        loop.start();
+
+        while (!windowSystem().shouldClose(window())) {
+            windowSystem().pollEvents();
+            try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+        }
+        loop.stop();
     }
 
     @Override
