@@ -22,23 +22,28 @@ public class SimpleTriangleApp extends VulkanApplication {
         VulkanCapabilities.initialize(vulkanContext().physicalDevice());
 
         frame = new TriangleGraphicsFrame(
-            vulkanContext().arena(), vulkanContext().device(),
-            vulkanContext().graphicsVkQueue(), surface(), 800, 600);
+                vulkanContext().arena(), vulkanContext().device(),
+                vulkanContext().graphicsVkQueue(), surface(), 800, 600);
         frame.init(vulkanContext().graphicsQueueFamily());
 
         loop = GraphicsLoop.builder()
-            .renderer(frame)
-            .driver(LoopDriver.uncapped())
-            .shouldClose(() -> windowSystem().shouldClose(window()))
-            .onResize(dims -> frame.resize(dims[0], dims[1]))
-            .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
-            .build();
+                .renderer(frame)
+                .driver(LoopDriver.uncapped())
+                .shouldClose(() -> windowSystem().shouldClose(window()))
+                .onResize(dims -> frame.resize(dims[0], dims[1]))
+                .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
+                .build();
 
         loop.start();
 
         while (!windowSystem().shouldClose(window())) {
             windowSystem().pollEvents();
-            try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         loop.stop();
     }

@@ -3,8 +3,10 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
+
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+
 /**
  * Decorator over {@link DeviceLocalBuffer} that maintains a CPU-side mirror of all written data.
  * Reads are served from the mirror at zero GPU cost.
@@ -32,7 +34,9 @@ public class MirroredBuffer extends AbstractBuffer {
     }
 
     @Override
-    public MemorySegment handle() { return deviceBuffer.handle(); }
+    public MemorySegment handle() {
+        return deviceBuffer.handle();
+    }
 
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
@@ -44,17 +48,25 @@ public class MirroredBuffer extends AbstractBuffer {
         return deviceBuffer.writeAsync(data, offset, queue);
     }
 
-    /** @return the raw CPU mirror ByteBuffer — for typed buffer views. */
-    public ByteBuffer mirror() { return mirror; }
+    /**
+     * @return the raw CPU mirror ByteBuffer — for typed buffer views.
+     */
+    public ByteBuffer mirror() {
+        return mirror;
+    }
 
-    /** @return a read-only view of the CPU mirror — zero GPU cost. */
+    /**
+     * @return a read-only view of the CPU mirror — zero GPU cost.
+     */
     @Override
     public ByteBuffer read(long offset, long length) {
         return mirror.slice((int) offset, (int) length).asReadOnlyBuffer();
     }
 
     @Override
-    public void flush() { deviceBuffer.flush(); }
+    public void flush() {
+        deviceBuffer.flush();
+    }
 
     @Override
     public void closeImpl() {

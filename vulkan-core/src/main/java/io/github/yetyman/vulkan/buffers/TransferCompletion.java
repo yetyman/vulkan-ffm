@@ -16,7 +16,9 @@ public class TransferCompletion implements AutoCloseable {
         this.batch = batch;
     }
 
-    public static TransferCompletion completed() { return COMPLETED; }
+    public static TransferCompletion completed() {
+        return COMPLETED;
+    }
 
     public void await() {
         if (batch == null) return;
@@ -32,8 +34,18 @@ public class TransferCompletion implements AutoCloseable {
     }
 
     public void onComplete(Runnable callback) {
-        if (batch == null) { callback.run(); return; }
-        Thread.ofVirtual().start(() -> { try { await(); callback.run(); } finally { close(); } });
+        if (batch == null) {
+            callback.run();
+            return;
+        }
+        Thread.ofVirtual().start(() -> {
+            try {
+                await();
+                callback.run();
+            } finally {
+                close();
+            }
+        });
     }
 
     public CompletableFuture<Void> toFuture() {

@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.VkPhysicalDevice;
 import io.github.yetyman.vulkan.generated.VkExtensionProperties;
 import io.github.yetyman.vulkan.util.Logger;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -15,7 +16,7 @@ import java.util.Set;
  * Checks extension availability once at startup and provides fast runtime access.
  */
 public class VulkanCapabilities {
-    
+
     // Extension availability flags - fastest possible runtime checks
     public static boolean multiDraw = false;
     public static boolean meshShaders = false;
@@ -27,9 +28,9 @@ public class VulkanCapabilities {
     public static boolean reBar = false;
     public static boolean dynamicRendering = false;
     public static boolean unifiedMemory = false; // true on UMA or ReBAR — single-offset ring buffers are beneficial
-    
+
     private static boolean initialized = false;
-    
+
     /**
      * Initialize capabilities for the given physical device.
      * Should be called once during application startup.
@@ -39,44 +40,44 @@ public class VulkanCapabilities {
             Logger.info("VulkanCapabilities already initialized");
             return;
         }
-        
+
         Set<String> availableExtensions = getAvailableExtensions(physicalDevice);
-        
+
         // Check each extension we care about
         reBar = physicalDevice.supportsReBar();
         dynamicRendering = availableExtensions.contains("VK_KHR_dynamic_rendering") || isVulkan13OrHigher(physicalDevice);
         unifiedMemory = physicalDevice.prefersSingleOffsetRingBuffer();
         multiDraw = availableExtensions.contains("VK_EXT_multi_draw");
-        meshShaders = availableExtensions.contains("VK_EXT_mesh_shader") || 
-                     availableExtensions.contains("VK_NV_mesh_shader");
+        meshShaders = availableExtensions.contains("VK_EXT_mesh_shader") ||
+                availableExtensions.contains("VK_NV_mesh_shader");
         rayTracing = availableExtensions.contains("VK_KHR_ray_tracing_pipeline");
         indirectCount = availableExtensions.contains("VK_KHR_draw_indirect_count") ||
-                       availableExtensions.contains("VK_AMD_draw_indirect_count");
+                availableExtensions.contains("VK_AMD_draw_indirect_count");
         drawIndirectByteCount = availableExtensions.contains("VK_EXT_transform_feedback");
         conditionalRendering = availableExtensions.contains("VK_EXT_conditional_rendering");
         transformFeedback = availableExtensions.contains("VK_EXT_transform_feedback");
-        
+
         initialized = true;
         logCapabilities();
     }
-    
+
     /**
      * Get all available device extensions.
      */
     private static Set<String> getAvailableExtensions(VkPhysicalDevice physicalDevice) {
         Set<String> extensions = new HashSet<>();
-        
+
         try (Arena arena = Arena.ofConfined()) {
             // Get extension count
             MemorySegment countPtr = arena.allocate(ValueLayout.JAVA_INT);
             Vulkan.enumerateDeviceExtensionProperties(physicalDevice.handle(), MemorySegment.NULL, countPtr, MemorySegment.NULL).check();
             int count = countPtr.get(ValueLayout.JAVA_INT, 0);
-            
+
             if (count > 0) {
                 // Get extensions
                 MemorySegment extensionsArray = arena.allocate(VkExtensionProperties.layout(), count);
                 Vulkan.enumerateDeviceExtensionProperties(physicalDevice.handle(), MemorySegment.NULL, countPtr, extensionsArray).check();
-                
+
                 // Extract extension names
                 for (int i = 0; i < count; i++) {
                     MemorySegment extension = extensionsArray.asSlice(i * VkExtensionProperties.layout().byteSize(), VkExtensionProperties.layout());
@@ -85,10 +86,10 @@ public class VulkanCapabilities {
                 }
             }
         }
-        
+
         return extensions;
     }
-    
+
     /**
      * Log detected capabilities for debugging.
      */
@@ -116,7 +117,7 @@ public class VulkanCapabilities {
             return major > 1 || (major == 1 && minor >= 3);
         }
     }
-    
+
     /**
      * Get list of extensions that should be enabled during device creation.
      * Only returns extensions that are both available and useful.
@@ -125,9 +126,9 @@ public class VulkanCapabilities {
         if (!initialized) {
             throw new IllegalStateException("VulkanCapabilities not initialized");
         }
-        
+
         java.util.List<String> required = new java.util.ArrayList<>();
-        
+
         if (multiDraw) required.add("VK_EXT_multi_draw");
         if (meshShaders) {
             required.add("VK_EXT_mesh_shader");
@@ -150,17 +151,17 @@ public class VulkanCapabilities {
         if (transformFeedback) {
             required.add("VK_EXT_transform_feedback");
         }
-        
+
         return required.toArray(new String[0]);
     }
-    
+
     /**
      * Check if capabilities have been initialized.
      */
     public static boolean isInitialized() {
         return initialized;
     }
-    
+
     /**
      * Reset capabilities (for testing).
      */

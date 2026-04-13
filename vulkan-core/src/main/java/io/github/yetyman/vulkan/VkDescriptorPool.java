@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,20 +14,26 @@ import java.util.List;
 public class VkDescriptorPool implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
-    
+
     public VkDescriptorPool(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
-    
-    /** @return a new builder for configuring descriptor pool creation */
+
+    /**
+     * @return a new builder for configuring descriptor pool creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkDescriptorPool handle */
-    public MemorySegment handle() { return handle; }
-    
+
+    /**
+     * @return the VkDescriptorPool handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
     /**
      * Allocates a descriptor set from this pool.
      */
@@ -36,22 +43,22 @@ public class VkDescriptorPool implements AutoCloseable {
             VkDescriptorSetAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO.value());
             VkDescriptorSetAllocateInfo.descriptorPool(allocInfo, handle);
             VkDescriptorSetAllocateInfo.descriptorSetCount(allocInfo, 1);
-            
+
             MemorySegment layouts = arena.allocate(ValueLayout.ADDRESS);
             layouts.set(ValueLayout.ADDRESS, 0, descriptorSetLayout.handle());
             VkDescriptorSetAllocateInfo.pSetLayouts(allocInfo, layouts);
-            
+
             MemorySegment descriptorSet = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.allocateDescriptorSets(device.handle(), allocInfo, descriptorSet).check();
             return new VkDescriptorSet(descriptorSet.get(ValueLayout.ADDRESS, 0), device);
         }
     }
-    
+
     @Override
     public void close() {
         Vulkan.destroyDescriptorPool(device.handle(), handle);
     }
-    
+
     /**
      * Builder for descriptor pool creation.
      */
@@ -60,73 +67,94 @@ public class VkDescriptorPool implements AutoCloseable {
         private int maxSets = 1;
         private final List<PoolSize> poolSizes = new ArrayList<>();
         private int flags = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets maximum number of descriptor sets that can be allocated */
+
+        /**
+         * Sets maximum number of descriptor sets that can be allocated
+         */
         public Builder maxSets(int maxSets) {
             this.maxSets = maxSets;
             return this;
         }
-        
-        /** Adds uniform buffer descriptors to the pool */
+
+        /**
+         * Adds uniform buffer descriptors to the pool
+         */
         public Builder uniformBuffers(int count) {
             return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), count);
         }
-        
-        /** Adds combined image sampler descriptors to the pool */
+
+        /**
+         * Adds combined image sampler descriptors to the pool
+         */
         public Builder combinedImageSamplers(int count) {
             return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER.value(), count);
         }
-        
-        /** Adds storage buffer descriptors to the pool */
+
+        /**
+         * Adds storage buffer descriptors to the pool
+         */
         public Builder storageBuffers(int count) {
             return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(), count);
         }
-        
-        /** Adds storage image descriptors to the pool */
+
+        /**
+         * Adds storage image descriptors to the pool
+         */
         public Builder storageImages(int count) {
             return poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE.value(), count);
         }
-        
-        /** Adds a custom descriptor type to the pool */
+
+        /**
+         * Adds a custom descriptor type to the pool
+         */
         public Builder poolSize(int descriptorType, int descriptorCount) {
             poolSizes.add(new PoolSize(descriptorType, descriptorCount));
             return this;
         }
-        
-        /** Enables free descriptor set flag */
+
+        /**
+         * Enables free descriptor set flag
+         */
         public Builder freeDescriptorSet() {
             this.flags |= VkDescriptorPoolCreateFlagBits.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT.value();
             return this;
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Creates the descriptor pool */
+
+        /**
+         * Creates the descriptor pool
+         */
         public VkDescriptorPool build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (poolSizes.isEmpty()) throw new IllegalStateException("no pool sizes defined");
-            
+
             MemorySegment poolSizesArray = arena.allocate(VkDescriptorPoolSize.layout(), poolSizes.size());
-            
+
             for (int i = 0; i < poolSizes.size(); i++) {
                 PoolSize ps = poolSizes.get(i);
                 MemorySegment poolSize = poolSizesArray.asSlice(i * VkDescriptorPoolSize.layout().byteSize(), VkDescriptorPoolSize.layout());
                 VkDescriptorPoolSize.type(poolSize, ps.type());
                 VkDescriptorPoolSize.descriptorCount(poolSize, ps.descriptorCount());
             }
-            
+
             MemorySegment createInfo = VkDescriptorPoolCreateInfo.allocate(arena);
             VkDescriptorPoolCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO.value());
             VkDescriptorPoolCreateInfo.pNext(createInfo, MemorySegment.NULL);
@@ -134,12 +162,13 @@ public class VkDescriptorPool implements AutoCloseable {
             VkDescriptorPoolCreateInfo.maxSets(createInfo, maxSets);
             VkDescriptorPoolCreateInfo.poolSizeCount(createInfo, poolSizes.size());
             VkDescriptorPoolCreateInfo.pPoolSizes(createInfo, poolSizesArray);
-            
+
             MemorySegment poolPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createDescriptorPool(device.handle(), createInfo, poolPtr).check();
             return new VkDescriptorPool(poolPtr.get(ValueLayout.ADDRESS, 0), device);
         }
-        
-        private record PoolSize(int type, int descriptorCount) {}
+
+        private record PoolSize(int type, int descriptorCount) {
+        }
     }
 }

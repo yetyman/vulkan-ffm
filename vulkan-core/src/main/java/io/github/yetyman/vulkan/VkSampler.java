@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -10,25 +11,31 @@ import java.lang.foreign.*;
 public class VkSampler implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
-    
+
     private VkSampler(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
-    
-    /** @return a new builder for configuring sampler creation */
+
+    /**
+     * @return a new builder for configuring sampler creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkSampler handle */
-    public MemorySegment handle() { return handle; }
-    
+
+    /**
+     * @return the VkSampler handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
     @Override
     public void close() {
         Vulkan.destroySampler(device.handle(), handle);
     }
-    
+
     public static class Builder {
         private VkDevice device;
         private int magFilter = VkFilter.VK_FILTER_LINEAR.value();
@@ -46,50 +53,51 @@ public class VkSampler implements AutoCloseable {
         private float maxLod = 0.0f;
         private int borderColor = VkBorderColor.VK_BORDER_COLOR_INT_OPAQUE_BLACK.value();
         private boolean unnormalizedCoordinates = false;
-        
-        private Builder() {}
-        
+
+        private Builder() {
+        }
+
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
+
         public Builder nearest() {
             this.magFilter = VkFilter.VK_FILTER_NEAREST.value();
             this.minFilter = VkFilter.VK_FILTER_NEAREST.value();
             this.mipmapMode = VkSamplerMipmapMode.VK_SAMPLER_MIPMAP_MODE_NEAREST.value();
             return this;
         }
-        
+
         public Builder linear() {
             this.magFilter = VkFilter.VK_FILTER_LINEAR.value();
             this.minFilter = VkFilter.VK_FILTER_LINEAR.value();
             return this;
         }
-        
+
         public Builder clampToEdge() {
             this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
             this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
             this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE.value();
             return this;
         }
-        
+
         public Builder repeat() {
             this.addressModeU = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
             this.addressModeV = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
             this.addressModeW = VkSamplerAddressMode.VK_SAMPLER_ADDRESS_MODE_REPEAT.value();
             return this;
         }
-        
+
         public Builder anisotropy(float maxAnisotropy) {
             this.anisotropyEnable = true;
             this.maxAnisotropy = maxAnisotropy;
             return this;
         }
-        
+
         public VkSampler build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            
+
             MemorySegment samplerInfo = VkSamplerCreateInfo.allocate(arena);
             VkSamplerCreateInfo.sType(samplerInfo, VkStructureType.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO.value());
             VkSamplerCreateInfo.magFilter(samplerInfo, magFilter);
@@ -107,7 +115,7 @@ public class VkSampler implements AutoCloseable {
             VkSamplerCreateInfo.mipLodBias(samplerInfo, mipLodBias);
             VkSamplerCreateInfo.minLod(samplerInfo, minLod);
             VkSamplerCreateInfo.maxLod(samplerInfo, maxLod);
-            
+
             MemorySegment samplerPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createSampler(device.handle(), samplerInfo, samplerPtr).check();
             return new VkSampler(samplerPtr.get(ValueLayout.ADDRESS, 0), device);

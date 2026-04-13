@@ -32,18 +32,23 @@ public interface IQueueSubmitter {
      * Flushes any pending batched submits immediately.
      * No-op for {@link DirectSubmitter} and {@link MutexSubmitter}.
      */
-    default void flush() {}
+    default void flush() {
+    }
 
     /**
      * Returns the number of submits currently pending (not yet dispatched to the GPU).
      * Always 0 for {@link DirectSubmitter} and {@link MutexSubmitter}.
      */
-    default int pendingCount() { return 0; }
+    default int pendingCount() {
+        return 0;
+    }
 
     /**
      * Called by the application-wide timeout checker thread to flush stale pending work.
      * Implementations should flush if {@code pendingCount() > 0} and the oldest pending
      * submit has been waiting longer than their configured threshold.
      */
-    default void checkTimeout() { flush(); }
+    default void checkTimeout() {
+        flush();
+    }
 }

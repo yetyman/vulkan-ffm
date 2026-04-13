@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -14,6 +15,7 @@ import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkMemoryAllocateInfo;
 import io.github.yetyman.vulkan.generated.VkMemoryType;
 import io.github.yetyman.vulkan.generated.VkPhysicalDeviceMemoryProperties;
+
 import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.*;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkAllocateMemory;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkFreeMemory;
@@ -29,7 +31,9 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkUnmapMemory;
  */
 class SparsePageAllocator implements AutoCloseable {
     private final VkDevice device;
-    /** Owns all long-lived native allocations (VkMemoryAllocateInfo, pointer-out segments). */
+    /**
+     * Owns all long-lived native allocations (VkMemoryAllocateInfo, pointer-out segments).
+     */
     private final Arena arena;
     private final MemorySegment bufferHandle;
     private final VkQueue sparseQueue;
@@ -39,7 +43,9 @@ class SparsePageAllocator implements AutoCloseable {
     private final int memoryProperties;
 
     private final ConcurrentHashMap<Long, MemorySegment> boundPages = new ConcurrentHashMap<>();
-    /** Guards freeMemoryPool and boundPages mutations in bind/unbind — pages at different offsets are independent. */
+    /**
+     * Guards freeMemoryPool and boundPages mutations in bind/unbind — pages at different offsets are independent.
+     */
     private final ReentrantLock bindLock = new ReentrantLock();
     private final Queue<MemorySegment> freeMemoryPool = new ArrayDeque<>();
     private final ConcurrentHashMap<Long, MemorySegment> mappedPages = new ConcurrentHashMap<>();
@@ -110,7 +116,9 @@ class SparsePageAllocator implements AutoCloseable {
         }
     }
 
-    /** Decrements map depth, unmapping when it reaches zero. */
+    /**
+     * Decrements map depth, unmapping when it reaches zero.
+     */
     void unmapPage(long pageIndex) {
         synchronized (mapDepth) {
             if (mapDepth[(int) pageIndex] <= 0) return;
@@ -123,21 +131,25 @@ class SparsePageAllocator implements AutoCloseable {
         }
     }
 
-    /** @return the VkDeviceMemory handle for the page at the given byte offset */
+    /**
+     * @return the VkDeviceMemory handle for the page at the given byte offset
+     */
     MemorySegment pageMemoryAt(long pageOffset) {
         return boundPages.get(pageOffset);
     }
 
-    /** Allocates a VkDeviceMemory block and issues the sparse bind. Called with bindLock held. */
+    /**
+     * Allocates a VkDeviceMemory block and issues the sparse bind. Called with bindLock held.
+     */
     private MemorySegment allocateAndBindPage(long offset) {
         MemorySegment memory = freeMemoryPool.poll();
         if (memory == null) memory = allocatePageMemory();
 
         try (Arena tmp = Arena.ofConfined()) {
             MemorySegment bind = VkSparseMemoryBind.builder()
-                .resourceOffset(offset).size(pageSize).memory(memory).memoryOffset(0).flags(0).build(tmp);
+                    .resourceOffset(offset).size(pageSize).memory(memory).memoryOffset(0).flags(0).build(tmp);
             MemorySegment bufferBind = VkSparseBufferMemoryBindInfo.builder()
-                .buffer(bufferHandle).binds(bind).build(tmp);
+                    .buffer(bufferHandle).binds(bind).build(tmp);
             MemorySegment bindInfo = VkBindSparseInfo.builder().bufferBinds(bufferBind).build(tmp);
 
             VkFence fence = VkFence.builder().device(device).build(tmp);
@@ -149,16 +161,18 @@ class SparsePageAllocator implements AutoCloseable {
         return memory;
     }
 
-    /** Unbinds a page and returns its memory to the pool. Called with bindLock held. */
+    /**
+     * Unbinds a page and returns its memory to the pool. Called with bindLock held.
+     */
     private void unbindPage(long offset) {
         MemorySegment memory = boundPages.remove(offset);
         if (memory == null) return;
 
         try (Arena tmp = Arena.ofConfined()) {
             MemorySegment bind = VkSparseMemoryBind.builder()
-                .resourceOffset(offset).size(pageSize).memory(MemorySegment.NULL).memoryOffset(0).flags(0).build(tmp);
+                    .resourceOffset(offset).size(pageSize).memory(MemorySegment.NULL).memoryOffset(0).flags(0).build(tmp);
             MemorySegment bufferBind = VkSparseBufferMemoryBindInfo.builder()
-                .buffer(bufferHandle).binds(bind).build(tmp);
+                    .buffer(bufferHandle).binds(bind).build(tmp);
             MemorySegment bindInfo = VkBindSparseInfo.builder().bufferBinds(bufferBind).build(tmp);
 
             VkFence fence = VkFence.builder().device(device).build(tmp);

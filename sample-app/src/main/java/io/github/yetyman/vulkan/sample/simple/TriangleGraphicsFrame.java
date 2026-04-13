@@ -17,7 +17,7 @@ public class TriangleGraphicsFrame extends SimpleGraphicsFrame {
     private final long startTime = System.nanoTime();
 
     public TriangleGraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
-                                  MemorySegment surface, int width, int height) {
+                                 MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3);
     }
 
@@ -28,12 +28,12 @@ public class TriangleGraphicsFrame extends SimpleGraphicsFrame {
         time = vertShader.getPushConstant("time", Float.class);
 
         VkPipeline.Builder builder = VkPipeline.builder()
-            .device(device)
-            .vertexShader(vertShader)
-            .fragmentShader(fragShader)
-            .triangleTopology()
-            .dynamicViewport()
-            .dynamicScissor();
+                .device(device)
+                .vertexShader(vertShader)
+                .fragmentShader(fragShader)
+                .triangleTopology()
+                .dynamicViewport()
+                .dynamicScissor();
 
         if (useDynamicRendering) {
             builder.dynamicRendering(0, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value());
@@ -52,8 +52,15 @@ public class TriangleGraphicsFrame extends SimpleGraphicsFrame {
         vertShader.flush(commandBuffer);
     }
 
-    @Override protected int vertexCount() { return 3; }
-    @Override protected int instanceCount() { return 1000; }
+    @Override
+    protected int vertexCount() {
+        return 3;
+    }
+
+    @Override
+    protected int instanceCount() {
+        return 1000;
+    }
 
     @Override
     protected void cleanupResources() {

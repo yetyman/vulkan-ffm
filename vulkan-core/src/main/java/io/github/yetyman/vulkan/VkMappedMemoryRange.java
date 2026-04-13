@@ -7,7 +7,7 @@ import java.lang.foreign.ValueLayout;
 import static io.github.yetyman.vulkan.enums.VkStructureType.VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
 
 public class VkMappedMemoryRange {
-    
+
     public static MemorySegment allocate(Arena arena, MemorySegment memory, long offset, long size) {
         MemorySegment range = arena.allocate(40);
         range.set(ValueLayout.JAVA_INT, 0, VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE.value());

@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.command.VkRenderPassCmd;
+
 import java.lang.foreign.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +30,16 @@ import java.util.List;
  */
 public class VkRendering {
 
-    private VkRendering() {}
+    private VkRendering() {
+    }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** Ends a dynamic rendering pass. */
+    /**
+     * Ends a dynamic rendering pass.
+     */
     public static void end(VkDevice device, MemorySegment commandBuffer) {
         VkRenderPassCmd.endRendering(device, commandBuffer);
     }
@@ -48,62 +54,76 @@ public class VkRendering {
         private AttachmentConfig depthAttachment = null;
         private AttachmentConfig stencilAttachment = null;
 
-        private Builder() {}
+        private Builder() {
+        }
 
-        /** Sets the device for dynamic rendering function loading. */
-        public Builder device(VkDevice device) { this.device = device; return this; }
+        /**
+         * Sets the device for dynamic rendering function loading.
+         */
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
 
-        /** Sets the render area. */
+        /**
+         * Sets the render area.
+         */
         public Builder renderArea(int x, int y, int width, int height) {
-            this.x = x; this.y = y; this.width = width; this.height = height;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
             return this;
         }
 
         /**
          * Adds a color attachment.
-         * @param imageView the VkImageView handle
+         *
+         * @param imageView   the VkImageView handle
          * @param imageLayout the layout the image will be in during rendering
-         * @param loadOp what to do with existing contents at render pass start
-         * @param storeOp what to do with contents at render pass end
+         * @param loadOp      what to do with existing contents at render pass start
+         * @param storeOp     what to do with contents at render pass end
          */
         public Builder colorAttachment(MemorySegment imageView, int imageLayout, int loadOp, int storeOp) {
             colorAttachments.add(new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                MemorySegment.NULL, 0, 0, 0, 0, false));
+                    MemorySegment.NULL, 0, 0, 0, 0, false));
             return this;
         }
 
         /**
          * Adds a color attachment with a clear value.
-         * @param imageView the VkImageView handle
+         *
+         * @param imageView   the VkImageView handle
          * @param imageLayout the layout the image will be in during rendering
-         * @param loadOp what to do with existing contents — use CLEAR to apply the clear value
-         * @param storeOp what to do with contents at render pass end
-         * @param r clear color red
-         * @param g clear color green
-         * @param b clear color blue
-         * @param a clear color alpha
+         * @param loadOp      what to do with existing contents — use CLEAR to apply the clear value
+         * @param storeOp     what to do with contents at render pass end
+         * @param r           clear color red
+         * @param g           clear color green
+         * @param b           clear color blue
+         * @param a           clear color alpha
          */
         public Builder colorAttachment(MemorySegment imageView, int imageLayout, int loadOp, int storeOp,
                                        float r, float g, float b, float a) {
             colorAttachments.add(new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                MemorySegment.NULL, r, g, b, a, false));
+                    MemorySegment.NULL, r, g, b, a, false));
             return this;
         }
 
         /**
          * Adds a color attachment with a resolve target for MSAA.
-         * @param imageView the MSAA VkImageView handle
-         * @param imageLayout the layout the MSAA image will be in during rendering
-         * @param loadOp load op for the MSAA image
-         * @param storeOp store op for the MSAA image (typically DONT_CARE — resolved result is what matters)
-         * @param resolveImageView the resolve target VkImageView handle
+         *
+         * @param imageView          the MSAA VkImageView handle
+         * @param imageLayout        the layout the MSAA image will be in during rendering
+         * @param loadOp             load op for the MSAA image
+         * @param storeOp            store op for the MSAA image (typically DONT_CARE — resolved result is what matters)
+         * @param resolveImageView   the resolve target VkImageView handle
          * @param resolveImageLayout the layout the resolve image will be in
          */
         public Builder colorAttachmentMSAA(MemorySegment imageView, int imageLayout, int loadOp, int storeOp,
-                                            MemorySegment resolveImageView, int resolveImageLayout,
-                                            float r, float g, float b, float a) {
+                                           MemorySegment resolveImageView, int resolveImageLayout,
+                                           float r, float g, float b, float a) {
             colorAttachments.add(new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                resolveImageView, r, g, b, a, false, resolveImageLayout));
+                    resolveImageView, r, g, b, a, false, resolveImageLayout));
             return this;
         }
 
@@ -112,7 +132,7 @@ public class VkRendering {
          */
         public Builder depthAttachment(MemorySegment imageView, int imageLayout, int loadOp, int storeOp) {
             this.depthAttachment = new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                MemorySegment.NULL, 1.0f, 0, 0, 0, true);
+                    MemorySegment.NULL, 1.0f, 0, 0, 0, true);
             return this;
         }
 
@@ -122,7 +142,7 @@ public class VkRendering {
         public Builder depthAttachment(MemorySegment imageView, int imageLayout, int loadOp, int storeOp,
                                        float clearDepth) {
             this.depthAttachment = new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                MemorySegment.NULL, clearDepth, 0, 0, 0, true);
+                    MemorySegment.NULL, clearDepth, 0, 0, 0, true);
             return this;
         }
 
@@ -131,25 +151,40 @@ public class VkRendering {
          */
         public Builder stencilAttachment(MemorySegment imageView, int imageLayout, int loadOp, int storeOp) {
             this.stencilAttachment = new AttachmentConfig(imageView, imageLayout, loadOp, storeOp,
-                MemorySegment.NULL, 0, 0, 0, 0, true);
+                    MemorySegment.NULL, 0, 0, 0, 0, true);
             return this;
         }
 
-        /** Sets the layer count for layered rendering (default: 1). */
-        public Builder layers(int layers) { this.layers = layers; return this; }
+        /**
+         * Sets the layer count for layered rendering (default: 1).
+         */
+        public Builder layers(int layers) {
+            this.layers = layers;
+            return this;
+        }
 
-        /** Sets the view mask for multiview rendering (default: 0 = disabled). */
-        public Builder viewMask(int viewMask) { this.viewMask = viewMask; return this; }
+        /**
+         * Sets the view mask for multiview rendering (default: 0 = disabled).
+         */
+        public Builder viewMask(int viewMask) {
+            this.viewMask = viewMask;
+            return this;
+        }
 
-        /** Sets rendering flags. */
-        public Builder flags(int flags) { this.flags = flags; return this; }
+        /**
+         * Sets rendering flags.
+         */
+        public Builder flags(int flags) {
+            this.flags = flags;
+            return this;
+        }
 
         /**
          * Builds the VkRenderingInfo and calls vkCmdBeginRendering.
          */
         public void begin(MemorySegment commandBuffer, Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            
+
             MemorySegment renderingInfo = VkRenderingInfo.allocate(arena);
             VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
             VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
@@ -169,8 +204,8 @@ public class VkRendering {
                 MemorySegment colorArray = arena.allocate(VkRenderingAttachmentInfo.layout(), colorAttachments.size());
                 for (int i = 0; i < colorAttachments.size(); i++) {
                     MemorySegment slot = colorArray.asSlice(
-                        i * VkRenderingAttachmentInfo.layout().byteSize(),
-                        VkRenderingAttachmentInfo.layout());
+                            i * VkRenderingAttachmentInfo.layout().byteSize(),
+                            VkRenderingAttachmentInfo.layout());
                     fillAttachment(slot, colorAttachments.get(i), arena);
                 }
                 VkRenderingInfo.colorAttachmentCount(renderingInfo, colorAttachments.size());
@@ -206,14 +241,14 @@ public class VkRendering {
 
             if (cfg.resolveImageView != null && !cfg.resolveImageView.equals(MemorySegment.NULL)) {
                 VkRenderingAttachmentInfo.resolveMode(slot,
-                    VkResolveModeFlagBits.VK_RESOLVE_MODE_AVERAGE_BIT.value());
+                        VkResolveModeFlagBits.VK_RESOLVE_MODE_AVERAGE_BIT.value());
                 VkRenderingAttachmentInfo.resolveImageView(slot, cfg.resolveImageView);
                 VkRenderingAttachmentInfo.resolveImageLayout(slot, cfg.resolveImageLayout);
             } else {
                 VkRenderingAttachmentInfo.resolveMode(slot, 0); // VK_RESOLVE_MODE_NONE
                 VkRenderingAttachmentInfo.resolveImageView(slot, MemorySegment.NULL);
                 VkRenderingAttachmentInfo.resolveImageLayout(slot,
-                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
+                        VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
             }
 
             // Clear value — 16 bytes: either 4 floats (color) or float+uint (depth/stencil)
@@ -236,7 +271,7 @@ public class VkRendering {
                              MemorySegment resolveImageView, float r, float g, float b, float a,
                              boolean isDepthStencil) {
                 this(imageView, imageLayout, loadOp, storeOp, resolveImageView, r, g, b, a, isDepthStencil,
-                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
+                        VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
             }
         }
     }

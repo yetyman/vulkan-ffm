@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -13,7 +14,7 @@ public class VkSwapchain implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
     private final MemorySegment[] images;
-    
+
     private final int width;
     private final int height;
 
@@ -24,53 +25,71 @@ public class VkSwapchain implements AutoCloseable {
         this.width = width;
         this.height = height;
     }
-    
+
     /**
      * Creates a new swapchain for the given surface and dimensions with VSync enabled.
      */
     public static VkSwapchain create(Arena arena, VkDevice device, MemorySegment surface, int width, int height) {
         return builder()
-            .device(device)
-            .surface(surface)
-            .extent(width, height)
-            .vsync(false)
-            .build(arena);
+                .device(device)
+                .surface(surface)
+                .extent(width, height)
+                .vsync(false)
+                .build(arena);
     }
-    
+
     /**
      * Creates a new swapchain for the given surface and dimensions.
      */
     public static VkSwapchain create(Arena arena, VkDevice device, MemorySegment surface, int width, int height, boolean vsync) {
         return builder()
-            .device(device)
-            .surface(surface)
-            .extent(width, height)
-            .vsync(vsync)
-            .build(arena);
+                .device(device)
+                .surface(surface)
+                .extent(width, height)
+                .vsync(vsync)
+                .build(arena);
     }
-    
-    /** @return a new builder for configuring swapchain creation */
+
+    /**
+     * @return a new builder for configuring swapchain creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkSwapchainKHR handle */
-    public MemorySegment handle() { return handle; }
-    
-    /** @return array of VkImage handles from the swapchain */
-    public MemorySegment[] getImages() { return images; }
 
-    /** @return the actual width the swapchain was created with */
-    public int width() { return width; }
+    /**
+     * @return the VkSwapchainKHR handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
 
-    /** @return the actual height the swapchain was created with */
-    public int height() { return height; }
-    
+    /**
+     * @return array of VkImage handles from the swapchain
+     */
+    public MemorySegment[] getImages() {
+        return images;
+    }
+
+    /**
+     * @return the actual width the swapchain was created with
+     */
+    public int width() {
+        return width;
+    }
+
+    /**
+     * @return the actual height the swapchain was created with
+     */
+    public int height() {
+        return height;
+    }
+
     @Override
     public void close() {
         Vulkan.destroySwapchainKHR(device.handle(), handle);
     }
-    
+
     /**
      * Builder for flexible swapchain creation.
      */
@@ -91,84 +110,111 @@ public class VkSwapchain implements AutoCloseable {
         private boolean clipped = true;
         private MemorySegment oldSwapchain = MemorySegment.NULL;
         private int flags = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets the surface to present to */
+
+        /**
+         * Sets the surface to present to
+         */
         public Builder surface(MemorySegment surface) {
             this.surface = surface;
             return this;
         }
-        
-        /** Sets swapchain image dimensions */
+
+        /**
+         * Sets swapchain image dimensions
+         */
         public Builder extent(int width, int height) {
             this.width = width;
             this.height = height;
             return this;
         }
-        
-        /** Sets minimum number of images in swapchain */
+
+        /**
+         * Sets minimum number of images in swapchain
+         */
         public Builder minImageCount(int count) {
             this.minImageCount = count;
             return this;
         }
-        
-        /** Sets image format and color space */
+
+        /**
+         * Sets image format and color space
+         */
         public Builder format(int format, int colorSpace) {
             this.imageFormat = format;
             this.colorSpace = colorSpace;
             return this;
         }
-        
-        /** Sets image usage flags */
+
+        /**
+         * Sets image usage flags
+         */
         public Builder imageUsage(int usage) {
             this.imageUsage = usage;
             return this;
         }
-        
-        /** Enables VSync (FIFO present mode) */
+
+        /**
+         * Enables VSync (FIFO present mode)
+         */
         public Builder vsync(boolean enable) {
             this.presentMode = enable ? VkPresentModeKHR.VK_PRESENT_MODE_FIFO_KHR.value() : VkPresentModeKHR.VK_PRESENT_MODE_IMMEDIATE_KHR.value();
             return this;
         }
-        
-        /** Sets present mode directly */
+
+        /**
+         * Sets present mode directly
+         */
         public Builder presentMode(int mode) {
             this.presentMode = mode;
             return this;
         }
-        
-        /** Sets pre-transform */
+
+        /**
+         * Sets pre-transform
+         */
         public Builder preTransform(int transform) {
             this.preTransform = transform;
             return this;
         }
-        
-        /** Sets composite alpha */
+
+        /**
+         * Sets composite alpha
+         */
         public Builder compositeAlpha(int alpha) {
             this.compositeAlpha = alpha;
             return this;
         }
-        
-        /** Sets old swapchain for recreation */
+
+        /**
+         * Sets old swapchain for recreation
+         */
         public Builder oldSwapchain(MemorySegment oldSwapchain) {
             this.oldSwapchain = oldSwapchain;
             return this;
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Creates the swapchain */
+
+        /**
+         * Creates the swapchain
+         */
         public VkSwapchain build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (surface == null) throw new IllegalStateException("surface not set");
@@ -179,8 +225,9 @@ public class VkSwapchain implements AutoCloseable {
             int[] surfaceExtent = device.physicalDevice().getSurfaceExtent(surface, arena);
             width = surfaceExtent[0];
             height = surfaceExtent[1];
-            if (width <= 0 || height <= 0) throw new IllegalStateException("surface extent is zero (window minimized?)");
-            
+            if (width <= 0 || height <= 0)
+                throw new IllegalStateException("surface extent is zero (window minimized?)");
+
             MemorySegment createInfo = VkSwapchainCreateInfoKHR.allocate(arena);
             VkSwapchainCreateInfoKHR.sType(createInfo, 1000001000); // VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
             VkSwapchainCreateInfoKHR.pNext(createInfo, MemorySegment.NULL);
@@ -195,7 +242,7 @@ public class VkSwapchain implements AutoCloseable {
             VkSwapchainCreateInfoKHR.imageArrayLayers(createInfo, imageArrayLayers);
             VkSwapchainCreateInfoKHR.imageUsage(createInfo, imageUsage);
             VkSwapchainCreateInfoKHR.imageSharingMode(createInfo, imageSharingMode);
-            
+
             if (queueFamilyIndices != null && queueFamilyIndices.length > 0) {
                 MemorySegment indicesArray = arena.allocate(ValueLayout.JAVA_INT, queueFamilyIndices.length);
                 for (int i = 0; i < queueFamilyIndices.length; i++) {
@@ -207,28 +254,28 @@ public class VkSwapchain implements AutoCloseable {
                 VkSwapchainCreateInfoKHR.queueFamilyIndexCount(createInfo, 0);
                 VkSwapchainCreateInfoKHR.pQueueFamilyIndices(createInfo, MemorySegment.NULL);
             }
-            
+
             VkSwapchainCreateInfoKHR.preTransform(createInfo, preTransform);
             VkSwapchainCreateInfoKHR.compositeAlpha(createInfo, compositeAlpha);
             VkSwapchainCreateInfoKHR.presentMode(createInfo, presentMode);
             VkSwapchainCreateInfoKHR.clipped(createInfo, clipped ? 1 : 0);
             VkSwapchainCreateInfoKHR.oldSwapchain(createInfo, oldSwapchain);
-            
+
             MemorySegment swapchainPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createSwapchainKHR(device.handle(), createInfo, swapchainPtr).check();
             MemorySegment swapchain = swapchainPtr.get(ValueLayout.ADDRESS, 0);
-            
+
             MemorySegment imageCount = arena.allocate(ValueLayout.JAVA_INT);
             Vulkan.getSwapchainImagesKHR(device.handle(), swapchain, imageCount, MemorySegment.NULL).check();
             int count = imageCount.get(ValueLayout.JAVA_INT, 0);
-            
+
             MemorySegment[] images = new MemorySegment[count];
             MemorySegment imagesArray = arena.allocate(ValueLayout.ADDRESS, count);
             Vulkan.getSwapchainImagesKHR(device.handle(), swapchain, imageCount, imagesArray).check();
             for (int i = 0; i < count; i++) {
                 images[i] = imagesArray.getAtIndex(ValueLayout.ADDRESS, i);
             }
-            
+
             return new VkSwapchain(swapchain, device, images, width, height);
         }
     }

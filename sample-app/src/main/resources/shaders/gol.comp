@@ -1,14 +1,14 @@
 #version 450
 
-layout(local_size_x = 16, local_size_y = 16) in;
+layout (local_size_x = 16, local_size_y = 16) in;
 
-layout(push_constant) uniform PC {
+layout (push_constant) uniform PC {
     int width;
     int height;
 } pc;
 
-layout(set = 0, binding = 0) readonly buffer CellsIn  { uint cells[]; } inBuf;
-layout(set = 0, binding = 1) writeonly buffer CellsOut { uint cells[]; } outBuf;
+layout (set = 0, binding = 0) readonly buffer CellsIn { uint cells[]; } inBuf;
+layout (set = 0, binding = 1) writeonly buffer CellsOut { uint cells[]; } outBuf;
 
 void main() {
     int x = int(gl_GlobalInvocationID.x);
@@ -19,7 +19,7 @@ void main() {
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
             if (dx == 0 && dy == 0) continue;
-            int nx = (x + dx + pc.width)  % pc.width;
+            int nx = (x + dx + pc.width) % pc.width;
             int ny = (y + dy + pc.height) % pc.height;
             neighbors += int(inBuf.cells[ny * pc.width + nx]);
         }
@@ -27,7 +27,7 @@ void main() {
 
     uint cur = inBuf.cells[y * pc.width + x];
     uint next = (cur == 1u)
-        ? ((neighbors == 2 || neighbors == 3) ? 1u : 0u)
-        : ((neighbors == 3) ? 1u : 0u);
+    ? ((neighbors == 2 || neighbors == 3) ? 1u : 0u)
+    : ((neighbors == 3) ? 1u : 0u);
     outBuf.cells[y * pc.width + x] = next;
 }

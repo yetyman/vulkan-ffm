@@ -16,10 +16,10 @@ import java.lang.foreign.*;
 import java.util.*;
 
 public class ThreadedRenderer extends GraphicsFrame {
-    public enum Mode { BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE }
-    
+    public enum Mode {BEST_EFFICIENCY, BEST_PERFORMANCE, ADAPTIVE}
+
     private static final int TRIANGLES_COUNT = 1000;
-    
+
     // AA toggle
     private boolean adaptiveAAEnabled = true;
     private AdaptiveAA adaptiveAA;
@@ -29,52 +29,52 @@ public class ThreadedRenderer extends GraphicsFrame {
     private volatile boolean pendingMSAADecrease = false;
     private AdaptiveAA.Mode aaMode = AdaptiveAA.Mode.MSAA;
     private volatile boolean pendingAAModeChange = false;
-    
+
     private VkRenderPass directRenderPass;
     private VkPipeline pipeline;
     private VkPipeline gltfPipeline;
     private CommandManager commandManager;
     private VulkanRenderTarget depthTarget;
     private ShaderManager shaderManager;
-    
+
     // Camera uniform buffer
     private VkBuffer cameraUniformBuffer;
     private VkDescriptorSetLayout descriptorSetLayout;
     private VkDescriptorPool descriptorPool;
     private VkDescriptorSet descriptorSet;
-    
+
     // Threading
     private ThreadManager threadManager;
     private Mode mode = Mode.ADAPTIVE;
-    
+
     // Rendering
     private RenderList renderList;
-    
+
     // Performance tracking
     private long lastFrameTime = System.nanoTime();
     private final ArrayDeque<Long> frameTimes = new ArrayDeque<>();
     private final int FRAME_HISTORY = 60;
-    
+
     // Animation timing
     private final long startTime = System.nanoTime();
-    
+
     // Cached layouts to avoid FFM overhead
     private MemorySegment cachedViewport;
     private MemorySegment cachedScissor;
-    
+
     // Model rendering
     private Camera camera;
     private MainThreadWorkQueue mainThreadWork;
     private final List<VulkanMesh> loadedMeshes = new ArrayList<>();
-    
-    public ThreadedRenderer(Arena arena, VkDevice device, VkQueue queue, 
-                           MemorySegment surface, int width, int height) {
+
+    public ThreadedRenderer(Arena arena, VkDevice device, VkQueue queue,
+                            MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3);
-        
+
         // Initialize thread manager
         threadManager = new ThreadManager();
     }
-    
+
     @Override
     protected void initializeResources(int queueFamilyIndex) {
 
@@ -82,70 +82,70 @@ public class ThreadedRenderer extends GraphicsFrame {
         camera = new Camera();
         camera.setPosition(0.0f, 0.0f, 10.0f);
         camera.setTarget(0.0f, 0.0f, 0.0f);
-        camera.setAspectRatio((float)width / (float)height);
-        
+        camera.setAspectRatio((float) width / (float) height);
+
         // Initialize GLTF loader
         mainThreadWork = new MainThreadWorkQueue(60.0);
-        
+
         createManagers(queueFamilyIndex);
         createDepthTarget();
         createDirectRenderPass();
         if (adaptiveAAEnabled) {
             adaptiveAA = AdaptiveAA.builder()
-                .arena(arena)
-                .device(device)
-                .dimensions(width, height)
-                .mode(aaMode)
-                .samples(msaaSamples)
-                .build();
+                    .arena(arena)
+                    .device(device)
+                    .dimensions(width, height)
+                    .mode(aaMode)
+                    .samples(msaaSamples)
+                    .build();
         }
-        
+
         // Create graphics pipeline
         MemorySegment renderPassForPipeline = adaptiveAAEnabled ? adaptiveAA.getSceneRenderPass().handle() : directRenderPass.handle();
         createGraphicsPipeline(renderPassForPipeline);
         createRenderGraph();
         Logger.info("Threaded renderer initialized with RenderGraph (AA: " + (adaptiveAAEnabled ? "ON" : "OFF") + ")");
     }
-    
+
     private void createManagers(int queueFamilyIndex) {
         commandManager = CommandManager.builder()
-            .arena(arena)
-            .device(device)
-            .queueFamilyIndex(queueFamilyIndex)
-            .threaded(true)
-            .build();
-        
+                .arena(arena)
+                .device(device)
+                .queueFamilyIndex(queueFamilyIndex)
+                .threaded(true)
+                .build();
+
         shaderManager = ShaderManager.builder()
-            .device(device)
-            .build();
-        
+                .device(device)
+                .build();
+
         Logger.info("Managers created");
     }
-    
+
     private void createDepthTarget() {
         // Find supported depth format
         int depthFormat = findSupportedDepthFormat();
-        
+
         depthTarget = VulkanRenderTarget.builder()
-            .arena(arena)
-            .device(device)
-            .format(depthFormat)
-            .extent(width, height)
-            .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value())
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value())
-            .build();
+                .arena(arena)
+                .device(device)
+                .format(depthFormat)
+                .extent(width, height)
+                .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value())
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value())
+                .build();
         Logger.info("Depth target created with format: " + depthFormat);
     }
-    
+
     private int findSupportedDepthFormat() {
         // Try common depth formats in order of preference
         int[] candidates = {
-            VkFormat.VK_FORMAT_D32_SFLOAT.value(),
-            VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value(),
-            VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value(),
-            VkFormat.VK_FORMAT_D16_UNORM.value()
+                VkFormat.VK_FORMAT_D32_SFLOAT.value(),
+                VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value(),
+                VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value(),
+                VkFormat.VK_FORMAT_D16_UNORM.value()
         };
-        
+
         try (Arena tempArena = Arena.ofConfined()) {
             for (int format : candidates) {
                 VkPhysicalDevice.VkFormatPropertiesWrapper formatProps = device.physicalDevice().getFormatProperties(format, tempArena);
@@ -154,61 +154,61 @@ public class ThreadedRenderer extends GraphicsFrame {
                 }
             }
         }
-        
+
         throw new RuntimeException("Failed to find supported depth format");
     }
-    
+
     @Override
     protected VkRenderPass createRenderPassImpl() {
         int depthFormat = findSupportedDepthFormat();
         return VkRenderPass.builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
-            .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(), 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value() | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value())
-            .build(arena);
+                .device(device)
+                .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+                .depthAttachment(depthFormat, VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value())
+                .subpassDependency(~0, 0,
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value() | VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value(),
+                        0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value() | VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value())
+                .build(arena);
     }
-    
+
     private void createRenderGraph() {
         renderList = RenderList.builder(device)
-            .resource("colorTarget", RenderList.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
-            .resource("sceneDepth", RenderList.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
-            .resource("geometryBuffer", RenderList.ResourceDesc.buffer(1024 * 1024))
-            
-            // Main triangle pass
-            .graphicsPass("triangle")
+                .resource("colorTarget", RenderList.ResourceDesc.color(width, height, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value()))
+                .resource("sceneDepth", RenderList.ResourceDesc.depth(width, height, findSupportedDepthFormat()))
+                .resource("geometryBuffer", RenderList.ResourceDesc.buffer(1024 * 1024))
+
+                // Main triangle pass
+                .graphicsPass("triangle")
                 .write("colorTarget", RenderList.ResourceUsage.COLOR_ATTACHMENT)
                 .write("sceneDepth", RenderList.ResourceUsage.DEPTH_ATTACHMENT)
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing triangle pass");
                     VkBind.bindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
-                    
+
                     // Push time constant for rotation
                     float elapsedTime = (System.nanoTime() - startTime) / 1_000_000_000.0f;
-                    VkPushConstants.floatValue(elapsedTime, 
-                        VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
-                        .push(cmd, pipeline.layout());
-                    
+                    VkPushConstants.floatValue(elapsedTime,
+                                    VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), frameArena)
+                            .push(cmd, pipeline.layout());
+
                     VkSetState.setViewport(cmd, 0, 0, 0, width, height, 0.0f, 1.0f);
                     VkSetState.setScissor(cmd, 0, 0, 0, width, height);
-                    
+
                     DrawCommand.direct(3, 1).execute(cmd);
                 })
-            
-            // glTF geometry pass
-            .graphicsPass("gltfGeometry")
+
+                // glTF geometry pass
+                .graphicsPass("gltfGeometry")
                 .read("geometryBuffer", RenderList.ResourceUsage.VERTEX_BUFFER)
                 .write("colorTarget", RenderList.ResourceUsage.COLOR_ATTACHMENT)
                 .write("sceneDepth", RenderList.ResourceUsage.DEPTH_ATTACHMENT)
                 .execute((cmd, resources, frameArena) -> {
                     Logger.debug("Executing glTF geometry pass");
-                    
+
                     // Update camera for smooth movement
                     camera.update();
-                    
+
                     // Update camera uniform buffer
                     float[] vpMatrix = camera.getViewProjectionMatrix();
                     try (Arena mapArena = Arena.ofConfined()) {
@@ -218,16 +218,16 @@ public class ThreadedRenderer extends GraphicsFrame {
                         }
                         cameraUniformBuffer.unmap();
                     }
-                    
+
                     VkBind.bindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), gltfPipeline.handle());
-                    
+
                     // Bind descriptor set with camera uniform
-                    descriptorSet.bind(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), 
-                        gltfPipeline.layout(), 0, frameArena);
-                    
+                    descriptorSet.bind(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
+                            gltfPipeline.layout(), 0, frameArena);
+
                     VkSetState.setViewport(cmd, 0, 0, 0, width, height, 0.0f, 1.0f);
                     VkSetState.setScissor(cmd, 0, 0, 0, width, height);
-                    
+
                     // Render loaded meshes
                     synchronized (loadedMeshes) {
                         for (VulkanMesh mesh : loadedMeshes) {
@@ -236,96 +236,105 @@ public class ThreadedRenderer extends GraphicsFrame {
                         }
                     }
                 })
-            
-            .build();
-        
+
+                .build();
+
         Logger.info("RenderGraph created - replaced manual rendering");
     }
-    
+
     private void createDirectRenderPass() {
         directRenderPass = createRenderPassImpl();
         Logger.info("Direct render pass created");
     }
-    
+
     private void createGraphicsPipeline(MemorySegment renderPass) {
         // Close old descriptor resources before recreating to avoid leaks/corruption
-        if (descriptorPool != null) { descriptorPool.close(); descriptorPool = null; }
-        if (descriptorSetLayout != null) { descriptorSetLayout.close(); descriptorSetLayout = null; }
-        if (cameraUniformBuffer != null) { cameraUniformBuffer.close(); cameraUniformBuffer = null; }
+        if (descriptorPool != null) {
+            descriptorPool.close();
+            descriptorPool = null;
+        }
+        if (descriptorSetLayout != null) {
+            descriptorSetLayout.close();
+            descriptorSetLayout = null;
+        }
+        if (cameraUniformBuffer != null) {
+            cameraUniformBuffer.close();
+            cameraUniformBuffer = null;
+        }
 
         // Original triangle pipeline
         ShaderManager.ShaderSet triangleShaders = shaderManager.createShaderSet()
-            .vertex("/shaders/triangle.vert")
-            .fragment("/shaders/triangle.frag")
-            .build();
-        
+                .vertex("/shaders/triangle.vert")
+                .fragment("/shaders/triangle.frag")
+                .build();
+
         // glTF pipeline
         ShaderManager.ShaderSet gltfShaders = shaderManager.createShaderSet()
-            .vertex("/shaders/gltf.vert")
-            .fragment("/shaders/gltf.frag")
-            .build();
-        
+                .vertex("/shaders/gltf.vert")
+                .fragment("/shaders/gltf.frag")
+                .build();
+
         // Create camera uniform buffer
         cameraUniformBuffer = VkBuffer.builder()
-            .device(device)
-            .size(64) // mat4 = 16 floats * 4 bytes
-            .uniformBuffer()
-            .hostVisible()
-            .build(arena);
-        
+                .device(device)
+                .size(64) // mat4 = 16 floats * 4 bytes
+                .uniformBuffer()
+                .hostVisible()
+                .build(arena);
+
         // Create descriptor set layout
         descriptorSetLayout = VkDescriptorSetLayout.builder()
-            .device(device)
-            .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value())
-            .build(arena);
-        
+                .device(device)
+                .uniformBuffer(0, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value())
+                .build(arena);
+
         // Create descriptor pool
         descriptorPool = VkDescriptorPool.builder()
-            .device(device)
-            .maxSets(1)
-            .uniformBuffers(1)
-            .build(arena);
-        
+                .device(device)
+                .maxSets(1)
+                .uniformBuffers(1)
+                .build(arena);
+
         // Allocate descriptor set
         descriptorSet = descriptorPool.allocateDescriptorSet(descriptorSetLayout);
-        
+
         // Update descriptor set to point to uniform buffer
-        descriptorSet.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 
-            cameraUniformBuffer.handle(), 0, cameraUniformBuffer.size(), arena);
-        
+        descriptorSet.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
+                cameraUniformBuffer.handle(), 0, cameraUniformBuffer.size(), arena);
+
         // Original triangle pipeline
         pipeline = VkPipeline.builder()
-            .device(device)
-            .renderPass(renderPass)
-            .vertexShader(triangleShaders.vertex().getSpirV())
-            .fragmentShader(triangleShaders.fragment().getSpirV())
-            .triangleTopology()
-            .dynamicViewport()
-            .dynamicScissor()
-            .depthTest(true)
-            .depthWrite(true)
-            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
-            .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
-            .build(arena);
-        
+                .device(device)
+                .renderPass(renderPass)
+                .vertexShader(triangleShaders.vertex().getSpirV())
+                .fragmentShader(triangleShaders.fragment().getSpirV())
+                .triangleTopology()
+                .dynamicViewport()
+                .dynamicScissor()
+                .depthTest(true)
+                .depthWrite(true)
+                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+                .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
+                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 4)
+                .build(arena);
+
         // glTF pipeline with vertex input descriptions and descriptor set layout
         gltfPipeline = VkPipeline.builder()
-            .device(device)
-            .renderPass(renderPass)
-            .vertexShader(gltfShaders.vertex().getSpirV())
-            .fragmentShader(gltfShaders.fragment().getSpirV())
-            .triangleTopology()
-            .polygonMode(VkPolygonMode.VK_POLYGON_MODE_FILL.value())
-            .dynamicViewport()
-            .dynamicScissor()
-            .depthTest(true)
-            .depthWrite(true)
-            .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
-            .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 64)
-            .descriptorSetLayouts(descriptorSetLayout.handle())
-            .vertexInput()
+                .device(device)
+                .renderPass(renderPass)
+                .vertexShader(gltfShaders.vertex().getSpirV())
+                .fragmentShader(gltfShaders.fragment().getSpirV())
+                .triangleTopology()
+                .polygonMode(VkPolygonMode.VK_POLYGON_MODE_FILL.value())
+                .dynamicViewport()
+                .dynamicScissor()
+                .depthTest(true)
+                .depthWrite(true)
+                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
+                .multisampling(adaptiveAA != null ? adaptiveAA.getSampleCount() : 1)
+                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value() | VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 64)
+                .descriptorSetLayouts(descriptorSetLayout.handle())
+                .vertexInput()
                 .binding(0, 32, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)
                 .attribute(1, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 12)
@@ -335,51 +344,51 @@ public class ThreadedRenderer extends GraphicsFrame {
                 .attribute(5, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 64)//matrix4
                 .attribute(6, 0, VkFormat.VK_FORMAT_R32G32B32A32_SFLOAT.value(), 80)//matrix4
                 .build()
-            .build(arena);
-        
+                .build(arena);
+
         Logger.info("Graphics pipelines created (triangle + glTF with camera UBO)");
     }
-    
+
     @Override
     protected VkFramebuffer createFramebufferImpl(int imageIndex) {
         return VkFramebuffer.builder()
-            .device(device)
-            .renderPass(renderPass.handle())
-            .attachment(new VkFramebufferAttachment(swapchainImageViews[imageIndex], VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
-            .attachment(new VkFramebufferAttachment(depthTarget.imageView(), VkFramebufferAttachment.AttachmentType.DEPTH, 0, 1))
-            .dimensions(width, height)
-            .build(arena);
+                .device(device)
+                .renderPass(renderPass.handle())
+                .attachment(new VkFramebufferAttachment(swapchainImageViews[imageIndex], VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
+                .attachment(new VkFramebufferAttachment(depthTarget.imageView(), VkFramebufferAttachment.AttachmentType.DEPTH, 0, 1))
+                .dimensions(width, height)
+                .build(arena);
     }
-    
+
     @Override
     protected void postRenderPassInit() {
         // Pre-allocate cached layouts
         cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
-            .position(0, 0)
-            .size(width, height)
-            .depthRange(0.0f, 1.0f)
-            .build(arena);
+                .position(0, 0)
+                .size(width, height)
+                .depthRange(0.0f, 1.0f)
+                .build(arena);
         cachedScissor = io.github.yetyman.vulkan.VkRect2D.builder()
-            .offset(0, 0)
-            .extent(width, height)
-            .build(arena);
+                .offset(0, 0)
+                .extent(width, height)
+                .build(arena);
     }
-    
+
     public void drawFrame() {
         long frameStart = System.nanoTime();
-        
+
         // Handle pending AA toggle on main thread
         if (pendingAAToggle) {
             pendingAAToggle = false;
             toggleAAImmediate();
         }
-        
+
         // Handle pending AA mode change on main thread
         if (pendingAAModeChange) {
             pendingAAModeChange = false;
             cycleAAMode();
         }
-        
+
         // Handle pending MSAA level changes
         if (pendingMSAAIncrease) {
             pendingMSAAIncrease = false;
@@ -389,105 +398,104 @@ public class ThreadedRenderer extends GraphicsFrame {
             pendingMSAADecrease = false;
             decreaseMSAA();
         }
-        
+
         // Process main thread work during spare time
         int workProcessed = mainThreadWork.processWork(frameStart);
         if (workProcessed > 0) {
             Logger.debug("Processed " + workProcessed + " main thread tasks");
         }
-        
+
         // Use BaseRenderer's drawFrame implementation
         super.drawFrame();
-        
+
         // Track performance and adjust threads
         trackPerformance(frameStart);
         adjustThreadCount();
     }
-    
+
     @Override
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         int threadsToUse = threadManager.getActiveThreads();
-        
+
         if (threadsToUse == 1) {
             recordSingleThreaded(commandBuffer, imageIndex, frameArena);
             return;
         }
-        
+
         // Multi-threaded path
         recordMultiThreaded(commandBuffer, imageIndex, frameArena);
     }
-    
+
     private void recordSingleThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
-        
+
         if (adaptiveAA != null) {
             var builder = VkCommandBuffer.beginRenderPass(commandBuffer, adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
-            
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+
             if (adaptiveAA.getClearColorCount() == 2) {
                 builder.clearColor(0.1f, 0.1f, 0.15f, 1.0f);
             }
-            
+
             builder.clearDepth(1.0f, 0).execute(frameArena);
-            
+
             renderScene(commandBuffer, imageIndex, frameArena);
             VkRenderPassCmd.endRenderPass(commandBuffer);
-            
+
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
-            
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
+                    .clearDepth(1.0f, 0)
+                    .execute(frameArena);
+
             renderScene(commandBuffer, imageIndex, frameArena);
             VkRenderPassCmd.endRenderPass(commandBuffer);
         }
-        
+
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
-    
+
     private void recordMultiThreaded(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
-        
+
         if (adaptiveAA != null) {
             var builder = VkCommandBuffer.beginRenderPass(commandBuffer.handle(), adaptiveAA.getSceneRenderPass().handle(), adaptiveAA.getSceneFramebuffer().handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
-            
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.1f, 0.1f, 0.15f, 1.0f);
+
             if (adaptiveAA.getClearColorCount() == 2) {
                 builder.clearColor(0.1f, 0.1f, 0.15f, 1.0f);
             }
-            
+
             builder.clearDepth(1.0f, 0).execute(frameArena);
-            
+
             renderScene(commandBuffer, imageIndex, frameArena);
             VkRenderPassCmd.endRenderPass(commandBuffer);
-            
+
             adaptiveAA.performAA(commandBuffer, framebuffers[imageIndex], frameArena, 0.1f, 0.1f, 0.15f, 1.0f);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, directRenderPass.handle(), framebuffers[imageIndex].handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
-                .clearDepth(1.0f, 0)
-                .execute(frameArena);
-            
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.1f, 0.1f, 0.15f, 1.0f)
+                    .clearDepth(1.0f, 0)
+                    .execute(frameArena);
+
             renderScene(commandBuffer, imageIndex, frameArena);
             VkRenderPassCmd.endRenderPass(commandBuffer);
         }
-        
+
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
-    
+
     private void renderScene(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         // EXECUTE RENDER GRAPH - replaces all manual rendering
         renderList.execute(commandBuffer.handle(), swapchainImageViews[imageIndex], frameArena);
     }
-    
 
-    
+
     private void trackPerformance(long frameStart) {
         long frameTime = System.nanoTime() - frameStart;
         frameTimes.addLast(frameTime);
@@ -496,46 +504,46 @@ public class ThreadedRenderer extends GraphicsFrame {
         }
         lastFrameTime = frameTime;
     }
-    
+
     private void adjustThreadCount() {
         if (frameTimes.size() < 10) return; // Need some history
-        
+
         double avgFrameTime = frameTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
         threadManager.adjustThreadCount(avgFrameTime);
     }
-    
+
     public void setThreadCount(int count) {
         threadManager.setThreadCount(count);
     }
-    
+
     public void setMode(ThreadManager.Mode mode) {
         threadManager.setMode(mode);
     }
-    
+
     public void setAdaptiveAAEnabled(boolean enabled) {
         if (this.adaptiveAAEnabled != enabled) {
             pendingAAToggle = true;
         }
     }
-    
+
     private void toggleAAImmediate() {
         adaptiveAAEnabled = !adaptiveAAEnabled;
         Logger.info("Adaptive AA " + (adaptiveAAEnabled ? "enabled" : "disabled"));
-        
+
         Vulkan.deviceWaitIdle(device.handle()).check();
-        
+
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
-        
+
         if (adaptiveAAEnabled) {
             if (adaptiveAA == null) {
                 adaptiveAA = AdaptiveAA.builder()
-                    .arena(arena)
-                    .device(device)
-                    .dimensions(width, height)
-                    .mode(aaMode)
-                    .samples(msaaSamples)
-                    .build();
+                        .arena(arena)
+                        .device(device)
+                        .dimensions(width, height)
+                        .mode(aaMode)
+                        .samples(msaaSamples)
+                        .build();
             }
             createGraphicsPipeline(adaptiveAA.getSceneRenderPass().handle());
         } else {
@@ -546,17 +554,17 @@ public class ThreadedRenderer extends GraphicsFrame {
             createGraphicsPipeline(directRenderPass.handle());
         }
     }
-    
+
     public boolean isAdaptiveAAEnabled() {
         return adaptiveAAEnabled;
     }
-    
+
     public void cycleAAModeKey() {
         pendingAAModeChange = true;
     }
-    
+
     private void cycleAAMode() {
-        aaMode = switch(aaMode) {
+        aaMode = switch (aaMode) {
             case NONE -> AdaptiveAA.Mode.MSAA;
             case MSAA -> AdaptiveAA.Mode.POST_PROCESS;
             case POST_PROCESS -> AdaptiveAA.Mode.NONE;
@@ -564,19 +572,19 @@ public class ThreadedRenderer extends GraphicsFrame {
         Logger.info("AA Mode: " + aaMode);
         recreateAAResources();
     }
-    
+
     public AdaptiveAA.Mode getAAMode() {
         return aaMode;
     }
-    
+
     public void increaseMSAAKey() {
         pendingMSAAIncrease = true;
     }
-    
+
     public void decreaseMSAAKey() {
         pendingMSAADecrease = true;
     }
-    
+
     private void increaseMSAA() {
         if (aaMode != AdaptiveAA.Mode.MSAA) return;
         int maxMSAA = getMaxSupportedMSAA();
@@ -586,7 +594,7 @@ public class ThreadedRenderer extends GraphicsFrame {
             recreateAAResources();
         }
     }
-    
+
     private void decreaseMSAA() {
         if (aaMode != AdaptiveAA.Mode.MSAA) return;
         if (msaaSamples > 2) {
@@ -595,51 +603,51 @@ public class ThreadedRenderer extends GraphicsFrame {
             recreateAAResources();
         }
     }
-    
+
     public int getMSAASamples() {
         return msaaSamples;
     }
-    
+
     private void recreateAAResources() {
         Vulkan.deviceWaitIdle(device.handle()).check();
-        
+
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
             adaptiveAA = null;
         }
-        
+
         if (aaMode != AdaptiveAA.Mode.NONE) {
             adaptiveAA = AdaptiveAA.builder()
-                .arena(arena)
-                .device(device)
-                .dimensions(width, height)
-                .mode(aaMode)
-                .samples(msaaSamples)
-                .build();
+                    .arena(arena)
+                    .device(device)
+                    .dimensions(width, height)
+                    .mode(aaMode)
+                    .samples(msaaSamples)
+                    .build();
             createGraphicsPipeline(adaptiveAA.getSceneRenderPass().handle());
         } else {
             createGraphicsPipeline(directRenderPass.handle());
         }
     }
-    
+
     private int getMaxSupportedMSAA() {
         try (Arena tempArena = Arena.ofConfined()) {
             MemorySegment imageFormatProps = tempArena.allocate(io.github.yetyman.vulkan.generated.VkImageFormatProperties.layout());
-            
+
             io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceImageFormatProperties(
-                device.physicalDevice().handle(),
-                VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(),
-                VkImageType.VK_IMAGE_TYPE_2D.value(),
-                VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value(),
-                VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value(),
-                0,
-                imageFormatProps
+                    device.physicalDevice().handle(),
+                    VkFormat.VK_FORMAT_R16G16B16A16_SFLOAT.value(),
+                    VkImageType.VK_IMAGE_TYPE_2D.value(),
+                    VkImageTiling.VK_IMAGE_TILING_OPTIMAL.value(),
+                    VkImageUsageFlagBits.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.value(),
+                    0,
+                    imageFormatProps
             );
-            
+
             int sampleCounts = io.github.yetyman.vulkan.generated.VkImageFormatProperties.sampleCounts(imageFormatProps);
-            
+
             if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_64_BIT.value()) != 0) return 64;
             if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_32_BIT.value()) != 0) return 32;
             if ((sampleCounts & VkSampleCountFlagBits.VK_SAMPLE_COUNT_16_BIT.value()) != 0) return 16;
@@ -648,116 +656,116 @@ public class ThreadedRenderer extends GraphicsFrame {
             return 2;
         }
     }
-    
+
     public int getActiveThreads() {
         return threadManager.getActiveThreads();
     }
-    
+
     public double getAverageFrameTime() {
         return frameTimes.stream().mapToLong(Long::longValue).average().orElse(0.0) / 1_000_000.0; // ms
     }
-    
+
     // Mesh management
     public void addMesh(VulkanMesh mesh) {
         synchronized (loadedMeshes) {
             loadedMeshes.add(mesh);
         }
     }
-    
+
     public void removeMesh(VulkanMesh mesh) {
         synchronized (loadedMeshes) {
             loadedMeshes.remove(mesh);
         }
     }
-    
+
     public void clearMeshes() {
         synchronized (loadedMeshes) {
             loadedMeshes.clear();
         }
     }
-    
+
     public void setCameraPosition(float x, float y, float z) {
         camera.setPosition(x, y, z);
     }
-    
+
     public void moveCameraForward(float amount) {
         camera.moveForward(amount);
     }
-    
+
     public void moveCameraRight(float amount) {
         camera.moveRight(amount);
     }
-    
+
     public void moveCameraUp(float amount) {
         camera.move(0, amount, 0);
     }
-    
+
     public Camera getCamera() {
         return camera;
     }
-    
+
     public void setCameraTarget(float x, float y, float z) {
         camera.setTarget(x, y, z);
     }
-    
+
     public int getActiveTriangleCount() {
         synchronized (loadedMeshes) {
             return loadedMeshes.stream()
-                .mapToInt(mesh -> mesh.isIndexed() ? mesh.indexCount() / 3 : mesh.getVertexCount(0) / 3)
-                .sum();
+                    .mapToInt(mesh -> mesh.isIndexed() ? mesh.indexCount() / 3 : mesh.getVertexCount(0) / 3)
+                    .sum();
         }
     }
-    
+
     public MainThreadWorkQueue getMainThreadWorkQueue() {
         return mainThreadWork;
     }
-    
+
     @Override
     protected void onResize(int width, int height) {
         // Update dimensions first
         this.width = width;
         this.height = height;
-        
+
         // Update camera aspect ratio
-        camera.setAspectRatio((float)width / (float)height);
-        
+        camera.setAspectRatio((float) width / (float) height);
+
         // Clean up depth target
         if (depthTarget != null) {
             depthTarget.close();
         }
-        
+
         // Recreate depth target with new dimensions
         createDepthTarget();
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
             adaptiveAA = AdaptiveAA.builder()
-                .arena(arena)
-                .device(device)
-                .dimensions(width, height)
-                .mode(aaMode)
-                .samples(msaaSamples)
-                .build();
+                    .arena(arena)
+                    .device(device)
+                    .dimensions(width, height)
+                    .mode(aaMode)
+                    .samples(msaaSamples)
+                    .build();
         }
-        
+
         // Update cached layouts with new dimensions
         cachedViewport = io.github.yetyman.vulkan.VkViewport.builder()
-            .position(0, 0)
-            .size(width, height)
-            .depthRange(0.0f, 1.0f)
-            .build(arena);
+                .position(0, 0)
+                .size(width, height)
+                .depthRange(0.0f, 1.0f)
+                .build(arena);
         cachedScissor = io.github.yetyman.vulkan.VkRect2D.builder()
-            .offset(0, 0)
-            .extent(width, height)
-            .build(arena);
-        
+                .offset(0, 0)
+                .extent(width, height)
+                .build(arena);
+
         Logger.info("Depth buffer recreated for resize");
     }
-    
+
     @Override
     protected void cleanupResources() {
         // Clean up thread manager
         if (threadManager != null) threadManager.close();
-        
+
         // Clean up loaded meshes
         synchronized (loadedMeshes) {
             for (VulkanMesh mesh : loadedMeshes) {
@@ -765,35 +773,35 @@ public class ThreadedRenderer extends GraphicsFrame {
             }
             loadedMeshes.clear();
         }
-        
+
         // Clean up managers
         if (commandManager != null) commandManager.close();
         if (shaderManager != null) shaderManager.close();
         if (depthTarget != null) depthTarget.close();
-        
+
         // Clean up main resources
         if (pipeline != null) pipeline.close();
         if (gltfPipeline != null) gltfPipeline.close();
-        
+
         // Clean up descriptor resources
         if (descriptorPool != null) descriptorPool.close();
         if (descriptorSetLayout != null) descriptorSetLayout.close();
         if (cameraUniformBuffer != null) cameraUniformBuffer.close();
-        
+
         if (directRenderPass != null) {
             directRenderPass.close();
         }
-        
+
         if (adaptiveAA != null) {
             adaptiveAA.cleanup();
         }
-        
+
         // Clean up render graph
         if (renderList != null) renderList.close();
-        
+
         Logger.info("Threaded renderer cleanup complete");
     }
-    
+
     public void cleanup() {
         close();
     }

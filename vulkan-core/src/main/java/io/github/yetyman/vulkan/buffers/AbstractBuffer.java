@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -9,7 +10,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractBuffer implements ManagedBuffer {
     protected final VkDevice device;
     protected final VkPhysicalDevice physicalDevice;
-    /** Each buffer owns its arena — lifetime is tied to the buffer, not the caller. */
+    /**
+     * Each buffer owns its arena — lifetime is tied to the buffer, not the caller.
+     */
     protected final Arena arena;
     protected final long size;
     protected final BufferUsage usage;
@@ -19,7 +22,7 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     protected AbstractBuffer(VkDevice device,
-                              long size, BufferUsage usage, MemoryStrategy memoryStrategy) {
+                             long size, BufferUsage usage, MemoryStrategy memoryStrategy) {
         this.device = device;
         this.physicalDevice = device.physicalDevice();
         this.arena = Arena.ofShared();
@@ -34,7 +37,9 @@ public abstract class AbstractBuffer implements ManagedBuffer {
     }
 
     @Override
-    public VkBuffer vkBuffer() { return vkBuffer; }
+    public VkBuffer vkBuffer() {
+        return vkBuffer;
+    }
 
     @Override
     public long size() {
@@ -67,11 +72,11 @@ public abstract class AbstractBuffer implements ManagedBuffer {
 
     protected void createBuffer(int usageFlags, int memoryProperties) {
         vkBuffer = VkBuffer.builder()
-            .device(device)
-            .size(size)
-            .usage(usageFlags)
-            .memoryProperties(memoryProperties)
-            .build(arena);
+                .device(device)
+                .size(size)
+                .usage(usageFlags)
+                .memoryProperties(memoryProperties)
+                .build(arena);
     }
 
     @Override

@@ -9,6 +9,7 @@ import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
 import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 
 import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -36,15 +37,23 @@ public class ShaderInstance implements AutoCloseable {
     private final Map<String, PushConstant<?>> pushConstantsByName = new HashMap<>();
     private final Map<String, DescriptorSlot> slotsByName = new HashMap<>();
 
-    /** Specialization constant values keyed by name. Stored for pipeline builder access via buildSpecializationInfo(). */
+    /**
+     * Specialization constant values keyed by name. Stored for pipeline builder access via buildSpecializationInfo().
+     */
     private final Map<String, Object> specializationValues;
-    /** Preprocessor defines used to compile this instance's variant. */
+    /**
+     * Preprocessor defines used to compile this instance's variant.
+     */
     private final Map<String, String> defines;
 
     // ---- Builder ----
 
-    /** @return a new Builder for configuring a ShaderInstance. */
-    public static Builder builder() { return new Builder(); }
+    /**
+     * @return a new Builder for configuring a ShaderInstance.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static class Builder {
         private CompiledShader compiled;
@@ -52,27 +61,54 @@ public class ShaderInstance implements AutoCloseable {
         private Map<String, String> defines = Map.of();
         private Map<String, Object> specializationValues = Map.of();
 
-        private Builder() {}
+        private Builder() {
+        }
 
-        /** Sets the compiled shader to instantiate. */
-        public Builder of(CompiledShader compiled) { this.compiled = compiled; return this; }
-        /** Sets the device. */
-        public Builder device(VkDevice device) { this.device = device; return this; }
-        /** Sets preprocessor defines (only meaningful if compiling from source). */
-        public Builder defines(Map<String, String> defines) { this.defines = defines; return this; }
-        /** Sets a single specialization constant override. */
+        /**
+         * Sets the compiled shader to instantiate.
+         */
+        public Builder of(CompiledShader compiled) {
+            this.compiled = compiled;
+            return this;
+        }
+
+        /**
+         * Sets the device.
+         */
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
+
+        /**
+         * Sets preprocessor defines (only meaningful if compiling from source).
+         */
+        public Builder defines(Map<String, String> defines) {
+            this.defines = defines;
+            return this;
+        }
+
+        /**
+         * Sets a single specialization constant override.
+         */
         public Builder specialize(String name, Object value) {
             Map<String, Object> m = new HashMap<>(specializationValues);
             m.put(name, value);
             this.specializationValues = m;
             return this;
         }
-        /** Sets all specialization constant overrides at once. */
-        public Builder specializationValues(Map<String, Object> values) { this.specializationValues = values; return this; }
+
+        /**
+         * Sets all specialization constant overrides at once.
+         */
+        public Builder specializationValues(Map<String, Object> values) {
+            this.specializationValues = values;
+            return this;
+        }
 
         public ShaderInstance build() {
             if (compiled == null) throw new IllegalStateException("compiled shader not set");
-            if (device == null)   throw new IllegalStateException("device not set");
+            if (device == null) throw new IllegalStateException("device not set");
             validateSpecializationValues(compiled.getReflection(), specializationValues);
             return new ShaderInstance(compiled, device, defines, specializationValues);
         }
@@ -90,23 +126,31 @@ public class ShaderInstance implements AutoCloseable {
         this.descriptorSets = allocateDescriptorSets();
     }
 
-    /** Compiles the shader at the given resource path and creates a ShaderInstance. */
+    /**
+     * Compiles the shader at the given resource path and creates a ShaderInstance.
+     */
     public static ShaderInstance from(String resourcePath) {
         throw new UnsupportedOperationException("ShaderInstance.from() requires a VkDevice — use from(resourcePath, device)");
     }
 
-    /** @return a new ShaderInstance for the given shader resource path and device. */
+    /**
+     * @return a new ShaderInstance for the given shader resource path and device.
+     */
     public static ShaderInstance from(String resourcePath, VkDevice device) {
         CompiledShader compiled = ShaderLoader.compileShader(resourcePath);
         return new ShaderInstance(compiled, device, Map.of(), Map.of());
     }
 
-    /** @return a new ShaderInstance wrapping an already-compiled shader. */
+    /**
+     * @return a new ShaderInstance wrapping an already-compiled shader.
+     */
     public static ShaderInstance from(CompiledShader compiled, VkDevice device) {
         return new ShaderInstance(compiled, device, Map.of(), Map.of());
     }
 
-    /** @return a new ShaderInstance wrapping an already-compiled shader with specialization constants. */
+    /**
+     * @return a new ShaderInstance wrapping an already-compiled shader with specialization constants.
+     */
     public static ShaderInstance from(CompiledShader compiled, VkDevice device, Map<String, Object> specializationValues) {
         validateSpecializationValues(compiled.getReflection(), specializationValues);
         return new ShaderInstance(compiled, device, Map.of(), specializationValues);
@@ -151,7 +195,9 @@ public class ShaderInstance implements AutoCloseable {
 
     // ---- Slot factory methods ----
 
-    /** @return a PushConstant for the named push constant member, validated against reflection. */
+    /**
+     * @return a PushConstant for the named push constant member, validated against reflection.
+     */
     @SuppressWarnings("unchecked")
     public <T> PushConstant<T> getPushConstant(String name, Class<T> type) {
         ShaderLoader.StructMemberInfo member = compiled.getReflection().getPushConstantMember(name);
@@ -163,30 +209,36 @@ public class ShaderInstance implements AutoCloseable {
         return pc;
     }
 
-    /** @return a StorageBufferSlot for the named SSBO binding, validated against reflection. */
+    /**
+     * @return a StorageBufferSlot for the named SSBO binding, validated against reflection.
+     */
     public StorageBufferSlot getStorageBufferSlot(String name) {
         ShaderLoader.DescriptorBindingInfo info = requireBinding(name,
-            SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         int setNumber = findSetForBinding(info);
         StorageBufferSlot slot = new StorageBufferSlot(name, setNumber, info.getBinding());
         registerSlot(name, slot);
         return slot;
     }
 
-    /** @return a UniformBufferSlot for the named UBO binding, validated against reflection. */
+    /**
+     * @return a UniformBufferSlot for the named UBO binding, validated against reflection.
+     */
     public UniformBufferSlot getUniformBufferSlot(String name) {
         ShaderLoader.DescriptorBindingInfo info = requireBinding(name,
-            SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         int setNumber = findSetForBinding(info);
         UniformBufferSlot slot = new UniformBufferSlot(name, setNumber, info.getBinding());
         registerSlot(name, slot);
         return slot;
     }
 
-    /** @return a TextureSlot for the named combined image sampler binding, validated against reflection. */
+    /**
+     * @return a TextureSlot for the named combined image sampler binding, validated against reflection.
+     */
     public TextureSlot getTextureSlot(String name) {
         ShaderLoader.DescriptorBindingInfo info = requireBinding(name,
-            SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+                SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         int setNumber = findSetForBinding(info);
         TextureSlot slot = new TextureSlot(name, setNumber, info.getBinding());
         registerSlot(name, slot);
@@ -221,34 +273,66 @@ public class ShaderInstance implements AutoCloseable {
 
     // ---- Accessors ----
 
-    public CompiledShader compiled() { return compiled; }
-    public VkDevice device() { return device; }
-    public io.github.yetyman.shaderc.enums.ShadercShaderKind shaderKind() { return compiled.getShaderKind(); }
-    public Map<Integer, GeneratedDescriptorSetLayout> layouts() { return Collections.unmodifiableMap(layouts); }
-    public Map<Integer, VkDescriptorSet> descriptorSets() { return Collections.unmodifiableMap(descriptorSets); }
+    public CompiledShader compiled() {
+        return compiled;
+    }
 
-    /** @return the VkDescriptorSetLayout handle for the given set number, for use in pipeline builders. */
+    public VkDevice device() {
+        return device;
+    }
+
+    public io.github.yetyman.shaderc.enums.ShadercShaderKind shaderKind() {
+        return compiled.getShaderKind();
+    }
+
+    public Map<Integer, GeneratedDescriptorSetLayout> layouts() {
+        return Collections.unmodifiableMap(layouts);
+    }
+
+    public Map<Integer, VkDescriptorSet> descriptorSets() {
+        return Collections.unmodifiableMap(descriptorSets);
+    }
+
+    /**
+     * @return the VkDescriptorSetLayout handle for the given set number, for use in pipeline builders.
+     */
     public MemorySegment layoutHandle(int setNumber) {
         GeneratedDescriptorSetLayout layout = layouts.get(setNumber);
         if (layout == null) throw new IllegalArgumentException("No layout for set " + setNumber);
         return layout.getLayout().handle();
     }
-    /** @return the preprocessor defines this instance was compiled with. */
-    public Map<String, String> defines() { return defines; }
-    /** @return the specialization constant values set at construction, keyed by name. */
-    public Map<String, Object> specializationValues() { return specializationValues; }
 
-    /** @return the descriptor binding info for the named binding, or null if not found. */
+    /**
+     * @return the preprocessor defines this instance was compiled with.
+     */
+    public Map<String, String> defines() {
+        return defines;
+    }
+
+    /**
+     * @return the specialization constant values set at construction, keyed by name.
+     */
+    public Map<String, Object> specializationValues() {
+        return specializationValues;
+    }
+
+    /**
+     * @return the descriptor binding info for the named binding, or null if not found.
+     */
     public ShaderLoader.DescriptorBindingInfo getBindingByName(String name) {
         return compiled.getReflection().getBindingByName(name);
     }
 
-    /** @return the push constant member info for the named member, or null if not found. */
+    /**
+     * @return the push constant member info for the named member, or null if not found.
+     */
     public ShaderLoader.StructMemberInfo getPushConstantMember(String name) {
         return compiled.getReflection().getPushConstantMember(name);
     }
 
-    /** @return the specialization constant info for the named constant, or null if not found. */
+    /**
+     * @return the specialization constant info for the named constant, or null if not found.
+     */
     public ShaderLoader.SpecializationConstantInfo getSpecializationConstantInfo(String name) {
         return compiled.getReflection().getSpecializationConstant(name);
     }
@@ -261,7 +345,7 @@ public class ShaderInstance implements AutoCloseable {
         if (specializationValues.containsKey(name)) return specializationValues.get(name);
         ShaderLoader.SpecializationConstantInfo info = compiled.getReflection().getSpecializationConstant(name);
         if (info == null) return null;
-        if (info.isBool())  return info.defaultBool();
+        if (info.isBool()) return info.defaultBool();
         if (info.isFloat()) return info.defaultFloat();
         return info.defaultInt();
     }
@@ -284,9 +368,9 @@ public class ShaderInstance implements AutoCloseable {
         for (int i = 0; i < count; i++) {
             ShaderLoader.SpecializationConstantInfo info = constants.get(i);
             Object value = specializationValues.getOrDefault(info.name(),
-                info.isBool() ? info.defaultBool() : info.isFloat() ? info.defaultFloat() : info.defaultInt());
+                    info.isBool() ? info.defaultBool() : info.isFloat() ? info.defaultFloat() : info.defaultInt());
             int bits;
-            if (value instanceof Boolean b)  bits = b ? 1 : 0;
+            if (value instanceof Boolean b) bits = b ? 1 : 0;
             else if (value instanceof Float f) bits = Float.floatToRawIntBits(f);
             else if (value instanceof Integer iv) bits = iv;
             else bits = info.defaultValueBits();
@@ -294,18 +378,18 @@ public class ShaderInstance implements AutoCloseable {
             data.setAtIndex(ValueLayout.JAVA_INT, i, bits);
 
             long entryOffset = entrySize * i;
-            mapEntries.set(ValueLayout.JAVA_INT,  entryOffset,      info.constantId());   // constantID
-            mapEntries.set(ValueLayout.JAVA_INT,  entryOffset + 4,  (int)(i * 4L));       // offset into data
-            mapEntries.set(ValueLayout.JAVA_LONG, entryOffset + 8,  4L);                  // size
+            mapEntries.set(ValueLayout.JAVA_INT, entryOffset, info.constantId());   // constantID
+            mapEntries.set(ValueLayout.JAVA_INT, entryOffset + 4, (int) (i * 4L));       // offset into data
+            mapEntries.set(ValueLayout.JAVA_LONG, entryOffset + 8, 4L);                  // size
         }
 
         // VkSpecializationInfo: uint32_t mapEntryCount, VkSpecializationMapEntry* pMapEntries,
         //                       size_t dataSize, void* pData — 32 bytes
         MemorySegment specInfo = specArena.allocate(32);
-        specInfo.set(ValueLayout.JAVA_INT,     0,  count);
-        specInfo.set(ValueLayout.ADDRESS,      8,  mapEntries);
-        specInfo.set(ValueLayout.JAVA_LONG,    16, (long)(count * 4));
-        specInfo.set(ValueLayout.ADDRESS,      24, data);
+        specInfo.set(ValueLayout.JAVA_INT, 0, count);
+        specInfo.set(ValueLayout.ADDRESS, 8, mapEntries);
+        specInfo.set(ValueLayout.JAVA_LONG, 16, (long) (count * 4));
+        specInfo.set(ValueLayout.ADDRESS, 24, data);
         return specInfo;
     }
 
@@ -358,11 +442,11 @@ public class ShaderInstance implements AutoCloseable {
         }
         if (typeCounts.isEmpty()) {
             return VkDescriptorPool.builder().device(device).maxSets(1)
-                .poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 1)
-                .build(arena);
+                    .poolSize(VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(), 1)
+                    .build(arena);
         }
         VkDescriptorPool.Builder builder = VkDescriptorPool.builder().device(device)
-            .maxSets(Math.max(1, compiled.getReflection().getSetNumbers().size()));
+                .maxSets(Math.max(1, compiled.getReflection().getSetNumbers().size()));
         for (Map.Entry<Integer, Integer> e : typeCounts.entrySet()) {
             builder.poolSize(e.getKey(), e.getValue());
         }
@@ -423,16 +507,16 @@ public class ShaderInstance implements AutoCloseable {
 
         if (slot instanceof UniformBufferSlot ubo && ubo.buffer() != null) {
             descriptorSet.updateBuffer(slot.binding(),
-                VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
-                ubo.buffer().handle(), 0, ubo.buffer().size(), flushArena);
+                    VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
+                    ubo.buffer().handle(), 0, ubo.buffer().size(), flushArena);
         } else if (slot instanceof StorageBufferSlot ssbo && ssbo.buffer() != null) {
             descriptorSet.updateBuffer(slot.binding(),
-                VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                ssbo.buffer().handle(), 0, ssbo.buffer().size(), flushArena);
+                    VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                    ssbo.buffer().handle(), 0, ssbo.buffer().size(), flushArena);
         } else if (slot instanceof TextureSlot tex && tex.boundImageView() != null && tex.boundSampler() != null) {
             descriptorSet.updateImageSampler(slot.binding(),
-                tex.boundSampler().handle(), tex.boundImageView().handle(),
-                VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), flushArena);
+                    tex.boundSampler().handle(), tex.boundImageView().handle(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), flushArena);
         }
     }
 
@@ -440,8 +524,8 @@ public class ShaderInstance implements AutoCloseable {
         if (pipelineLayout.equals(MemorySegment.NULL) || descriptorSets.isEmpty()) return;
         for (Map.Entry<Integer, VkDescriptorSet> entry : descriptorSets.entrySet()) {
             entry.getValue().bind(commandBuffer,
-                VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-                pipelineLayout, entry.getKey(), flushArena);
+                    VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
+                    pipelineLayout, entry.getKey(), flushArena);
         }
     }
 }

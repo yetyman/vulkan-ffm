@@ -11,31 +11,32 @@ import java.lang.invoke.MethodHandle;
  */
 public class VulkanWin32 {
     private static final MethodHandle vkCreateWin32SurfaceKHR;
-    
+
     static {
         try {
             var vulkanLib = SymbolLookup.loaderLookup();
             var createSurfaceFunc = vulkanLib.find("vkCreateWin32SurfaceKHR").orElseThrow();
-            
+
             var linker = Linker.nativeLinker();
             vkCreateWin32SurfaceKHR = linker.downcallHandle(
-                createSurfaceFunc,
-                FunctionDescriptor.of(
-                    ValueLayout.JAVA_INT,
-                    ValueLayout.ADDRESS,
-                    ValueLayout.ADDRESS,
-                    ValueLayout.ADDRESS,
-                    ValueLayout.ADDRESS
-                )
+                    createSurfaceFunc,
+                    FunctionDescriptor.of(
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS
+                    )
             );
         } catch (Throwable e) {
             throw new RuntimeException("Failed to load Win32 surface functions", e);
         }
     }
-    
+
     /**
      * Creates a Vulkan surface for a Win32 window.
-     * @param instance the VkInstance handle
+     *
+     * @param instance   the VkInstance handle
      * @param createInfo pointer to VkWin32SurfaceCreateInfoKHR structure
      * @param surfacePtr pointer to store the created VkSurfaceKHR handle
      * @return VkResult indicating success or failure

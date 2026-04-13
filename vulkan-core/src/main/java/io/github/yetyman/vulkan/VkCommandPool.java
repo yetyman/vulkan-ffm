@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -11,7 +12,7 @@ import java.lang.foreign.*;
 public class VkCommandPool implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
-    
+
     private VkCommandPool(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
@@ -22,34 +23,44 @@ public class VkCommandPool implements AutoCloseable {
      */
     public static VkCommandPool create(Arena arena, VkDevice device, int queueFamilyIndex) {
         return builder()
-            .device(device)
-            .queueFamilyIndex(queueFamilyIndex)
-            .build(arena);
+                .device(device)
+                .queueFamilyIndex(queueFamilyIndex)
+                .build(arena);
     }
-    
-    /** @return a new builder for configuring command pool creation */
+
+    /**
+     * @return a new builder for configuring command pool creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkCommandPool handle */
-    public MemorySegment handle() { return handle; }
 
-    /** @return the VkCommandPool device */
-    public VkDevice device() { return device; }
+    /**
+     * @return the VkCommandPool handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
+    /**
+     * @return the VkCommandPool device
+     */
+    public VkDevice device() {
+        return device;
+    }
 
     @Override
     public void close() {
         Vulkan.destroyCommandPool(device.handle(), handle);
     }
-    
+
     public VkCommandBuffer allocateCommandBuffer(Arena arena) {
         return VkCommandBufferAlloc.builder()
-            .device(device)
-            .commandPool(handle)
-            .allocate(arena)[0];
+                .device(device)
+                .commandPool(handle)
+                .allocate(arena)[0];
     }
-    
+
     /**
      * Builder for command pool creation.
      */
@@ -57,49 +68,62 @@ public class VkCommandPool implements AutoCloseable {
         private VkDevice device;
         private int queueFamilyIndex;
         private int flags = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets the queue family index */
+
+        /**
+         * Sets the queue family index
+         */
         public Builder queueFamilyIndex(int index) {
             this.queueFamilyIndex = index;
             return this;
         }
-        
-        /** Enables transient command buffers (short-lived, frequently reset) */
+
+        /**
+         * Enables transient command buffers (short-lived, frequently reset)
+         */
         public Builder transientBit() {
             this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT.value();
             return this;
         }
-        
-        /** Allows command buffers to be reset individually */
+
+        /**
+         * Allows command buffers to be reset individually
+         */
         public Builder resetCommandBufferBit() {
             this.flags |= VkCommandPoolCreateFlagBits.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT.value();
             return this;
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Creates the command pool */
+
+        /**
+         * Creates the command pool
+         */
         public VkCommandPool build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            
+
             MemorySegment poolInfo = VkCommandPoolCreateInfo.allocate(arena);
             VkCommandPoolCreateInfo.sType(poolInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO.value());
             VkCommandPoolCreateInfo.pNext(poolInfo, MemorySegment.NULL);
             VkCommandPoolCreateInfo.flags(poolInfo, flags);
             VkCommandPoolCreateInfo.queueFamilyIndex(poolInfo, queueFamilyIndex);
-            
+
             MemorySegment commandPoolPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createCommandPool(device.handle(), poolInfo, commandPoolPtr).check();
             return new VkCommandPool(commandPoolPtr.get(ValueLayout.ADDRESS, 0), device);

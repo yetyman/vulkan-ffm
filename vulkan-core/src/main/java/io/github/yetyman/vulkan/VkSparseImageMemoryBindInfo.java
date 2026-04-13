@@ -17,7 +17,8 @@ public class VkSparseImageMemoryBindInfo {
         private MemorySegment image;
         private MemorySegment[] binds;
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder image(MemorySegment image) {
             this.image = image;

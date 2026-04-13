@@ -4,10 +4,13 @@ import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MirroredBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
+
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
-/** Typed buffer for {@code float[]} arrays. Direct transfer with no serialization overhead. */
+/**
+ * Typed buffer for {@code float[]} arrays. Direct transfer with no serialization overhead.
+ */
 public class FloatVkBuffer implements AutoCloseable {
     private static final int STRIDE = 4;
     private final ManagedBuffer buffer;
@@ -22,14 +25,25 @@ public class FloatVkBuffer implements AutoCloseable {
         this.mirror = (buffer instanceof MirroredBuffer m) ? m.mirror().asFloatBuffer() : null;
     }
 
-    public int count() { return count; }
-    public ManagedBuffer buffer() { return buffer; }
-    /** @return a live float view of the CPU mirror, or {@code null} if not mirrored. */
-    public FloatBuffer mirror() { return mirror; }
+    public int count() {
+        return count;
+    }
+
+    public ManagedBuffer buffer() {
+        return buffer;
+    }
+
+    /**
+     * @return a live float view of the CPU mirror, or {@code null} if not mirrored.
+     */
+    public FloatBuffer mirror() {
+        return mirror;
+    }
 
     public void write(float[] data, int startIndex, VkQueue queue) {
         TransferCompletion tc = writeAsync(data, startIndex, queue);
-        tc.await(); tc.close();
+        tc.await();
+        tc.close();
     }
 
     public TransferCompletion writeAsync(float[] data, int startIndex, VkQueue queue) {
@@ -52,5 +66,8 @@ public class FloatVkBuffer implements AutoCloseable {
         return result;
     }
 
-    @Override public void close() { buffer.close(); }
+    @Override
+    public void close() {
+        buffer.close();
+    }
 }

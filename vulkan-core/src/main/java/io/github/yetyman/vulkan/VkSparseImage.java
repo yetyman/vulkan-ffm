@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 import java.lang.foreign.ValueLayout;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,16 +56,30 @@ public class VkSparseImage implements AutoCloseable {
         this.arena = arena;
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** @return the VkImage handle */
-    public MemorySegment handle() { return handle; }
+    /**
+     * @return the VkImage handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
 
-    /** @return tile width in texels for mip level 0 */
-    public long tileWidth() { return tileWidth; }
+    /**
+     * @return tile width in texels for mip level 0
+     */
+    public long tileWidth() {
+        return tileWidth;
+    }
 
-    /** @return tile height in texels for mip level 0 */
-    public long tileHeight() { return tileHeight; }
+    /**
+     * @return tile height in texels for mip level 0
+     */
+    public long tileHeight() {
+        return tileHeight;
+    }
 
     /**
      * Commits physical memory for the tile at (tileX, tileY) on the given mip level.
@@ -104,15 +119,15 @@ public class VkSparseImage implements AutoCloseable {
             MemorySegment memory = memPtr.get(ValueLayout.ADDRESS, 0);
 
             MemorySegment bind = VkSparseImageMemoryBind.builder()
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
-                .mipLevel(mipLevel)
-                .arrayLayer(0)
-                .offset((int)(tileX * tileWidth), (int)(tileY * tileHeight), 0)
-                .extent((int) tileWidth, (int) tileHeight, 1)
-                .memory(memory)
-                .memoryOffset(0)
-                .flags(0)
-                .build(tmp);
+                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                    .mipLevel(mipLevel)
+                    .arrayLayer(0)
+                    .offset((int) (tileX * tileWidth), (int) (tileY * tileHeight), 0)
+                    .extent((int) tileWidth, (int) tileHeight, 1)
+                    .memory(memory)
+                    .memoryOffset(0)
+                    .flags(0)
+                    .build(tmp);
 
             bindAndWait(tmp, bind);
 
@@ -123,15 +138,15 @@ public class VkSparseImage implements AutoCloseable {
     private void unbindAndFreeMemory(MemorySegment memory, int tileX, int tileY, int mipLevel) {
         try (Arena tmp = Arena.ofConfined()) {
             MemorySegment bind = VkSparseImageMemoryBind.builder()
-                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
-                .mipLevel(mipLevel)
-                .arrayLayer(0)
-                .offset((int)(tileX * tileWidth), (int)(tileY * tileHeight), 0)
-                .extent((int) tileWidth, (int) tileHeight, 1)
-                .memory(MemorySegment.NULL)
-                .memoryOffset(0)
-                .flags(0)
-                .build(tmp);
+                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                    .mipLevel(mipLevel)
+                    .arrayLayer(0)
+                    .offset((int) (tileX * tileWidth), (int) (tileY * tileHeight), 0)
+                    .extent((int) tileWidth, (int) tileHeight, 1)
+                    .memory(MemorySegment.NULL)
+                    .memoryOffset(0)
+                    .flags(0)
+                    .build(tmp);
 
             bindAndWait(tmp, bind);
         }
@@ -140,13 +155,13 @@ public class VkSparseImage implements AutoCloseable {
 
     private void bindAndWait(Arena tmp, MemorySegment bind) {
         MemorySegment imageBindInfo = VkSparseImageMemoryBindInfo.builder()
-            .image(handle)
-            .binds(bind)
-            .build(tmp);
+                .image(handle)
+                .binds(bind)
+                .build(tmp);
 
         MemorySegment bindSparseInfo = VkBindSparseInfo.builder()
-            .imageBinds(imageBindInfo)
-            .build(tmp);
+                .imageBinds(imageBindInfo)
+                .build(tmp);
 
         try (VkFence fence = VkFence.builder().device(device).build(tmp)) {
             Vulkan.queueBindSparse(sparseQueue.handle(), 1, bindSparseInfo, fence.handle()).check();
@@ -170,17 +185,42 @@ public class VkSparseImage implements AutoCloseable {
         private int width, height;
         private int format = VkFormat.VK_FORMAT_R8G8B8A8_UNORM.value();
         private int usage = VkImageUsageFlagBits.VK_IMAGE_USAGE_SAMPLED_BIT.value()
-                          | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT.value();
+                | VkImageUsageFlagBits.VK_IMAGE_USAGE_TRANSFER_DST_BIT.value();
         private int mipLevels = 1;
 
-        private Builder() {}
+        private Builder() {
+        }
 
-        public Builder device(VkDevice device) { this.device = device; return this; }
-        public Builder sparseQueue(VkQueue queue) { this.sparseQueue = queue; return this; }
-        public Builder dimensions(int width, int height) { this.width = width; this.height = height; return this; }
-        public Builder format(int format) { this.format = format; return this; }
-        public Builder usage(int usage) { this.usage = usage; return this; }
-        public Builder mipLevels(int mipLevels) { this.mipLevels = mipLevels; return this; }
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
+
+        public Builder sparseQueue(VkQueue queue) {
+            this.sparseQueue = queue;
+            return this;
+        }
+
+        public Builder dimensions(int width, int height) {
+            this.width = width;
+            this.height = height;
+            return this;
+        }
+
+        public Builder format(int format) {
+            this.format = format;
+            return this;
+        }
+
+        public Builder usage(int usage) {
+            this.usage = usage;
+            return this;
+        }
+
+        public Builder mipLevels(int mipLevels) {
+            this.mipLevels = mipLevels;
+            return this;
+        }
 
         public VkSparseImage build(Arena outerArena) {
             if (device == null) throw new IllegalStateException("device not set");
@@ -190,7 +230,7 @@ public class VkSparseImage implements AutoCloseable {
             Arena arena = Arena.ofShared();
             try {
                 int sparseFlags = VkImageCreateFlagBits.VK_IMAGE_CREATE_SPARSE_BINDING_BIT.value()
-                                | VkImageCreateFlagBits.VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT.value();
+                        | VkImageCreateFlagBits.VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT.value();
 
                 MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
                 VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
@@ -234,11 +274,11 @@ public class VkSparseImage implements AutoCloseable {
                 Vulkan.getImageMemoryRequirements(device.handle(), image, req);
                 int memTypeBits = VkMemoryRequirements.memoryTypeBits(req);
                 int memTypeIndex = device.physicalDevice().findMemoryType(
-                    memTypeBits, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value());
+                        memTypeBits, VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value());
                 if (memTypeIndex < 0) throw new RuntimeException("No suitable memory type for sparse image");
 
                 return new VkSparseImage(image, device, sparseQueue, width, height, format,
-                    mipLevels, tileW, tileH, memTypeIndex, arena);
+                        mipLevels, tileW, tileH, memTypeIndex, arena);
             } catch (Exception e) {
                 arena.close();
                 throw e;

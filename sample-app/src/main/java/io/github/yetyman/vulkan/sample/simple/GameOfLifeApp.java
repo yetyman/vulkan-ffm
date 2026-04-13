@@ -27,7 +27,7 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
         VulkanCapabilities.initialize(vulkanContext().physicalDevice());
 
         VkQueue graphicsQueue = vulkanContext().graphicsVkQueue();
-        VkQueue computeQueue  = vulkanContext().computeVkQueue();
+        VkQueue computeQueue = vulkanContext().computeVkQueue();
 
         if (graphicsQueue.handle().equals(computeQueue.handle())) {
             MutexSubmitter sharedSubmitter = new MutexSubmitter(graphicsQueue.handle());
@@ -40,8 +40,8 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
         }
 
         frame = new GameOfLifeGraphicsFrame(
-            vulkanContext().arena(), vulkanContext().device(),
-            graphicsQueue, surface(), 800, 800);
+                vulkanContext().arena(), vulkanContext().device(),
+                graphicsQueue, surface(), 800, 800);
         frame.init(vulkanContext().graphicsQueueFamily());
 
         ComputeLoop computeLoop = frame.buildComputeLoop(computeQueue);
@@ -51,19 +51,24 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
         computeLoop.start();
 
         loop = GraphicsLoop.builder()
-            .renderer(frame)
-            .driver(LoopDriver.uncapped())
-            .shouldClose(() -> windowSystem().shouldClose(window()))
-            .onResize(dims -> frame.resize(dims[0], dims[1]))
-            .lifecycleDependency(computeLoop)
-            .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
-            .build();
+                .renderer(frame)
+                .driver(LoopDriver.uncapped())
+                .shouldClose(() -> windowSystem().shouldClose(window()))
+                .onResize(dims -> frame.resize(dims[0], dims[1]))
+                .lifecycleDependency(computeLoop)
+                .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
+                .build();
 
         loop.start();
 
         while (!windowSystem().shouldClose(window())) {
             windowSystem().pollEvents();
-            try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         loop.stop();
     }
@@ -78,7 +83,9 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
         if (frame != null) frame.close();
     }
 
-    @Override protected void shutdown() {}
+    @Override
+    protected void shutdown() {
+    }
 
     public static void main(String[] args) {
         try (GameOfLifeApp app = new GameOfLifeApp()) {

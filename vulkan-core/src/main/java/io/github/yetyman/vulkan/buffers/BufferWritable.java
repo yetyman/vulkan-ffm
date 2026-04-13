@@ -7,10 +7,14 @@ import java.nio.ByteBuffer;
  * {@link #byteSize()} defines the fixed stride used by {@link TypedVkBuffer}.
  */
 public interface BufferWritable {
-    /** @return the fixed byte size of this type's GPU representation */
+    /**
+     * @return the fixed byte size of this type's GPU representation
+     */
     int byteSize();
 
-    /** Writes this object's GPU representation into {@code buf} at its current position. */
+    /**
+     * Writes this object's GPU representation into {@code buf} at its current position.
+     */
     void writeTo(ByteBuffer buf);
 
     /**

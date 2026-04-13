@@ -21,13 +21,13 @@ public class BufferFactory {
      * <p>For composite buffer types (RING_BUFFER, SPARSE, SUBALLOCATOR), the secondaryStrategy determines
      * the underlying memory management approach.
      *
-     * @param strategy primary memory strategy
+     * @param strategy          primary memory strategy
      * @param secondaryStrategy underlying strategy for composite buffers (ignored for simple buffers)
-     * @param size buffer size in bytes
-     * @param usage buffer usage flags (UNIFORM, STORAGE, VERTEX, etc.)
-     * @param device Vulkan logical device
-     * @param transferQueue queue for transfer operations
-     * @param commandPool command pool for transfer commands
+     * @param size              buffer size in bytes
+     * @param usage             buffer usage flags (UNIFORM, STORAGE, VERTEX, etc.)
+     * @param device            Vulkan logical device
+     * @param transferQueue     queue for transfer operations
+     * @param commandPool       command pool for transfer commands
      * @return managed buffer instance
      */
     public static ManagedBuffer create(
@@ -49,22 +49,23 @@ public class BufferFactory {
                 boolean singleOffset = switch (secondaryStrategy) {
                     case MAPPED, MAPPED_CACHED, REBAR -> true;
                     case DEVICE_LOCAL, DEVICE_LOCAL_MIRRORED ->
-                        io.github.yetyman.vulkan.highlevel.VulkanCapabilities.unifiedMemory;
+                            io.github.yetyman.vulkan.highlevel.VulkanCapabilities.unifiedMemory;
                     default -> false;
                 };
                 yield new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue, singleOffset);
             }
             case SPARSE -> new SparseBuffer(device, size, usage, secondaryStrategy, transferQueue, transferQueue);
-            case SUBALLOCATOR -> throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
+            case SUBALLOCATOR ->
+                    throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
         };
     }
 
     /**
      * Creates a fixed-size slab suballocator.
      *
-     * @param totalSize      total buffer size in bytes
-     * @param slotSize       size of each fixed slot in bytes (aligned up to device requirements)
-     * @param usage          buffer usage
+     * @param totalSize       total buffer size in bytes
+     * @param slotSize        size of each fixed slot in bytes (aligned up to device requirements)
+     * @param usage           buffer usage
      * @param backingStrategy memory strategy for the backing buffer
      */
     public static SuballocatorBuffer createSlab(
@@ -98,13 +99,13 @@ public class BufferFactory {
      * <p>Ring buffers automatically reduce access frequency to underlying buffers,
      * enabling more optimal memory strategies (e.g., DEVICE_LOCAL instead of MAPPED).
      *
-     * @param cpuWrite how often CPU writes to buffer
-     * @param cpuRead how often CPU reads from buffer
-     * @param gpuRead how often GPU reads from buffer
-     * @param gpuWrite how often GPU writes to buffer
-     * @param size buffer size in bytes
-     * @param usage buffer usage flags
-     * @param device Vulkan logical device
+     * @param cpuWrite      how often CPU writes to buffer
+     * @param cpuRead       how often CPU reads from buffer
+     * @param gpuRead       how often GPU reads from buffer
+     * @param gpuWrite      how often GPU writes to buffer
+     * @param size          buffer size in bytes
+     * @param usage         buffer usage flags
+     * @param device        Vulkan logical device
      * @param transferQueue queue for transfer operations
      * @return optimally configured managed buffer
      */

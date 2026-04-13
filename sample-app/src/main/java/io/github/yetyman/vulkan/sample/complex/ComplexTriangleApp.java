@@ -30,31 +30,36 @@ public class ComplexTriangleApp extends VulkanApplication {
         VulkanCapabilities.initialize(vulkanContext().physicalDevice());
 
         renderer = new ThreadedRenderer(vulkanContext().arena(), vulkanContext().device(),
-            vulkanContext().graphicsVkQueue(), surface(), 800, 600);
+                vulkanContext().graphicsVkQueue(), surface(), 800, 600);
         renderer.init(vulkanContext().graphicsQueueFamily());
 
         gltfLoader = new GLTFLoader(Arena.ofShared(), vulkanContext().device());
         loadSampleModels();
 
         loop = GraphicsLoop.builder()
-            .renderer(renderer)
-            .driver(LoopDriver.uncapped())
-            .shouldClose(() -> windowSystem().shouldClose(window()))
-            .onResize(dims -> renderer.resize(dims[0], dims[1]))
-            .onFpsUpdate(fps -> {
-                float[] camPos = renderer.getCamera().getPosition();
-                float camDist = (float) Math.sqrt(camPos[0]*camPos[0] + camPos[1]*camPos[1] + camPos[2]*camPos[2]);
-                Logger.info(String.format("FPS: %d | Cam Dist: %.1fm | Threads: %d | Frame: %.2fms | AA: %s | Triangles: %d",
-                    fps, camDist, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
-                    renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", renderer.getActiveTriangleCount()));
-            })
-            .build();
+                .renderer(renderer)
+                .driver(LoopDriver.uncapped())
+                .shouldClose(() -> windowSystem().shouldClose(window()))
+                .onResize(dims -> renderer.resize(dims[0], dims[1]))
+                .onFpsUpdate(fps -> {
+                    float[] camPos = renderer.getCamera().getPosition();
+                    float camDist = (float) Math.sqrt(camPos[0] * camPos[0] + camPos[1] * camPos[1] + camPos[2] * camPos[2]);
+                    Logger.info(String.format("FPS: %d | Cam Dist: %.1fm | Threads: %d | Frame: %.2fms | AA: %s | Triangles: %d",
+                            fps, camDist, renderer.getActiveThreads(), renderer.getAverageFrameTime(),
+                            renderer.isAdaptiveAAEnabled() ? "ON" : "OFF", renderer.getActiveTriangleCount()));
+                })
+                .build();
 
         loop.start();
 
         while (!windowSystem().shouldClose(window())) {
             windowSystem().pollEvents();
-            try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         loop.stop();
         renderer.close();
@@ -113,7 +118,8 @@ public class ComplexTriangleApp extends VulkanApplication {
         });
     }
 
-    @Override protected void shutdown() {
+    @Override
+    protected void shutdown() {
         if (gltfLoader != null) gltfLoader.shutdown();
     }
 
@@ -138,15 +144,33 @@ public class ComplexTriangleApp extends VulkanApplication {
 
     public void loadSampleModels() {
         gltfLoader.loadModel("/sample-models/Box/glTF/Box.gltf")
-            .thenAccept(mesh -> { Logger.info("Box model loaded"); renderer.addMesh(mesh); })
-            .exceptionally(t -> { Logger.error("Failed to load Box: " + t.getMessage()); return null; });
+                .thenAccept(mesh -> {
+                    Logger.info("Box model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(t -> {
+                    Logger.error("Failed to load Box: " + t.getMessage());
+                    return null;
+                });
 
         gltfLoader.loadModel("/sample-models/Duck/glTF/Duck.gltf")
-            .thenAccept(mesh -> { Logger.info("Duck model loaded"); renderer.addMesh(mesh); })
-            .exceptionally(t -> { Logger.error("Failed to load Duck: " + t.getMessage()); return null; });
+                .thenAccept(mesh -> {
+                    Logger.info("Duck model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(t -> {
+                    Logger.error("Failed to load Duck: " + t.getMessage());
+                    return null;
+                });
 
         gltfLoader.loadModel("/sample-models/Suzanne/glTF/Suzanne.gltf")
-            .thenAccept(mesh -> { Logger.info("Suzanne model loaded"); renderer.addMesh(mesh); })
-            .exceptionally(t -> { Logger.error("Failed to load Suzanne: " + t.getMessage()); return null; });
+                .thenAccept(mesh -> {
+                    Logger.info("Suzanne model loaded");
+                    renderer.addMesh(mesh);
+                })
+                .exceptionally(t -> {
+                    Logger.error("Failed to load Suzanne: " + t.getMessage());
+                    return null;
+                });
     }
 }

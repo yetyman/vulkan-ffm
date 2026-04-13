@@ -8,16 +8,16 @@ import java.util.function.Consumer;
 /**
  * Generic resource pool for efficiently managing frequently created and destroyed Vulkan resources.
  * Reduces allocation overhead by reusing objects.
- * 
+ * <p>
  * Example usage:
  * ```java
  * // Pool for command buffers
  * VkResourcePool<MemorySegment> cmdBufferPool = VkResourcePool.builder(MemorySegment.class)
- *     .factory(v -> VkCommandBufferAlloc.allocateSingle(arena, device, commandPool))
- *     .resetFunction(cmdBuffer -> Vulkan.resetCommandBuffer(cmdBuffer, 0))
- *     .maxPoolSize(16)
- *     .build();
- * 
+ * .factory(v -> VkCommandBufferAlloc.allocateSingle(arena, device, commandPool))
+ * .resetFunction(cmdBuffer -> Vulkan.resetCommandBuffer(cmdBuffer, 0))
+ * .maxPoolSize(16)
+ * .build();
+ *
  * // Usage
  * MemorySegment cmdBuffer = cmdBufferPool.acquire();
  * // ... record commands ...
@@ -32,22 +32,22 @@ public class VkResourcePool<T> implements AutoCloseable {
     private final Consumer<T> destroyFunction;
     private final int maxPoolSize;
     private volatile boolean closed = false;
-    
-    private VkResourcePool(Function<Void, T> factory, Consumer<T> resetFunction, 
-                          Consumer<T> destroyFunction, int maxPoolSize) {
+
+    private VkResourcePool(Function<Void, T> factory, Consumer<T> resetFunction,
+                           Consumer<T> destroyFunction, int maxPoolSize) {
         this.factory = factory;
         this.resetFunction = resetFunction;
         this.destroyFunction = destroyFunction;
         this.maxPoolSize = maxPoolSize;
     }
-    
+
     /**
      * Creates a new resource pool.
      */
     public static <T> Builder<T> builder(Class<T> resourceType) {
         return new Builder<>();
     }
-    
+
     /**
      * Acquires a resource from the pool, creating a new one if necessary.
      */
@@ -55,7 +55,7 @@ public class VkResourcePool<T> implements AutoCloseable {
         if (closed) {
             throw new IllegalStateException("Resource pool is closed");
         }
-        
+
         T resource = availableResources.poll();
         if (resource == null) {
             resource = factory.apply(null);
@@ -63,10 +63,10 @@ public class VkResourcePool<T> implements AutoCloseable {
         } else if (resetFunction != null) {
             resetFunction.accept(resource);
         }
-        
+
         return resource;
     }
-    
+
     /**
      * Returns a resource to the pool for reuse.
      */
@@ -74,7 +74,7 @@ public class VkResourcePool<T> implements AutoCloseable {
         if (closed || resource == null || !allResources.contains(resource)) {
             return;
         }
-        
+
         if (availableResources.size() < maxPoolSize) {
             availableResources.offer(resource);
         } else {
@@ -85,28 +85,28 @@ public class VkResourcePool<T> implements AutoCloseable {
             }
         }
     }
-    
+
     /**
      * Gets the current number of available resources in the pool.
      */
     public int getAvailableCount() {
         return availableResources.size();
     }
-    
+
     /**
      * Gets the total number of resources managed by this pool.
      */
     public int getTotalCount() {
         return allResources.size();
     }
-    
+
     /**
      * Clears all available resources from the pool without destroying them.
      */
     public void clear() {
         availableResources.clear();
     }
-    
+
     /**
      * Shrinks the pool to the specified size by destroying excess resources.
      */
@@ -121,28 +121,28 @@ public class VkResourcePool<T> implements AutoCloseable {
             }
         }
     }
-    
+
     @Override
     public void close() {
         closed = true;
-        
+
         // Destroy all resources
         for (T resource : allResources) {
             if (destroyFunction != null) {
                 destroyFunction.accept(resource);
             }
         }
-        
+
         allResources.clear();
         availableResources.clear();
     }
-    
+
     public static class Builder<T> {
         private Function<Void, T> factory;
         private Consumer<T> resetFunction;
         private Consumer<T> destroyFunction;
         private int maxPoolSize = 32;
-        
+
         /**
          * Sets the factory function for creating new resources.
          */
@@ -150,7 +150,7 @@ public class VkResourcePool<T> implements AutoCloseable {
             this.factory = factory;
             return this;
         }
-        
+
         /**
          * Sets the reset function called when a resource is acquired from the pool.
          */
@@ -158,7 +158,7 @@ public class VkResourcePool<T> implements AutoCloseable {
             this.resetFunction = resetFunction;
             return this;
         }
-        
+
         /**
          * Sets the destroy function called when a resource is permanently removed.
          */
@@ -166,7 +166,7 @@ public class VkResourcePool<T> implements AutoCloseable {
             this.destroyFunction = destroyFunction;
             return this;
         }
-        
+
         /**
          * Sets the maximum number of resources to keep in the pool.
          */
@@ -174,7 +174,7 @@ public class VkResourcePool<T> implements AutoCloseable {
             this.maxPoolSize = maxPoolSize;
             return this;
         }
-        
+
         public VkResourcePool<T> build() {
             if (factory == null) {
                 throw new IllegalStateException("factory function not set");

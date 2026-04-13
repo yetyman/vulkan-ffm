@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
+
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -12,15 +13,21 @@ public class RingBuffer extends AbstractBuffer {
     private final int frameCount;
     private final boolean singleOffset;
     private final long alignedFrameSize; // only used in single-offset mode
-    /** volatile ensures nextFrame() writes are visible to any thread reading handle()/write()/etc. */
+    /**
+     * volatile ensures nextFrame() writes are visible to any thread reading handle()/write()/etc.
+     */
     private volatile int currentFrame = 0;
-    /** Tracks in-flight async completions per slot. Awaited before writing to a slot. */
+    /**
+     * Tracks in-flight async completions per slot. Awaited before writing to a slot.
+     */
     private final AtomicReferenceArray<TransferCompletion> inFlight;
 
-    /** Separate-buffers constructor (default). */
+    /**
+     * Separate-buffers constructor (default).
+     */
     public RingBuffer(VkDevice device,
-                     long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
-                     VkQueue transferQueue) {
+                      long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
+                      VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.singleOffset = false;
@@ -33,7 +40,9 @@ public class RingBuffer extends AbstractBuffer {
                 buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue);
             }
         } catch (Exception e) {
-            for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
+            for (ManagedBuffer b : buffers) {
+                if (b != null) b.close();
+            }
             arena.close();
             throw e;
         }
@@ -46,8 +55,8 @@ public class RingBuffer extends AbstractBuffer {
      * Descriptor type must be UNIFORM_BUFFER_DYNAMIC or STORAGE_BUFFER_DYNAMIC.
      */
     public RingBuffer(VkDevice device,
-                     long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
-                     VkQueue transferQueue, boolean singleOffset) {
+                      long size, BufferUsage usage, MemoryStrategy underlyingStrategy, int frameCount,
+                      VkQueue transferQueue, boolean singleOffset) {
         super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.singleOffset = singleOffset;
@@ -61,20 +70,22 @@ public class RingBuffer extends AbstractBuffer {
                     buffers[i] = BufferFactory.create(underlyingStrategy, underlyingStrategy, size, usage, device, transferQueue);
                 }
             } catch (Exception e) {
-                for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
+                for (ManagedBuffer b : buffers) {
+                    if (b != null) b.close();
+                }
                 arena.close();
                 throw e;
             }
         } else {
             // Align frame size to the device's minimum dynamic offset alignment
             long alignment = usage == BufferUsage.UNIFORM
-                ? device.physicalDevice().getMinUniformBufferOffsetAlignment()
-                : device.physicalDevice().getMinStorageBufferOffsetAlignment();
+                    ? device.physicalDevice().getMinUniformBufferOffsetAlignment()
+                    : device.physicalDevice().getMinStorageBufferOffsetAlignment();
             this.alignedFrameSize = ((size + alignment - 1) / alignment) * alignment;
             this.buffers = new ManagedBuffer[1];
             try {
                 buffers[0] = BufferFactory.create(underlyingStrategy, underlyingStrategy,
-                    alignedFrameSize * frameCount, usage, device, transferQueue);
+                        alignedFrameSize * frameCount, usage, device, transferQueue);
             } catch (Exception e) {
                 if (buffers[0] != null) buffers[0].close();
                 arena.close();
@@ -84,11 +95,11 @@ public class RingBuffer extends AbstractBuffer {
     }
 
     public RingBuffer(VkDevice device,
-                     long size, BufferUsage usage,
-                     AccessFrequency cpuWrite, AccessFrequency cpuRead,
-                     AccessFrequency gpuRead, AccessFrequency gpuWrite,
-                     int frameCount,
-                     VkQueue transferQueue) {
+                      long size, BufferUsage usage,
+                      AccessFrequency cpuWrite, AccessFrequency cpuRead,
+                      AccessFrequency gpuRead, AccessFrequency gpuWrite,
+                      int frameCount,
+                      VkQueue transferQueue) {
         super(device, size, usage, MemoryStrategy.RING_BUFFER);
         this.frameCount = frameCount;
         this.singleOffset = false;
@@ -99,12 +110,14 @@ public class RingBuffer extends AbstractBuffer {
         try {
             for (int i = 0; i < frameCount; i++) {
                 buffers[i] = BufferFactory.createAutomatic(
-                    cpuWrite, cpuRead, gpuRead, gpuWrite, size,
-                    usage, device, transferQueue
+                        cpuWrite, cpuRead, gpuRead, gpuWrite, size,
+                        usage, device, transferQueue
                 );
             }
         } catch (Exception e) {
-            for (ManagedBuffer b : buffers) { if (b != null) b.close(); }
+            for (ManagedBuffer b : buffers) {
+                if (b != null) b.close();
+            }
             arena.close();
             throw e;
         }
@@ -121,10 +134,15 @@ public class RingBuffer extends AbstractBuffer {
         return tc;
     }
 
-    /** Awaits and clears any in-flight completion for the given slot before reuse. */
+    /**
+     * Awaits and clears any in-flight completion for the given slot before reuse.
+     */
     private void awaitSlot(int slot) {
         TransferCompletion prev = inFlight.getAndSet(slot, null);
-        if (prev != null) { prev.await(); prev.close(); }
+        if (prev != null) {
+            prev.await();
+            prev.close();
+        }
     }
 
     @Override
@@ -156,15 +174,24 @@ public class RingBuffer extends AbstractBuffer {
      * descriptor sets for all slots upfront (e.g. for GPU-GPU ping-pong).
      */
     public MemorySegment handleAt(int slot) {
-        if (slot < 0 || slot >= frameCount) throw new IndexOutOfBoundsException("slot " + slot + " out of range [0, " + frameCount + ")");
+        if (slot < 0 || slot >= frameCount)
+            throw new IndexOutOfBoundsException("slot " + slot + " out of range [0, " + frameCount + ")");
         return singleOffset ? buffers[0].handle() : buffers[slot].handle();
     }
 
-    /** @return the number of buffer slots in this ring. */
-    public int slotCount() { return frameCount; }
+    /**
+     * @return the number of buffer slots in this ring.
+     */
+    public int slotCount() {
+        return frameCount;
+    }
 
-    /** @return the current active slot index. */
-    public int currentSlot() { return currentFrame; }
+    /**
+     * @return the current active slot index.
+     */
+    public int currentSlot() {
+        return currentFrame;
+    }
 
     /**
      * Returns the byte offset into the backing buffer for the current frame.
@@ -173,11 +200,15 @@ public class RingBuffer extends AbstractBuffer {
      * Returns 0 in separate-buffers mode.
      */
     public int dynamicOffset() {
-        return singleOffset ? (int)(currentFrame * alignedFrameSize) : 0;
+        return singleOffset ? (int) (currentFrame * alignedFrameSize) : 0;
     }
 
-    /** @return true if this ring buffer uses a single backing allocation with dynamic offsets. */
-    public boolean isSingleOffset() { return singleOffset; }
+    /**
+     * @return true if this ring buffer uses a single backing allocation with dynamic offsets.
+     */
+    public boolean isSingleOffset() {
+        return singleOffset;
+    }
 
     public void nextFrame() {
         currentFrame = (currentFrame + 1) % frameCount;

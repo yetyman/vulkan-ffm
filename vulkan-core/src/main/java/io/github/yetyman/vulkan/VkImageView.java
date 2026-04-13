@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -24,40 +25,51 @@ public class VkImageView implements AutoCloseable {
     VkImageView(MemorySegment handle, VkDevice device) {
         this(handle, MemorySegment.NULL, device);
     }
-    
+
     /**
      * Creates a 2D color image view with default settings.
-     * @param arena memory arena for allocations
+     *
+     * @param arena  memory arena for allocations
      * @param device the VkDevice handle
-     * @param image the VkImage handle to create a view for
+     * @param image  the VkImage handle to create a view for
      * @return a new VkImageView instance
      */
     public static VkImageView create(Arena arena, VkDevice device, MemorySegment image) {
         return builder()
-            .device(device)
-            .image(image)
-            .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
-            .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
-            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
-            .build(arena);
+                .device(device)
+                .image(image)
+                .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                .build(arena);
     }
-    
-    /** @return a new builder for configuring image view creation */
+
+    /**
+     * @return a new builder for configuring image view creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkImageView handle */
-    public MemorySegment handle() { return handle; }
 
-    /** @return the VkImage handle this view was created from */
-    public MemorySegment image() { return image; }
-    
+    /**
+     * @return the VkImageView handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
+    /**
+     * @return the VkImage handle this view was created from
+     */
+    public MemorySegment image() {
+        return image;
+    }
+
     @Override
     public void close() {
         Vulkan.destroyImageView(device.handle(), handle);
     }
-    
+
     /**
      * Builder for flexible image view creation.
      */
@@ -73,66 +85,87 @@ public class VkImageView implements AutoCloseable {
         private int layerCount = 1;
         private int flags = 0;
         private boolean identitySwizzle = true;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets the image to create a view for */
+
+        /**
+         * Sets the image to create a view for
+         */
         public Builder image(MemorySegment image) {
             this.image = image;
             return this;
         }
-        
-        /** Sets the view type (1D, 2D, 3D, Cube, Array) */
+
+        /**
+         * Sets the view type (1D, 2D, 3D, Cube, Array)
+         */
         public Builder viewType(int viewType) {
             this.viewType = viewType;
             return this;
         }
-        
-        /** Sets the image format */
+
+        /**
+         * Sets the image format
+         */
         public Builder format(int format) {
             this.format = format;
             return this;
         }
-        
-        /** Sets the aspect mask (color, depth, stencil) */
+
+        /**
+         * Sets the aspect mask (color, depth, stencil)
+         */
         public Builder aspectMask(int aspectMask) {
             this.aspectMask = aspectMask;
             return this;
         }
-        
-        /** Sets mip level range */
+
+        /**
+         * Sets mip level range
+         */
         public Builder mipLevels(int baseMipLevel, int levelCount) {
             this.baseMipLevel = baseMipLevel;
             this.levelCount = levelCount;
             return this;
         }
-        
-        /** Sets array layer range */
+
+        /**
+         * Sets array layer range
+         */
         public Builder arrayLayers(int baseArrayLayer, int layerCount) {
             this.baseArrayLayer = baseArrayLayer;
             this.layerCount = layerCount;
             return this;
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Disables identity swizzle (allows custom component mapping) */
+
+        /**
+         * Disables identity swizzle (allows custom component mapping)
+         */
         public Builder customSwizzle() {
             this.identitySwizzle = false;
             return this;
         }
-        
-        /** Creates the image view */
+
+        /**
+         * Creates the image view
+         */
         public VkImageView build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (image == null) throw new IllegalStateException("image not set");
@@ -148,7 +181,7 @@ public class VkImageView implements AutoCloseable {
             } else if (resolvedViewType == VkImageViewType.VK_IMAGE_VIEW_TYPE_CUBE.value() && layerCount > 6) {
                 resolvedViewType = VkImageViewType.VK_IMAGE_VIEW_TYPE_CUBE_ARRAY.value();
             }
-            
+
             MemorySegment createInfo = VkImageViewCreateInfo.allocate(arena);
             VkImageViewCreateInfo.sType(createInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO.value());
             VkImageViewCreateInfo.pNext(createInfo, MemorySegment.NULL);
@@ -156,21 +189,21 @@ public class VkImageView implements AutoCloseable {
             VkImageViewCreateInfo.image(createInfo, image);
             VkImageViewCreateInfo.viewType(createInfo, resolvedViewType);
             VkImageViewCreateInfo.format(createInfo, format);
-            
+
             MemorySegment components = VkImageViewCreateInfo.components(createInfo);
             int swizzle = identitySwizzle ? 0 : 1;
             VkComponentMapping.r(components, swizzle);
             VkComponentMapping.g(components, swizzle);
             VkComponentMapping.b(components, swizzle);
             VkComponentMapping.a(components, swizzle);
-            
+
             MemorySegment subresourceRange = VkImageViewCreateInfo.subresourceRange(createInfo);
             VkImageSubresourceRange.aspectMask(subresourceRange, aspectMask);
             VkImageSubresourceRange.baseMipLevel(subresourceRange, baseMipLevel);
             VkImageSubresourceRange.levelCount(subresourceRange, levelCount);
             VkImageSubresourceRange.baseArrayLayer(subresourceRange, baseArrayLayer);
             VkImageSubresourceRange.layerCount(subresourceRange, layerCount);
-            
+
             MemorySegment imageViewPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createImageView(device.handle(), createInfo, imageViewPtr).check();
             return new VkImageView(imageViewPtr.get(ValueLayout.ADDRESS, 0), image, device);

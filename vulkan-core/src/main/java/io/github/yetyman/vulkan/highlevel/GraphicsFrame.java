@@ -2,12 +2,13 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+
 import java.lang.foreign.*;
 
 /**
  * Manages the Vulkan frame execution engine: swapchain, render pass, command buffers,
  * synchronization, and per-frame acquire/record/submit/present cycle.
- *
+ * <p>
  * Subclasses implement {@link #recordCommandBuffer} to provide per-frame draw logic.
  */
 public abstract class GraphicsFrame implements AutoCloseable {
@@ -18,9 +19,13 @@ public abstract class GraphicsFrame implements AutoCloseable {
     protected final MemorySegment surface;
     protected int width, height;
 
-    /** When true, skips VkRenderPass/VkFramebuffer creation and uses dynamic rendering instead. */
+    /**
+     * When true, skips VkRenderPass/VkFramebuffer creation and uses dynamic rendering instead.
+     */
     protected final boolean useDynamicRendering;
-    /** MSAA sample count. VK_SAMPLE_COUNT_1_BIT = no MSAA. */
+    /**
+     * MSAA sample count. VK_SAMPLE_COUNT_1_BIT = no MSAA.
+     */
     protected final int sampleCount;
 
     protected VkSwapchain swapchain;
@@ -44,14 +49,14 @@ public abstract class GraphicsFrame implements AutoCloseable {
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                             MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight,
-            VulkanCapabilities.dynamicRendering);
+                VulkanCapabilities.dynamicRendering);
     }
 
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                             MemorySegment surface, int width, int height, int maxFramesInFlight,
                             boolean useDynamicRendering) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight, useDynamicRendering,
-            VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
+                VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value());
     }
 
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
@@ -92,12 +97,12 @@ public abstract class GraphicsFrame implements AutoCloseable {
         try (Arena tmp = Arena.ofConfined()) {
             for (int i = 0; i < images.length; i++) {
                 swapchainImageViews[i] = VkImageView.builder()
-                    .device(device)
-                    .image(images[i])
-                    .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
-                    .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
-                    .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
-                    .build(tmp);
+                        .device(device)
+                        .image(images[i])
+                        .viewType(VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                        .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                        .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
+                        .build(tmp);
             }
         }
     }
@@ -115,19 +120,19 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
     private void createCommandPool(int queueFamilyIndex) {
         commandPool = VkCommandPool.builder()
-            .device(device)
-            .queueFamilyIndex(queueFamilyIndex)
-            .resetCommandBufferBit()
-            .build(arena);
+                .device(device)
+                .queueFamilyIndex(queueFamilyIndex)
+                .resetCommandBufferBit()
+                .build(arena);
     }
 
     private void createCommandBuffers() {
         commandBuffers = VkCommandBufferAlloc.builder()
-            .device(device)
-            .commandPool(commandPool.handle())
-            .primary()
-            .count(maxFramesInFlight)
-            .allocate(arena);
+                .device(device)
+                .commandPool(commandPool.handle())
+                .primary()
+                .count(maxFramesInFlight)
+                .allocate(arena);
     }
 
     private void createSyncObjects() {
@@ -149,26 +154,48 @@ public abstract class GraphicsFrame implements AutoCloseable {
         }
     }
 
-    /** @return the arena for the current frame-in-flight. Valid from fence-wait through present. */
-    protected Arena frameArena() { return currentFrameArena; }
+    /**
+     * @return the arena for the current frame-in-flight. Valid from fence-wait through present.
+     */
+    protected Arena frameArena() {
+        return currentFrameArena;
+    }
 
-    /** @return the current frame-in-flight index (0..maxFramesInFlight-1). */
-    protected int currentFrame() { return currentFrame; }
+    /**
+     * @return the current frame-in-flight index (0..maxFramesInFlight-1).
+     */
+    protected int currentFrame() {
+        return currentFrame;
+    }
 
-    /** @return the renderFinished semaphore handle for the given swapchain image index. */
+    /**
+     * @return the renderFinished semaphore handle for the given swapchain image index.
+     */
     protected MemorySegment renderFinishedSemaphoreHandle(int imgIdx) {
         return renderFinishedSemaphores[imgIdx].handle();
     }
 
-    /** @return the device this frame executes on. */
-    public VkDevice device() { return device; }
+    /**
+     * @return the device this frame executes on.
+     */
+    public VkDevice device() {
+        return device;
+    }
 
-    /** @return the graphics queue this frame submits to. */
-    public VkQueue graphicsQueue() { return queue; }
+    /**
+     * @return the graphics queue this frame submits to.
+     */
+    public VkQueue graphicsQueue() {
+        return queue;
+    }
 
     public void drawFrame() {
         if (swapchain == null) {
-            try { Thread.sleep(10); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             return;
         }
         currentFrameArena = frameArenas[currentFrame];
@@ -177,15 +204,15 @@ public abstract class GraphicsFrame implements AutoCloseable {
         currentFrameArena = frameArenas[currentFrame];
 
         VkFenceOps.waitFor(device)
-            .fence(inFlightFences[currentFrame].handle())
-            .execute(currentFrameArena).check();
+                .fence(inFlightFences[currentFrame].handle())
+                .execute(currentFrameArena).check();
         VkFenceOps.waitFor(device)
-            .fence(inFlightFences[currentFrame].handle())
-            .reset(currentFrameArena).check();
+                .fence(inFlightFences[currentFrame].handle())
+                .reset(currentFrameArena).check();
 
         int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
-            .semaphore(acquireSemaphorePool.handle())
-            .execute(currentFrameArena);
+                .semaphore(acquireSemaphorePool.handle())
+                .execute(currentFrameArena);
 
         VkSemaphore justSignaled = acquireSemaphorePool;
         acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
@@ -195,12 +222,12 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
         VkSubmit.builder()
                 .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
-                              VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
                 .commandBuffer(commandBuffers[currentFrame])
                 .signalSemaphore(renderFinishedSemaphores[imgIdx].handle())
                 .submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena);
 
-            VkPresent.builder()
+        VkPresent.builder()
                 .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
                 .swapchain(swapchain.handle(), imgIdx)
                 .present(queue.handle(), currentFrameArena);
@@ -214,7 +241,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
     }
 
     private void doResize(int newWidth, int newHeight) {
-        for (VkFramebuffer framebuffer : framebuffers != null ? framebuffers : new VkFramebuffer[0]) framebuffer.close();
+        for (VkFramebuffer framebuffer : framebuffers != null ? framebuffers : new VkFramebuffer[0])
+            framebuffer.close();
         if (swapchainImageViews != null) for (VkImageView imageView : swapchainImageViews) imageView.close();
         if (swapchain != null) swapchain.close();
 
@@ -277,16 +305,23 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
     protected VkRenderPass createRenderPassImpl() {
         throw new UnsupportedOperationException(
-            getClass().getSimpleName() + " must override createRenderPassImpl() when not using dynamic rendering.");
+                getClass().getSimpleName() + " must override createRenderPassImpl() when not using dynamic rendering.");
     }
 
     protected VkFramebuffer createFramebufferImpl(int imageIndex) {
         throw new UnsupportedOperationException(
-            getClass().getSimpleName() + " must override createFramebufferImpl() when not using dynamic rendering.");
+                getClass().getSimpleName() + " must override createFramebufferImpl() when not using dynamic rendering.");
     }
 
-    protected void initializeResources(int queueFamilyIndex) {}
-    protected void postRenderPassInit() {}
-    protected void onResize(int width, int height) {}
-    protected void cleanupResources() {}
+    protected void initializeResources(int queueFamilyIndex) {
+    }
+
+    protected void postRenderPassInit() {
+    }
+
+    protected void onResize(int width, int height) {
+    }
+
+    protected void cleanupResources() {
+    }
 }

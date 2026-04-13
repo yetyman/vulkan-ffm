@@ -38,7 +38,9 @@ public class VkTimelineSemaphore implements AutoCloseable {
         return new VkTimelineSemaphore(ptr.get(ValueLayout.ADDRESS, 0), device);
     }
 
-    /** CPU-side signal — advances the counter without a queue submission. */
+    /**
+     * CPU-side signal — advances the counter without a queue submission.
+     */
     public void signal(long value) {
         try (Arena tmp = Arena.ofConfined()) {
             MemorySegment info = VkSemaphoreSignalInfo.allocate(tmp);
@@ -50,7 +52,9 @@ public class VkTimelineSemaphore implements AutoCloseable {
         }
     }
 
-    /** Blocks until the semaphore reaches at least {@code value}. */
+    /**
+     * Blocks until the semaphore reaches at least {@code value}.
+     */
     public void await(long value) {
         if (counterValue() >= value) return;
         try (Arena tmp = Arena.ofConfined()) {
@@ -70,7 +74,9 @@ public class VkTimelineSemaphore implements AutoCloseable {
         }
     }
 
-    /** Returns the current counter value. */
+    /**
+     * Returns the current counter value.
+     */
     public long counterValue() {
         try (Arena tmp = Arena.ofConfined()) {
             MemorySegment ptr = tmp.allocate(ValueLayout.JAVA_LONG);
@@ -79,15 +85,24 @@ public class VkTimelineSemaphore implements AutoCloseable {
         }
     }
 
-    public MemorySegment handle() { return handle; }
-    public VkDevice device() { return device; }
+    public MemorySegment handle() {
+        return handle;
+    }
 
-    /** Adds this semaphore as a wait to the submit builder. */
+    public VkDevice device() {
+        return device;
+    }
+
+    /**
+     * Adds this semaphore as a wait to the submit builder.
+     */
     public VkSubmitBuilder addWaitTo(VkSubmitBuilder builder, long value, int stageMask) {
         return builder.waitFor(this, value, stageMask);
     }
 
-    /** Adds this semaphore as a signal to the submit builder. */
+    /**
+     * Adds this semaphore as a signal to the submit builder.
+     */
     public VkSubmitBuilder addSignalTo(VkSubmitBuilder builder, long value) {
         return builder.signal(this, value);
     }

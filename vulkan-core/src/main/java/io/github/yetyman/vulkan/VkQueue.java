@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.queue.DirectSubmitter;
 import io.github.yetyman.vulkan.queue.IQueueSubmitter;
 import io.github.yetyman.vulkan.queue.MutexSubmitter;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -22,16 +23,26 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkGetDeviceQueue;
 public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex,
                       AtomicReference<IQueueSubmitter> submitterRef) {
 
-    /** Canonical constructor — initialises the submitter to DirectSubmitter. */
+    /**
+     * Canonical constructor — initialises the submitter to DirectSubmitter.
+     */
     public VkQueue(VkDevice device, MemorySegment handle, int familyIndex) {
         this(device, handle, familyIndex, new AtomicReference<>(new DirectSubmitter(handle)));
     }
 
-    /** @return the current submission strategy */
-    public IQueueSubmitter submitter() { return submitterRef.get(); }
+    /**
+     * @return the current submission strategy
+     */
+    public IQueueSubmitter submitter() {
+        return submitterRef.get();
+    }
 
-    /** Replaces the submission strategy. Thread-safe. */
-    public void setSubmitter(IQueueSubmitter submitter) { submitterRef.set(submitter); }
+    /**
+     * Replaces the submission strategy. Thread-safe.
+     */
+    public void setSubmitter(IQueueSubmitter submitter) {
+        submitterRef.set(submitter);
+    }
 
     /**
      * Atomically replaces the submitter only if it is currently {@code expected}.
@@ -54,15 +65,23 @@ public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex,
         submitterRef.get().submit(submitInfo, fence);
     }
 
-    /** Convenience overload — submits with no fence. */
+    /**
+     * Convenience overload — submits with no fence.
+     */
     public void submit(MemorySegment submitInfo) {
         submitterRef.get().submit(submitInfo, MemorySegment.NULL);
     }
 
-    /** Flushes any pending batched submits. No-op for Direct and Mutex submitters. */
-    public void flush() { submitterRef.get().flush(); }
+    /**
+     * Flushes any pending batched submits. No-op for Direct and Mutex submitters.
+     */
+    public void flush() {
+        submitterRef.get().flush();
+    }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static class Builder {
         private VkDevice device;
@@ -70,11 +89,28 @@ public record VkQueue(VkDevice device, MemorySegment handle, int familyIndex,
         private int queueIndex = 0;
         private IQueueSubmitter submitter = null; // null = create DirectSubmitter from resolved handle
 
-        public Builder device(VkDevice device) { this.device = device; return this; }
-        public Builder familyIndex(int queueFamilyIndex) { this.queueFamilyIndex = queueFamilyIndex; return this; }
-        public Builder queueIndex(int queueIndex) { this.queueIndex = queueIndex; return this; }
-        /** Sets a custom submitter strategy. If not set, defaults to {@link DirectSubmitter}. */
-        public Builder submitter(IQueueSubmitter submitter) { this.submitter = submitter; return this; }
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
+
+        public Builder familyIndex(int queueFamilyIndex) {
+            this.queueFamilyIndex = queueFamilyIndex;
+            return this;
+        }
+
+        public Builder queueIndex(int queueIndex) {
+            this.queueIndex = queueIndex;
+            return this;
+        }
+
+        /**
+         * Sets a custom submitter strategy. If not set, defaults to {@link DirectSubmitter}.
+         */
+        public Builder submitter(IQueueSubmitter submitter) {
+            this.submitter = submitter;
+            return this;
+        }
 
         public VkQueue build(Arena arena) {
             MemorySegment queuePtr = arena.allocate(ValueLayout.ADDRESS);

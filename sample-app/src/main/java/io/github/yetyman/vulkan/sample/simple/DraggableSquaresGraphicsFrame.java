@@ -24,21 +24,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
 
-    public static final int   NUM_SQUARES   = 1_000;
-    public static final int   SQUARE_SIZE   = 80;
+    public static final int NUM_SQUARES = 1_000;
+    public static final int SQUARE_SIZE = 80;
     public static final float CORNER_RADIUS = 12.0f;
 
-    private static final int  FLOATS_PER_SQ   = 6; // x, y, r, g, b, radius
-    private static final long BUF_SIZE         = (long) NUM_SQUARES * FLOATS_PER_SQ * Float.BYTES;
-    private static final int  SLICES_PER_SQ    = 9;
-    private static final int  PC_SIZE          = 8;
+    private static final int FLOATS_PER_SQ = 6; // x, y, r, g, b, radius
+    private static final long BUF_SIZE = (long) NUM_SQUARES * FLOATS_PER_SQ * Float.BYTES;
+    private static final int SLICES_PER_SQ = 9;
+    private static final int PC_SIZE = 8;
     private static final float SELECT_BRIGHTEN = 0.25f;
-    private static final float DRAG_BRIGHTEN   = 0.15f; // on top of select
+    private static final float DRAG_BRIGHTEN = 0.15f; // on top of select
 
-    private VkBuffer              squareBuf;
+    private VkBuffer squareBuf;
     private VkDescriptorSetLayout descLayout;
-    private VkDescriptorPool      descPool;
-    private VkDescriptorSet       descSet;
+    private VkDescriptorPool descPool;
+    private VkDescriptorSet descSet;
 
     // GPU-facing square data: x, y, r, g, b, radius
     private final float[] squareData = new float[NUM_SQUARES * FLOATS_PER_SQ];
@@ -50,8 +50,8 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
 
     // Selection and drag state — written on input thread, read on render thread
     private final Set<Integer> selectedSquares = new HashSet<>();
-    private final AtomicInteger hoveredSquare  = new AtomicInteger(-1);
-    private final AtomicInteger primaryDrag    = new AtomicInteger(-1); // square the mouse is anchored to
+    private final AtomicInteger hoveredSquare = new AtomicInteger(-1);
+    private final AtomicInteger primaryDrag = new AtomicInteger(-1); // square the mouse is anchored to
 
     // Drag offset relative to the primaryDrag square's top-left
     private volatile float dragOffsetX, dragOffsetY;
@@ -60,39 +60,39 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     private volatile boolean dragging = false;
 
     public DraggableSquaresGraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
-                                          MemorySegment surface, int width, int height) {
+                                         MemorySegment surface, int width, int height) {
         super(arena, device, queue, surface, width, height, 3);
     }
 
     @Override
     protected void initializeResources(int queueFamilyIndex) {
         squareBuf = VkBuffer.builder()
-            .device(device)
-            .size(BUF_SIZE)
-            .storageBuffer()
-            .hostVisible()
-            .build(arena);
+                .device(device)
+                .size(BUF_SIZE)
+                .storageBuffer()
+                .hostVisible()
+                .build(arena);
 
         initSquareData();
         uploadAllSquares();
 
         int vertStage = VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value();
         descLayout = VkDescriptorSetLayout.builder()
-            .device(device)
-            .storageBuffer(0, vertStage)
-            .build(arena);
+                .device(device)
+                .storageBuffer(0, vertStage)
+                .build(arena);
 
         descPool = VkDescriptorPool.builder()
-            .device(device)
-            .maxSets(1)
-            .storageBuffers(1)
-            .build(arena);
+                .device(device)
+                .maxSets(1)
+                .storageBuffers(1)
+                .build(arena);
 
         descSet = descPool.allocateDescriptorSet(descLayout);
         try (Arena tmp = Arena.ofConfined()) {
             descSet.updateBuffer(0,
-                VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                squareBuf.handle(), 0, BUF_SIZE, tmp);
+                    VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
+                    squareBuf.handle(), 0, BUF_SIZE, tmp);
         }
 
         super.initializeResources(queueFamilyIndex);
@@ -101,12 +101,12 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     private void initSquareData() {
         Random rng = new Random(42);
         int margin = 20;
-        placeSquare(0, margin,                       margin,                        rng);
-        placeSquare(1, width - margin - SQUARE_SIZE, margin,                        rng);
-        placeSquare(2, margin,                       height - margin - SQUARE_SIZE, rng);
+        placeSquare(0, margin, margin, rng);
+        placeSquare(1, width - margin - SQUARE_SIZE, margin, rng);
+        placeSquare(2, margin, height - margin - SQUARE_SIZE, rng);
         placeSquare(3, width - margin - SQUARE_SIZE, height - margin - SQUARE_SIZE, rng);
         for (int i = 4; i < NUM_SQUARES; i++) {
-            float x = rng.nextFloat() * (width  - SQUARE_SIZE);
+            float x = rng.nextFloat() * (width - SQUARE_SIZE);
             float y = rng.nextFloat() * (height - SQUARE_SIZE);
             placeSquare(i, x, y, rng);
         }
@@ -116,11 +116,11 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
         float r = rng.nextFloat() * 0.7f + 0.2f;
         float g = rng.nextFloat() * 0.7f + 0.2f;
         float b = rng.nextFloat() * 0.7f + 0.2f;
-        baseColors[i * 3]     = r;
+        baseColors[i * 3] = r;
         baseColors[i * 3 + 1] = g;
         baseColors[i * 3 + 2] = b;
         int base = i * FLOATS_PER_SQ;
-        squareData[base]     = x;
+        squareData[base] = x;
         squareData[base + 1] = y;
         squareData[base + 2] = r;
         squareData[base + 3] = g;
@@ -128,13 +128,15 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
         squareData[base + 5] = CORNER_RADIUS;
     }
 
-    /** Recomputes display color for square i from base color + selection/drag state and marks dirty. */
+    /**
+     * Recomputes display color for square i from base color + selection/drag state and marks dirty.
+     */
     private void refreshColor(int i) {
         boolean selected = selectedSquares.contains(i);
-        boolean dragged  = dragging && selectedSquares.contains(i);
-        float brighten   = (selected ? SELECT_BRIGHTEN : 0f) + (dragged ? DRAG_BRIGHTEN : 0f);
+        boolean dragged = dragging && selectedSquares.contains(i);
+        float brighten = (selected ? SELECT_BRIGHTEN : 0f) + (dragged ? DRAG_BRIGHTEN : 0f);
         int base = i * FLOATS_PER_SQ;
-        squareData[base + 2] = Math.min(1f, baseColors[i * 3]     + brighten);
+        squareData[base + 2] = Math.min(1f, baseColors[i * 3] + brighten);
         squareData[base + 3] = Math.min(1f, baseColors[i * 3 + 1] + brighten);
         squareData[base + 4] = Math.min(1f, baseColors[i * 3 + 2] + brighten);
         dirty[i] = true;
@@ -165,20 +167,21 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onResize(int newWidth, int newHeight) {}
+    protected void onResize(int newWidth, int newHeight) {
+    }
 
     @Override
     protected VkPipeline createPipeline() {
         VkPipeline.Builder builder = VkPipeline.builder()
-            .device(device)
-            .vertexShader(ShaderLoader.builder("/shaders/squares.vert").compile())
-            .fragmentShader(ShaderLoader.builder("/shaders/squares.frag").compile())
-            .triangleTopology()
-            .dynamicViewport()
-            .dynamicScissor()
-            .alphaBlend()
-            .descriptorSetLayouts(descLayout.handle())
-            .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, PC_SIZE);
+                .device(device)
+                .vertexShader(ShaderLoader.builder("/shaders/squares.vert").compile())
+                .fragmentShader(ShaderLoader.builder("/shaders/squares.frag").compile())
+                .triangleTopology()
+                .dynamicViewport()
+                .dynamicScissor()
+                .alphaBlend()
+                .descriptorSetLayouts(descLayout.handle())
+                .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, PC_SIZE);
 
         if (useDynamicRendering) {
             builder.dynamicRendering(0, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value());
@@ -199,11 +202,18 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
         pc.set(ValueLayout.JAVA_FLOAT, 0, (float) width);
         pc.set(ValueLayout.JAVA_FLOAT, 4, (float) height);
         VkPushConstantsCmd.pushConstants(commandBuffer, pipeline.layout(),
-            VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, pc, PC_SIZE);
+                VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, pc, PC_SIZE);
     }
 
-    @Override protected int vertexCount()   { return 6; }
-    @Override protected int instanceCount() { return NUM_SQUARES * SLICES_PER_SQ; }
+    @Override
+    protected int vertexCount() {
+        return 6;
+    }
+
+    @Override
+    protected int instanceCount() {
+        return NUM_SQUARES * SLICES_PER_SQ;
+    }
 
     // --- Input handling (called from GLFW callback thread) ---
 
@@ -236,7 +246,7 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
             lastDragY = my;
             for (int i : selectedSquares) {
                 int base = i * FLOATS_PER_SQ;
-                squareData[base]     += (float) dx;
+                squareData[base] += (float) dx;
                 squareData[base + 1] += (float) dy;
                 dirty[i] = true;
             }
@@ -276,10 +286,10 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
 
         // Begin drag for all selected squares, anchored to the hit square
         int base = hit * FLOATS_PER_SQ;
-        dragOffsetX = (float)(mx - squareData[base]);
-        dragOffsetY = (float)(my - squareData[base + 1]);
-        lastDragX   = mx;
-        lastDragY   = my;
+        dragOffsetX = (float) (mx - squareData[base]);
+        dragOffsetY = (float) (my - squareData[base + 1]);
+        lastDragX = mx;
+        lastDragY = my;
         primaryDrag.set(hit);
         dragging = true;
         hoveredSquare.set(-1);
@@ -315,8 +325,8 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     @Override
     protected void cleanupResources() {
         super.cleanupResources();
-        if (descPool   != null) descPool.close();
+        if (descPool != null) descPool.close();
         if (descLayout != null) descLayout.close();
-        if (squareBuf  != null) squareBuf.close();
+        if (squareBuf != null) squareBuf.close();
     }
 }

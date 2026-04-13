@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.command.VkCopy;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -31,9 +32,11 @@ public class SparseBuffer extends AbstractBuffer {
             throw new IllegalArgumentException("Cannot nest sparse buffers");
 
         int memoryProperties = switch (underlyingStrategy) {
-            case MAPPED, MAPPED_CACHED -> VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
-            case DEVICE_LOCAL          -> VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
-            default -> throw new IllegalArgumentException("Unsupported underlying strategy for sparse buffer: " + underlyingStrategy);
+            case MAPPED, MAPPED_CACHED ->
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
+            case DEVICE_LOCAL -> VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
+            default ->
+                    throw new IllegalArgumentException("Unsupported underlying strategy for sparse buffer: " + underlyingStrategy);
         };
 
         SparsePageAllocator pagesLocal = null;
@@ -51,8 +54,12 @@ public class SparseBuffer extends AbstractBuffer {
         this.pages = pagesLocal;
     }
 
-    /** @return the sparse page size in bytes */
-    public long pageSize() { return pages.pageSize; }
+    /**
+     * @return the sparse page size in bytes
+     */
+    public long pageSize() {
+        return pages.pageSize;
+    }
 
     private void checkSparseSupport() {
         if (!device.physicalDevice().supportsSparseResidencyBuffer())
@@ -61,9 +68,9 @@ public class SparseBuffer extends AbstractBuffer {
 
     private void createSparseBuffer() {
         vkBuffer = VkBuffer.builder()
-            .device(device).size(size).usage(usage.toVkFlags())
-            .flags(VK_BUFFER_CREATE_SPARSE_BINDING_BIT.value())
-            .build(arena);
+                .device(device).size(size).usage(usage.toVkFlags())
+                .flags(VK_BUFFER_CREATE_SPARSE_BINDING_BIT.value())
+                .build(arena);
     }
 
     private long querySparsePageSize() {
@@ -117,7 +124,7 @@ public class SparseBuffer extends AbstractBuffer {
                 readback = VkBuffer.builder().device(device).size(length).transferDst().hostVisible().build(readArena);
                 fence = VkFence.builder().device(device).build(readArena);
                 VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-                    .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
+                        .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
                 VkCommandBuffer cmd = cmds[0];
                 VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(readArena);
                 VkCopy.copyBuffer(cmd, vkBuffer, readback, offset, 0, length);

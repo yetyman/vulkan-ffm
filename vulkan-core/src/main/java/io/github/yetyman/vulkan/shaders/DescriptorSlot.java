@@ -21,12 +21,31 @@ public abstract class DescriptorSlot {
         this.descriptorType = descriptorType;
     }
 
-    public String name() { return name; }
-    public int set() { return set; }
-    public int binding() { return binding; }
-    public SpirvReflectDescriptorType descriptorType() { return descriptorType; }
-    public boolean isDirty() { return dirty; }
+    public String name() {
+        return name;
+    }
 
-    protected void markDirty() { dirty = true; }
-    void clearDirty() { dirty = false; }
+    public int set() {
+        return set;
+    }
+
+    public int binding() {
+        return binding;
+    }
+
+    public SpirvReflectDescriptorType descriptorType() {
+        return descriptorType;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    protected void markDirty() {
+        dirty = true;
+    }
+
+    void clearDirty() {
+        dirty = false;
+    }
 }

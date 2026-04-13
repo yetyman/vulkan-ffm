@@ -14,13 +14,14 @@ import java.util.*;
  */
 public class CompiledShader {
     static final Map<ShadercShaderKind, VkShaderStageFlagBits> SHADER_KIND_TO_STAGE;
+
     static {
         SHADER_KIND_TO_STAGE = Map.of(
-                ShadercShaderKind.shaderc_vertex_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT, 
-                ShadercShaderKind.shaderc_fragment_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT, 
-                ShadercShaderKind.shaderc_compute_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT, 
-                ShadercShaderKind.shaderc_geometry_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_GEOMETRY_BIT, 
-                ShadercShaderKind.shaderc_tess_control_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 
+                ShadercShaderKind.shaderc_vertex_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT,
+                ShadercShaderKind.shaderc_fragment_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT,
+                ShadercShaderKind.shaderc_compute_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT,
+                ShadercShaderKind.shaderc_geometry_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_GEOMETRY_BIT,
+                ShadercShaderKind.shaderc_tess_control_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
                 ShadercShaderKind.shaderc_tess_evaluation_shader, VkShaderStageFlagBits.VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT
         );
     }
@@ -47,27 +48,56 @@ public class CompiledShader {
         this.defines = Collections.unmodifiableMap(new HashMap<>(defines));
     }
 
-    public byte[] getSpirV() { return spirv.clone(); }
-    public ShaderLoader.ShaderReflection getReflection() { return reflection; }
-    public ShadercShaderKind getShaderKind() { return shaderKind; }
-    /** @return the VkShaderStageFlagBits int value for this shader's stage. */
-    public int getShaderStageFlags() { return getVkShaderStage().value(); }
-    /** @return the logical name set at build time, or null if not set. */
-    public String getName() { return name; }
-    /** @return the preprocessor defines this shader was compiled with, empty if none. */
-    public Map<String, String> getDefines() { return defines; }
+    public byte[] getSpirV() {
+        return spirv.clone();
+    }
 
-    /** @return a new ShaderInstance for this compiled shader on the given device. */
+    public ShaderLoader.ShaderReflection getReflection() {
+        return reflection;
+    }
+
+    public ShadercShaderKind getShaderKind() {
+        return shaderKind;
+    }
+
+    /**
+     * @return the VkShaderStageFlagBits int value for this shader's stage.
+     */
+    public int getShaderStageFlags() {
+        return getVkShaderStage().value();
+    }
+
+    /**
+     * @return the logical name set at build time, or null if not set.
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * @return the preprocessor defines this shader was compiled with, empty if none.
+     */
+    public Map<String, String> getDefines() {
+        return defines;
+    }
+
+    /**
+     * @return a new ShaderInstance for this compiled shader on the given device.
+     */
     public ShaderInstance createInstance(VkDevice device) {
         return ShaderInstance.builder().of(this).device(device).build();
     }
 
-    /** @return a Builder pre-configured with this compiled shader. */
+    /**
+     * @return a Builder pre-configured with this compiled shader.
+     */
     public ShaderInstance.Builder instanceBuilder(VkDevice device) {
         return ShaderInstance.builder().of(this).device(device);
     }
 
-    /** Creates a VkShaderModule from the compiled SPIR-V. */
+    /**
+     * Creates a VkShaderModule from the compiled SPIR-V.
+     */
     public VkShaderModule createShaderModule(VkDevice device, Arena arena) {
         return VkShaderModule.create(arena, device, spirv);
     }
@@ -81,12 +111,16 @@ public class CompiledShader {
         return new GeneratedDescriptorSetLayout(setInfo, device, getVkShaderStage()).createLayout(arena);
     }
 
-    /** @return a DescriptorGroup builder pre-wired with this shader's reflected layout (set 0). */
+    /**
+     * @return a DescriptorGroup builder pre-wired with this shader's reflected layout (set 0).
+     */
     public DescriptorGroup.Builder descriptorGroup(VkDevice device) {
         return descriptorGroup(device, 0);
     }
 
-    /** @return a DescriptorGroup builder pre-wired with this shader's reflected layout for the given set. */
+    /**
+     * @return a DescriptorGroup builder pre-wired with this shader's reflected layout for the given set.
+     */
     public DescriptorGroup.Builder descriptorGroup(VkDevice device, int setNumber) {
         return DescriptorGroup.builder().device(device).reflection(this, setNumber);
     }

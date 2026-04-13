@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.loop;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.ILifecycle;
 import io.github.yetyman.vulkan.queue.MutexSubmitter;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
@@ -84,28 +85,28 @@ public class ComputeLoop implements ILifecycle {
         gen = semaphore != null ? semaphore.counterValue() : 0;
 
         pool = VkCommandPool.builder()
-            .device(device)
-            .queueFamilyIndex(queueFamilyIndex)
-            .resetCommandBufferBit()
-            .build(runArena);
+                .device(device)
+                .queueFamilyIndex(queueFamilyIndex)
+                .resetCommandBufferBit()
+                .build(runArena);
 
         cmds = VkCommandBufferAlloc.builder()
-            .device(device)
-            .commandPool(pool.handle())
-            .primary()
-            .count(2)
-            .allocate(runArena);
+                .device(device)
+                .commandPool(pool.handle())
+                .primary()
+                .count(2)
+                .allocate(runArena);
 
         fences = new VkFence[]{
-            VkFence.create(runArena, device, false),
-            VkFence.create(runArena, device, false)
+                VkFence.create(runArena, device, false),
+                VkFence.create(runArena, device, false)
         };
 
         loopThread = LoopThread.builder()
-            .driver(driver)
-            .name(threadName)
-            .work(timing -> tick())
-            .build();
+                .driver(driver)
+                .name(threadName)
+                .work(timing -> tick())
+                .build();
         loopThread.start();
     }
 
@@ -120,8 +121,8 @@ public class ComputeLoop implements ILifecycle {
         // Wait for any in-flight GPU work then release per-run resources.
         if (fences == null) return;
         try (Arena tmp = Arena.ofConfined()) {
-            if (gen >= 1) VkFenceOps.waitFor(device).fence(fences[(int)((gen - 1) % 2)].handle()).execute(tmp).check();
-            if (gen >= 2) VkFenceOps.waitFor(device).fence(fences[(int)((gen - 2) % 2)].handle()).execute(tmp).check();
+            if (gen >= 1) VkFenceOps.waitFor(device).fence(fences[(int) ((gen - 1) % 2)].handle()).execute(tmp).check();
+            if (gen >= 2) VkFenceOps.waitFor(device).fence(fences[(int) ((gen - 2) % 2)].handle()).execute(tmp).check();
         }
         fences[0].close();
         fences[1].close();
@@ -139,14 +140,22 @@ public class ComputeLoop implements ILifecycle {
         awaitStopped();
     }
 
-    /** @return the last completed generation as a cheap CPU-side read (no kernel call). */
-    public long completedGeneration() { return completedGen.get(); }
+    /**
+     * @return the last completed generation as a cheap CPU-side read (no kernel call).
+     */
+    public long completedGeneration() {
+        return completedGen.get();
+    }
 
-    /** @return the timeline semaphore used to signal completion, or null if none was set. */
-    public VkTimelineSemaphore semaphore() { return semaphore; }
+    /**
+     * @return the timeline semaphore used to signal completion, or null if none was set.
+     */
+    public VkTimelineSemaphore semaphore() {
+        return semaphore;
+    }
 
     private void tick() {
-        int slot = (int)(gen % 2);
+        int slot = (int) (gen % 2);
         VkCommandBuffer cmd = cmds[slot];
         VkFence fence = fences[slot];
 
@@ -172,7 +181,9 @@ public class ComputeLoop implements ILifecycle {
         }
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static class Builder {
         private VkDevice device;
@@ -183,36 +194,70 @@ public class ComputeLoop implements ILifecycle {
         private Work work;
         private String threadName = "compute-loop";
 
-        private Builder() {}
+        private Builder() {
+        }
 
-        /** Sets the logical device. */
-        public Builder device(VkDevice device) { this.device = device; return this; }
+        /**
+         * Sets the logical device.
+         */
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
 
-        /** Sets the queue to submit compute work to. */
-        public Builder queue(VkQueue queue) { this.queue = queue; return this; }
+        /**
+         * Sets the queue to submit compute work to.
+         */
+        public Builder queue(VkQueue queue) {
+            this.queue = queue;
+            return this;
+        }
 
-        /** Sets the queue family index for command pool creation. */
-        public Builder queueFamilyIndex(int index) { this.queueFamilyIndex = index; return this; }
+        /**
+         * Sets the queue family index for command pool creation.
+         */
+        public Builder queueFamilyIndex(int index) {
+            this.queueFamilyIndex = index;
+            return this;
+        }
 
         /**
          * Sets the timeline semaphore to signal after each iteration.
          * Optional — if not set, no semaphore is signaled.
          */
-        public Builder semaphore(VkTimelineSemaphore semaphore) { this.semaphore = semaphore; return this; }
+        public Builder semaphore(VkTimelineSemaphore semaphore) {
+            this.semaphore = semaphore;
+            return this;
+        }
 
-        /** Sets the loop driver controlling execution rate. Defaults to {@link LoopDriver#uncapped()}. */
-        public Builder driver(LoopDriver driver) { this.driver = driver; return this; }
+        /**
+         * Sets the loop driver controlling execution rate. Defaults to {@link LoopDriver#uncapped()}.
+         */
+        public Builder driver(LoopDriver driver) {
+            this.driver = driver;
+            return this;
+        }
 
-        /** Sets the work function called each iteration. */
-        public Builder work(Work work) { this.work = work; return this; }
+        /**
+         * Sets the work function called each iteration.
+         */
+        public Builder work(Work work) {
+            this.work = work;
+            return this;
+        }
 
-        /** Sets the thread name. */
-        public Builder name(String name) { this.threadName = name; return this; }
+        /**
+         * Sets the thread name.
+         */
+        public Builder name(String name) {
+            this.threadName = name;
+            return this;
+        }
 
         public ComputeLoop build() {
             if (device == null) throw new IllegalStateException("device not set");
-            if (queue == null)  throw new IllegalStateException("queue not set");
-            if (work == null)   throw new IllegalStateException("work not set");
+            if (queue == null) throw new IllegalStateException("queue not set");
+            if (work == null) throw new IllegalStateException("work not set");
             return new ComputeLoop(device, queue, queueFamilyIndex, semaphore, driver, work, threadName);
         }
     }

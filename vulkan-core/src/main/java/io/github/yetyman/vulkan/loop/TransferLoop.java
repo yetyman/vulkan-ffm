@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.ILifecycle;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.TransferBatchManager;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -51,8 +52,12 @@ public class TransferLoop implements ILifecycle {
         thread = Thread.ofPlatform().name("transfer-loop").daemon(true).start(() -> {
             while (running.get()) {
                 TransferBatchManager.flush(device, queue);
-                try { Thread.sleep(checkIntervalMs); }
-                catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+                try {
+                    Thread.sleep(checkIntervalMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
             // Final flush on exit
             TransferBatchManager.flush(device, queue);
@@ -69,7 +74,10 @@ public class TransferLoop implements ILifecycle {
     public void awaitStopped() {
         Thread t = thread;
         if (t != null) {
-            try { t.join(); } catch (InterruptedException ignored) {}
+            try {
+                t.join();
+            } catch (InterruptedException ignored) {
+            }
         }
     }
 
@@ -79,31 +87,47 @@ public class TransferLoop implements ILifecycle {
         awaitStopped();
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static class Builder {
         private VkDevice device;
         private VkQueue queue;
         private long checkIntervalMs = 1;
 
-        private Builder() {}
+        private Builder() {
+        }
 
-        /** Sets the logical device. */
-        public Builder device(VkDevice device) { this.device = device; return this; }
+        /**
+         * Sets the logical device.
+         */
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
 
-        /** Sets the transfer queue to flush. */
-        public Builder queue(VkQueue queue) { this.queue = queue; return this; }
+        /**
+         * Sets the transfer queue to flush.
+         */
+        public Builder queue(VkQueue queue) {
+            this.queue = queue;
+            return this;
+        }
 
         /**
          * Sets how often the loop checks for pending transfers, in milliseconds.
          * Lower values reduce maximum transfer latency at the cost of more CPU wakeups.
          * Default: 1ms.
          */
-        public Builder checkIntervalMs(long ms) { this.checkIntervalMs = ms; return this; }
+        public Builder checkIntervalMs(long ms) {
+            this.checkIntervalMs = ms;
+            return this;
+        }
 
         public TransferLoop build() {
             if (device == null) throw new IllegalStateException("device not set");
-            if (queue == null)  throw new IllegalStateException("queue not set");
+            if (queue == null) throw new IllegalStateException("queue not set");
             return new TransferLoop(device, queue, checkIntervalMs);
         }
     }

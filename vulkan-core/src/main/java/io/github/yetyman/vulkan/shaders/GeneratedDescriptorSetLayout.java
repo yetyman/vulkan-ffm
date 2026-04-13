@@ -22,7 +22,9 @@ public class GeneratedDescriptorSetLayout implements AutoCloseable {
         this.defaultStageFlags = defaultStageFlags;
     }
 
-    /** Creates and caches the VkDescriptorSetLayout. Safe to call multiple times. */
+    /**
+     * Creates and caches the VkDescriptorSetLayout. Safe to call multiple times.
+     */
     VkDescriptorSetLayout createLayout(Arena arena) {
         if (layout != null) return layout;
         VkDescriptorSetLayout.Builder builder = VkDescriptorSetLayout.builder().device(device);
@@ -40,8 +42,13 @@ public class GeneratedDescriptorSetLayout implements AutoCloseable {
         return layout;
     }
 
-    ShaderLoader.DescriptorSetInfo getSetInfo() { return setInfo; }
-    int getSetNumber() { return setInfo.getSetNumber(); }
+    ShaderLoader.DescriptorSetInfo getSetInfo() {
+        return setInfo;
+    }
+
+    int getSetNumber() {
+        return setInfo.getSetNumber();
+    }
 
     @Override
     public void close() {

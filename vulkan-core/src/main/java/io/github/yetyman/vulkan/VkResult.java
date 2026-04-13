@@ -69,7 +69,9 @@ public enum VkResult {
         return UNKNOWN;
     }
 
-    /** Throws VulkanException if this result is an error (value < 0). */
+    /**
+     * Throws VulkanException if this result is an error (value < 0).
+     */
     public void check() {
         if (value < 0) throw new VulkanException("Vulkan error: " + this + " (" + value + ")");
     }

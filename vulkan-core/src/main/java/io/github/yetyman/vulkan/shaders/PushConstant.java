@@ -19,16 +19,35 @@ public class PushConstant<T> {
         this.size = size;
     }
 
-    /** Sets the value and marks this constant dirty. */
+    /**
+     * Sets the value and marks this constant dirty.
+     */
     public void set(T value) {
         this.pendingValue = value;
         this.dirty = true;
     }
 
-    public String name() { return name; }
-    public int offset() { return offset; }
-    public int size() { return size; }
-    public T pendingValue() { return pendingValue; }
-    public boolean isDirty() { return dirty; }
-    void clearDirty() { dirty = false; }
+    public String name() {
+        return name;
+    }
+
+    public int offset() {
+        return offset;
+    }
+
+    public int size() {
+        return size;
+    }
+
+    public T pendingValue() {
+        return pendingValue;
+    }
+
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    void clearDirty() {
+        dirty = false;
+    }
 }

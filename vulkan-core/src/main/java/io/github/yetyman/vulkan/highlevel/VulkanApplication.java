@@ -8,6 +8,7 @@ import io.github.yetyman.vulkan.VulkanLibrary;
 import io.github.yetyman.vulkan.WindowSystem;
 import io.github.yetyman.vulkan.input.InputManager;
 import io.github.yetyman.vulkan.util.Logger;
+
 import java.lang.foreign.*;
 import java.util.function.Consumer;
 
@@ -86,7 +87,8 @@ public abstract class VulkanApplication implements AutoCloseable {
 
     protected VulkanApplication(String title, int width, int height, Config config) {
         if (config.windowSystem == null) throw new IllegalArgumentException("WindowSystem is required");
-        if (config.enableInput && config.inputSystem == null) throw new IllegalArgumentException("InputSystem is required when input is enabled");
+        if (config.enableInput && config.inputSystem == null)
+            throw new IllegalArgumentException("InputSystem is required when input is enabled");
         this.title = title;
         this.width = width;
         this.height = height;
@@ -116,9 +118,9 @@ public abstract class VulkanApplication implements AutoCloseable {
             if (extensions == null) throw new RuntimeException("Failed to get required extensions");
 
             VulkanContext.Builder builder = VulkanContext.builder()
-                .applicationName(title)
-                .applicationVersion(1)
-                .instanceExtensions(extensions);
+                    .applicationName(title)
+                    .applicationVersion(1)
+                    .instanceExtensions(extensions);
 
             if (config.validationLayers.length > 0) builder.validationLayers(config.validationLayers);
 
@@ -137,14 +139,21 @@ public abstract class VulkanApplication implements AutoCloseable {
     private boolean cleanedUp = false;
 
     @Override
-    public void close() { cleanup(); }
+    public void close() {
+        cleanup();
+    }
 
     private void cleanup() {
         if (cleanedUp) return;
         cleanedUp = true;
 
         for (ILifecycleListener l : lifecycleListeners) l.onBeforeStop();
-        for (ILifecycle dep : lifecycleDependencies) { dep.beforeStop(); dep.stop(); dep.awaitStopped(); dep.afterStop(); }
+        for (ILifecycle dep : lifecycleDependencies) {
+            dep.beforeStop();
+            dep.stop();
+            dep.awaitStopped();
+            dep.afterStop();
+        }
 
         if (vulkanContext != null && vulkanContext.device() != null) {
             Vulkan.deviceWaitIdle(vulkanContext.device().handle()).check();
@@ -175,18 +184,39 @@ public abstract class VulkanApplication implements AutoCloseable {
     }
 
     // Protected accessors
-    protected MemorySegment window()            { return window; }
-    protected VulkanContext vulkanContext()      { return vulkanContext; }
-    protected MemorySegment surface()           { return surface; }
-    protected InputManager inputManager()       { return inputManager; }
-    protected WindowSystem windowSystem()       { return config.windowSystem; }
+    protected MemorySegment window() {
+        return window;
+    }
+
+    protected VulkanContext vulkanContext() {
+        return vulkanContext;
+    }
+
+    protected MemorySegment surface() {
+        return surface;
+    }
+
+    protected InputManager inputManager() {
+        return inputManager;
+    }
+
+    protected WindowSystem windowSystem() {
+        return config.windowSystem;
+    }
 
     // Abstract lifecycle
     protected abstract void initialize();
+
     protected abstract void shutdown();
 
     // Optional hooks
-    /** Called when the window framebuffer is resized. Forward to your loop: {@code loop.signalResize(w, h)}. */
-    protected void onWindowResize(int width, int height) {}
-    protected void configureInput(InputManager inputManager) {}
+
+    /**
+     * Called when the window framebuffer is resized. Forward to your loop: {@code loop.signalResize(w, h)}.
+     */
+    protected void onWindowResize(int width, int height) {
+    }
+
+    protected void configureInput(InputManager inputManager) {
+    }
 }

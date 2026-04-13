@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.command.VkCopy;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -42,7 +43,6 @@ public class DeviceLocalBuffer extends AbstractBuffer {
     }
 
 
-
     @Override
     public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
@@ -70,7 +70,7 @@ public class DeviceLocalBuffer extends AbstractBuffer {
             fence = VkFence.builder().device(device).build(readArena);
 
             VkCommandBuffer[] cmdBuffers = VkCommandBufferAlloc.builder()
-                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
+                    .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(readArena);
             VkCommandBuffer cmdBuffer = cmdBuffers[0];
 
             VkCommandBuffer.begin(cmdBuffer).oneTimeSubmit().execute(readArena);
@@ -78,7 +78,7 @@ public class DeviceLocalBuffer extends AbstractBuffer {
             vkEndCommandBuffer(cmdBuffer.handle());
 
             transferQueue.submit(
-                VkSubmit.builder().commandBuffer(cmdBuffer).build(fence.handle(), readArena), fence.handle());
+                    VkSubmit.builder().commandBuffer(cmdBuffer).build(fence.handle(), readArena), fence.handle());
 
             try (Arena waitArena = Arena.ofConfined()) {
                 VkFenceOps.wait(device, fence, Long.MAX_VALUE, waitArena).check();
@@ -100,7 +100,8 @@ public class DeviceLocalBuffer extends AbstractBuffer {
     }
 
     @Override
-    public void flush() {}
+    public void flush() {
+    }
 
     @Override
     public void closeImpl() {

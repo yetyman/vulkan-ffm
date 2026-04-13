@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,41 +14,48 @@ import java.util.List;
 public class VkRenderPass implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
-    
+
     private VkRenderPass(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
-    
+
     /**
      * Creates a render pass with a single color attachment.
-     * @param arena memory arena for allocations
+     *
+     * @param arena  memory arena for allocations
      * @param device the VkDevice handle
      * @return a new VkRenderPass instance
      */
     public static VkRenderPass create(Arena arena, VkDevice device) {
         return builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .subpassDependency(~0, 0, 
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
-            .build(arena);
+                .device(device)
+                .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(), VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+                .subpassDependency(~0, 0,
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(), VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                        0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
+                .build(arena);
     }
-    
-    /** @return a new builder for configuring render pass creation */
+
+    /**
+     * @return a new builder for configuring render pass creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkRenderPass handle */
-    public MemorySegment handle() { return handle; }
-    
+
+    /**
+     * @return the VkRenderPass handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
     @Override
     public void close() {
         Vulkan.destroyRenderPass(device.handle(), handle);
     }
-    
+
     /**
      * Builder for complete render pass creation.
      */
@@ -57,27 +65,33 @@ public class VkRenderPass implements AutoCloseable {
         private final List<SubpassConfig> subpasses = new ArrayList<>();
         private final List<DependencyConfig> dependencies = new ArrayList<>();
         private int flags = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Adds a color attachment */
+
+        /**
+         * Adds a color attachment
+         */
         public Builder colorAttachment(int format, int loadOp, int storeOp) {
-            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(), loadOp, storeOp, 
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(), 
-                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
+            attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(), loadOp, storeOp,
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(), VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
             return this;
         }
 
         /**
          * Adds an MSAA color attachment with an automatic resolve attachment.
          * The MSAA image is attachment[n], the resolve image is attachment[n+1].
-         * @param format image format for both MSAA and resolve attachments
+         *
+         * @param format  image format for both MSAA and resolve attachments
          * @param samples MSAA sample count (e.g. VK_SAMPLE_COUNT_4_BIT)
          */
         public Builder colorAttachmentMSAA(int format, int samples) {
@@ -85,86 +99,104 @@ public class VkRenderPass implements AutoCloseable {
             int resolveIndex = msaaIndex + 1;
             // MSAA attachment — store op DONT_CARE, we only care about the resolved result
             attachments.add(new AttachmentConfig(msaaIndex, format, samples,
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
-                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
-                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
-                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
-                VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(), 0));
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                    VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                    VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(), 0));
             // Resolve attachment — single-sample, presentable
             attachments.add(new AttachmentConfig(resolveIndex, format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(),
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
-                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
-                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
-                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
-                VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                    VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value(),
+                    VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                    VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value(), 0));
             return this;
         }
-        
-        /** Adds a depth attachment */
+
+        /**
+         * Adds a depth attachment
+         */
         public Builder depthAttachment(int format, int loadOp, int storeOp) {
             // For depth+stencil formats, use the same ops for stencil
-            int stencilLoadOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ? 
-                loadOp : VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value();
-            int stencilStoreOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ? 
-                storeOp : VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value();
+            int stencilLoadOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ?
+                    loadOp : VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_DONT_CARE.value();
+            int stencilStoreOp = (format == VkFormat.VK_FORMAT_D24_UNORM_S8_UINT.value() || format == VkFormat.VK_FORMAT_D32_SFLOAT_S8_UINT.value()) ?
+                    storeOp : VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value();
             attachments.add(new AttachmentConfig(attachments.size(), format, VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value(), loadOp, storeOp,
-                stencilLoadOp, stencilStoreOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), 0));
+                    stencilLoadOp, stencilStoreOp, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(), VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(), 0));
             return this;
         }
-        
-        /** Adds a custom attachment with full control */
-        public Builder attachment(int format, int samples, int loadOp, int storeOp, 
-                                  int stencilLoadOp, int stencilStoreOp, 
+
+        /**
+         * Adds a custom attachment with full control
+         */
+        public Builder attachment(int format, int samples, int loadOp, int storeOp,
+                                  int stencilLoadOp, int stencilStoreOp,
                                   int initialLayout, int finalLayout, int flags) {
             attachments.add(new AttachmentConfig(attachments.size(), format, samples, loadOp, storeOp,
-                stencilLoadOp, stencilStoreOp, initialLayout, finalLayout, flags));
+                    stencilLoadOp, stencilStoreOp, initialLayout, finalLayout, flags));
             return this;
         }
-        
-        /** Begins a new subpass */
+
+        /**
+         * Begins a new subpass
+         */
         public SubpassBuilder beginSubpass() {
             return new SubpassBuilder(this);
         }
-        
-        /** Adds a complete subpass configuration */
-        public Builder subpass(int pipelineBindPoint, int[] inputAttachments, int[] colorAttachments, 
+
+        /**
+         * Adds a complete subpass configuration
+         */
+        public Builder subpass(int pipelineBindPoint, int[] inputAttachments, int[] colorAttachments,
                                int[] resolveAttachments, int depthStencilAttachment, int[] preserveAttachments) {
-            subpasses.add(new SubpassConfig(pipelineBindPoint, inputAttachments, colorAttachments, 
-                resolveAttachments, depthStencilAttachment, preserveAttachments, 0));
+            subpasses.add(new SubpassConfig(pipelineBindPoint, inputAttachments, colorAttachments,
+                    resolveAttachments, depthStencilAttachment, preserveAttachments, 0));
             return this;
         }
-        
-        /** Adds a subpass dependency */
-        public Builder subpassDependency(int srcSubpass, int dstSubpass, 
+
+        /**
+         * Adds a subpass dependency
+         */
+        public Builder subpassDependency(int srcSubpass, int dstSubpass,
                                          int srcStageMask, int dstStageMask,
                                          int srcAccessMask, int dstAccessMask) {
             dependencies.add(new DependencyConfig(srcSubpass, dstSubpass, srcStageMask, dstStageMask, srcAccessMask, dstAccessMask));
             return this;
         }
-        
-        /** Adds external to subpass dependency */
+
+        /**
+         * Adds external to subpass dependency
+         */
         public Builder externalDependency(int dstSubpass, int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
             return subpassDependency(~0, dstSubpass, srcStageMask, dstStageMask, srcAccessMask, dstAccessMask);
         }
-        
-        /** Adds subpass to external dependency */
+
+        /**
+         * Adds subpass to external dependency
+         */
         public Builder toExternalDependency(int srcSubpass, int srcStageMask, int dstStageMask, int srcAccessMask, int dstAccessMask) {
             return subpassDependency(srcSubpass, ~0, srcStageMask, dstStageMask, srcAccessMask, dstAccessMask);
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Creates the render pass */
+
+        /**
+         * Creates the render pass
+         */
         public VkRenderPass build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (attachments.isEmpty()) throw new IllegalStateException("no attachments defined");
-            
+
             // If no subpasses defined, create a default one
             if (subpasses.isEmpty()) {
                 List<Integer> colorAttachmentIndices = new ArrayList<>();
@@ -175,9 +207,9 @@ public class VkRenderPass implements AutoCloseable {
                     AttachmentConfig att = attachments.get(i);
                     boolean isDepth = att.finalLayout() == VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value();
                     boolean isResolve = !isDepth
-                        && att.samples() == VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value()
-                        && i > 0
-                        && attachments.get(i - 1).samples() != VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
+                            && att.samples() == VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value()
+                            && i > 0
+                            && attachments.get(i - 1).samples() != VkSampleCountFlagBits.VK_SAMPLE_COUNT_1_BIT.value();
 
                     if (isDepth) {
                         depthAttachment = att.index();
@@ -194,17 +226,17 @@ public class VkRenderPass implements AutoCloseable {
                 }
 
                 subpasses.add(new SubpassConfig(
-                    VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-                    new int[0],
-                    colorAttachmentIndices.stream().mapToInt(i -> i).toArray(),
-                    resolveAttachmentIndices.stream().mapToInt(i -> i).toArray(),
-                    depthAttachment,
-                    new int[0], 0));
+                        VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
+                        new int[0],
+                        colorAttachmentIndices.stream().mapToInt(i -> i).toArray(),
+                        resolveAttachmentIndices.stream().mapToInt(i -> i).toArray(),
+                        depthAttachment,
+                        new int[0], 0));
             }
-            
+
             // Allocate attachments
             MemorySegment attachmentDescs = arena.allocate(VkAttachmentDescription.layout(), attachments.size());
-            
+
             for (int i = 0; i < attachments.size(); i++) {
                 AttachmentConfig cfg = attachments.get(i);
                 MemorySegment desc = attachmentDescs.asSlice(i * VkAttachmentDescription.layout().byteSize(), VkAttachmentDescription.layout());
@@ -218,17 +250,17 @@ public class VkRenderPass implements AutoCloseable {
                 VkAttachmentDescription.initialLayout(desc, cfg.initialLayout());
                 VkAttachmentDescription.finalLayout(desc, cfg.finalLayout());
             }
-            
+
             // Create subpasses
             MemorySegment subpassDescs = arena.allocate(VkSubpassDescription.layout(), subpasses.size());
-            
+
             for (int i = 0; i < subpasses.size(); i++) {
                 SubpassConfig cfg = subpasses.get(i);
                 MemorySegment subpass = subpassDescs.asSlice(i * VkSubpassDescription.layout().byteSize(), VkSubpassDescription.layout());
-                
+
                 VkSubpassDescription.flags(subpass, cfg.flags());
                 VkSubpassDescription.pipelineBindPoint(subpass, cfg.pipelineBindPoint());
-                
+
                 // Input attachments
                 if (cfg.inputAttachments().length > 0) {
                     MemorySegment inputRefs = arena.allocate(VkAttachmentReference.layout(), cfg.inputAttachments().length);
@@ -243,7 +275,7 @@ public class VkRenderPass implements AutoCloseable {
                     VkSubpassDescription.inputAttachmentCount(subpass, 0);
                     VkSubpassDescription.pInputAttachments(subpass, MemorySegment.NULL);
                 }
-                
+
                 // Color attachments
                 if (cfg.colorAttachments().length > 0) {
                     MemorySegment colorRefs = arena.allocate(VkAttachmentReference.layout(), cfg.colorAttachments().length);
@@ -254,7 +286,7 @@ public class VkRenderPass implements AutoCloseable {
                     }
                     VkSubpassDescription.colorAttachmentCount(subpass, cfg.colorAttachments().length);
                     VkSubpassDescription.pColorAttachments(subpass, colorRefs);
-                    
+
                     // Resolve attachments
                     if (cfg.resolveAttachments().length > 0) {
                         MemorySegment resolveRefs = arena.allocate(VkAttachmentReference.layout(), cfg.resolveAttachments().length);
@@ -272,7 +304,7 @@ public class VkRenderPass implements AutoCloseable {
                     VkSubpassDescription.pColorAttachments(subpass, MemorySegment.NULL);
                     VkSubpassDescription.pResolveAttachments(subpass, MemorySegment.NULL);
                 }
-                
+
                 // Depth/stencil attachment
                 if (cfg.depthStencilAttachment() != ~0) {
                     MemorySegment depthRef = VkAttachmentReference.allocate(arena);
@@ -282,7 +314,7 @@ public class VkRenderPass implements AutoCloseable {
                 } else {
                     VkSubpassDescription.pDepthStencilAttachment(subpass, MemorySegment.NULL);
                 }
-                
+
                 // Preserve attachments
                 if (cfg.preserveAttachments().length > 0) {
                     MemorySegment preserveArray = arena.allocate(ValueLayout.JAVA_INT, cfg.preserveAttachments().length);
@@ -296,10 +328,10 @@ public class VkRenderPass implements AutoCloseable {
                     VkSubpassDescription.pPreserveAttachments(subpass, MemorySegment.NULL);
                 }
             }
-            
+
             // Create dependencies
             MemorySegment dependencyDescs = dependencies.isEmpty() ? MemorySegment.NULL :
-                arena.allocate(VkSubpassDependency.layout(), dependencies.size());
+                    arena.allocate(VkSubpassDependency.layout(), dependencies.size());
             for (int i = 0; i < dependencies.size(); i++) {
                 DependencyConfig cfg = dependencies.get(i);
                 MemorySegment dep = dependencyDescs.asSlice(i * VkSubpassDependency.layout().byteSize(), VkSubpassDependency.layout());
@@ -311,7 +343,7 @@ public class VkRenderPass implements AutoCloseable {
                 VkSubpassDependency.dstAccessMask(dep, cfg.dstAccessMask);
                 VkSubpassDependency.dependencyFlags(dep, 0);
             }
-            
+
             // Create render pass
             MemorySegment renderPassInfo = VkRenderPassCreateInfo.allocate(arena);
             VkRenderPassCreateInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO.value());
@@ -323,23 +355,27 @@ public class VkRenderPass implements AutoCloseable {
             VkRenderPassCreateInfo.pSubpasses(renderPassInfo, subpassDescs);
             VkRenderPassCreateInfo.dependencyCount(renderPassInfo, dependencies.size());
             VkRenderPassCreateInfo.pDependencies(renderPassInfo, dependencyDescs);
-            
+
             MemorySegment renderPassPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createRenderPass(device.handle(), renderPassInfo, renderPassPtr).check();
             return new VkRenderPass(renderPassPtr.get(ValueLayout.ADDRESS, 0), device);
         }
-        
+
         private record AttachmentConfig(int index, int format, int samples, int loadOp, int storeOp,
-                                        int stencilLoadOp, int stencilStoreOp, 
-                                        int initialLayout, int finalLayout, int flags) {}
-        
+                                        int stencilLoadOp, int stencilStoreOp,
+                                        int initialLayout, int finalLayout, int flags) {
+        }
+
         private record SubpassConfig(int pipelineBindPoint, int[] inputAttachments, int[] colorAttachments,
-                                     int[] resolveAttachments, int depthStencilAttachment, int[] preserveAttachments, int flags) {}
-        
-        private record DependencyConfig(int srcSubpass, int dstSubpass, 
+                                     int[] resolveAttachments, int depthStencilAttachment, int[] preserveAttachments,
+                                     int flags) {
+        }
+
+        private record DependencyConfig(int srcSubpass, int dstSubpass,
                                         int srcStageMask, int dstStageMask,
-                                        int srcAccessMask, int dstAccessMask) {}
-        
+                                        int srcAccessMask, int dstAccessMask) {
+        }
+
         /**
          * Builder for individual subpass configuration.
          */
@@ -352,54 +388,54 @@ public class VkRenderPass implements AutoCloseable {
             private int depthStencilAttachment = ~0;
             private final List<Integer> preserveAttachments = new ArrayList<>();
             private int flags = 0;
-            
+
             private SubpassBuilder(Builder parent) {
                 this.parent = parent;
             }
-            
+
             public SubpassBuilder pipelineBindPoint(int bindPoint) {
                 this.pipelineBindPoint = bindPoint;
                 return this;
             }
-            
+
             public SubpassBuilder inputAttachment(int attachment) {
                 inputAttachments.add(attachment);
                 return this;
             }
-            
+
             public SubpassBuilder colorAttachment(int attachment) {
                 colorAttachments.add(attachment);
                 return this;
             }
-            
+
             public SubpassBuilder resolveAttachment(int attachment) {
                 resolveAttachments.add(attachment);
                 return this;
             }
-            
+
             public SubpassBuilder depthStencilAttachment(int attachment) {
                 this.depthStencilAttachment = attachment;
                 return this;
             }
-            
+
             public SubpassBuilder preserveAttachment(int attachment) {
                 preserveAttachments.add(attachment);
                 return this;
             }
-            
+
             public SubpassBuilder flags(int flags) {
                 this.flags = flags;
                 return this;
             }
-            
+
             public Builder endSubpass() {
                 parent.subpasses.add(new SubpassConfig(pipelineBindPoint,
-                    inputAttachments.stream().mapToInt(i -> i).toArray(),
-                    colorAttachments.stream().mapToInt(i -> i).toArray(),
-                    resolveAttachments.stream().mapToInt(i -> i).toArray(),
-                    depthStencilAttachment,
-                    preserveAttachments.stream().mapToInt(i -> i).toArray(),
-                    flags));
+                        inputAttachments.stream().mapToInt(i -> i).toArray(),
+                        colorAttachments.stream().mapToInt(i -> i).toArray(),
+                        resolveAttachments.stream().mapToInt(i -> i).toArray(),
+                        depthStencilAttachment,
+                        preserveAttachments.stream().mapToInt(i -> i).toArray(),
+                        flags));
                 return parent;
             }
         }

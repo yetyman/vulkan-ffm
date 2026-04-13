@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.queue;
 
 import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.Vulkan;
+
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,7 +16,9 @@ public final class MutexSubmitter implements IQueueSubmitter {
     private final MemorySegment queueHandle;
     private final ReentrantLock lock;
 
-    /** Creates a MutexSubmitter with its own private lock. */
+    /**
+     * Creates a MutexSubmitter with its own private lock.
+     */
     public MutexSubmitter(MemorySegment queueHandle) {
         this.queueHandle = queueHandle;
         this.lock = new ReentrantLock();
@@ -31,8 +34,12 @@ public final class MutexSubmitter implements IQueueSubmitter {
         this.lock = sharedLock;
     }
 
-    /** @return the lock used by this submitter, for sharing with other submitters on the same queue. */
-    public ReentrantLock lock() { return lock; }
+    /**
+     * @return the lock used by this submitter, for sharing with other submitters on the same queue.
+     */
+    public ReentrantLock lock() {
+        return lock;
+    }
 
     @Override
     public void submit(MemorySegment submitInfo, MemorySegment fence) {

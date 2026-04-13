@@ -5,13 +5,19 @@ package io.github.yetyman.vulkan.buffers;
  * Orthogonal to BufferUsage (UBO/VBO/SSBO).
  */
 public enum MemoryStrategy {
-    /** Persistent CPU-mapped memory (HOST_VISIBLE | HOST_COHERENT) */
+    /**
+     * Persistent CPU-mapped memory (HOST_VISIBLE | HOST_COHERENT)
+     */
     MAPPED,
-    
-    /** Persistent CPU-mapped with cached reads (HOST_VISIBLE | HOST_CACHED) */
+
+    /**
+     * Persistent CPU-mapped with cached reads (HOST_VISIBLE | HOST_CACHED)
+     */
     MAPPED_CACHED,
-    
-    /** GPU-only memory with staging buffer for uploads (DEVICE_LOCAL) */
+
+    /**
+     * GPU-only memory with staging buffer for uploads (DEVICE_LOCAL)
+     */
     DEVICE_LOCAL,
 
     /**
@@ -21,19 +27,29 @@ public enum MemoryStrategy {
      * Best for: discrete GPU, rarely written, frequently read on both CPU and GPU.
      */
     DEVICE_LOCAL_MIRRORED,
-    
-    /** Staging pattern: CPU-mapped staging + device-local backing */
+
+    /**
+     * Staging pattern: CPU-mapped staging + device-local backing
+     */
     STAGING,
 
-    /** Resizable BAR: direct CPU map into DEVICE_LOCAL | HOST_VISIBLE VRAM (requires ReBAR/SAM hardware support) */
+    /**
+     * Resizable BAR: direct CPU map into DEVICE_LOCAL | HOST_VISIBLE VRAM (requires ReBAR/SAM hardware support)
+     */
     REBAR,
-    
-    /** Ring buffer (N-buffered) wrapping another strategy */
+
+    /**
+     * Ring buffer (N-buffered) wrapping another strategy
+     */
     RING_BUFFER,
-    
-    /** Sparse virtual memory with on-demand page binding */
+
+    /**
+     * Sparse virtual memory with on-demand page binding
+     */
     SPARSE,
-    
-    /** Suballocator: single large buffer with multiple small allocations */
+
+    /**
+     * Suballocator: single large buffer with multiple small allocations
+     */
     SUBALLOCATOR
 }

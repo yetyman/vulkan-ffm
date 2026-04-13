@@ -6,6 +6,7 @@ import io.github.yetyman.vulkan.commands.TransientCommandBuffer;
 import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkDispatch;
 import io.github.yetyman.vulkan.shaders.CompiledShader;
+
 import java.lang.foreign.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -17,7 +18,7 @@ import java.util.LinkedHashMap;
 /**
  * Wrapper for Vulkan compute pipeline with automatic resource management.
  * A compute pipeline binds a single compute shader stage and its pipeline layout.
- *
+ * <p>
  * Example usage:
  * <pre>{@code
  * try (VkComputePipeline pipeline = VkComputePipeline.builder()
@@ -43,25 +44,39 @@ public class VkComputePipeline implements AutoCloseable {
         this.pushConstantStageFlags = pushConstantStageFlags;
     }
 
-    public MemorySegment handle() { return handle; }
+    public MemorySegment handle() {
+        return handle;
+    }
 
-    public MemorySegment layout() { return layout; }
+    public MemorySegment layout() {
+        return layout;
+    }
 
-    public VkDevice device() { return device; }
+    public VkDevice device() {
+        return device;
+    }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** Binds this compute pipeline to a command buffer. */
+    /**
+     * Binds this compute pipeline to a command buffer.
+     */
     public void bind(MemorySegment commandBuffer) {
         VkBind.bindPipeline(commandBuffer, this);
     }
 
-    /** Dispatches compute work groups. */
+    /**
+     * Dispatches compute work groups.
+     */
     public static void dispatch(MemorySegment commandBuffer, int groupCountX, int groupCountY, int groupCountZ) {
         VkDispatch.dispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
     }
 
-    /** Pushes an int push constant at the given byte offset. */
+    /**
+     * Pushes an int push constant at the given byte offset.
+     */
     public void pushInt(MemorySegment commandBuffer, int offset, int value) {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment data = a.allocate(ValueLayout.JAVA_INT);
@@ -70,7 +85,9 @@ public class VkComputePipeline implements AutoCloseable {
         }
     }
 
-    /** Pushes a float push constant at the given byte offset. */
+    /**
+     * Pushes a float push constant at the given byte offset.
+     */
     public void pushFloat(MemorySegment commandBuffer, int offset, float value) {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment data = a.allocate(ValueLayout.JAVA_FLOAT);
@@ -79,7 +96,9 @@ public class VkComputePipeline implements AutoCloseable {
         }
     }
 
-    /** Pushes raw bytes as push constants at the given byte offset. */
+    /**
+     * Pushes raw bytes as push constants at the given byte offset.
+     */
     public void pushConstants(MemorySegment commandBuffer, int offset, MemorySegment data, int size) {
         VulkanFFM.vkCmdPushConstants(commandBuffer, layout, pushConstantStageFlags, offset, size, data);
     }
@@ -103,7 +122,9 @@ public class VkComputePipeline implements AutoCloseable {
         }
     }
 
-    /** Convenience: dispatch with only X groups. */
+    /**
+     * Convenience: dispatch with only X groups.
+     */
     public void dispatchAndWait(VkQueue queue, int groupCountX, VkDescriptorSet... descriptorSets) {
         dispatchAndWait(queue, groupCountX, 1, 1, descriptorSets);
     }
@@ -131,7 +152,8 @@ public class VkComputePipeline implements AutoCloseable {
         // Specialization constants
         private final Map<Integer, Object> specializationConstants = new LinkedHashMap<>();
 
-        private Builder() {}
+        private Builder() {
+        }
 
         public Builder device(VkDevice device) {
             this.device = device;
@@ -143,7 +165,9 @@ public class VkComputePipeline implements AutoCloseable {
             return this;
         }
 
-        /** Sets the compute shader from a CompiledShader, inferring descriptor set layouts and push constant ranges at build() time. */
+        /**
+         * Sets the compute shader from a CompiledShader, inferring descriptor set layouts and push constant ranges at build() time.
+         */
         public Builder computeShader(CompiledShader compiled) {
             this.compiledShader = compiled;
             this.shaderCode = compiled.getSpirV();
@@ -185,31 +209,41 @@ public class VkComputePipeline implements AutoCloseable {
             return this;
         }
 
-        /** Sets a boolean specialization constant (VkBool32 — 4 bytes). */
+        /**
+         * Sets a boolean specialization constant (VkBool32 — 4 bytes).
+         */
         public Builder specialize(int constantId, boolean value) {
             specializationConstants.put(constantId, value);
             return this;
         }
 
-        /** Sets an int specialization constant. */
+        /**
+         * Sets an int specialization constant.
+         */
         public Builder specialize(int constantId, int value) {
             specializationConstants.put(constantId, value);
             return this;
         }
 
-        /** Sets a float specialization constant. */
+        /**
+         * Sets a float specialization constant.
+         */
         public Builder specialize(int constantId, float value) {
             specializationConstants.put(constantId, value);
             return this;
         }
 
-        /** Sets a long specialization constant (uint64). */
+        /**
+         * Sets a long specialization constant (uint64).
+         */
         public Builder specialize(int constantId, long value) {
             specializationConstants.put(constantId, value);
             return this;
         }
 
-        /** Sets a double specialization constant. */
+        /**
+         * Sets a double specialization constant.
+         */
         public Builder specialize(int constantId, double value) {
             specializationConstants.put(constantId, value);
             return this;
@@ -231,7 +265,7 @@ public class VkComputePipeline implements AutoCloseable {
                 if (pushConstantRanges.isEmpty()) {
                     for (var block : compiledShader.getReflection().getPushConstantBlocks())
                         pushConstantRanges.add(new PushConstantRange(
-                            compiledShader.getShaderStageFlags(), block.offset(), block.size()));
+                                compiledShader.getShaderStageFlags(), block.offset(), block.size()));
                 }
             }
 
@@ -296,8 +330,8 @@ public class VkComputePipeline implements AutoCloseable {
                 Vulkan.createComputePipelines(device.handle(), pipelineCache, 1, createInfo, pipelinePtr).check();
 
                 return new VkComputePipeline(pipelinePtr.get(ValueLayout.ADDRESS, 0), pipelineLayout, device,
-                    pushConstantRanges.isEmpty() ? VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value()
-                        : pushConstantRanges.getFirst().stageFlags());
+                        pushConstantRanges.isEmpty() ? VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value()
+                                : pushConstantRanges.getFirst().stageFlags());
             } finally {
                 shaderModule.close();
             }
@@ -321,8 +355,8 @@ public class VkComputePipeline implements AutoCloseable {
             for (int i = 0; i < entries.size(); i++) {
                 SpecEntry e = entries.get(i);
                 MemorySegment mapEntry = mapEntries.asSlice(
-                    i * VkSpecializationMapEntry.layout().byteSize(),
-                    VkSpecializationMapEntry.layout());
+                        i * VkSpecializationMapEntry.layout().byteSize(),
+                        VkSpecializationMapEntry.layout());
                 VkSpecializationMapEntry.constantID(mapEntry, e.constantId);
                 VkSpecializationMapEntry.offset(mapEntry, e.offset);
                 VkSpecializationMapEntry.size(mapEntry, e.size);
@@ -333,7 +367,8 @@ public class VkComputePipeline implements AutoCloseable {
                     case Float v -> data.putFloat(v);
                     case Long v -> data.putLong(v);
                     case Double v -> data.putDouble(v);
-                    default -> throw new IllegalArgumentException("Unsupported spec constant type: " + e.value.getClass());
+                    default ->
+                            throw new IllegalArgumentException("Unsupported spec constant type: " + e.value.getClass());
                 }
             }
 
@@ -361,7 +396,10 @@ public class VkComputePipeline implements AutoCloseable {
             };
         }
 
-        private record SpecEntry(int constantId, int offset, int size, Object value) {}
-        private record PushConstantRange(int stageFlags, int offset, int size) {}
+        private record SpecEntry(int constantId, int offset, int size, Object value) {
+        }
+
+        private record PushConstantRange(int stageFlags, int offset, int size) {
+        }
     }
 }

@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.queue;
 
 import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.Vulkan;
+
 import java.lang.foreign.MemorySegment;
 
 /**

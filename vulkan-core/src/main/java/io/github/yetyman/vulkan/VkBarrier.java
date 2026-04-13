@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.command.VkBarrierCmd;
+
 import java.lang.foreign.MemorySegment;
 
 /**
@@ -9,33 +10,37 @@ import java.lang.foreign.MemorySegment;
  */
 public abstract class VkBarrier {
     protected final MemorySegment handle;
-    
+
     protected VkBarrier(MemorySegment handle) {
         this.handle = handle;
     }
-    
-    /** @return the barrier's memory segment handle */
-    public MemorySegment handle() { 
-        return handle; 
+
+    /**
+     * @return the barrier's memory segment handle
+     */
+    public MemorySegment handle() {
+        return handle;
     }
-    
-    /** @return the barrier type for pipeline barrier arrays */
+
+    /**
+     * @return the barrier type for pipeline barrier arrays
+     */
     public abstract BarrierType getType();
-    
+
     /**
      * Executes this barrier in a pipeline barrier command
      */
     public void execute(MemorySegment commandBuffer, int srcStage, int dstStage) {
         switch (getType()) {
             case MEMORY -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
-                0, 1, handle, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
+                    0, 1, handle, 0, MemorySegment.NULL, 0, MemorySegment.NULL);
             case BUFFER -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
-                0, 0, MemorySegment.NULL, 1, handle, 0, MemorySegment.NULL);
+                    0, 0, MemorySegment.NULL, 1, handle, 0, MemorySegment.NULL);
             case IMAGE -> VkBarrierCmd.pipelineBarrier(commandBuffer, srcStage, dstStage,
-                0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, handle);
+                    0, 0, MemorySegment.NULL, 0, MemorySegment.NULL, 1, handle);
         }
     }
-    
+
     public enum BarrierType {
         MEMORY, BUFFER, IMAGE
     }

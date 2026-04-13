@@ -31,21 +31,39 @@ package io.github.yetyman.vulkan;
  */
 public interface ILifecycleListener {
 
-    /** Called before GPU work must stop — before {@code vkDeviceWaitIdle} during resize or shutdown. */
-    default void onBeforeStop() {}
+    /**
+     * Called before GPU work must stop — before {@code vkDeviceWaitIdle} during resize or shutdown.
+     */
+    default void onBeforeStop() {
+    }
 
-    /** Called after GPU work has stopped and {@code vkDeviceWaitIdle} has completed. */
-    default void onAfterStop() {}
+    /**
+     * Called after GPU work has stopped and {@code vkDeviceWaitIdle} has completed.
+     */
+    default void onAfterStop() {
+    }
 
-    /** Called before the swapchain is rebuilt. New dimensions are provided. */
-    default void onBeforeResize(int width, int height) {}
+    /**
+     * Called before the swapchain is rebuilt. New dimensions are provided.
+     */
+    default void onBeforeResize(int width, int height) {
+    }
 
-    /** Called after the swapchain is rebuilt with new dimensions. */
-    default void onAfterResize(int width, int height) {}
+    /**
+     * Called after the swapchain is rebuilt with new dimensions.
+     */
+    default void onAfterResize(int width, int height) {
+    }
 
-    /** Called when it is safe to resume GPU work after a resize. */
-    default void onAfterStart() {}
+    /**
+     * Called when it is safe to resume GPU work after a resize.
+     */
+    default void onAfterStart() {
+    }
 
-    /** Called before Vulkan resources are destroyed during shutdown. GPU is already idle. */
-    default void onBeforeShutdown() {}
+    /**
+     * Called before Vulkan resources are destroyed during shutdown. GPU is already idle.
+     */
+    default void onBeforeShutdown() {
+    }
 }

@@ -30,7 +30,9 @@ public class CommandPoolRegistry {
                                 .build(Arena.global()));
     }
 
-    /** Destroys all pools for the current thread on the given device. Call at thread exit. */
+    /**
+     * Destroys all pools for the current thread on the given device. Call at thread exit.
+     */
     public static void destroyThread(VkDevice device) {
         ConcurrentHashMap<Long, ConcurrentHashMap<Integer, VkCommandPool>> byThread =
                 REGISTRY.get(device.handle().address());
@@ -41,7 +43,9 @@ public class CommandPoolRegistry {
             pool.close();
     }
 
-    /** Destroys all pools for the given device. Called from VkDevice.close(). */
+    /**
+     * Destroys all pools for the given device. Called from VkDevice.close().
+     */
     public static void destroyAll(VkDevice device) {
         ConcurrentHashMap<Long, ConcurrentHashMap<Integer, VkCommandPool>> byThread =
                 REGISTRY.remove(device.handle().address());

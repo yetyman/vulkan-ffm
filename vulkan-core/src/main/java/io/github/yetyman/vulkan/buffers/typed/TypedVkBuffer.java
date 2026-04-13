@@ -19,7 +19,7 @@ import java.util.List;
  * When not mirrored, reads perform a GPU readback — slow, avoid in hot paths.
  */
 public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoCloseable {
-    
+
     private final ManagedBuffer buffer;
     private final int stride;
     private final int count;
@@ -41,15 +41,28 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         scratchPool = ThreadLocal.withInitial(() -> ByteBuffer.allocate(Math.max(stride, 1024)));
     }
 
-    /** @return a T instance to populate during a read. May be pooled or freshly allocated. */
+    /**
+     * @return a T instance to populate during a read. May be pooled or freshly allocated.
+     */
     protected abstract T getInstance();
 
-    /** Called when a mirrored slot is overwritten or on close. No-op by default. */
-    protected void releaseInstance(T instance) {}
+    /**
+     * Called when a mirrored slot is overwritten or on close. No-op by default.
+     */
+    protected void releaseInstance(T instance) {
+    }
 
-    public int count() { return count; }
-    public int stride() { return stride; }
-    public ManagedBuffer buffer() { return buffer; }
+    public int count() {
+        return count;
+    }
+
+    public int stride() {
+        return stride;
+    }
+
+    public ManagedBuffer buffer() {
+        return buffer;
+    }
 
     // -------------------------------------------------------------------------
     // Single-element write
@@ -108,18 +121,20 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         checkIndex(index);
         if (mirror != null) return mirror.get(index);
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
-                           "Prefer mirrored=true for frequent reads.");
+                "Prefer mirrored=true for frequent reads.");
         T instance = getInstance();
         instance.readFrom(buffer.read((long) index * stride, stride));
         return instance;
     }
 
-    /** Reads into a provided instance. Useful when the caller manages its own object lifecycle. */
+    /**
+     * Reads into a provided instance. Useful when the caller manages its own object lifecycle.
+     */
     public T read(int index, T target) {
         checkIndex(index);
         if (mirror != null) return mirror.get(index);
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
-                           "Prefer mirrored=true for frequent reads.");
+                "Prefer mirrored=true for frequent reads.");
         target.readFrom(buffer.read((long) index * stride, stride));
         return target;
     }
@@ -141,7 +156,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
             return;
         }
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
-                           "Prefer mirrored=true for frequent reads.");
+                "Prefer mirrored=true for frequent reads.");
         ByteBuffer raw = buffer.read((long) startIndex * stride, (long) stride * length);
         for (int i = 0; i < length; i++) {
             targets.get(i).readFrom(raw.slice(i * stride, stride));
@@ -169,12 +184,12 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
 
     public void copyTo(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
         buffer.copyTo(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
-                      (long) elementCount * stride, queue);
+                (long) elementCount * stride, queue);
     }
 
     public TransferCompletion copyToAsync(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
         return buffer.copyToAsync(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
-                                  (long) elementCount * stride, queue);
+                (long) elementCount * stride, queue);
     }
 
     private ByteBuffer getScratchBuffer(int requiredSize) {
@@ -190,7 +205,9 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     @Override
     public void close() {
         if (mirror != null) {
-            for (T t : mirror) { if (t != null) releaseInstance(t); }
+            for (T t : mirror) {
+                if (t != null) releaseInstance(t);
+            }
             mirror.clear();
         }
         buffer.close();

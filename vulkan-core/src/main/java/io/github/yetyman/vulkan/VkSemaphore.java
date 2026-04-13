@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -11,32 +12,38 @@ import java.lang.foreign.*;
 public class VkSemaphore implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
-    
+
     VkSemaphore(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
     }
-    
+
     /**
      * Creates a new semaphore.
      */
     public static VkSemaphore create(Arena arena, VkDevice device) {
         return builder().device(device).build(arena);
     }
-    
-    /** @return a new builder for configuring semaphore creation */
+
+    /**
+     * @return a new builder for configuring semaphore creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the VkSemaphore handle */
-    public MemorySegment handle() { return handle; }
-    
+
+    /**
+     * @return the VkSemaphore handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
     @Override
     public void close() {
         Vulkan.destroySemaphore(device.handle(), handle);
     }
-    
+
     /**
      * Builder for semaphore creation.
      */
@@ -45,36 +52,45 @@ public class VkSemaphore implements AutoCloseable {
         private int flags = 0;
         private boolean timeline = false;
         private long initialValue = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets creation flags */
+
+        /**
+         * Sets creation flags
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
         }
-        
-        /** Creates a timeline semaphore with initial value */
+
+        /**
+         * Creates a timeline semaphore with initial value
+         */
         public Builder timeline(long initialValue) {
             this.timeline = true;
             this.initialValue = initialValue;
             return this;
         }
-        
-        /** Creates the semaphore */
+
+        /**
+         * Creates the semaphore
+         */
         public VkSemaphore build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
-            
+
             MemorySegment semaphoreInfo = VkSemaphoreCreateInfo.allocate(arena);
             VkSemaphoreCreateInfo.sType(semaphoreInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO.value());
             VkSemaphoreCreateInfo.flags(semaphoreInfo, flags);
-            
+
             if (timeline) {
                 MemorySegment typeInfo = VkSemaphoreTypeCreateInfo.allocate(arena);
                 VkSemaphoreTypeCreateInfo.sType(typeInfo, VkStructureType.VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO.value());
@@ -84,7 +100,7 @@ public class VkSemaphore implements AutoCloseable {
             } else {
                 VkSemaphoreCreateInfo.pNext(semaphoreInfo, MemorySegment.NULL);
             }
-            
+
             MemorySegment semPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createSemaphore(device.handle(), semaphoreInfo, semPtr).check();
             return new VkSemaphore(semPtr.get(ValueLayout.ADDRESS, 0), device);

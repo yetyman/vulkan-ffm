@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.queue;
 
 import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.Vulkan;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -31,7 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class OpportunisticBatchingSubmitter implements IQueueSubmitter {
 
-    private record Pending(byte[] submitInfoBytes, MemorySegment fence, long enqueuedNanos) {}
+    private record Pending(byte[] submitInfoBytes, MemorySegment fence, long enqueuedNanos) {
+    }
 
     private static byte[] copyStruct(MemorySegment submitInfo) {
         return submitInfo.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE);
@@ -92,7 +94,9 @@ public final class OpportunisticBatchingSubmitter implements IQueueSubmitter {
     }
 
     @Override
-    public int pendingCount() { return pendingCount.get(); }
+    public int pendingCount() {
+        return pendingCount.get();
+    }
 
     @Override
     public void checkTimeout() {

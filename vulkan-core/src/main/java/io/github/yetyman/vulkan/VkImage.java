@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+
 import java.lang.foreign.*;
 
 /**
@@ -11,26 +12,34 @@ public class VkImage implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
     private final MemorySegment memory;
-    
+
     private VkImage(MemorySegment handle, VkDevice device, MemorySegment memory) {
         this.handle = handle;
         this.device = device;
         this.memory = memory;
     }
-    
-    /** @return a new builder for configuring image creation */
+
+    /**
+     * @return a new builder for configuring image creation
+     */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Wraps an existing image handle without memory ownership (e.g. swapchain images). */
+    /**
+     * Wraps an existing image handle without memory ownership (e.g. swapchain images).
+     */
     public static VkImage wrap(MemorySegment handle, VkDevice device) {
         return new VkImage(handle, device, MemorySegment.NULL);
     }
-    
-    /** @return the VkImage handle */
-    public MemorySegment handle() { return handle; }
-    
+
+    /**
+     * @return the VkImage handle
+     */
+    public MemorySegment handle() {
+        return handle;
+    }
+
     @Override
     public void close() {
         if (memory != null && !memory.equals(MemorySegment.NULL)) {
@@ -38,7 +47,7 @@ public class VkImage implements AutoCloseable {
         }
         Vulkan.destroyImage(device.handle(), handle);
     }
-    
+
     /**
      * Builder for image creation with automatic memory allocation.
      */
@@ -52,54 +61,71 @@ public class VkImage implements AutoCloseable {
         private int mipLevels = 1;
         private int arrayLayers = 1;
         private int flags = 0;
-        
-        private Builder() {}
-        
-        /** Sets the logical device */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the logical device
+         */
         public Builder device(VkDevice device) {
             this.device = device;
             return this;
         }
-        
-        /** Sets image dimensions */
+
+        /**
+         * Sets image dimensions
+         */
         public Builder dimensions(int width, int height, int depth) {
             this.width = width;
             this.height = height;
             this.depth = depth;
             return this;
         }
-        
-        /** Sets image format */
+
+        /**
+         * Sets image format
+         */
         public Builder format(int format) {
             this.format = format;
             return this;
         }
-        
-        /** Sets image usage flags */
+
+        /**
+         * Sets image usage flags
+         */
         public Builder usage(int usage) {
             this.usage = usage;
             return this;
         }
-        
-        /** Sets image tiling */
+
+        /**
+         * Sets image tiling
+         */
         public Builder tiling(int tiling) {
             this.tiling = tiling;
             return this;
         }
-        
-        /** Sets sample count */
+
+        /**
+         * Sets sample count
+         */
         public Builder samples(int samples) {
             this.samples = samples;
             return this;
         }
-        
-        /** Sets mip levels */
+
+        /**
+         * Sets mip levels
+         */
         public Builder mipLevels(int mipLevels) {
             this.mipLevels = mipLevels;
             return this;
         }
-        
-        /** Sets creation flags (e.g. VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) */
+
+        /**
+         * Sets creation flags (e.g. VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)
+         */
         public Builder flags(int flags) {
             this.flags = flags;
             return this;
@@ -110,40 +136,46 @@ public class VkImage implements AutoCloseable {
             return this;
         }
 
-        /** Configures as a cube map (6 array layers, CUBE_COMPATIBLE flag). */
+        /**
+         * Configures as a cube map (6 array layers, CUBE_COMPATIBLE flag).
+         */
         public Builder cubeMap() {
             this.arrayLayers = 6;
             this.flags |= VkImageCreateFlagBits.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT.value();
             return this;
         }
 
-        /** Configures as a cube map array (layerCount must be a multiple of 6). */
+        /**
+         * Configures as a cube map array (layerCount must be a multiple of 6).
+         */
         public Builder cubeMapArray(int cubeCount) {
             this.arrayLayers = cubeCount * 6;
             this.flags |= VkImageCreateFlagBits.VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT.value();
             return this;
         }
-        
-        /** Creates the image with automatic memory allocation */
+
+        /**
+         * Creates the image with automatic memory allocation
+         */
         public VkImage build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
             if (width <= 0 || height <= 0 || depth <= 0) throw new IllegalStateException("invalid dimensions");
-            
+
             // Create image
             MemorySegment imageInfo = VkImageCreateInfo.allocate(arena);
             VkImageCreateInfo.sType(imageInfo, VkStructureType.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO.value());
             VkImageCreateInfo.pNext(imageInfo, MemorySegment.NULL);
             VkImageCreateInfo.flags(imageInfo, flags);
-            VkImageCreateInfo.imageType(imageInfo, depth > 1 ? VkImageType.VK_IMAGE_TYPE_3D.value() : 
-                                                   height > 1 ? VkImageType.VK_IMAGE_TYPE_2D.value() : 
-                                                                VkImageType.VK_IMAGE_TYPE_1D.value());
+            VkImageCreateInfo.imageType(imageInfo, depth > 1 ? VkImageType.VK_IMAGE_TYPE_3D.value() :
+                    height > 1 ? VkImageType.VK_IMAGE_TYPE_2D.value() :
+                            VkImageType.VK_IMAGE_TYPE_1D.value());
             VkImageCreateInfo.format(imageInfo, format);
-            
+
             MemorySegment extent = VkImageCreateInfo.extent(imageInfo);
             VkExtent3D.width(extent, width);
             VkExtent3D.height(extent, height);
             VkExtent3D.depth(extent, depth);
-            
+
             VkImageCreateInfo.mipLevels(imageInfo, mipLevels);
             VkImageCreateInfo.arrayLayers(imageInfo, arrayLayers);
             VkImageCreateInfo.samples(imageInfo, samples);
@@ -153,33 +185,33 @@ public class VkImage implements AutoCloseable {
             VkImageCreateInfo.queueFamilyIndexCount(imageInfo, 0);
             VkImageCreateInfo.pQueueFamilyIndices(imageInfo, MemorySegment.NULL);
             VkImageCreateInfo.initialLayout(imageInfo, VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value());
-            
+
             MemorySegment imagePtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createImage(device.handle(), imageInfo, imagePtr).check();
             MemorySegment image = imagePtr.get(ValueLayout.ADDRESS, 0);
-            
+
             // Get memory requirements
             MemorySegment memReqs = VkMemoryRequirements.allocate(arena);
             Vulkan.getImageMemoryRequirements(device.handle(), image, memReqs);
-            
+
             // Allocate memory
             MemorySegment allocInfo = VkMemoryAllocateInfo.allocate(arena);
             VkMemoryAllocateInfo.sType(allocInfo, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO.value());
             VkMemoryAllocateInfo.pNext(allocInfo, MemorySegment.NULL);
             VkMemoryAllocateInfo.allocationSize(allocInfo, VkMemoryRequirements.size(memReqs));
-            
+
             // Use first available memory type (simplified)
             int typeFilter = VkMemoryRequirements.memoryTypeBits(memReqs);
             int memoryTypeIndex = Integer.numberOfTrailingZeros(typeFilter);
             VkMemoryAllocateInfo.memoryTypeIndex(allocInfo, memoryTypeIndex);
-            
+
             MemorySegment memoryPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.allocateMemory(device.handle(), allocInfo, memoryPtr).check();
             MemorySegment memory = memoryPtr.get(ValueLayout.ADDRESS, 0);
-            
+
             // Bind memory
             Vulkan.bindImageMemory(device.handle(), image, memory, 0).check();
-            
+
             return new VkImage(image, device, memory);
         }
     }

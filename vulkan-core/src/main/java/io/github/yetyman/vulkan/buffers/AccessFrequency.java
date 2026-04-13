@@ -4,18 +4,26 @@ package io.github.yetyman.vulkan.buffers;
  * Frequency of CPU/GPU access to buffer data.
  */
 public enum AccessFrequency {
-    /** Never accessed */
+    /**
+     * Never accessed
+     */
     NEVER,
-    
-    /** Rarely accessed (less than once per minute) */
+
+    /**
+     * Rarely accessed (less than once per minute)
+     */
     RARE,
-    
-    /** Accessed approximately once per frame (~60 times per second) */
+
+    /**
+     * Accessed approximately once per frame (~60 times per second)
+     */
     FRAME,
-    
-    /** Accessed multiple times per frame (>60 times per second) */
+
+    /**
+     * Accessed multiple times per frame (>60 times per second)
+     */
     MULTI_FRAME;
-    
+
     /**
      * Returns true if this frequency is FRAME or MULTI_FRAME.
      */

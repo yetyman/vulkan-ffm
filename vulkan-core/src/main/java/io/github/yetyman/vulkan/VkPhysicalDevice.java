@@ -13,37 +13,37 @@ public class VkPhysicalDevice {
     private MemorySegment cachedProperties;
     private MemorySegment cachedFeatures;
     private MemorySegment cachedMemoryProperties;
-    
+
     private VkPhysicalDevice(MemorySegment handle) {
         this.handle = handle;
     }
-    
+
     public static VkPhysicalDevice wrap(MemorySegment physicalDeviceHandle) {
         return new VkPhysicalDevice(physicalDeviceHandle);
     }
-    
+
     public MemorySegment handle() {
         return handle;
     }
-    
+
     private void ensureCached() {
         if (cachedProperties == null) {
             Arena globalArena = Arena.global();
-            
+
             // Cache properties (includes limits, sparse properties, etc.)
             cachedProperties = VkPhysicalDeviceProperties.allocate(globalArena);
             VulkanFFM.vkGetPhysicalDeviceProperties(handle, cachedProperties);
-            
+
             // Cache features (includes sparse residency, etc.)
             cachedFeatures = VkPhysicalDeviceFeatures.allocate(globalArena);
             VulkanFFM.vkGetPhysicalDeviceFeatures(handle, cachedFeatures);
-            
+
             // Cache memory properties (memory types and heaps)
             cachedMemoryProperties = VkPhysicalDeviceMemoryProperties.allocate(globalArena);
             VulkanFFM.vkGetPhysicalDeviceMemoryProperties(handle, cachedMemoryProperties);
         }
     }
-    
+
     /**
      * @return [width, height] from vkGetPhysicalDeviceSurfaceCapabilitiesKHR currentExtent.
      */
@@ -51,31 +51,31 @@ public class VkPhysicalDevice {
         MemorySegment caps = VkSurfaceCapabilitiesKHR.allocate(arena);
         VulkanFFM.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(handle, surface, caps);
         MemorySegment extent = VkSurfaceCapabilitiesKHR.currentExtent(caps);
-        return new int[]{ VkExtent2D.width(extent), VkExtent2D.height(extent) };
+        return new int[]{VkExtent2D.width(extent), VkExtent2D.height(extent)};
     }
 
     public void getFormatProperties(int format, MemorySegment properties) {
         VulkanFFM.vkGetPhysicalDeviceFormatProperties(handle, format, properties);
     }
-    
+
     public VkFormatPropertiesWrapper getFormatProperties(int format, Arena arena) {
         MemorySegment props = arena.allocate(VkFormatProperties.sizeof());
         getFormatProperties(format, props);
         return new VkFormatPropertiesWrapper(props);
     }
-    
+
     public void getMemoryProperties(MemorySegment properties) {
         VulkanFFM.vkGetPhysicalDeviceMemoryProperties(handle, properties);
     }
-    
+
     public VkPhysicalDeviceMemoryPropertiesWrapper getMemoryProperties() {
         ensureCached();
         return new VkPhysicalDeviceMemoryPropertiesWrapper(cachedMemoryProperties);
     }
-    
+
     public int findMemoryType(int typeBits, int properties) {
         ensureCached();
-        
+
         int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(cachedMemoryProperties);
         for (int i = 0; i < typeCount; i++) {
             if ((typeBits & (1 << i)) != 0) {
@@ -88,7 +88,7 @@ public class VkPhysicalDevice {
         }
         return -1;
     }
-    
+
     /**
      * Returns the sparse buffer page size (bufferImageGranularity).
      * Cached after first query.
@@ -98,7 +98,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.bufferImageGranularity(limits);
     }
-    
+
     /**
      * Returns minimum alignment for memory map operations.
      */
@@ -107,7 +107,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.minMemoryMapAlignment(limits);
     }
-    
+
     /**
      * Returns granularity for non-coherent memory flush/invalidate operations.
      */
@@ -116,7 +116,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.nonCoherentAtomSize(limits);
     }
-    
+
     /**
      * Returns maximum number of memory allocations.
      */
@@ -125,7 +125,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.maxMemoryAllocationCount(limits);
     }
-    
+
     /**
      * Returns maximum storage buffer range in bytes.
      */
@@ -134,7 +134,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.maxStorageBufferRange(limits);
     }
-    
+
     /**
      * Returns maximum uniform buffer range in bytes.
      */
@@ -143,7 +143,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.maxUniformBufferRange(limits);
     }
-    
+
     /**
      * Returns total size of device-local memory heaps in bytes.
      */
@@ -160,7 +160,7 @@ public class VkPhysicalDevice {
         }
         return total;
     }
-    
+
     /**
      * Returns minimum required alignment for uniform buffer offsets.
      * Used for dynamic offsets and suballocations.
@@ -170,7 +170,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.minUniformBufferOffsetAlignment(limits);
     }
-    
+
     /**
      * Returns minimum required alignment for storage buffer offsets.
      * Used for dynamic offsets and suballocations.
@@ -180,7 +180,7 @@ public class VkPhysicalDevice {
         MemorySegment limits = VkPhysicalDeviceProperties.limits(cachedProperties);
         return VkPhysicalDeviceLimits.minStorageBufferOffsetAlignment(limits);
     }
-    
+
     /**
      * Returns whether the device supports sparse buffer residency.
      * When true, accessing uncommitted sparse buffer regions returns zero.
@@ -202,7 +202,7 @@ public class VkPhysicalDevice {
         int typeCount = VkPhysicalDeviceMemoryProperties.memoryTypeCount(cachedMemoryProperties);
         int heapCount = VkPhysicalDeviceMemoryProperties.memoryHeapCount(cachedMemoryProperties);
         int deviceLocalHostVisible = io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value()
-                                   | io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value();
+                | io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value();
         for (int i = 0; i < typeCount; i++) {
             MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(cachedMemoryProperties, i);
             int props = io.github.yetyman.vulkan.generated.VkMemoryType.propertyFlags(memType);
@@ -262,39 +262,39 @@ public class VkPhysicalDevice {
     public boolean prefersSingleOffsetRingBuffer() {
         return isUMA() || supportsReBar();
     }
-    
+
     // Wrapper classes for return values
     public static class VkPhysicalDeviceMemoryPropertiesWrapper {
         private final MemorySegment segment;
-        
+
         VkPhysicalDeviceMemoryPropertiesWrapper(MemorySegment segment) {
             this.segment = segment;
         }
-        
+
         public int memoryTypeCount() {
             return VkPhysicalDeviceMemoryProperties.memoryTypeCount(segment);
         }
-        
+
         public MemorySegment memoryTypes(int index) {
             return VkPhysicalDeviceMemoryProperties.memoryTypes(segment, index);
         }
     }
-    
+
     public static class VkFormatPropertiesWrapper {
         private final MemorySegment segment;
-        
+
         VkFormatPropertiesWrapper(MemorySegment segment) {
             this.segment = segment;
         }
-        
+
         public int optimalTilingFeatures() {
             return VkFormatProperties.optimalTilingFeatures(segment);
         }
-        
+
         public int linearTilingFeatures() {
             return VkFormatProperties.linearTilingFeatures(segment);
         }
-        
+
         public int bufferFeatures() {
             return VkFormatProperties.bufferFeatures(segment);
         }

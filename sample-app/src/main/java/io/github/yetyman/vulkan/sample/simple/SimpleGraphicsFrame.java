@@ -21,46 +21,56 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
     protected VkPipeline pipeline;
 
     protected SimpleGraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
-                                   MemorySegment surface, int width, int height, int maxFramesInFlight) {
+                                  MemorySegment surface, int width, int height, int maxFramesInFlight) {
         super(arena, device, queue, surface, width, height, maxFramesInFlight);
     }
 
-    /** @return the pipeline to use for rendering. Called once during {@link #initializeResources}. */
+    /**
+     * @return the pipeline to use for rendering. Called once during {@link #initializeResources}.
+     */
     protected abstract VkPipeline createPipeline();
 
-    /** Called each frame after pipeline bind and viewport/scissor setup, before the draw call. */
+    /**
+     * Called each frame after pipeline bind and viewport/scissor setup, before the draw call.
+     */
     protected abstract void onDraw(VkCommandBuffer commandBuffer, Arena frameArena);
 
-    /** @return the number of vertices to draw each frame. */
+    /**
+     * @return the number of vertices to draw each frame.
+     */
     protected abstract int vertexCount();
 
-    /** @return the number of instances to draw each frame. Defaults to 1. */
-    protected int instanceCount() { return 1; }
+    /**
+     * @return the number of instances to draw each frame. Defaults to 1.
+     */
+    protected int instanceCount() {
+        return 1;
+    }
 
     @Override
     protected VkRenderPass createRenderPassImpl() {
         return VkRenderPass.builder()
-            .device(device)
-            .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(),
-                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
-                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
-            .subpassDependency(~0, 0,
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
-            .build(arena);
+                .device(device)
+                .colorAttachment(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value(),
+                        VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                        VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value())
+                .subpassDependency(~0, 0,
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                        0, VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
+                .build(arena);
     }
 
     @Override
     protected VkFramebuffer createFramebufferImpl(int imageIndex) {
         return VkFramebuffer.builder()
-            .device(device)
-            .renderPass(renderPass.handle())
-            .attachment(new VkFramebufferAttachment(
-                swapchainImageViews[imageIndex],
-                VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
-            .dimensions(width, height)
-            .build(arena);
+                .device(device)
+                .renderPass(renderPass.handle())
+                .attachment(new VkFramebufferAttachment(
+                        swapchainImageViews[imageIndex],
+                        VkFramebufferAttachment.AttachmentType.COLOR, 0, 0))
+                .dimensions(width, height)
+                .build(arena);
     }
 
     @Override
@@ -74,32 +84,32 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
 
         if (useDynamicRendering) {
             VkImageBarrier.builder()
-                .image(swapchainImageViews[imageIndex].image())
-                .srcAccess(0)
-                .dstAccess(VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
-                .transition(
-                    VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
-                    VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value())
-                .build(frameArena)
-                .execute(commandBuffer.handle(),
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value(),
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
+                    .image(swapchainImageViews[imageIndex].image())
+                    .srcAccess(0)
+                    .dstAccess(VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
+                    .transition(
+                            VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                            VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value())
+                    .build(frameArena)
+                    .execute(commandBuffer.handle(),
+                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value(),
+                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
 
             VkRendering.builder()
-                .device(device)
-                .renderArea(0, 0, width, height)
-                .colorAttachment(
-                    swapchainImageViews[imageIndex].handle(),
-                    VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
-                    VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
-                    VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
-                    0.0f, 0.0f, 0.0f, 1.0f)
-                .begin(commandBuffer.handle(), frameArena);
+                    .device(device)
+                    .renderArea(0, 0, width, height)
+                    .colorAttachment(
+                            swapchainImageViews[imageIndex].handle(),
+                            VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
+                            VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                            VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                            0.0f, 0.0f, 0.0f, 1.0f)
+                    .begin(commandBuffer.handle(), frameArena);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
-                .renderArea(0, 0, width, height)
-                .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                .execute(frameArena);
+                    .renderArea(0, 0, width, height)
+                    .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
+                    .execute(frameArena);
         }
 
         VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
@@ -115,16 +125,16 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
             VkRendering.end(device, commandBuffer.handle());
 
             VkImageBarrier.builder()
-                .image(swapchainImageViews[imageIndex].image())
-                .srcAccess(VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
-                .dstAccess(0)
-                .transition(
-                    VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
-                    VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
-                .build(frameArena)
-                .execute(commandBuffer.handle(),
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
+                    .image(swapchainImageViews[imageIndex].image())
+                    .srcAccess(VkAccessFlagBits.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.value())
+                    .dstAccess(0)
+                    .transition(
+                            VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
+                            VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
+                    .build(frameArena)
+                    .execute(commandBuffer.handle(),
+                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
+                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
         } else {
             VkRenderPassCmd.endRenderPass(commandBuffer);
         }

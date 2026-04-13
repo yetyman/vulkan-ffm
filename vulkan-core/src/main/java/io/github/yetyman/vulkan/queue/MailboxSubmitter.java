@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.queue;
 
 import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.Vulkan;
+
 import java.lang.foreign.MemorySegment;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,7 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class MailboxSubmitter implements IQueueSubmitter, AutoCloseable {
 
-    private record Pending(byte[] submitInfoBytes, MemorySegment fence) {}
+    private record Pending(byte[] submitInfoBytes, MemorySegment fence) {
+    }
 
     private static byte[] copyStruct(MemorySegment submitInfo) {
         return submitInfo.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE);
@@ -58,12 +60,19 @@ public final class MailboxSubmitter implements IQueueSubmitter, AutoCloseable {
     }
 
     @Override
-    public int pendingCount() { return mailbox.size(); }
+    public int pendingCount() {
+        return mailbox.size();
+    }
 
-    /** Signals the submission thread to stop after draining remaining work and waits for it. */
+    /**
+     * Signals the submission thread to stop after draining remaining work and waits for it.
+     */
     @Override
     public void close() {
         running.set(false);
-        try { submissionThread.join(5000); } catch (InterruptedException ignored) {}
+        try {
+            submissionThread.join(5000);
+        } catch (InterruptedException ignored) {
+        }
     }
 }

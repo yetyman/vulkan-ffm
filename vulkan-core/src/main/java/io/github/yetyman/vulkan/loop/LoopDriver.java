@@ -3,7 +3,7 @@ package io.github.yetyman.vulkan.loop;
 /**
  * Controls when and how often a loop body executes.
  * Each implementation is a self-contained tight loop with no internal branching.
- *
+ * <p>
  * Use the static factories to select a strategy:
  * <pre>{@code
  * loopThread.driver(LoopDriver.fixedRate(60));
@@ -18,7 +18,9 @@ public interface LoopDriver {
      */
     void run(Runnable work, BooleanSupplier running);
 
-    /** Runs work as fast as possible with no rate limiting. */
+    /**
+     * Runs work as fast as possible with no rate limiting.
+     */
     static LoopDriver uncapped() {
         return (work, running) -> {
             while (running.getAsBoolean()) work.run();
@@ -38,8 +40,12 @@ public interface LoopDriver {
                 next += intervalNanos;
                 long now = System.nanoTime();
                 if (next > now) {
-                    try { Thread.sleep((next - now) / 1_000_000, (int)((next - now) % 1_000_000)); }
-                    catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+                    try {
+                        Thread.sleep((next - now) / 1_000_000, (int) ((next - now) % 1_000_000));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
             }
         };
@@ -64,8 +70,12 @@ public interface LoopDriver {
                 }
                 long remaining = intervalNanos - accumulator;
                 if (remaining > 1_000_000) {
-                    try { Thread.sleep(remaining / 1_000_000); }
-                    catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+                    try {
+                        Thread.sleep(remaining / 1_000_000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
                 }
             }
         };
@@ -85,13 +95,17 @@ public interface LoopDriver {
         };
     }
 
-    /** Source of vsync signals, typically provided by a windowing system. */
+    /**
+     * Source of vsync signals, typically provided by a windowing system.
+     */
     @FunctionalInterface
     interface VsyncSource {
         void waitForVsync();
     }
 
-    /** Supplies a boolean value, used to check the running state without boxing. */
+    /**
+     * Supplies a boolean value, used to check the running state without boxing.
+     */
     @FunctionalInterface
     interface BooleanSupplier {
         boolean getAsBoolean();

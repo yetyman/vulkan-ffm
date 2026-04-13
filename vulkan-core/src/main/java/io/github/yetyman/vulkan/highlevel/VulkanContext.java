@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+
 import java.lang.foreign.*;
 import java.util.Set;
 
@@ -20,11 +21,11 @@ public class VulkanContext implements AutoCloseable {
     private final int graphicsQueueFamily;
     private final int presentQueueFamily;
     private final int computeQueueFamily;
-    
-    private VulkanContext(Arena arena, VkInstance instance, VkPhysicalDevice physicalDevice, 
-                         VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue,
-                         VkQueue computeQueue, int graphicsQueueFamily, int presentQueueFamily,
-                         int computeQueueFamily) {
+
+    private VulkanContext(Arena arena, VkInstance instance, VkPhysicalDevice physicalDevice,
+                          VkDevice device, VkQueue graphicsQueue, VkQueue presentQueue,
+                          VkQueue computeQueue, int graphicsQueueFamily, int presentQueueFamily,
+                          int computeQueueFamily) {
         this.arena = arena;
         this.instance = instance;
         this.physicalDevice = physicalDevice;
@@ -36,113 +37,179 @@ public class VulkanContext implements AutoCloseable {
         this.presentQueueFamily = presentQueueFamily;
         this.computeQueueFamily = computeQueueFamily;
     }
-    
-    /** @return a new builder for configuring Vulkan context creation */
+
+    /**
+     * @return a new builder for configuring Vulkan context creation
+     */
     public static Builder builder() {
         return new Builder();
     }
-    
-    /** @return the memory arena */
-    public Arena arena() { return arena; }
-    
-    /** @return the Vulkan instance */
-    public VkInstance instance() { return instance; }
-    
-    /** @return the physical device */
-    public VkPhysicalDevice physicalDevice() { return physicalDevice; }
-    
-    /** @return the logical device */
-    public VkDevice device() { return device; }
-    
-    /** @return the graphics queue handle */
-    public MemorySegment graphicsQueue() { return graphicsQueue.handle(); }
 
-    /** @return the graphics queue */
-    public VkQueue graphicsVkQueue() { return graphicsQueue; }
+    /**
+     * @return the memory arena
+     */
+    public Arena arena() {
+        return arena;
+    }
 
-    /** @return the present queue handle */
-    public MemorySegment presentQueue() { return presentQueue.handle(); }
+    /**
+     * @return the Vulkan instance
+     */
+    public VkInstance instance() {
+        return instance;
+    }
 
-    /** @return the present queue */
-    public VkQueue presentVkQueue() { return presentQueue; }
+    /**
+     * @return the physical device
+     */
+    public VkPhysicalDevice physicalDevice() {
+        return physicalDevice;
+    }
 
-    /** @return the compute queue handle */
-    public MemorySegment computeQueue() { return computeQueue.handle(); }
+    /**
+     * @return the logical device
+     */
+    public VkDevice device() {
+        return device;
+    }
 
-    /** @return the compute queue */
-    public VkQueue computeVkQueue() { return computeQueue; }
-    
-    /** @return the graphics queue family index */
-    public int graphicsQueueFamily() { return graphicsQueueFamily; }
-    
-    /** @return the present queue family index */
-    public int presentQueueFamily() { return presentQueueFamily; }
+    /**
+     * @return the graphics queue handle
+     */
+    public MemorySegment graphicsQueue() {
+        return graphicsQueue.handle();
+    }
 
-    /** @return the compute queue family index (may equal graphicsQueueFamily if no dedicated compute family exists) */
-    public int computeQueueFamily() { return computeQueueFamily; }
-    
-    /** Creates a command pool for graphics operations */
+    /**
+     * @return the graphics queue
+     */
+    public VkQueue graphicsVkQueue() {
+        return graphicsQueue;
+    }
+
+    /**
+     * @return the present queue handle
+     */
+    public MemorySegment presentQueue() {
+        return presentQueue.handle();
+    }
+
+    /**
+     * @return the present queue
+     */
+    public VkQueue presentVkQueue() {
+        return presentQueue;
+    }
+
+    /**
+     * @return the compute queue handle
+     */
+    public MemorySegment computeQueue() {
+        return computeQueue.handle();
+    }
+
+    /**
+     * @return the compute queue
+     */
+    public VkQueue computeVkQueue() {
+        return computeQueue;
+    }
+
+    /**
+     * @return the graphics queue family index
+     */
+    public int graphicsQueueFamily() {
+        return graphicsQueueFamily;
+    }
+
+    /**
+     * @return the present queue family index
+     */
+    public int presentQueueFamily() {
+        return presentQueueFamily;
+    }
+
+    /**
+     * @return the compute queue family index (may equal graphicsQueueFamily if no dedicated compute family exists)
+     */
+    public int computeQueueFamily() {
+        return computeQueueFamily;
+    }
+
+    /**
+     * Creates a command pool for graphics operations
+     */
     public VkCommandPool createGraphicsCommandPool() {
         return VkCommandPool.builder()
-            .device(device)
-            .queueFamilyIndex(graphicsQueueFamily)
-            .resetCommandBufferBit()
-            .build(arena);
+                .device(device)
+                .queueFamilyIndex(graphicsQueueFamily)
+                .resetCommandBufferBit()
+                .build(arena);
     }
-    
-    /** Creates a transient command pool for short-lived operations */
+
+    /**
+     * Creates a transient command pool for short-lived operations
+     */
     public VkCommandPool createTransientCommandPool() {
         return VkCommandPool.builder()
-            .device(device)
-            .queueFamilyIndex(graphicsQueueFamily)
-            .transientBit()
-            .resetCommandBufferBit()
-            .build(arena);
+                .device(device)
+                .queueFamilyIndex(graphicsQueueFamily)
+                .transientBit()
+                .resetCommandBufferBit()
+                .build(arena);
     }
-    
-    /** Creates a descriptor pool with common descriptor types */
+
+    /**
+     * Creates a descriptor pool with common descriptor types
+     */
     public VkDescriptorPool createDescriptorPool(int maxSets) {
         return VkDescriptorPool.builder()
-            .device(device)
-            .maxSets(maxSets)
-            .uniformBuffers(maxSets * 2)
-            .combinedImageSamplers(maxSets * 2)
-            .storageBuffers(maxSets)
-            .freeDescriptorSet()
-            .build(arena);
+                .device(device)
+                .maxSets(maxSets)
+                .uniformBuffers(maxSets * 2)
+                .combinedImageSamplers(maxSets * 2)
+                .storageBuffers(maxSets)
+                .freeDescriptorSet()
+                .build(arena);
     }
-    
-    /** Creates a vertex buffer */
+
+    /**
+     * Creates a vertex buffer
+     */
     public VkBuffer createVertexBuffer(long size) {
         return VkBuffer.builder()
-            .device(device)
-            .size(size)
-            .vertexBuffer()
-            .transferDst()
-            .deviceLocal()
-            .build(arena);
+                .device(device)
+                .size(size)
+                .vertexBuffer()
+                .transferDst()
+                .deviceLocal()
+                .build(arena);
     }
-    
-    /** Creates a staging buffer for data transfer */
+
+    /**
+     * Creates a staging buffer for data transfer
+     */
     public VkBuffer createStagingBuffer(long size) {
         return VkBuffer.builder()
-            .device(device)
-            .size(size)
-            .transferSrc()
-            .hostVisible()
-            .build(arena);
+                .device(device)
+                .size(size)
+                .transferSrc()
+                .hostVisible()
+                .build(arena);
     }
-    
-    /** Creates a uniform buffer */
+
+    /**
+     * Creates a uniform buffer
+     */
     public VkBuffer createUniformBuffer(long size) {
         return VkBuffer.builder()
-            .device(device)
-            .size(size)
-            .uniformBuffer()
-            .hostVisible()
-            .build(arena);
+                .device(device)
+                .size(size)
+                .uniformBuffer()
+                .hostVisible()
+                .build(arena);
     }
-    
+
     @Override
     public void close() {
         if (device != null) {
@@ -156,7 +223,7 @@ public class VulkanContext implements AutoCloseable {
             arena.close();
         }
     }
-    
+
     /**
      * Builder for Vulkan context creation.
      */
@@ -168,47 +235,62 @@ public class VulkanContext implements AutoCloseable {
         private String[] validationLayers = null;
         private MemorySegment surface = null;
         private boolean enableValidation = false;
-        
-        private Builder() {}
-        
-        /** Sets the application name */
+
+        private Builder() {
+        }
+
+        /**
+         * Sets the application name
+         */
         public Builder applicationName(String name) {
             this.applicationName = name;
             return this;
         }
-        
-        /** Sets the application version */
+
+        /**
+         * Sets the application version
+         */
         public Builder applicationVersion(int version) {
             this.applicationVersion = version;
             return this;
         }
-        
-        /** Sets instance extensions */
+
+        /**
+         * Sets instance extensions
+         */
         public Builder instanceExtensions(String... extensions) {
             this.instanceExtensions = extensions;
             return this;
         }
-        
-        /** Sets device extensions */
+
+        /**
+         * Sets device extensions
+         */
         public Builder deviceExtensions(String... extensions) {
             this.deviceExtensions = extensions;
             return this;
         }
-        
-        /** Sets validation layers */
+
+        /**
+         * Sets validation layers
+         */
         public Builder validationLayers(String... layers) {
             this.validationLayers = layers;
             this.enableValidation = layers != null && layers.length > 0;
             return this;
         }
-        
-        /** Sets the surface for presentation (optional) */
+
+        /**
+         * Sets the surface for presentation (optional)
+         */
         public Builder surface(MemorySegment surface) {
             this.surface = surface;
             return this;
         }
-        
-        /** Enables validation layers */
+
+        /**
+         * Enables validation layers
+         */
         public Builder enableValidation() {
             this.enableValidation = true;
             if (validationLayers == null) {
@@ -216,7 +298,7 @@ public class VulkanContext implements AutoCloseable {
             }
             return this;
         }
-        
+
         private static Set<String> getAvailableExtensions(VkPhysicalDevice physicalDevice, Arena arena) {
             Set<String> extensions = new java.util.HashSet<>();
             MemorySegment countPtr = arena.allocate(ValueLayout.JAVA_INT);
@@ -227,7 +309,7 @@ public class VulkanContext implements AutoCloseable {
                 Vulkan.enumerateDeviceExtensionProperties(physicalDevice.handle(), MemorySegment.NULL, countPtr, props);
                 for (int i = 0; i < count; i++) {
                     MemorySegment ext = props.asSlice(i * io.github.yetyman.vulkan.generated.VkExtensionProperties.layout().byteSize(),
-                        io.github.yetyman.vulkan.generated.VkExtensionProperties.layout());
+                            io.github.yetyman.vulkan.generated.VkExtensionProperties.layout());
                     extensions.add(io.github.yetyman.vulkan.generated.VkExtensionProperties.extensionName(ext).getString(0));
                 }
             }
@@ -243,34 +325,36 @@ public class VulkanContext implements AutoCloseable {
             return major > 1 || (major == 1 && minor >= 3);
         }
 
-        /** Creates the Vulkan context */
+        /**
+         * Creates the Vulkan context
+         */
         public VulkanContext build() {
             Arena arena = Arena.ofConfined();
-            
+
             try {
                 // Create instance
                 VkInstance.Builder instanceBuilder = VkInstance.builder()
-                    .applicationName(applicationName)
-                    .applicationVersion(applicationVersion);
-                
+                        .applicationName(applicationName)
+                        .applicationVersion(applicationVersion);
+
                 if (instanceExtensions != null) {
                     instanceBuilder.extensions(instanceExtensions);
                 }
-                
+
                 if (enableValidation && validationLayers != null) {
                     instanceBuilder.layers(validationLayers);
                 }
-                
+
                 VkInstance instance = instanceBuilder.build(arena);
-                
+
                 // Select physical device
                 MemorySegment physicalDeviceHandle = VkPhysicalDeviceOps.enumerate(instance.handle()).first(arena);
                 VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physicalDeviceHandle);
-                
+
                 // Find queue families
                 int graphicsFamily = VkQueueFamily.findGraphics(physicalDevice, arena);
                 int presentFamily = surface != null ?
-                    VkQueueFamily.findPresent(physicalDevice, surface, arena) : graphicsFamily;
+                        VkQueueFamily.findPresent(physicalDevice, surface, arena) : graphicsFamily;
                 int computeFamily = VkQueueFamily.findCompute(physicalDevice, arena);
 
                 // Query how many queues the compute family exposes
@@ -283,8 +367,8 @@ public class VulkanContext implements AutoCloseable {
 
                 // Create logical device
                 VkDevice.Builder deviceBuilder = VkDevice.builder()
-                    .physicalDevice(physicalDevice)
-                    .queueFamily(graphicsFamily, computeQueuesToRequest, 1.0f);
+                        .physicalDevice(physicalDevice)
+                        .queueFamily(graphicsFamily, computeQueuesToRequest, 1.0f);
 
                 if (!sharedFamily) {
                     deviceBuilder.queueFamily(computeFamily);
@@ -296,7 +380,7 @@ public class VulkanContext implements AutoCloseable {
 
                 Set<String> availableExts = getAvailableExtensions(physicalDevice, arena);
                 boolean supportsDynamicRendering = availableExts.contains("VK_KHR_dynamic_rendering")
-                    || isVulkan13(physicalDevice, arena);
+                        || isVulkan13(physicalDevice, arena);
                 if (supportsDynamicRendering) {
                     deviceBuilder.enableDynamicRendering();
                 }
@@ -307,12 +391,12 @@ public class VulkanContext implements AutoCloseable {
                 VulkanCapabilities.initialize(physicalDevice);
 
                 VkQueue graphicsQueue = new VkQueue(device, device.getQueue(graphicsFamily, 0), graphicsFamily);
-                VkQueue presentQueue  = new VkQueue(device, device.getQueue(presentFamily, 0), presentFamily);
-                VkQueue computeQueue  = new VkQueue(device, device.getQueue(computeFamily, computeQueueIndex), computeFamily);
+                VkQueue presentQueue = new VkQueue(device, device.getQueue(presentFamily, 0), presentFamily);
+                VkQueue computeQueue = new VkQueue(device, device.getQueue(computeFamily, computeQueueIndex), computeFamily);
 
                 return new VulkanContext(arena, instance, physicalDevice, device,
-                    graphicsQueue, presentQueue, computeQueue,
-                    graphicsFamily, presentFamily, computeFamily);
+                        graphicsQueue, presentQueue, computeQueue,
+                        graphicsFamily, presentFamily, computeFamily);
             } catch (Exception e) {
                 arena.close();
                 throw e;

@@ -20,7 +20,7 @@ public class VulkanLibrary {
             }
         }
     }
-    
+
     /**
      * Explicitly loads the Vulkan library by triggering the static initializer.
      * Call this early in your application to ensure Vulkan is available.

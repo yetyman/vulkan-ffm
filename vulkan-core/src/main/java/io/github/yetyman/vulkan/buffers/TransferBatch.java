@@ -34,7 +34,8 @@ class TransferBatch {
     private long stagedBytes;
     private int pendingCount;
 
-    private static record TimelineWait(VkTimelineSemaphore semaphore, long value) {}
+    private static record TimelineWait(VkTimelineSemaphore semaphore, long value) {
+    }
 
     TransferBatch(VkDevice device, VkQueue queue, VkCommandPool commandPool) {
         this.device = device;
@@ -48,7 +49,7 @@ class TransferBatch {
         batchArena = Arena.ofShared();
         ownedObjects = new ArrayList<>();
         VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-            .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(batchArena);
+                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(batchArena);
         commandBuffer = cmds[0];
         VkCommandBuffer.begin(commandBuffer).oneTimeSubmit().execute(batchArena);
         currentCompletion = new BatchTransferCompletion(fence, batchArena, ownedObjects);
@@ -102,15 +103,21 @@ class TransferBatch {
         fence.close();
     }
 
-    VkQueue queue() { return queue; }
+    VkQueue queue() {
+        return queue;
+    }
 
-    /** Add a timeline semaphore wait to this batch - batch won't execute until semaphore reaches value. */
+    /**
+     * Add a timeline semaphore wait to this batch - batch won't execute until semaphore reaches value.
+     */
     public TransferBatch waitUntil(VkTimelineSemaphore semaphore, long value) {
         pendingWaits.add(new TimelineWait(semaphore, value));
         return this;
     }
 
-    /** Add a timeline semaphore signal to this batch - semaphore will be advanced to value on GPU completion. */
+    /**
+     * Add a timeline semaphore signal to this batch - semaphore will be advanced to value on GPU completion.
+     */
     public TransferBatch signalOn(VkTimelineSemaphore semaphore, long value) {
         pendingSignals.add(new TimelineWait(semaphore, value));
         return this;
@@ -120,9 +127,9 @@ class TransferBatch {
         try (Arena tmp = Arena.ofConfined()) {
             // Reset fence before use
             fence.reset();
-            
+
             VkSubmitBuilder builder = new VkSubmitBuilder().commandBuffer(commandBuffer);
-            
+
             for (TimelineWait wait : pendingWaits) {
                 wait.semaphore.addWaitTo(builder, wait.value, VK_PIPELINE_STAGE_TRANSFER_BIT.value());
             }

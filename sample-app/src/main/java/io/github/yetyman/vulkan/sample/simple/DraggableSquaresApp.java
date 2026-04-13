@@ -26,8 +26,8 @@ public class DraggableSquaresApp extends VulkanApplication {
     private MemorySegment arrowCursor;
     private boolean cursorIsHand = false;
 
-    private volatile double  mouseX, mouseY;
-    private volatile boolean ctrlHeld  = false;
+    private volatile double mouseX, mouseY;
+    private volatile boolean ctrlHeld = false;
     private volatile boolean shiftHeld = false;
 
     public DraggableSquaresApp() {
@@ -39,19 +39,21 @@ public class DraggableSquaresApp extends VulkanApplication {
         VulkanCapabilities.initialize(vulkanContext().physicalDevice());
 
         frame = new DraggableSquaresGraphicsFrame(
-            vulkanContext().arena(), vulkanContext().device(),
-            vulkanContext().graphicsVkQueue(), surface(), 800, 600);
+                vulkanContext().arena(), vulkanContext().device(),
+                vulkanContext().graphicsVkQueue(), surface(), 800, 600);
         frame.init(vulkanContext().graphicsQueueFamily());
 
-        handCursor  = GLFWFFM.glfwCreateStandardCursor(GLFWStandardCursor.GLFW_POINTING_HAND_CURSOR.value());
+        handCursor = GLFWFFM.glfwCreateStandardCursor(GLFWStandardCursor.GLFW_POINTING_HAND_CURSOR.value());
         arrowCursor = GLFWFFM.glfwCreateStandardCursor(GLFWStandardCursor.GLFW_ARROW_CURSOR.value());
 
         Arena callbackArena = Arena.global();
 
         GLFWCallbacks.setKeyCallback(window(), (w, key, scancode, action, mods) -> {
             boolean pressed = action != GLFWAction.GLFW_RELEASE.value();
-            if (key == GLFWKey.GLFW_KEY_LEFT_CONTROL.value()  || key == GLFWKey.GLFW_KEY_RIGHT_CONTROL.value())  ctrlHeld  = pressed;
-            if (key == GLFWKey.GLFW_KEY_LEFT_SHIFT.value()    || key == GLFWKey.GLFW_KEY_RIGHT_SHIFT.value())    shiftHeld = pressed;
+            if (key == GLFWKey.GLFW_KEY_LEFT_CONTROL.value() || key == GLFWKey.GLFW_KEY_RIGHT_CONTROL.value())
+                ctrlHeld = pressed;
+            if (key == GLFWKey.GLFW_KEY_LEFT_SHIFT.value() || key == GLFWKey.GLFW_KEY_RIGHT_SHIFT.value())
+                shiftHeld = pressed;
         }, callbackArena);
 
         GLFWCallbacks.setCursorPosCallback(window(), (w, x, y) -> {
@@ -72,19 +74,24 @@ public class DraggableSquaresApp extends VulkanApplication {
         }, callbackArena);
 
         loop = GraphicsLoop.builder()
-            .renderer(frame)
-            .driver(LoopDriver.uncapped())
-            .shouldClose(() -> windowSystem().shouldClose(window()))
-            .onResize(dims -> frame.resize(dims[0], dims[1]))
-            .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
-            .build();
+                .renderer(frame)
+                .driver(LoopDriver.uncapped())
+                .shouldClose(() -> windowSystem().shouldClose(window()))
+                .onResize(dims -> frame.resize(dims[0], dims[1]))
+                .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
+                .build();
 
         loop.start();
 
         while (!windowSystem().shouldClose(window())) {
             windowSystem().pollEvents();
             updateCursor();
-            try { Thread.sleep(1); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         loop.stop();
     }
@@ -105,7 +112,7 @@ public class DraggableSquaresApp extends VulkanApplication {
     @Override
     protected void shutdown() {
         if (frame != null) frame.close();
-        if (!handCursor.equals(MemorySegment.NULL))  GLFWFFM.glfwDestroyCursor(handCursor);
+        if (!handCursor.equals(MemorySegment.NULL)) GLFWFFM.glfwDestroyCursor(handCursor);
         if (!arrowCursor.equals(MemorySegment.NULL)) GLFWFFM.glfwDestroyCursor(arrowCursor);
     }
 

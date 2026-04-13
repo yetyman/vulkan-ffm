@@ -41,6 +41,7 @@ public class TransferBatchManager {
 
     /**
      * Flushes the current batch for this thread+queue, submitting all pending transfers.
+     *
      * @return a TransferCompletion for the submitted batch (caller must close it).
      */
     public static TransferCompletion flush(VkDevice device, VkQueue queue) {
@@ -57,7 +58,9 @@ public class TransferBatchManager {
         return batch.flush();
     }
 
-    /** Destroys all batches for the current thread on the given device. Call at thread exit. */
+    /**
+     * Destroys all batches for the current thread on the given device. Call at thread exit.
+     */
     public static void destroyThread(VkDevice device) {
         ConcurrentHashMap<Long, ConcurrentHashMap<Long, TransferBatch>> byThread =
                 REGISTRY.get(device.handle().address());
@@ -68,7 +71,9 @@ public class TransferBatchManager {
         for (TransferBatch batch : byQueue.values()) batch.destroy();
     }
 
-    /** Destroys all batches for the given device. Called from VkDevice.close(). */
+    /**
+     * Destroys all batches for the given device. Called from VkDevice.close().
+     */
     public static void destroyAll(VkDevice device) {
         ConcurrentHashMap<Long, ConcurrentHashMap<Long, TransferBatch>> byThread =
                 REGISTRY.remove(device.handle().address());

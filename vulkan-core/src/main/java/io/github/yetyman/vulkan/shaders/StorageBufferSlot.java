@@ -14,16 +14,22 @@ public class StorageBufferSlot extends DescriptorSlot {
         super(name, set, binding, SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     }
 
-    /** Sets the buffer and marks this slot dirty. */
+    /**
+     * Sets the buffer and marks this slot dirty.
+     */
     public void set(VkBuffer buffer) {
         this.buffer = buffer;
         markDirty();
     }
 
-    /** Sets the buffer from a ManagedBuffer and marks this slot dirty. */
+    /**
+     * Sets the buffer from a ManagedBuffer and marks this slot dirty.
+     */
     public void set(ManagedBuffer buffer) {
         set(buffer.vkBuffer());
     }
 
-    public VkBuffer buffer() { return buffer; }
+    public VkBuffer buffer() {
+        return buffer;
+    }
 }

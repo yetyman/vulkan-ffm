@@ -15,13 +15,20 @@ public class TextureSlot extends DescriptorSlot {
         super(name, set, binding, SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     }
 
-    /** Sets the image view and sampler, marks this slot dirty. */
+    /**
+     * Sets the image view and sampler, marks this slot dirty.
+     */
     public void set(VkImageView imageView, VkSampler sampler) {
         this.boundImageView = imageView;
         this.boundSampler = sampler;
         markDirty();
     }
 
-    public VkImageView boundImageView() { return boundImageView; }
-    public VkSampler boundSampler() { return boundSampler; }
+    public VkImageView boundImageView() {
+        return boundImageView;
+    }
+
+    public VkSampler boundSampler() {
+        return boundSampler;
+    }
 }

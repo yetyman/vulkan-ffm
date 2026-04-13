@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,11 +13,11 @@ import java.util.TreeMap;
 
 /**
  * Generates a typed Java shader wrapper class from a compiled GLSL shader file.
- *
+ * <p>
  * Usage:
- *   ShaderGenerator <shaderResourcePath> <outputDir> <javaPackage>
- *   ShaderGenerator --dir <shaderResourceDir> <outputDir> <javaPackage>
- *
+ * ShaderGenerator <shaderResourcePath> <outputDir> <javaPackage>
+ * ShaderGenerator --dir <shaderResourceDir> <outputDir> <javaPackage>
+ * <p>
  * The shader resource path must be accessible on the classpath (e.g. /shaders/model.vert).
  * Output file is named <ShaderFileName>Shader.java.
  */
@@ -40,15 +41,15 @@ public class ShaderGenerator {
             Files.createDirectories(outputDir);
             Path dirPath = Paths.get(dir);
             Files.walk(dirPath)
-                .filter(p -> isShaderFile(p.toString()))
-                .forEach(p -> {
-                    try {
-                        String resourcePath = "/" + dirPath.relativize(p).toString().replace('\\', '/');
-                        generate(resourcePath, outputDir, pkg);
-                    } catch (Exception e) {
-                        System.err.println("Failed to generate for " + p + ": " + e.getMessage());
-                    }
-                });
+                    .filter(p -> isShaderFile(p.toString()))
+                    .forEach(p -> {
+                        try {
+                            String resourcePath = "/" + dirPath.relativize(p).toString().replace('\\', '/');
+                            generate(resourcePath, outputDir, pkg);
+                        } catch (Exception e) {
+                            System.err.println("Failed to generate for " + p + ": " + e.getMessage());
+                        }
+                    });
         } else {
             String resourcePath = args[0];
             Path outputDir = Paths.get(args[1]);
@@ -111,7 +112,7 @@ public class ShaderGenerator {
             for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
                 String constName = "DEFAULT_" + toConstantName(sc.name());
                 sb.append("    public static final ").append(specJavaType(sc)).append(" ").append(constName)
-                  .append(" = ").append(specDefaultLiteral(sc)).append(";\n");
+                        .append(" = ").append(specDefaultLiteral(sc)).append(";\n");
             }
             sb.append("\n");
         }
@@ -143,7 +144,7 @@ public class ShaderGenerator {
                 for (ShaderLoader.StructMemberInfo member : block.members()) {
                     String javaType = inferBoxedType(member);
                     sb.append("    public final PushConstant<").append(javaType).append("> ")
-                      .append(member.name()).append(";\n");
+                            .append(member.name()).append(";\n");
                 }
             }
             sb.append("\n");
@@ -178,7 +179,7 @@ public class ShaderGenerator {
         if (!defines.isEmpty()) {
             new TreeMap<>(defines).forEach((k, v) -> {
                 sb.append("        this.").append(toConstantName(k))
-                  .append(" = defines.getOrDefault(\"").append(k).append("\", \"").append(v).append("\");\n");
+                        .append(" = defines.getOrDefault(\"").append(k).append("\", \"").append(v).append("\");\n");
             });
         }
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
@@ -189,15 +190,15 @@ public class ShaderGenerator {
                 String javaType = inferBoxedType(member);
                 String classLiteral = javaType.endsWith("[]") ? "Object.class" : javaType + ".class";
                 sb.append("        this.").append(member.name())
-                  .append(" = shader.getPushConstant(\"").append(member.name())
-                  .append("\", ").append(classLiteral).append(");\n");
+                        .append(" = shader.getPushConstant(\"").append(member.name())
+                        .append("\", ").append(classLiteral).append(");\n");
             }
         }
         for (Map.Entry<Integer, List<ShaderLoader.DescriptorBindingInfo>> entry : bySet.entrySet()) {
             for (ShaderLoader.DescriptorBindingInfo binding : entry.getValue()) {
                 String name = binding.getName() != null ? binding.getName() : "binding" + binding.getBinding();
                 sb.append("        this.").append(name).append(" = ")
-                  .append(slotFactoryCall(binding)).append(";\n");
+                        .append(slotFactoryCall(binding)).append(";\n");
             }
         }
         sb.append("    }\n\n");
@@ -213,10 +214,10 @@ public class ShaderGenerator {
             for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
                 String type = specJavaType(sc);
                 String methodName = sc.isBool()
-                    ? "is" + Character.toUpperCase(sc.name().charAt(0)) + sc.name().substring(1)
-                    : "get" + Character.toUpperCase(sc.name().charAt(0)) + sc.name().substring(1);
+                        ? "is" + Character.toUpperCase(sc.name().charAt(0)) + sc.name().substring(1)
+                        : "get" + Character.toUpperCase(sc.name().charAt(0)) + sc.name().substring(1);
                 sb.append("    public ").append(type).append(" ").append(methodName)
-                  .append("() { return ").append(sc.name()).append("; }\n");
+                        .append("() { return ").append(sc.name()).append("; }\n");
             }
             sb.append("\n");
         }
@@ -237,7 +238,7 @@ public class ShaderGenerator {
     }
 
     private static void emitDescriptorsHelper(StringBuilder sb,
-                                                Map<Integer, List<ShaderLoader.DescriptorBindingInfo>> bySet) {
+                                              Map<Integer, List<ShaderLoader.DescriptorBindingInfo>> bySet) {
         boolean hasBindings = bySet.values().stream().anyMatch(l -> !l.isEmpty());
         if (!hasBindings) return;
 
@@ -251,7 +252,7 @@ public class ShaderGenerator {
 
             sb.append("    /** Creates a descriptor group builder with named binding methods for set ").append(setNumber).append(". */\n");
             sb.append("    public ").append(helperName).append(" descriptors").append(suffix)
-              .append("() { return new ").append(helperName).append("(shader.compiled(), shader.compiled().descriptorGroup(shader.device(), ").append(setNumber).append(")); }\n\n");
+                    .append("() { return new ").append(helperName).append("(shader.compiled(), shader.compiled().descriptorGroup(shader.device(), ").append(setNumber).append(")); }\n\n");
 
             sb.append("    public static class ").append(helperName).append(" {\n");
             sb.append("        private final CompiledShader compiled;\n");
@@ -264,7 +265,7 @@ public class ShaderGenerator {
                 if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         || type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER)) {
                     sb.append("        public ").append(helperName).append(" ").append(name)
-                      .append("(ManagedBuffer buf) { inner.buffer(").append(binding.getBinding()).append(", buf); return this; }\n");
+                            .append("(ManagedBuffer buf) { inner.buffer(").append(binding.getBinding()).append(", buf); return this; }\n");
                 }
             }
 
@@ -285,7 +286,7 @@ public class ShaderGenerator {
         // spec constant fields with defaults referencing the static finals
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
             sb.append("        private ").append(specJavaType(sc)).append(" ").append(sc.name())
-              .append(" = ").append("DEFAULT_" + toConstantName(sc.name())).append(";\n");
+                    .append(" = ").append("DEFAULT_" + toConstantName(sc.name())).append(";\n");
         }
         sb.append("\n");
         sb.append("        private Builder(VkDevice device) { this.device = device; }\n\n");
@@ -298,14 +299,14 @@ public class ShaderGenerator {
             String methodName = toCamelCase(def.getKey());
             sb.append("\n        /** Sets preprocessor define '").append(def.getKey()).append("' (default: \"").append(def.getValue()).append("\"). */\n");
             sb.append("        public Builder ").append(methodName).append("(String value) ")
-              .append("{ this.defines.put(\"").append(def.getKey()).append("\", value); return this; }\n");
+                    .append("{ this.defines.put(\"").append(def.getKey()).append("\", value); return this; }\n");
         }
 
         // fluent setter per spec constant
         for (ShaderLoader.SpecializationConstantInfo sc : specConstants) {
             sb.append("\n        /** Sets specialization constant '").append(sc.name()).append("' (default: ").append(specDefaultLiteral(sc)).append("). */\n");
             sb.append("        public Builder ").append(sc.name()).append("(").append(specJavaType(sc)).append(" value) ")
-              .append("{ this.").append(sc.name()).append(" = value; return this; }\n");
+                    .append("{ this.").append(sc.name()).append(" = value; return this; }\n");
         }
 
         sb.append("\n        public ").append(className).append(" build() {\n");
@@ -333,7 +334,7 @@ public class ShaderGenerator {
     }
 
     private static void emitBufferRecords(StringBuilder sb,
-                                           Map<Integer, List<ShaderLoader.DescriptorBindingInfo>> bySet) {
+                                          Map<Integer, List<ShaderLoader.DescriptorBindingInfo>> bySet) {
         // Collect all nested struct types that need their own record, keyed by type name.
         // Use LinkedHashMap to preserve encounter order (nested records before their parents).
         java.util.LinkedHashMap<String, List<ShaderLoader.StructMemberInfo>> nestedStructs = new java.util.LinkedHashMap<>();
@@ -355,7 +356,7 @@ public class ShaderGenerator {
                 List<ShaderLoader.StructMemberInfo> members = binding.getBlockMembers();
                 if (members.isEmpty()) continue;
                 boolean isStorage = binding.getDescriptorType()
-                    .equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                        .equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER);
                 String bindingName = binding.getName() != null ? binding.getName() : "binding" + binding.getBinding();
                 // For SSBOs, SPIRV-Reflect may flatten a runtime array: the single block member
                 // represents the element type (e.g. Light), not a wrapper. Treat it as Light[].
@@ -365,22 +366,22 @@ public class ShaderGenerator {
                     if (sole.typeName() != null && !sole.members().isEmpty()) {
                         // Synthesize a single-field member list with the array type
                         effectiveMembers = List.of(new ShaderLoader.StructMemberInfo(
-                            sole.name(), sole.offset(), sole.size(),
-                            sole.typeFlags() | 0x00010000, // force isArray
-                            sole.members(), sole.typeName(),
-                            sole.scalarWidth(), sole.scalarSignedness(),
-                            sole.vectorComponents(), sole.matrixColumns(), sole.matrixRows()));
+                                sole.name(), sole.offset(), sole.size(),
+                                sole.typeFlags() | 0x00010000, // force isArray
+                                sole.members(), sole.typeName(),
+                                sole.scalarWidth(), sole.scalarSignedness(),
+                                sole.vectorComponents(), sole.matrixColumns(), sole.matrixRows()));
                     }
                 }
                 String recordName = toClassName(bindingName);
                 emitRecord(sb, recordName, effectiveMembers, isStorage ? "SSBO" : "UBO",
-                    isStorage && members.size() == 1 && effectiveMembers != members);
+                        isStorage && members.size() == 1 && effectiveMembers != members);
             }
         }
     }
 
     private static void collectNestedStructs(List<ShaderLoader.StructMemberInfo> members,
-                                              java.util.LinkedHashMap<String, List<ShaderLoader.StructMemberInfo>> out) {
+                                             java.util.LinkedHashMap<String, List<ShaderLoader.StructMemberInfo>> out) {
         for (ShaderLoader.StructMemberInfo m : members) {
             if (!m.members().isEmpty() && m.typeName() != null && !m.typeName().isEmpty()) {
                 collectNestedStructs(m.members(), out);
@@ -408,7 +409,7 @@ public class ShaderGenerator {
             ShaderLoader.StructMemberInfo arrayMember = members.get(0);
             int elemSize = arrayMember.size();
             sb.append("        @Override public int byteSize() { return ").append(arrayMember.name())
-              .append(".length * ").append(elemSize).append("; }\n");
+                    .append(".length * ").append(elemSize).append("; }\n");
         } else {
             sb.append("        @Override public int byteSize() { return ").append(totalSize(members)).append("; }\n");
         }
@@ -431,12 +432,18 @@ public class ShaderGenerator {
         if (type.equals("float[]") || type.equals("int[]") || type.equals("double[]")) {
             String putMethod = type.equals("int[]") ? "putInt" : type.equals("double[]") ? "putDouble" : "putFloat";
             sb.append(indent).append("for (var v : ").append(field).append(") buf.").append(putMethod).append("(v);\n");
-        } else if (type.equals("float"))   { sb.append(indent).append("buf.putFloat(").append(field).append(");\n");
-        } else if (type.equals("int"))     { sb.append(indent).append("buf.putInt(").append(field).append(");\n");
-        } else if (type.equals("double"))  { sb.append(indent).append("buf.putDouble(").append(field).append(");\n");
-        } else if (type.equals("boolean")) { sb.append(indent).append("buf.putInt(").append(field).append(" ? 1 : 0);\n");
-        } else if (type.endsWith("[]"))    { sb.append(indent).append("for (var e : ").append(field).append(") e.writeTo(buf);\n");
-        } else                             { sb.append(indent).append(field).append(".writeTo(buf);\n");
+        } else if (type.equals("float")) {
+            sb.append(indent).append("buf.putFloat(").append(field).append(");\n");
+        } else if (type.equals("int")) {
+            sb.append(indent).append("buf.putInt(").append(field).append(");\n");
+        } else if (type.equals("double")) {
+            sb.append(indent).append("buf.putDouble(").append(field).append(");\n");
+        } else if (type.equals("boolean")) {
+            sb.append(indent).append("buf.putInt(").append(field).append(" ? 1 : 0);\n");
+        } else if (type.endsWith("[]")) {
+            sb.append(indent).append("for (var e : ").append(field).append(") e.writeTo(buf);\n");
+        } else {
+            sb.append(indent).append(field).append(".writeTo(buf);\n");
         }
     }
 
@@ -448,10 +455,14 @@ public class ShaderGenerator {
             String getMethod = type.equals("int[]") ? "getInt" : type.equals("double[]") ? "getDouble" : "getFloat";
             sb.append(indent).append(field).append(" = new ").append(type, 0, type.length() - 2).append("[").append(count).append("];\n");
             sb.append(indent).append("for (int i = 0; i < ").append(count).append("; i++) ").append(field).append("[i] = buf.").append(getMethod).append("();\n");
-        } else if (type.equals("float"))   { sb.append(indent).append(field).append(" = buf.getFloat();\n");
-        } else if (type.equals("int"))     { sb.append(indent).append(field).append(" = buf.getInt();\n");
-        } else if (type.equals("double"))  { sb.append(indent).append(field).append(" = buf.getDouble();\n");
-        } else if (type.equals("boolean")) { sb.append(indent).append(field).append(" = buf.getInt() != 0;\n");
+        } else if (type.equals("float")) {
+            sb.append(indent).append(field).append(" = buf.getFloat();\n");
+        } else if (type.equals("int")) {
+            sb.append(indent).append(field).append(" = buf.getInt();\n");
+        } else if (type.equals("double")) {
+            sb.append(indent).append(field).append(" = buf.getDouble();\n");
+        } else if (type.equals("boolean")) {
+            sb.append(indent).append(field).append(" = buf.getInt() != 0;\n");
         } else if (type.endsWith("[]")) {
             String elemType = type.substring(0, type.length() - 2);
             sb.append(indent).append("for (int i = 0; i < ").append(field).append(".length; i++) { ").append(field).append("[i] = new ").append(elemType).append("(); ").append(field).append("[i].readFrom(buf); }\n");
@@ -476,13 +487,13 @@ public class ShaderGenerator {
     // ---- Type helpers ----
 
     private static String specJavaType(ShaderLoader.SpecializationConstantInfo sc) {
-        if (sc.isBool())  return "boolean";
+        if (sc.isBool()) return "boolean";
         if (sc.isFloat()) return "float";
         return "int";
     }
 
     private static String specDefaultLiteral(ShaderLoader.SpecializationConstantInfo sc) {
-        if (sc.isBool())  return sc.defaultBool() ? "true" : "false";
+        if (sc.isBool()) return sc.defaultBool() ? "true" : "false";
         if (sc.isFloat()) return sc.defaultFloat() + "f";
         return String.valueOf(sc.defaultInt());
     }
@@ -520,12 +531,12 @@ public class ShaderGenerator {
         // typeName + nested members = struct (flags may be 0 for SSBO block vars)
         if (member.typeName() != null && !member.members().isEmpty()) return member.typeName();
         if (member.isStruct()) return member.typeName() != null ? member.typeName() : toClassName(member.name());
-        if (member.isBool())   return "boolean";
-        if (member.isInt())    return "int";
-        if (member.isFloat())  return member.scalarWidth() == 64 ? "double" : "float";
+        if (member.isBool()) return "boolean";
+        if (member.isInt()) return "int";
+        if (member.isFloat()) return member.scalarWidth() == 64 ? "double" : "float";
         int size = member.size();
-        if (size == 4)  return "float";
-        if (size == 8)  return "float[]";
+        if (size == 4) return "float";
+        if (size == 8) return "float[]";
         if (size == 12) return "float[]";
         if (size == 16) return "float[]";
         if (size == 64) return "float[]";
@@ -534,8 +545,8 @@ public class ShaderGenerator {
 
     private static String vectorJavaType(ShaderLoader.StructMemberInfo m) {
         int components = m.vectorComponents() > 0 ? m.vectorComponents() : m.size() / 4;
-        if (m.isBool())  return "boolean[]";
-        if (m.isInt())   return "int[]";
+        if (m.isBool()) return "boolean[]";
+        if (m.isInt()) return "int[]";
         return "float[]";
     }
 
@@ -544,8 +555,8 @@ public class ShaderGenerator {
     }
 
     private static String scalarArrayType(ShaderLoader.StructMemberInfo m) {
-        if (m.isBool())  return "boolean";
-        if (m.isInt())   return "int";
+        if (m.isBool()) return "boolean";
+        if (m.isInt()) return "int";
         if (m.isFloat()) return m.scalarWidth() == 64 ? "double" : "float";
         return "float";
     }
@@ -563,8 +574,8 @@ public class ShaderGenerator {
         }
         if (m.isVector()) {
             int components = m.vectorComponents() > 0 ? m.vectorComponents() : m.size() / (m.scalarWidth() == 64 ? 8 : 4);
-            if (m.isBool())  return "bvec" + components;
-            if (m.isInt())   return (m.scalarSignedness() == 0 ? "u" : "") + "ivec" + components;
+            if (m.isBool()) return "bvec" + components;
+            if (m.isInt()) return (m.scalarSignedness() == 0 ? "u" : "") + "ivec" + components;
             if (m.scalarWidth() == 64) return "dvec" + components;
             return "vec" + components;
         }
@@ -577,7 +588,7 @@ public class ShaderGenerator {
         // Flags may be zero for SSBO/UBO block members — fall back to size heuristics
         if (m.typeName() == null && m.members().isEmpty()) {
             return switch (m.size()) {
-                case 8  -> "vec2";
+                case 8 -> "vec2";
                 case 12 -> "vec3";
                 case 16 -> "vec4";
                 case 32 -> "mat2 / vec4[2]";
@@ -590,12 +601,14 @@ public class ShaderGenerator {
         return null;
     }
 
-    /** Boxed version of inferJavaType for use as generic type parameters (e.g. PushConstant<T>). */
+    /**
+     * Boxed version of inferJavaType for use as generic type parameters (e.g. PushConstant<T>).
+     */
     private static String inferBoxedType(ShaderLoader.StructMemberInfo member) {
         String t = inferJavaType(member);
-        if (t.equals("float"))   return "Float";
-        if (t.equals("int"))     return "Integer";
-        if (t.equals("double"))  return "Double";
+        if (t.equals("float")) return "Float";
+        if (t.equals("int")) return "Integer";
+        if (t.equals("double")) return "Double";
         if (t.equals("boolean")) return "Boolean";
         return t;
     }
@@ -619,7 +632,9 @@ public class ShaderGenerator {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
-    /** Converts a camelCase name to SCREAMING_SNAKE_CASE for static final fields. */
+    /**
+     * Converts a camelCase name to SCREAMING_SNAKE_CASE for static final fields.
+     */
     private static String toConstantName(String name) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < name.length(); i++) {
@@ -630,7 +645,9 @@ public class ShaderGenerator {
         return sb.toString();
     }
 
-    /** Converts a SCREAMING_SNAKE or camelCase name to camelCase for method names. */
+    /**
+     * Converts a SCREAMING_SNAKE or camelCase name to camelCase for method names.
+     */
     private static String toCamelCase(String name) {
         if (!name.contains("_")) {
             return Character.toLowerCase(name.charAt(0)) + name.substring(1);
@@ -639,7 +656,10 @@ public class ShaderGenerator {
         boolean nextUpper = false;
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
-            if (c == '_') { nextUpper = true; continue; }
+            if (c == '_') {
+                nextUpper = true;
+                continue;
+            }
             sb.append(nextUpper ? Character.toUpperCase(c) : Character.toLowerCase(c));
             nextUpper = false;
         }
@@ -648,6 +668,6 @@ public class ShaderGenerator {
 
     private static boolean isShaderFile(String path) {
         return path.endsWith(".vert") || path.endsWith(".frag") || path.endsWith(".comp")
-            || path.endsWith(".geom") || path.endsWith(".tesc") || path.endsWith(".tese");
+                || path.endsWith(".geom") || path.endsWith(".tesc") || path.endsWith(".tese");
     }
 }

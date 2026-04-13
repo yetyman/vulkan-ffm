@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.sync;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkSemaphore;
 import io.github.yetyman.vulkan.VkTimelineSemaphore;
+
 import java.lang.foreign.Arena;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,14 +21,20 @@ public class SemaphoreManager implements AutoCloseable {
         this.arena = arena;
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** Creates or gets a named timeline semaphore. */
+    /**
+     * Creates or gets a named timeline semaphore.
+     */
     public VkTimelineSemaphore getTimelineSemaphore(String name) {
         return semaphores.computeIfAbsent(name, k -> VkTimelineSemaphore.create(device, 0, arena));
     }
 
-    /** Creates a binary semaphore. */
+    /**
+     * Creates a binary semaphore.
+     */
     public VkSemaphore createBinarySemaphore() {
         return VkSemaphore.builder().device(device).build(arena);
     }
@@ -41,7 +48,10 @@ public class SemaphoreManager implements AutoCloseable {
     public static class Builder {
         private VkDevice device;
 
-        public Builder device(VkDevice device) { this.device = device; return this; }
+        public Builder device(VkDevice device) {
+            this.device = device;
+            return this;
+        }
 
         public SemaphoreManager build(Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");

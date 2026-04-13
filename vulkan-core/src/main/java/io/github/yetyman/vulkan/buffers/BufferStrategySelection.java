@@ -6,8 +6,8 @@ package io.github.yetyman.vulkan.buffers;
  * and provides recommended descriptor usage hints.
  */
 public record BufferStrategySelection(
-    MemoryStrategy memoryStrategy,
-    MemoryStrategy secondaryStrategy
+        MemoryStrategy memoryStrategy,
+        MemoryStrategy secondaryStrategy
 ) {
     /**
      * Whether this selection uses a ring buffer — i.e. N copies of the data exist,

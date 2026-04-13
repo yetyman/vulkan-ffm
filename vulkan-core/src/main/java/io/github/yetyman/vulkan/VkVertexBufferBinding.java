@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.generated.VulkanFFM;
 import io.github.yetyman.vulkan.command.VkBind;
+
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -14,34 +15,35 @@ import java.util.List;
 public class VkVertexBufferBinding {
     private final List<MemorySegment> buffers = new ArrayList<>();
     private final List<Long> offsets = new ArrayList<>();
-    
-    private VkVertexBufferBinding() {}
-    
+
+    private VkVertexBufferBinding() {
+    }
+
     public static VkVertexBufferBinding create() {
         return new VkVertexBufferBinding();
     }
-    
+
     public VkVertexBufferBinding buffer(MemorySegment buffer) {
         return buffer(buffer, 0L);
     }
-    
+
     public VkVertexBufferBinding buffer(MemorySegment buffer, long offset) {
         buffers.add(buffer);
         offsets.add(offset);
         return this;
     }
-    
+
     public void bind(MemorySegment commandBuffer, int firstBinding, Arena arena) {
         if (buffers.isEmpty()) return;
-        
+
         MemorySegment bufferArray = arena.allocate(ValueLayout.ADDRESS, buffers.size());
         MemorySegment offsetArray = arena.allocate(ValueLayout.JAVA_LONG, offsets.size());
-        
+
         for (int i = 0; i < buffers.size(); i++) {
             bufferArray.setAtIndex(ValueLayout.ADDRESS, i, buffers.get(i));
             offsetArray.setAtIndex(ValueLayout.JAVA_LONG, i, offsets.get(i));
         }
-        
+
         VkBind.bindVertexBuffers(commandBuffer, firstBinding, buffers.size(), bufferArray, offsetArray);
     }
 }

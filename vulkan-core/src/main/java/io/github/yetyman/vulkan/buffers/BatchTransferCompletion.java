@@ -27,9 +27,13 @@ class BatchTransferCompletion {
         this.refCount = new AtomicInteger(0);
     }
 
-    void resolve() { this.submitted = true; }
+    void resolve() {
+        this.submitted = true;
+    }
 
-    boolean isSubmitted() { return submitted; }
+    boolean isSubmitted() {
+        return submitted;
+    }
 
     void await() {
         if (!submitted) return;
@@ -43,7 +47,9 @@ class BatchTransferCompletion {
         return VkFenceOps.getStatus(fence.device(), fence) == VkResult.SUCCESS;
     }
 
-    void retain() { refCount.incrementAndGet(); }
+    void retain() {
+        refCount.incrementAndGet();
+    }
 
     void release() {
         if (refCount.decrementAndGet() == 0) freeResources();
@@ -56,7 +62,10 @@ class BatchTransferCompletion {
     private void freeResources() {
         if (!resourcesFreed.compareAndSet(false, true)) return;
         for (AutoCloseable obj : ownedObjects) {
-            try { obj.close(); } catch (Exception ignored) {}
+            try {
+                obj.close();
+            } catch (Exception ignored) {
+            }
         }
         batchArena.close();
     }
