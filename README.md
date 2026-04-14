@@ -8,6 +8,44 @@ A Java wrapper for Vulkan using the Foreign Function & Memory (FFM) API introduc
 - Type-safe structure wrappers
 - Memory-safe with Arena-based allocation
 - Core Vulkan functionality: instances, devices, buffers
+- Runtime GLSL→SPIR-V compilation and SPIR-V reflection
+- Builder pattern for all major Vulkan objects
+- High-level application framework (VulkanApplication, GraphicsRenderer, GraphicsLoop)
+
+## Recommended JVM Configuration
+
+### Garbage Collector — ZGC Generational
+
+This library is designed to work with **ZGC Generational** (`-XX:+UseZGC -XX:+ZGenerational`), available in Java 21+ and the default in Java 25+.
+
+**Why ZGC for Vulkan/GPU workloads:**
+- ZGC is a concurrent collector — it performs marking and relocation concurrently with application threads. Safepoints are sub-millisecond (often microseconds), compared to G1's multi-millisecond stop-the-world pauses.
+- GPU workloads are extremely sensitive to CPU-side stalls. A 10ms GC pause on the render thread causes a dropped frame. ZGC's short safepoints make this a non-issue.
+- ZGC's load barriers operate entirely in Java code, not at safepoints, and have no interaction with native memory or FFM calls.
+
+**ZGC and FFM Critical Natives:**
+
+This library uses (or will use) `Linker.Option.critical(false)` on hot-path Vulkan calls (vkCmdDraw, vkCmdBindPipeline, vkCmdPushConstants, etc.) to eliminate safepoint-check overhead at the FFM call boundary.
+
+Critical natives prevent the JVM from reaching a safepoint while the native call is executing. With stop-the-world collectors (G1, Parallel GC), a long critical native call can delay GC pauses unpredictably. **With ZGC, this concern is largely eliminated** — ZGC's safepoints are already so short that a 10-microsecond critical native delaying one is irrelevant to overall GC behavior.
+
+Critical natives are only enabled when:
+- System property `vulkan.critical=true` is set
+- System property `vulkan.validation` is NOT set (validation layers use callbacks which are incompatible with critical natives)
+
+**Upcall safety:** Critical natives cannot invoke Java callbacks regardless of GC. Validation layer callbacks, debug messengers, and timeline semaphore wait callbacks must never be triggered from a critical native call path. This is a JVM constraint independent of GC choice.
+
+**Recommended JVM flags:**
+```bash
+java -XX:+UseZGC -XX:+ZGenerational \
+     -Dvulkan.critical=true \
+     -jar your-app.jar
+
+# For development with validation layers:
+java -XX:+UseZGC -XX:+ZGenerational \
+     -Dvulkan.validation=true \
+     -jar your-app.jar
+```
 
 ## System Requirements
 

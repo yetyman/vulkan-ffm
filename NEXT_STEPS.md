@@ -1,9 +1,218 @@
 # Next Steps
 
-## Buffer System
+## Buffer System Refactor — Composition over Inheritance
 
-- CPU-side ring buffering only warranted when data changes every frame
-  - Large rarely-updated data: 1 CPU copy + dirty flag + staged upload on change, no CPU ring buffer
+The current buffer system uses inheritance (`MappedBuffer extends AbstractBuffer`, etc.) which forces fixed combinations of allocation and IO behavior and causes unnecessary copies when a strategy could avoid them (e.g. ReBar writing directly, ring buffer aliasing). Replace with a composable structure.
+
+### Target shape
+```java
+public class ManagedBuffer implements AutoCloseable {
+    private final AllocationStrategy allocation; // where memory lives, how it is mapped
+    private final IoStrategy io;                 // how data moves between CPU and GPU
+    private final VkBuffer handle;
+}
+```
+
+### AllocationStrategy interface
+Responsible for: which VkDeviceMemory heap, suballocation vs dedicated, persistent mapping, memory property flags.
+Implementations:
+- `DirectAllocationStrategy` — one VkDeviceMemory per buffer (current behavior)
+- `SuballocatedAllocationStrategy` — backed by a suballocator pool (VMA or custom)
+- `ReBarAllocationStrategy` — DEVICE_LOCAL | HOST_VISIBLE when available
+
+### IoStrategy interface
+Responsible for: given data to write/read, what is the optimal transfer path.
+Implementations:
+- `MappedIoStrategy` — persistent CPU map, direct memcpy, no staging
+- `StagingIoStrategy` — write to staging buffer, vkCmdCopyBuffer to device-local
+- `RingIoStrategy` — N-slot ring wrapping another IoStrategy, one slot per frame in flight
+- `DirectIoStrategy` — ReBar direct write, no staging, no persistent map
+
+### Composition examples. just some ideas
+```java
+// host-visible mapped buffer (current MappedBuffer)
+new ManagedBuffer(AllocationStrategy.Direct(HOST_VISIBLE | HOST_COHERENT), IoStrategy.MAPPED, ...)
+
+// device-local with staging (current DeviceLocalBuffer)
+new ManagedBuffer(AllocationStrategy.Direct(DEVICE_LOCAL), IoStrategy.Staging(queue), ...)
+
+// suballocated device-local with staging
+new ManagedBuffer(AllocationStrategy.Suballoc(SuballocationType.XXXXXX), IoStrategy.Staging(queue), ...)
+
+// ReBar direct write
+new ManagedBuffer(AllocationStrategy.ReBar, IoStrategy.DIRECT, ...)
+
+// ring-buffered mapped (current RingBuffer)
+new ManagedBuffer(AllocationStrategy.Direct(HOST_VISIBLE), IoStrategy.RingBuffered(3, RenderSync.with(AtomicInteger x, IoStrategy.MAPPED), ...)
+```
+This composition organization is pending on actual needs to fit in to the architecture. We'll try to do it this way and see what fits. we will NOT be getting rid of the buffer strategy selector.
+
+### VMA integration
+VMA backs `SuballocationStrategy` only. It is not used for direct allocations unless explicitly chosen. Lives in `buffers/vma/` subpackage. 
+
+### Migration path
+- Keep `ManagedBuffer` interface stable (write/read/writeAsync/handle/size/close)
+- Replace SuballocationStrategy class hierarchy with strategy composition
+- `TypedVkBuffer`, `FloatVkBuffer`, etc. unchanged — they wrap `ManagedBuffer` interface
+
+---
+
+## BumpAllocator — Thread-Local Native Bump Allocator
+
+For all build methods in Vulkan wrappers, intermediate structs (VkBufferCreateInfo, VkMemoryAllocateInfo, etc.) only need to live until the Vulkan call returns. Currently these use `Arena.ofConfined()` which has cleanup tracking overhead. A thread-local bump allocator eliminates this overhead.
+
+### Location
+`vulkan-core/src/main/java/io/github/yetyman/vulkan/util/BumpAllocator.java`
+
+### Design
+```java
+public final class BumpAllocator {
+    private static final int BLOCK_SIZE = 64 * 1024;
+    private static final ThreadLocal<BumpAllocator> INSTANCE = ThreadLocal.withInitial(BumpAllocator::new);
+    
+    private final MemorySegment block = Arena.global().allocate(BLOCK_SIZE, 8);
+    private final int[] offsetStack = new int[8]; // supports 8 levels of nesting
+    private int offset = 0;
+    private int stackDepth = 0;
+    
+    public static BumpAllocator get() { return INSTANCE.get(); }
+    public void push() { offsetStack[stackDepth++] = offset; }
+    public void pop()  { offset = offsetStack[--stackDepth]; }
+    public MemorySegment alloc(long size, long align) { ... } // rounds up to align, bumps offset
+    // overflow fallback: if size exceeds remaining block, allocate from Arena.ofConfined() with trace log
+}
+```
+
+### Usage in build methods
+```java
+public VkBuffer build(Arena arena) {
+    BumpAllocator ba = BumpAllocator.get();
+    ba.push();
+    try {
+        MemorySegment bufferInfo = ba.alloc(VkBufferCreateInfo.sizeof(), 8);
+        // fill struct, call Vulkan, return wrapper
+    } finally {
+        ba.pop();
+    }
+}
+```
+
+---
+
+## Critical Natives — FFM Performance Optimization
+
+FFM `MethodHandle` invocations for Vulkan calls carry safepoint-check overhead. For hot-path per-frame calls this is measurable. `Linker.Option.critical(false)` removes the safepoint check, reducing call overhead significantly.
+
+### Rules for critical native eligibility
+```
+Use critical if ALL:
+  - No validation layers enabled (release mode only)
+  - No callbacks (not vkCreate*DebugUtils*, not blocking waits)
+  - Expected duration < ~10 microseconds
+  - Called in hot path (per-frame or per-draw)
+
+Never critical:
+  - vkWaitForFences, vkAcquireNextImageKHR (blocking)
+  - vkCreateDebugUtilsMessengerEXT (callback)
+  - vkAllocateMemory, vkCreateBuffer (allocating, slow)
+  - Any call that may trigger validation layer upcalls
+```
+
+### Implementation approach
+Maintain three categorization files alongside the generated bindings:
+- `always_critical.txt` — hot path, never has callbacks (vkCmdDraw, vkCmdBindPipeline, vkCmdPushConstants, vkCmdSetViewport, vkCmdSetScissor, vkCmdDispatch, vkCmdBindDescriptorSets, vkCmdDrawIndexed, vkCmdDrawIndirect)
+- `conditional_critical.txt` — critical in release, not in debug/validation
+- `never_critical.txt` — blocking or has callbacks
+
+A transformation script patches the generated VulkanFFM handle initialization to add `Linker.Option.critical(false)` based on these lists. Gated by system property:
+```java
+private static final boolean CRITICAL =
+    Boolean.getBoolean("vulkan.critical") && !Boolean.getBoolean("vulkan.validation");
+```
+Selected once at class load time — no runtime branching.
+
+### ZGC interaction
+With ZGC Generational (recommended GC for this codebase), critical natives are safe. ZGC's safepoints are already sub-millisecond; a 10-microsecond critical native delaying one is irrelevant. ZGC's load barriers operate in Java code, not at safepoints, and are unaffected by critical natives. See README for full ZGC notes.
+
+**Upcalls remain unsafe for critical natives regardless of GC.** The upcall restriction is a JVM constraint unrelated to GC behavior. Timeline semaphore callbacks and validation layer callbacks must never be invoked from a critical native call path.
+
+---
+
+## Math Package
+
+`vulkan-core/src/main/java/io/github/yetyman/vulkan/math/`
+
+GPU-upload-oriented math types. focused on types needed for transforms, camera matrices, and shader uploads.
+
+### Quaternion
+Represents a pure rotation (no translation). Unit quaternion = 3x3 rotation matrix equivalent.
+```java
+Quaternion.fromAxisAngle(float ax, float ay, float az, float angle)
+Quaternion.fromEuler(float x, float y, float z)
+Quaternion.identity()
+q.multiply(Quaternion other)       // compose rotations
+q.slerp(Quaternion other, float t) // shortest-path interpolation
+q.normalize()
+q.conjugate()                      // inverse for unit quaternions
+q.toMatrix4f()                     // for GPU upload
+q.rotate(float x, float y, float z) // apply rotation to a vector
+```
+
+### DualQuaternion
+Encodes rotation + translation as q_real + ε·q_dual. Blending multiple dual quaternions produces correct rigid transforms (no candy-wrapper artifact). Non-uniform scale cannot be encoded — handle scale separately.
+```java
+DualQuaternion.fromRotationTranslation(Quaternion r, float tx, float ty, float tz)
+DualQuaternion.identity()
+dq.blend(DualQuaternion other, float weight) // for skinning accumulation
+dq.normalize()
+dq.toMatrix4f()                              // for GPU upload
+dq.extractTranslation()                      // float[3]
+dq.extractRotation()                         // Quaternion
+```
+
+### Matrix4f
+Standard 4x4 float matrix. Column-major to match GLSL/Vulkan convention.
+```java
+Matrix4f.identity()
+Matrix4f.perspective(float fovY, float aspect, float near, float far)
+Matrix4f.lookAt(float[] eye, float[] center, float[] up)
+m.multiply(Matrix4f other)
+m.toMemorySegment(Arena arena)  // direct GPU upload
+```
+
+---
+
+## Spatial Structures (own module, future)
+
+Not yet. Likely deserves its own Maven module. Planned contents:
+
+- **Uniform spatial grid** — 2D and 3D variants. Fixed cell size, each cell holds list of occupant indices. O(1) average hit test. Used for broad-phase collision and cursor hit testing at scale.
+- **GPU-resident BVH** — LBVH build via Morton code sort (compute shader), bottom-up refit (compute shader). Stored in storage buffer. Traversable from any shader stage via ray query or manual traversal. Separate from Vulkan AS — this is a custom structure for non-ray spatial queries.
+- **HZB occlusion culling** — two-phase render (phase 1: draw last-frame-visible, build max-depth mip pyramid via compute; phase 2: test all objects against HZB, draw newly visible). Max-depth mip means test is: `object.minDepth > HZB.sample(projectedRect)` → cull. Never incorrectly culls, may miss some culls. One frame latency, self-healing.
+- **Frustum culling compute pass** — test object AABBs against 6 frustum planes in compute, write surviving instance IDs to indirect draw buffer.
+- **3D ring buffer** — fixed-size 3D slot array for chunk/region streaming. World coordinate → slot index via `Math.floorMod`. Shift operation evicts/loads only the slab of slots that changed. O(radius²) per unit of player movement.
+
+---
+
+## Compute Utilities (future)
+
+`vulkan-core/src/main/java/io/github/yetyman/vulkan/compute/`
+
+- **Generic mip generation** — single-dispatch hierarchical reduction using wave intrinsics (`subgroupShuffleDown` or equivalent). Reusable for texture mip chains, HZB max-depth pyramid, prefix sums. One compute dispatch instead of one per mip level. Requires `VK_KHR_shader_subgroup_extended_types` or Vulkan 1.1 subgroup support.
+
+---
+
+## BLAS / TLAS Wrappers (future, after ray query capability is added)
+
+See Ray Tracing section below for Phase 1 (ray query) prerequisites. BLAS/TLAS wrappers build on top of that.
+
+- `VkBlas` — wraps VkAccelerationStructureKHR for bottom-level geometry. Builder takes VkBuffer (vertices + indices). Supports `rebuild()` (full SAH rebuild) and `refit()` (topology-preserving bounds update). Double-buffer pattern: hold two VkBlas instances and swap per frame for dynamic geometry.
+- `VkTlas` — wraps VkAccelerationStructureKHR for top-level scene. Takes list of (VkBlas, transform matrix, instanceId). Maintains instance buffer internally. `rebuild()` called per frame when transforms change (cheap — just bounding boxes of BLASes).
+- `VkScratchBuffer` — pooled scratch memory for AS builds. Size queried via `vkGetAccelerationStructureBuildSizesKHR`. One pool sized for the largest build, reused across sequential builds. Larger-than-minimum size is fine.
+- Proxy mesh pattern: for Nanite-style or highly detailed meshes, build BLAS from a simplified LOD proxy (not full detail). Ray tracing doesn't need full geometric detail; a shadow/reflection ray hitting a simplified mesh is visually identical.
+- BLAS refit constraint: vertex buffer indices must not change between build and refit. Vertex positions can move; topology cannot. Moving a vertex buffer for defragmentation is safe as long as the whole buffer moves atomically and the BLAS device address is updated before the next refit.
+
+---
 
 ## Bindless Descriptors
 
@@ -17,86 +226,6 @@
 - Bindless bindings require three flags per binding:
   `VARIABLE_DESCRIPTOR_COUNT + PARTIALLY_BOUND + UPDATE_AFTER_BIND`
 - Bindless is additive — non-bindless shaders and bindings are unaffected
-
-## Shader System
-
-### Descriptor Pool Lifecycle
-- Pool grows on `VK_ERROR_OUT_OF_POOL_MEMORY` — chain of pools, always allocate from tail
-- Shader registration: reflect → record descriptor requirements → allocate from current pool → grow if needed
-  - No upfront total required; shaders can be registered at any time including runtime
-- Shader disposal: decrement live-set count on the owning pool. Pool is NOT destroyed immediately.
-- `trimPools()`: destroys any pool where live-set count = 0 and it is not the active allocation pool
-  - User calls at natural low-pressure moments (level load complete, loading screen, etc.)
-  - All remaining pools destroyed at shutdown
-- Default instance count = 1 per shader program; user can override at registration
-
-### Reflection & Validation (at shader load time)
-- Warn when shader uses variable-count array bindings but `bindlessDescriptors=false`
-- Warn when shader's descriptor set count exceeds `maxBoundDescriptorSets`
-- Warn when parameters in the same descriptor set are bound to different update frequencies
-  - Suggest reorganizing to frequency-boundary set layout: set 0=global/frame, set 1=per-pass, set 2=per-material, set 3=per-object
-  - Frequency mismatch within a set → promote entire set to fastest frequency among its bindings
-
-### Struct Member Reflection — spirv-reflect-bindings additions needed
-
-`spirv_reflect_wrapper.h` is hand-written and currently forward-declares `SpvReflectTypeDescription`
-and `SpvReflectBlockVariable` without defining them. Add these definitions and re-run
-`generate-spirv-reflect-bindings.bat` to enable struct member mirroring and push constant enumeration:
-
-```c
-typedef enum SpvReflectTypeFlags {
-    SPV_REFLECT_TYPE_FLAG_UNDEFINED = 0,
-    SPV_REFLECT_TYPE_FLAG_VOID      = 0x00000001,
-    SPV_REFLECT_TYPE_FLAG_BOOL      = 0x00000002,
-    SPV_REFLECT_TYPE_FLAG_INT       = 0x00000004,
-    SPV_REFLECT_TYPE_FLAG_FLOAT     = 0x00000008,
-    SPV_REFLECT_TYPE_FLAG_VECTOR    = 0x00000100,
-    SPV_REFLECT_TYPE_FLAG_MATRIX    = 0x00000200,
-    SPV_REFLECT_TYPE_FLAG_STRUCT    = 0x00000800,
-    SPV_REFLECT_TYPE_FLAG_ARRAY     = 0x00010000,
-} SpvReflectTypeFlags;
-
-typedef struct SpvReflectNumericTraits {
-    struct { uint32_t width; uint32_t signedness; } scalar;
-    struct { uint32_t component_count; } vector;
-    struct { uint32_t column_count; uint32_t row_count; uint32_t stride; } matrix;
-} SpvReflectNumericTraits;
-
-typedef struct SpvReflectArrayTraits {
-    uint32_t dims_count;
-    uint32_t dims[32];
-    uint32_t stride;
-} SpvReflectArrayTraits;
-
-struct SpvReflectTypeDescription {
-    uint32_t id;
-    uint32_t op;
-    const char* type_name;
-    const char* struct_member_name;
-    SpvReflectTypeFlags type_flags;
-    uint32_t decoration_flags;
-    SpvReflectNumericTraits traits;
-    uint32_t member_count;
-    SpvReflectTypeDescription* members;
-};
-
-struct SpvReflectBlockVariable {
-    uint32_t spirv_id;
-    const char* name;
-    uint32_t offset;
-    uint32_t absolute_offset;
-    uint32_t size;
-    uint32_t padded_size;
-    uint32_t decoration_flags;
-    SpvReflectNumericTraits numeric;
-    SpvReflectArrayTraits array;
-    uint32_t member_count;
-    SpvReflectBlockVariable* members;
-    SpvReflectTypeDescription* type_description;
-};
-```
-
-After
 
 ## Debug Utils / Validation Layer Integration
 
@@ -165,18 +294,6 @@ After
 - Do NOT spin up threads per frame — pool is created once and reused
 - Each worker thread owns a `VkCommandPool` (via `VkCommandPoolRegistry`) and a pre-allocated secondary `VkCommandBuffer` per pass slot
 - Secondary buffers reset at start of each frame, not reallocated
-
-### RenderList.executeParallel Implementation
-- Main thread allocates one primary command buffer + N secondary command buffers (one per worker)
-- Secondary buffers recorded with `VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT`
-- `VkCommandBufferInheritanceInfo` must reference the active render pass + framebuffer (or use `VkCommandBufferInheritanceRenderingInfo` for dynamic rendering)
-- Workers receive their secondary buffer + thread index, call `ParallelExecutor.execute()`
-- Synchronization: `CountDownLatch` or array of `CompletableFuture` — await all workers before `vkCmdExecuteCommands`
-- Main thread calls `Vulkan.cmdExecuteCommands(primaryCmdBuf, secondaryCmdBufs[])` after all workers complete
-- Thread count should be capped at actual draw call count for the pass — no benefit spinning 8 threads for 2 draws
-
-### Vulkan.java additions needed (already added)
-- `cmdExecuteCommands(MemorySegment commandBuffer, int count, MemorySegment commandBuffers)` — already present
 
 ### What still needs building
 - `RenderList` parallel pass executor wiring (replace stub loop with actual thread pool dispatch)
