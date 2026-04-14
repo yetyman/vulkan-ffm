@@ -28,7 +28,7 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     public static final int SQUARE_SIZE = 80;
     public static final float CORNER_RADIUS = 12.0f;
 
-    private static final int FLOATS_PER_SQ = 6; // x, y, r, g, b, radius
+    private static final int FLOATS_PER_SQ = 10; // x, y, r, g, b, radius, borderWidth, borderR, borderG, borderB
     private static final long BUF_SIZE = (long) NUM_SQUARES * FLOATS_PER_SQ * Float.BYTES;
     private static final int SLICES_PER_SQ = 9;
     private static final int PC_SIZE = 8;
@@ -108,24 +108,34 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
         for (int i = 4; i < NUM_SQUARES; i++) {
             float x = rng.nextFloat() * (width - SQUARE_SIZE);
             float y = rng.nextFloat() * (height - SQUARE_SIZE);
-            placeSquare(i, x, y, rng);
+            if(i%4==0) {
+                placeSquare(i, x, y, rng.nextFloat(), rng.nextFloat(), rng.nextFloat(), CORNER_RADIUS, BORDER_WIDTH, 0,0,0);
+            } else {
+                placeSquare(i, x, y, rng);
+            }
         }
     }
 
+    public static final float BORDER_WIDTH = 1.0f;
+
     private void placeSquare(int i, float x, float y, Random rng) {
-        float r = rng.nextFloat() * 0.7f + 0.2f;
-        float g = rng.nextFloat() * 0.7f + 0.2f;
-        float b = rng.nextFloat() * 0.7f + 0.2f;
+        placeSquare(i, x, y, rng.nextFloat() * 0.7f + 0.2f, rng.nextFloat() * 0.7f + 0.2f, rng.nextFloat() * 0.7f + 0.2f, CORNER_RADIUS, BORDER_WIDTH, rng.nextFloat(), rng.nextFloat(), rng.nextFloat());
+    }
+    private void placeSquare(int i, float x, float y, float r, float g, float b, float cornerRadius, float borderWidth, float br, float bg, float bb) {
         baseColors[i * 3] = r;
         baseColors[i * 3 + 1] = g;
         baseColors[i * 3 + 2] = b;
         int base = i * FLOATS_PER_SQ;
-        squareData[base] = x;
+        squareData[base]     = x;
         squareData[base + 1] = y;
         squareData[base + 2] = r;
         squareData[base + 3] = g;
         squareData[base + 4] = b;
-        squareData[base + 5] = CORNER_RADIUS;
+        squareData[base + 5] = cornerRadius;
+        squareData[base + 6] = borderWidth;
+        squareData[base + 7] = br;
+        squareData[base + 8] = bg;
+        squareData[base + 9] = bb;
     }
 
     /**

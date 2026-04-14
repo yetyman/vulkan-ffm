@@ -1,35 +1,40 @@
 #version 450
 
 layout (location = 0) in vec3 fragColor;
-layout (location = 1) in vec2 fragUV;
-// 0=non-corner, 1=TL, 2=TR, 3=BL, 4=BR
-layout (location = 2) flat in int fragSliceType;
-layout (location = 3) in float fragRadius;
+layout (location = 1) in vec2 fragLocalPx;
+layout (location = 2) in float fragRadius;
+layout (location = 3) in float fragBorderWidth;
+layout (location = 4) in vec3 fragBorderColor;
+layout (location = 5) in vec2 fragSquareOrigin;
 
 layout (location = 0) out vec4 outColor;
 
+const float SIZE = 80.0;
+
+float roundedRectSDF(vec2 p, float hx, float hy, float r) {
+    vec2 q = abs(p) - vec2(hx - r, hy - r);
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
 void main() {
-    float alpha = 1.0;
+    float halfSize = SIZE * 0.5;
+    vec2 p = fragLocalPx - vec2(halfSize, halfSize);
 
-    if (fragSliceType != 0 && fragRadius > 0.0) {
-        // Arc center in UV space: the inner corner of the quad (toward square center).
-        // TL quad: outer corner=UV(0,0), arc center=UV(1,1)
-        // TR quad: outer corner=UV(1,0), arc center=UV(0,1)
-        // BL quad: outer corner=UV(0,1), arc center=UV(1,0)
-        // BR quad: outer corner=UV(1,1), arc center=UV(0,0)
-        vec2 arcCenter;
-        if (fragSliceType == 1) arcCenter = vec2(1.0, 1.0); // TL
-        else if (fragSliceType == 2) arcCenter = vec2(0.0, 1.0); // TR
-        else if (fragSliceType == 3) arcCenter = vec2(1.0, 0.0); // BL
-        else arcCenter = vec2(0.0, 0.0); // BR
+    float sdf = roundedRectSDF(p, halfSize, halfSize, fragRadius);
 
-        // Distance from arc center in pixel space (UV * radius = pixel offset within quad)
-        float dist = length((fragUV - arcCenter) * fragRadius);
+    // Outer edge AA over 1px
+    float alpha = 1.0 - smoothstep(-0.5, 0.5, sdf);
+    if (alpha <= 0.0) discard;
 
-        // Smooth discard outside the arc radius
-        alpha = 1.0 - smoothstep(fragRadius - 1.0, fragRadius, dist);
-        if (alpha <= 0.0) discard;
+    float borderBlend = 0.0;
+    if (fragBorderWidth > 0.0) {
+        float inner = -fragBorderWidth;
+        // AA on inner border edge everywhere (needed for curved corners).
+        // For integer border widths the inner edge lands on a pixel boundary;
+        // shift the smoothstep window to [-0.5, 0.5] around that boundary.
+        borderBlend = smoothstep(inner - 0.5, inner + 0.5, sdf);
     }
 
-    outColor = vec4(fragColor, alpha);
+    vec3 color = mix(fragColor, fragBorderColor, borderBlend);
+    outColor = vec4(color, alpha);
 }
