@@ -17,6 +17,7 @@ import io.github.yetyman.vulkan.shaders.ShaderLoader;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import io.github.yetyman.vulkan.spatial.RTree;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
 
-    public static final int NUM_SQUARES = 1_000;
+    public static final int NUM_SQUARES = 10_000;
     public static final int SQUARE_SIZE = 80;
     public static final float CORNER_RADIUS = 12.0f;
 
@@ -34,6 +35,10 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     private static final int PC_SIZE = 8;
     private static final float SELECT_BRIGHTEN = 0.25f;
     private static final float DRAG_BRIGHTEN = 0.15f; // on top of select
+    private static final float HOVER_BRIGHTEN = 0.10f;
+
+    private final RTree tree = new RTree();
+    private final int[] treeIds = new int[NUM_SQUARES];
 
     private VkBuffer squareBuf;
     private VkDescriptorSetLayout descLayout;
@@ -114,6 +119,11 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
                 placeSquare(i, x, y, rng);
             }
         }
+        for (int i = 0; i < NUM_SQUARES; i++) {
+            int base = i * FLOATS_PER_SQ;
+            float x = squareData[base], y = squareData[base + 1];
+            treeIds[i] = tree.insert(x, y, 0f, x + SQUARE_SIZE, y + SQUARE_SIZE, 0f, i);
+        }
     }
 
     public static final float BORDER_WIDTH = 1.0f;
@@ -144,7 +154,8 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     private void refreshColor(int i) {
         boolean selected = selectedSquares.contains(i);
         boolean dragged = dragging && selectedSquares.contains(i);
-        float brighten = (selected ? SELECT_BRIGHTEN : 0f) + (dragged ? DRAG_BRIGHTEN : 0f);
+        boolean hovered = !selected && hoveredSquare.get() == i;
+        float brighten = (selected ? SELECT_BRIGHTEN : 0f) + (dragged ? DRAG_BRIGHTEN : 0f) + (hovered ? HOVER_BRIGHTEN : 0f);
         int base = i * FLOATS_PER_SQ;
         squareData[base + 2] = Math.min(1f, baseColors[i * 3] + brighten);
         squareData[base + 3] = Math.min(1f, baseColors[i * 3 + 1] + brighten);
@@ -228,12 +239,12 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     // --- Input handling (called from GLFW callback thread) ---
 
     public int hitTest(double mx, double my) {
-        for (int i = NUM_SQUARES - 1; i >= 0; i--) {
-            int base = i * FLOATS_PER_SQ;
-            if (hitsSquare(mx, my, squareData[base], squareData[base + 1], SQUARE_SIZE, CORNER_RADIUS))
-                return i;
-        }
-        return -1;
+        int treeId = tree.queryPoint2D((float) mx, (float) my);
+        if (treeId < 0) return -1;
+        // treeId == treeIds[i] == i (inserted in order), so treeId is the square index
+        int base = treeId * FLOATS_PER_SQ;
+        return hitsSquare(mx, my, squareData[base], squareData[base + 1], SQUARE_SIZE, CORNER_RADIUS)
+                ? treeId : -1;
     }
 
     private static boolean hitsSquare(double mx, double my, float sx, float sy, float size, float r) {
@@ -259,9 +270,17 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
                 squareData[base] += (float) dx;
                 squareData[base + 1] += (float) dy;
                 dirty[i] = true;
+                float nx = squareData[base], ny = squareData[base + 1];
+                tree.move(treeIds[i], nx, ny, 0f, nx + SQUARE_SIZE, ny + SQUARE_SIZE, 0f);
             }
         } else {
-            hoveredSquare.set(hitTest(mx, my));
+            int prev = hoveredSquare.get();
+            int next = hitTest(mx, my);
+            if (prev != next) {
+                hoveredSquare.set(next);
+                if (prev >= 0) refreshColor(prev);
+                if (next >= 0) refreshColor(next);
+            }
         }
     }
 
