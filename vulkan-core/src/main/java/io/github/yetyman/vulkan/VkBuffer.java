@@ -14,12 +14,14 @@ public class VkBuffer implements AutoCloseable {
     private final MemorySegment memory;
     private final VkDevice device;
     private final long size;
+    private final int usage;
 
-    private VkBuffer(MemorySegment handle, MemorySegment memory, VkDevice device, long size) {
+    private VkBuffer(MemorySegment handle, MemorySegment memory, VkDevice device, long size, int usage) {
         this.handle = handle;
         this.memory = memory;
         this.device = device;
         this.size = size;
+        this.usage = usage;
     }
 
     /**
@@ -55,6 +57,13 @@ public class VkBuffer implements AutoCloseable {
      */
     public VkDevice device() {
         return device;
+    }
+
+    /**
+     * @return the buffer usage flags
+     */
+    public int usage() {
+        return usage;
     }
 
     /**
@@ -271,7 +280,7 @@ public class VkBuffer implements AutoCloseable {
                     | VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_RESIDENCY_BIT.value()
                     | VkBufferCreateFlagBits.VK_BUFFER_CREATE_SPARSE_ALIASED_BIT.value())) != 0;
             if (isSparse) {
-                return new VkBuffer(buffer, MemorySegment.NULL, device, size);
+                return new VkBuffer(buffer, MemorySegment.NULL, device, size, usage);
             }
 
             // Get memory requirements
@@ -328,7 +337,7 @@ public class VkBuffer implements AutoCloseable {
                 Vulkan.unmapMemory(device.handle(), memory);
             }
 
-            return new VkBuffer(buffer, memory, device, size);
+            return new VkBuffer(buffer, memory, device, size, usage);
         }
     }
 }

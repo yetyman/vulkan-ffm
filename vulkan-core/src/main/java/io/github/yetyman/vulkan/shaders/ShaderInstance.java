@@ -6,9 +6,6 @@ import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import io.github.yetyman.vulkan.enums.VkDescriptorType;
 import io.github.yetyman.vulkan.enums.VkImageLayout;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
-import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
-
-import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -506,13 +503,9 @@ public class ShaderInstance implements AutoCloseable {
         if (descriptorSet == null) return;
 
         if (slot instanceof UniformBufferSlot ubo && ubo.buffer() != null) {
-            descriptorSet.updateBuffer(slot.binding(),
-                    VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
-                    ubo.buffer().handle(), 0, ubo.buffer().size(), flushArena);
+            descriptorSet.bind(slot.binding(), ubo.buffer(), flushArena);
         } else if (slot instanceof StorageBufferSlot ssbo && ssbo.buffer() != null) {
-            descriptorSet.updateBuffer(slot.binding(),
-                    VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                    ssbo.buffer().handle(), 0, ssbo.buffer().size(), flushArena);
+            descriptorSet.bind(slot.binding(), ssbo.buffer(), flushArena);
         } else if (slot instanceof TextureSlot tex && tex.boundImageView() != null && tex.boundSampler() != null) {
             descriptorSet.updateImageSampler(slot.binding(),
                     tex.boundSampler().handle(), tex.boundImageView().handle(),

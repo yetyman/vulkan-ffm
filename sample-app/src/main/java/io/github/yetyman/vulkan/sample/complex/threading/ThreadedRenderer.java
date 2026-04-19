@@ -299,8 +299,7 @@ public class ThreadedRenderer extends GraphicsFrame {
         descriptorSet = descriptorPool.allocateDescriptorSet(descriptorSetLayout);
 
         // Update descriptor set to point to uniform buffer
-        descriptorSet.updateBuffer(0, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value(),
-                cameraUniformBuffer.handle(), 0, cameraUniformBuffer.size(), arena);
+        descriptorSet.bind(0, cameraUniformBuffer, arena);
 
         // Original triangle pipeline
         pipeline = VkPipeline.builder()

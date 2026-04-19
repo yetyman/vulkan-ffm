@@ -255,7 +255,7 @@ public class DescriptorGroup implements AutoCloseable {
             // Bind buffers
             for (BindingEntry e : bindings) {
                 if (e.buffer != null) {
-                    set.updateBuffer(e.binding, e.type.value(),
+                    set.bindBuffer(e.binding, e.type.value(),
                             e.buffer.handle(), 0, e.buffer.size(), arena);
                 } else if (e.imageBinding != null) {
                     set.updateImageSampler(e.binding, e.imageBinding.sampler(),

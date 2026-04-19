@@ -14,10 +14,21 @@ import java.util.List;
 public class VkDescriptorSetLayout implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
+    private final int[] bindingRequiredUsageBits;
+    private final int[] bindingDescriptorTypes;
 
     public VkDescriptorSetLayout(MemorySegment handle, VkDevice device) {
         this.handle = handle;
         this.device = device;
+        this.bindingRequiredUsageBits = new int[0];
+        this.bindingDescriptorTypes = new int[0];
+    }
+
+    private VkDescriptorSetLayout(MemorySegment handle, VkDevice device, int[] bindingRequiredUsageBits, int[] bindingDescriptorTypes) {
+        this.handle = handle;
+        this.device = device;
+        this.bindingRequiredUsageBits = bindingRequiredUsageBits;
+        this.bindingDescriptorTypes = bindingDescriptorTypes;
     }
 
     /**
@@ -33,6 +44,9 @@ public class VkDescriptorSetLayout implements AutoCloseable {
     public MemorySegment handle() {
         return handle;
     }
+
+    public int[] bindingRequiredUsageBits() { return bindingRequiredUsageBits; }
+    public int[] bindingDescriptorTypes() { return bindingDescriptorTypes; }
 
     @Override
     public void close() {
@@ -130,10 +144,33 @@ public class VkDescriptorSetLayout implements AutoCloseable {
 
             MemorySegment layoutPtr = arena.allocate(ValueLayout.ADDRESS);
             Vulkan.createDescriptorSetLayout(device.handle(), createInfo, layoutPtr).check();
-            return new VkDescriptorSetLayout(layoutPtr.get(ValueLayout.ADDRESS, 0), device);
+
+            int maxBinding = bindings.stream().mapToInt(BindingConfig::binding).max().orElse(-1);
+            int[] requiredUsageBits = new int[maxBinding + 1];
+            int[] descriptorTypes = new int[maxBinding + 1];
+            for (BindingConfig cfg : bindings) {
+                requiredUsageBits[cfg.binding()] = requiredUsageBitFor(cfg.descriptorType());
+                descriptorTypes[cfg.binding()] = cfg.descriptorType();
+            }
+
+            return new VkDescriptorSetLayout(layoutPtr.get(ValueLayout.ADDRESS, 0), device, requiredUsageBits, descriptorTypes);
         }
 
         private record BindingConfig(int binding, int descriptorType, int descriptorCount, int stageFlags, int flags) {
+        }
+
+        private static int requiredUsageBitFor(int descriptorType) {
+            if (descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.value()
+                    || descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC.value())
+                return VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.value();
+            if (descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value()
+                    || descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC.value())
+                return VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.value();
+            if (descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER.value())
+                return VkBufferUsageFlagBits.VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT.value();
+            if (descriptorType == VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER.value())
+                return VkBufferUsageFlagBits.VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT.value();
+            return 0; // non-buffer descriptor type
         }
     }
 }

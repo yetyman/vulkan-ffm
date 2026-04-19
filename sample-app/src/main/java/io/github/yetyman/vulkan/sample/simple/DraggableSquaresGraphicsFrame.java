@@ -95,9 +95,7 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
 
         descSet = descPool.allocateDescriptorSet(descLayout);
         try (Arena tmp = Arena.ofConfined()) {
-            descSet.updateBuffer(0,
-                    VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value(),
-                    squareBuf.handle(), 0, BUF_SIZE, tmp);
+            descSet.bind(0, squareBuf, tmp);
         }
 
         super.initializeResources(queueFamilyIndex);

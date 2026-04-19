@@ -65,10 +65,10 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
 
         try (Arena tmp = Arena.ofConfined()) {
             int st = VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value();
-            computeSetAtoB.updateBuffer(0, st, cellsA.handle(), 0, bufSize, tmp);
-            computeSetAtoB.updateBuffer(1, st, cellsB.handle(), 0, bufSize, tmp);
-            computeSetBtoA.updateBuffer(0, st, cellsB.handle(), 0, bufSize, tmp);
-            computeSetBtoA.updateBuffer(1, st, cellsA.handle(), 0, bufSize, tmp);
+            computeSetAtoB.bind(0, cellsA, tmp);
+            computeSetAtoB.bind(1, cellsB, tmp);
+            computeSetBtoA.bind(0, cellsB, tmp);
+            computeSetBtoA.bind(1, cellsA, tmp);
         }
 
         computePipeline = VkComputePipeline.builder()
@@ -92,8 +92,8 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
 
         try (Arena tmp = Arena.ofConfined()) {
             int st = VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.value();
-            fragSetA.updateBuffer(0, st, cellsA.handle(), 0, bufSize, tmp);
-            fragSetB.updateBuffer(0, st, cellsB.handle(), 0, bufSize, tmp);
+            fragSetA.bind(0, cellsA, tmp);
+            fragSetB.bind(0, cellsB, tmp);
         }
 
         computeDone = VkTimelineSemaphore.create(device, 0, arena);
