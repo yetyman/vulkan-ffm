@@ -6,6 +6,7 @@ import io.github.yetyman.vulkan.VkRenderPass;
 import io.github.yetyman.vulkan.VkFramebuffer;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -37,8 +38,10 @@ public record VkRenderPassCmd(VkDevice device, MemorySegment renderPass, MemoryS
 
     public static void beginRenderPass(MemorySegment cmd, MemorySegment renderPass, MemorySegment framebuffer,
                                        int x, int y, int width, int height, MemorySegment clearValues, int clearValueCount, int contents) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment beginInfo = VkRenderPassBeginInfo.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment beginInfo = ba.alloc(VkRenderPassBeginInfo.sizeof());
             VkRenderPassBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO.value());
             VkRenderPassBeginInfo.pNext(beginInfo, MemorySegment.NULL);
             VkRenderPassBeginInfo.renderPass(beginInfo, renderPass);
@@ -56,6 +59,8 @@ public record VkRenderPassCmd(VkDevice device, MemorySegment renderPass, MemoryS
             VkRenderPassBeginInfo.pClearValues(beginInfo, clearValues);
 
             VulkanFFM.vkCmdBeginRenderPass(cmd, beginInfo, contents);
+        } finally {
+            ba.pop();
         }
     }
 

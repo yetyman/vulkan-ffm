@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.command;
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -21,8 +22,10 @@ public record VkBlit(MemorySegment srcImage, int srcLayout, MemorySegment dstIma
 
     public static void blitImage(MemorySegment cmd, MemorySegment srcImage, int srcLayout, MemorySegment dstImage, int dstLayout,
                                  int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1, int filter) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment region = VkImageBlit.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment region = ba.alloc(VkImageBlit.sizeof());
 
             MemorySegment srcSubresource = VkImageBlit.srcSubresource(region);
             VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
@@ -57,6 +60,8 @@ public record VkBlit(MemorySegment srcImage, int srcLayout, MemorySegment dstIma
             VkOffset3D.z(dstOffset1, 1);
 
             VulkanFFM.vkCmdBlitImage(cmd, srcImage, srcLayout, dstImage, dstLayout, 1, region, filter);
+        } finally {
+            ba.pop();
         }
     }
 

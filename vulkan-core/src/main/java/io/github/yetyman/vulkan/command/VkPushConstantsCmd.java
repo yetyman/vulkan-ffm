@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.VkPipeline;
 import io.github.yetyman.vulkan.VkComputePipeline;
 import io.github.yetyman.vulkan.generated.VulkanFFM;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -44,10 +45,14 @@ public record VkPushConstantsCmd(MemorySegment pipelineLayout, int stageFlags, i
     }
 
     public static void pushInt(MemorySegment cmd, MemorySegment pipelineLayout, int stageFlags, int offset, int value) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment data = arena.allocate(ValueLayout.JAVA_INT);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment data = ba.alloc(ValueLayout.JAVA_INT.byteSize());
             data.set(ValueLayout.JAVA_INT, 0, value);
             pushConstants(cmd, pipelineLayout, stageFlags, offset, data, 4);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -56,10 +61,14 @@ public record VkPushConstantsCmd(MemorySegment pipelineLayout, int stageFlags, i
     }
 
     public static void pushFloat(MemorySegment cmd, MemorySegment pipelineLayout, int stageFlags, int offset, float value) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment data = arena.allocate(ValueLayout.JAVA_FLOAT);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment data = ba.alloc(ValueLayout.JAVA_FLOAT.byteSize());
             data.set(ValueLayout.JAVA_FLOAT, 0, value);
             pushConstants(cmd, pipelineLayout, stageFlags, offset, data, 4);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -68,12 +77,16 @@ public record VkPushConstantsCmd(MemorySegment pipelineLayout, int stageFlags, i
     }
 
     public static void pushFloats(MemorySegment cmd, MemorySegment pipelineLayout, int stageFlags, int offset, float... values) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment data = arena.allocate(ValueLayout.JAVA_FLOAT, values.length);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment data = ba.alloc((long) values.length * ValueLayout.JAVA_FLOAT.byteSize());
             for (int i = 0; i < values.length; i++) {
                 data.setAtIndex(ValueLayout.JAVA_FLOAT, i, values[i]);
             }
             pushConstants(cmd, pipelineLayout, stageFlags, offset, data, values.length * 4L);
+        } finally {
+            ba.pop();
         }
     }
 

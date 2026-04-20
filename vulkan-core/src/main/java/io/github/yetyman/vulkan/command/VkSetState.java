@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.command;
 
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -21,8 +22,10 @@ public record VkSetState(StateType type, float[] floatValues, int[] intValues, l
     }
 
     public static void setViewport(MemorySegment cmd, int firstViewport, float x, float y, float width, float height, float minDepth, float maxDepth) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment viewport = VkViewport.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment viewport = ba.alloc(VkViewport.sizeof());
             VkViewport.x(viewport, x);
             VkViewport.y(viewport, y);
             VkViewport.width(viewport, width);
@@ -30,6 +33,8 @@ public record VkSetState(StateType type, float[] floatValues, int[] intValues, l
             VkViewport.minDepth(viewport, minDepth);
             VkViewport.maxDepth(viewport, maxDepth);
             VulkanFFM.vkCmdSetViewport(cmd, firstViewport, 1, viewport);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -47,8 +52,10 @@ public record VkSetState(StateType type, float[] floatValues, int[] intValues, l
     }
 
     public static void setScissor(MemorySegment cmd, int firstScissor, int x, int y, int width, int height) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment scissor = VkRect2D.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment scissor = ba.alloc(VkRect2D.sizeof());
             MemorySegment offset = VkRect2D.offset(scissor);
             MemorySegment extent = VkRect2D.extent(scissor);
             VkOffset2D.x(offset, x);
@@ -56,6 +63,8 @@ public record VkSetState(StateType type, float[] floatValues, int[] intValues, l
             VkExtent2D.width(extent, width);
             VkExtent2D.height(extent, height);
             VulkanFFM.vkCmdSetScissor(cmd, firstScissor, 1, scissor);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -91,13 +100,17 @@ public record VkSetState(StateType type, float[] floatValues, int[] intValues, l
     }
 
     public static void setBlendConstants(MemorySegment cmd, float r, float g, float b, float a) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment constants = arena.allocate(ValueLayout.JAVA_FLOAT, 4);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment constants = ba.alloc(4 * ValueLayout.JAVA_FLOAT.byteSize());
             constants.setAtIndex(ValueLayout.JAVA_FLOAT, 0, r);
             constants.setAtIndex(ValueLayout.JAVA_FLOAT, 1, g);
             constants.setAtIndex(ValueLayout.JAVA_FLOAT, 2, b);
             constants.setAtIndex(ValueLayout.JAVA_FLOAT, 3, a);
             VulkanFFM.vkCmdSetBlendConstants(cmd, constants);
+        } finally {
+            ba.pop();
         }
     }
 

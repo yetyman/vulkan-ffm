@@ -2,7 +2,6 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
-import io.github.yetyman.vulkan.util.VkArrayBuilder;
 
 import java.lang.foreign.*;
 import java.util.ArrayList;
@@ -20,17 +19,14 @@ public class VkSubmit {
     }
 
     public static class Builder {
-        private final VkArrayBuilder.AddressArrayBuilder waitSemaphores = VkArrayBuilder.addresses();
-        private final VkArrayBuilder.IntArrayBuilder waitStages = VkArrayBuilder.ints();
-        private final List<Long> waitValues = new ArrayList<>();
-        private final VkArrayBuilder.AddressArrayBuilder commandBuffers = VkArrayBuilder.addresses();
-        private final VkArrayBuilder.AddressArrayBuilder signalSemaphores = VkArrayBuilder.addresses();
-        private final List<Long> signalValues = new ArrayList<>();
+        private final List<MemorySegment> waitSemaphores = new ArrayList<>(1);
+        private final List<Integer> waitStages = new ArrayList<>(1);
+        private final List<Long> waitValues = new ArrayList<>(1);
+        private final List<MemorySegment> commandBuffers = new ArrayList<>(1);
+        private final List<MemorySegment> signalSemaphores = new ArrayList<>(1);
+        private final List<Long> signalValues = new ArrayList<>(1);
         private boolean hasTimelineValues = false;
 
-        /**
-         * Waits on a binary semaphore.
-         */
         public Builder waitSemaphore(MemorySegment semaphore, int stage) {
             waitSemaphores.add(semaphore);
             waitStages.add(stage);
@@ -38,16 +34,10 @@ public class VkSubmit {
             return this;
         }
 
-        /**
-         * Waits on a binary semaphore.
-         */
         public Builder waitSemaphore(VkSemaphore semaphore, int stage) {
             return waitSemaphore(semaphore.handle(), stage);
         }
 
-        /**
-         * Waits on a timeline semaphore at the given value.
-         */
         public Builder waitTimelineSemaphore(MemorySegment semaphore, long value, int stage) {
             waitSemaphores.add(semaphore);
             waitStages.add(stage);
@@ -56,9 +46,6 @@ public class VkSubmit {
             return this;
         }
 
-        /**
-         * Waits on a timeline semaphore at the given value.
-         */
         public Builder waitTimelineSemaphore(VkTimelineSemaphore semaphore, long value, int stage) {
             return waitTimelineSemaphore(semaphore.handle(), value, stage);
         }
@@ -68,25 +55,16 @@ public class VkSubmit {
             return this;
         }
 
-        /**
-         * Signals a binary semaphore.
-         */
         public Builder signalSemaphore(MemorySegment semaphore) {
             signalSemaphores.add(semaphore);
             signalValues.add(0L);
             return this;
         }
 
-        /**
-         * Signals a binary semaphore.
-         */
         public Builder signalSemaphore(VkSemaphore semaphore) {
             return signalSemaphore(semaphore.handle());
         }
 
-        /**
-         * Signals a timeline semaphore to the given value.
-         */
         public Builder signalTimelineSemaphore(MemorySegment semaphore, long value) {
             signalSemaphores.add(semaphore);
             signalValues.add(value);
@@ -94,9 +72,6 @@ public class VkSubmit {
             return this;
         }
 
-        /**
-         * Signals a timeline semaphore to the given value.
-         */
         public Builder signalTimelineSemaphore(VkTimelineSemaphore semaphore, long value) {
             return signalTimelineSemaphore(semaphore.handle(), value);
         }
@@ -118,20 +93,33 @@ public class VkSubmit {
          * the queue's submitter strategy.
          */
         public MemorySegment build(MemorySegment fence, Arena arena) {
-            MemorySegment waitSemArray = waitSemaphores.build(arena);
-            MemorySegment waitStageArray = waitStages.build(arena);
-            MemorySegment cmdBufArray = commandBuffers.build(arena);
-            MemorySegment signalSemArray = signalSemaphores.build(arena);
-
             MemorySegment submitInfo = VkSubmitInfo.allocate(arena);
             VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO.value());
-            VkSubmitInfo.waitSemaphoreCount(submitInfo, waitSemaphores.count());
-            VkSubmitInfo.pWaitSemaphores(submitInfo, waitSemArray);
-            VkSubmitInfo.pWaitDstStageMask(submitInfo, waitStageArray);
-            VkSubmitInfo.commandBufferCount(submitInfo, commandBuffers.count());
-            VkSubmitInfo.pCommandBuffers(submitInfo, cmdBufArray);
-            VkSubmitInfo.signalSemaphoreCount(submitInfo, signalSemaphores.count());
-            VkSubmitInfo.pSignalSemaphores(submitInfo, signalSemArray);
+            VkSubmitInfo.waitSemaphoreCount(submitInfo, waitSemaphores.size());
+            if (!waitSemaphores.isEmpty()) {
+                MemorySegment waitSemArray = arena.allocate(ValueLayout.ADDRESS, waitSemaphores.size());
+                MemorySegment waitStageArray = arena.allocate(ValueLayout.JAVA_INT, waitStages.size());
+                for (int i = 0; i < waitSemaphores.size(); i++) {
+                    waitSemArray.setAtIndex(ValueLayout.ADDRESS, i, waitSemaphores.get(i));
+                    waitStageArray.setAtIndex(ValueLayout.JAVA_INT, i, waitStages.get(i));
+                }
+                VkSubmitInfo.pWaitSemaphores(submitInfo, waitSemArray);
+                VkSubmitInfo.pWaitDstStageMask(submitInfo, waitStageArray);
+            }
+            VkSubmitInfo.commandBufferCount(submitInfo, commandBuffers.size());
+            if (!commandBuffers.isEmpty()) {
+                MemorySegment cmdBufArray = arena.allocate(ValueLayout.ADDRESS, commandBuffers.size());
+                for (int i = 0; i < commandBuffers.size(); i++)
+                    cmdBufArray.setAtIndex(ValueLayout.ADDRESS, i, commandBuffers.get(i));
+                VkSubmitInfo.pCommandBuffers(submitInfo, cmdBufArray);
+            }
+            VkSubmitInfo.signalSemaphoreCount(submitInfo, signalSemaphores.size());
+            if (!signalSemaphores.isEmpty()) {
+                MemorySegment signalSemArray = arena.allocate(ValueLayout.ADDRESS, signalSemaphores.size());
+                for (int i = 0; i < signalSemaphores.size(); i++)
+                    signalSemArray.setAtIndex(ValueLayout.ADDRESS, i, signalSemaphores.get(i));
+                VkSubmitInfo.pSignalSemaphores(submitInfo, signalSemArray);
+            }
 
             if (hasTimelineValues) {
                 MemorySegment timelineInfo = VkTimelineSemaphoreSubmitInfo.allocate(arena);

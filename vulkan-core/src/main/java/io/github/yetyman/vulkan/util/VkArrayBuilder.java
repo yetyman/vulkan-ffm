@@ -12,15 +12,27 @@ import java.util.List;
 public class VkArrayBuilder {
 
     public static AddressArrayBuilder addresses() {
-        return new AddressArrayBuilder();
+        return new AddressArrayBuilder(4);
+    }
+
+    public static AddressArrayBuilder addresses(int initialCapacity) {
+        return new AddressArrayBuilder(initialCapacity);
     }
 
     public static IntArrayBuilder ints() {
-        return new IntArrayBuilder();
+        return new IntArrayBuilder(4);
+    }
+
+    public static IntArrayBuilder ints(int initialCapacity) {
+        return new IntArrayBuilder(initialCapacity);
     }
 
     public static class AddressArrayBuilder {
-        private final List<MemorySegment> addresses = new ArrayList<>();
+        private final List<MemorySegment> addresses;
+
+        private AddressArrayBuilder(int initialCapacity) {
+            addresses = new ArrayList<>(initialCapacity);
+        }
 
         public AddressArrayBuilder add(MemorySegment address) {
             addresses.add(address);
@@ -43,7 +55,11 @@ public class VkArrayBuilder {
     }
 
     public static class IntArrayBuilder {
-        private final List<Integer> ints = new ArrayList<>();
+        private final List<Integer> ints;
+
+        private IntArrayBuilder(int initialCapacity) {
+            ints = new ArrayList<>(initialCapacity);
+        }
 
         public IntArrayBuilder add(int value) {
             ints.add(value);

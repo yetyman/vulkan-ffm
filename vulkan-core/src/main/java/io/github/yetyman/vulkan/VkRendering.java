@@ -50,7 +50,7 @@ public class VkRendering {
         private int layers = 1;
         private int viewMask = 0;
         private int flags = 0;
-        private final List<AttachmentConfig> colorAttachments = new ArrayList<>();
+        private final List<AttachmentConfig> colorAttachments = new ArrayList<>(1);
         private AttachmentConfig depthAttachment = null;
         private AttachmentConfig stencilAttachment = null;
 

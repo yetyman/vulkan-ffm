@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.command;
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -30,15 +31,17 @@ public record VkClear(MemorySegment image, ClearType type, float[] colorValues, 
 
     public static void clearColorImage(MemorySegment cmd, MemorySegment image, int imageLayout, float r, float g, float b, float a,
                                        int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment clearColor = VkClearColorValue.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment clearColor = ba.alloc(VkClearColorValue.sizeof());
             MemorySegment floatArray = VkClearColorValue.float32(clearColor);
             floatArray.setAtIndex(ValueLayout.JAVA_FLOAT, 0, r);
             floatArray.setAtIndex(ValueLayout.JAVA_FLOAT, 1, g);
             floatArray.setAtIndex(ValueLayout.JAVA_FLOAT, 2, b);
             floatArray.setAtIndex(ValueLayout.JAVA_FLOAT, 3, a);
 
-            MemorySegment range = VkImageSubresourceRange.allocate(arena);
+            MemorySegment range = ba.alloc(VkImageSubresourceRange.sizeof());
             VkImageSubresourceRange.aspectMask(range, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
             VkImageSubresourceRange.baseMipLevel(range, baseMipLevel);
             VkImageSubresourceRange.levelCount(range, levelCount);
@@ -46,6 +49,8 @@ public record VkClear(MemorySegment image, ClearType type, float[] colorValues, 
             VkImageSubresourceRange.layerCount(range, layerCount);
 
             VulkanFFM.vkCmdClearColorImage(cmd, image, imageLayout, clearColor, 1, range);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -65,12 +70,14 @@ public record VkClear(MemorySegment image, ClearType type, float[] colorValues, 
 
     public static void clearDepthStencilImage(MemorySegment cmd, MemorySegment image, int imageLayout, float depth, int stencil,
                                               int baseMipLevel, int levelCount, int baseArrayLayer, int layerCount) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment clearDepthStencil = VkClearDepthStencilValue.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment clearDepthStencil = ba.alloc(VkClearDepthStencilValue.sizeof());
             VkClearDepthStencilValue.depth(clearDepthStencil, depth);
             VkClearDepthStencilValue.stencil(clearDepthStencil, stencil);
 
-            MemorySegment range = VkImageSubresourceRange.allocate(arena);
+            MemorySegment range = ba.alloc(VkImageSubresourceRange.sizeof());
             VkImageSubresourceRange.aspectMask(range, VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value() |
                     VkImageAspectFlagBits.VK_IMAGE_ASPECT_STENCIL_BIT.value());
             VkImageSubresourceRange.baseMipLevel(range, baseMipLevel);
@@ -79,6 +86,8 @@ public record VkClear(MemorySegment image, ClearType type, float[] colorValues, 
             VkImageSubresourceRange.layerCount(range, layerCount);
 
             VulkanFFM.vkCmdClearDepthStencilImage(cmd, image, imageLayout, clearDepthStencil, 1, range);
+        } finally {
+            ba.pop();
         }
     }
 

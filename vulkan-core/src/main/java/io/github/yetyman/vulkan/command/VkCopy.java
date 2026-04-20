@@ -4,6 +4,7 @@ import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -28,12 +29,16 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
     }
 
     public static void copyBuffer(MemorySegment cmd, MemorySegment srcBuffer, MemorySegment dstBuffer, long srcOffset, long dstOffset, long size) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment copyRegion = VkBufferCopy.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment copyRegion = ba.alloc(VkBufferCopy.sizeof());
             VkBufferCopy.srcOffset(copyRegion, srcOffset);
             VkBufferCopy.dstOffset(copyRegion, dstOffset);
             VkBufferCopy.size(copyRegion, size);
             VulkanFFM.vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, copyRegion);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -68,8 +73,10 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
     }
 
     public static void copyBufferToImage(MemorySegment cmd, MemorySegment buffer, MemorySegment image, int imageLayout, int width, int height, int depth) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment region = VkBufferImageCopy.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment region = ba.alloc(VkBufferImageCopy.sizeof());
             VkBufferImageCopy.bufferOffset(region, 0);
             VkBufferImageCopy.bufferRowLength(region, 0);
             VkBufferImageCopy.bufferImageHeight(region, 0);
@@ -91,6 +98,8 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
             VkExtent3D.depth(imageExtent, depth);
 
             VulkanFFM.vkCmdCopyBufferToImage(cmd, buffer, image, imageLayout, 1, region);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -108,8 +117,10 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
     }
 
     public static void copyImageToBuffer(MemorySegment cmd, MemorySegment image, int imageLayout, MemorySegment buffer, int width, int height, int depth) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment region = VkBufferImageCopy.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment region = ba.alloc(VkBufferImageCopy.sizeof());
             VkBufferImageCopy.bufferOffset(region, 0);
             VkBufferImageCopy.bufferRowLength(region, 0);
             VkBufferImageCopy.bufferImageHeight(region, 0);
@@ -131,6 +142,8 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
             VkExtent3D.depth(imageExtent, depth);
 
             VulkanFFM.vkCmdCopyImageToBuffer(cmd, image, imageLayout, buffer, 1, region);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -148,8 +161,10 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
     }
 
     public static void copyImage(MemorySegment cmd, MemorySegment srcImage, int srcLayout, MemorySegment dstImage, int dstLayout, int width, int height, int depth) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment region = VkImageCopy.allocate(arena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment region = ba.alloc(VkImageCopy.sizeof());
 
             MemorySegment srcSubresource = VkImageCopy.srcSubresource(region);
             VkImageSubresourceLayers.aspectMask(srcSubresource, VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value());
@@ -179,6 +194,8 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
             VkExtent3D.depth(extent, depth);
 
             VulkanFFM.vkCmdCopyImage(cmd, srcImage, srcLayout, dstImage, dstLayout, 1, region);
+        } finally {
+            ba.pop();
         }
     }
 

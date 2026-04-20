@@ -2,10 +2,12 @@ package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.spirv.enums.SpirvReflectDescriptorType;
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import io.github.yetyman.vulkan.enums.VkDescriptorType;
 import io.github.yetyman.vulkan.enums.VkImageLayout;
 import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -253,18 +255,22 @@ public class ShaderInstance implements AutoCloseable {
     }
 
     public void flush(MemorySegment commandBuffer) {
-        try (Arena flushArena = Arena.ofConfined()) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
             for (PushConstant<?> pc : pushConstants) {
                 if (!pc.isDirty()) continue;
-                writePushConstant(commandBuffer, pc, flushArena);
+                writePushConstant(commandBuffer, pc, ba);
                 pc.clearDirty();
             }
             for (DescriptorSlot slot : slots) {
                 if (!slot.isDirty()) continue;
-                writeDescriptorSlot(slot, flushArena);
+                writeDescriptorSlot(slot, ba);
                 slot.clearDirty();
             }
-            bindDescriptorSets(commandBuffer, flushArena);
+            bindDescriptorSets(commandBuffer, ba);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -460,65 +466,68 @@ public class ShaderInstance implements AutoCloseable {
         return sets;
     }
 
-    private void writePushConstant(MemorySegment commandBuffer, PushConstant<?> pc, Arena flushArena) {
+    private void writePushConstant(MemorySegment commandBuffer, PushConstant<?> pc, BumpAllocator ba) {
         if (pipelineLayout.equals(MemorySegment.NULL)) return;
         Object value = pc.pendingValue();
         if (value == null) return;
-        MemorySegment data = serializePushConstant(value, pc.size(), flushArena);
+        MemorySegment data = serializePushConstant(value, pc.size(), ba);
         if (data == null) return;
         int stageFlags = compiled.getShaderStageFlags();
         VkPushConstantsCmd.pushConstants(commandBuffer, pipelineLayout, stageFlags, pc.offset(), data, pc.size());
     }
 
-    private MemorySegment serializePushConstant(Object value, int size, Arena arena) {
+    private MemorySegment serializePushConstant(Object value, int size, BumpAllocator ba) {
         if (value instanceof Float f) {
-            MemorySegment seg = arena.allocate(ValueLayout.JAVA_FLOAT);
+            MemorySegment seg = ba.alloc(ValueLayout.JAVA_FLOAT.byteSize());
             seg.set(ValueLayout.JAVA_FLOAT, 0, f);
             return seg;
         }
         if (value instanceof Integer i) {
-            MemorySegment seg = arena.allocate(ValueLayout.JAVA_INT);
+            MemorySegment seg = ba.alloc(ValueLayout.JAVA_INT.byteSize());
             seg.set(ValueLayout.JAVA_INT, 0, i);
             return seg;
         }
         if (value instanceof Long l) {
-            MemorySegment seg = arena.allocate(ValueLayout.JAVA_LONG);
+            MemorySegment seg = ba.alloc(ValueLayout.JAVA_LONG.byteSize());
             seg.set(ValueLayout.JAVA_LONG, 0, l);
             return seg;
         }
         if (value instanceof float[] fa) {
-            MemorySegment seg = arena.allocate(ValueLayout.JAVA_FLOAT, fa.length);
+            MemorySegment seg = ba.alloc((long) fa.length * ValueLayout.JAVA_FLOAT.byteSize());
             for (int i = 0; i < fa.length; i++) seg.setAtIndex(ValueLayout.JAVA_FLOAT, i, fa[i]);
             return seg;
         }
         if (value instanceof MemorySegment ms) {
             return ms;
         }
-        // Unknown type — caller is responsible for providing a MemorySegment for complex types
         return null;
     }
 
-    private void writeDescriptorSlot(DescriptorSlot slot, Arena flushArena) {
+    private void writeDescriptorSlot(DescriptorSlot slot, BumpAllocator ba) {
         VkDescriptorSet descriptorSet = descriptorSets.get(slot.set());
         if (descriptorSet == null) return;
-
-        if (slot instanceof UniformBufferSlot ubo && ubo.buffer() != null) {
-            descriptorSet.bind(slot.binding(), ubo.buffer(), flushArena);
-        } else if (slot instanceof StorageBufferSlot ssbo && ssbo.buffer() != null) {
-            descriptorSet.bind(slot.binding(), ssbo.buffer(), flushArena);
-        } else if (slot instanceof TextureSlot tex && tex.boundImageView() != null && tex.boundSampler() != null) {
-            descriptorSet.updateImageSampler(slot.binding(),
-                    tex.boundSampler().handle(), tex.boundImageView().handle(),
-                    VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), flushArena);
+        Arena arena = Arena.ofConfined(); // descriptor writes need a real arena for VkWriteDescriptorSet lifetime
+        try {
+            if (slot instanceof UniformBufferSlot ubo && ubo.buffer() != null) {
+                descriptorSet.bind(slot.binding(), ubo.buffer(), arena);
+            } else if (slot instanceof StorageBufferSlot ssbo && ssbo.buffer() != null) {
+                descriptorSet.bind(slot.binding(), ssbo.buffer(), arena);
+            } else if (slot instanceof TextureSlot tex && tex.boundImageView() != null && tex.boundSampler() != null) {
+                descriptorSet.updateImageSampler(slot.binding(),
+                        tex.boundSampler().handle(), tex.boundImageView().handle(),
+                        VkImageLayout.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.value(), arena);
+            }
+        } finally {
+            arena.close();
         }
     }
 
-    private void bindDescriptorSets(MemorySegment commandBuffer, Arena flushArena) {
+    private void bindDescriptorSets(MemorySegment commandBuffer, BumpAllocator ba) {
         if (pipelineLayout.equals(MemorySegment.NULL) || descriptorSets.isEmpty()) return;
         for (Map.Entry<Integer, VkDescriptorSet> entry : descriptorSets.entrySet()) {
-            entry.getValue().bind(commandBuffer,
+            VkBind.bindDescriptorSets(commandBuffer,
                     VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-                    pipelineLayout, entry.getKey(), flushArena);
+                    pipelineLayout, entry.getKey(), entry.getValue().handle());
         }
     }
 }

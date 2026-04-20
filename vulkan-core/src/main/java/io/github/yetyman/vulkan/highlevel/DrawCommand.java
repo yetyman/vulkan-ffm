@@ -5,8 +5,8 @@ import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.command.VkDrawIndexed;
 import io.github.yetyman.vulkan.command.VkDrawIndirect;
 import io.github.yetyman.vulkan.command.VkDrawIndexedIndirect;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
@@ -182,9 +182,10 @@ public abstract class DrawCommand {
         @Override
         public void execute(MemorySegment commandBuffer) {
             if (VulkanCapabilities.multiDraw) {
-                // Use extension if available
-                try (Arena arena = Arena.ofConfined()) {
-                    MemorySegment drawsBuffer = arena.allocate(ValueLayout.JAVA_INT, draws.length * 4);
+                BumpAllocator ba = BumpAllocator.get();
+                ba.push();
+                try {
+                    MemorySegment drawsBuffer = ba.alloc((long) draws.length * 4 * ValueLayout.JAVA_INT.byteSize());
                     for (int i = 0; i < draws.length; i++) {
                         DrawInfo draw = draws[i];
                         int offset = i * 4;
@@ -193,18 +194,11 @@ public abstract class DrawCommand {
                         drawsBuffer.setAtIndex(ValueLayout.JAVA_INT, offset + 2, draw.firstVertex);
                         drawsBuffer.setAtIndex(ValueLayout.JAVA_INT, offset + 3, draw.firstInstance);
                     }
-
-                    //actual VK_EXT_multi_draw binding
                     io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdDrawMultiEXT(commandBuffer, draws.length, drawsBuffer, 0, 0, 16);
-
-                    // Fallback
-//                    for (DrawInfo draw : draws) {
-//                        Vulkan.cmdDraw(commandBuffer, draw.vertexCount, draw.instanceCount,
-//                                     draw.firstVertex, draw.firstInstance);
-//                    }
+                } finally {
+                    ba.pop();
                 }
             } else {
-                // Fallback to individual draws
                 for (DrawInfo draw : draws) {
                     VkDraw.draw(commandBuffer, draw.vertexCount, draw.instanceCount,
                             draw.firstVertex, draw.firstInstance);

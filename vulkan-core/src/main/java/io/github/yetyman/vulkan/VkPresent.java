@@ -2,9 +2,10 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
-import io.github.yetyman.vulkan.util.VkArrayBuilder;
 
 import java.lang.foreign.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VkPresent {
 
@@ -13,9 +14,9 @@ public class VkPresent {
     }
 
     public static class Builder {
-        private final VkArrayBuilder.AddressArrayBuilder waitSemaphores = VkArrayBuilder.addresses();
-        private final VkArrayBuilder.AddressArrayBuilder swapchains = VkArrayBuilder.addresses();
-        private final VkArrayBuilder.IntArrayBuilder imageIndices = VkArrayBuilder.ints();
+        private final List<MemorySegment> waitSemaphores = new ArrayList<>(1);
+        private final List<MemorySegment> swapchains = new ArrayList<>(1);
+        private final List<Integer> imageIndices = new ArrayList<>(1);
 
         public Builder waitSemaphore(MemorySegment semaphore) {
             waitSemaphores.add(semaphore);
@@ -29,16 +30,23 @@ public class VkPresent {
         }
 
         public VkResult present(MemorySegment queue, Arena arena) {
-            MemorySegment waitSemArray = waitSemaphores.build(arena);
-            MemorySegment swapchainArray = swapchains.build(arena);
-            MemorySegment imageIndexArray = imageIndices.build(arena);
-
             MemorySegment presentInfo = VkPresentInfoKHR.allocate(arena);
             VkPresentInfoKHR.sType(presentInfo, VkStructureType.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR.value());
             VkPresentInfoKHR.pNext(presentInfo, MemorySegment.NULL);
-            VkPresentInfoKHR.waitSemaphoreCount(presentInfo, waitSemaphores.count());
-            VkPresentInfoKHR.pWaitSemaphores(presentInfo, waitSemArray);
-            VkPresentInfoKHR.swapchainCount(presentInfo, swapchains.count());
+            VkPresentInfoKHR.waitSemaphoreCount(presentInfo, waitSemaphores.size());
+            if (!waitSemaphores.isEmpty()) {
+                MemorySegment waitSemArray = arena.allocate(ValueLayout.ADDRESS, waitSemaphores.size());
+                for (int i = 0; i < waitSemaphores.size(); i++)
+                    waitSemArray.setAtIndex(ValueLayout.ADDRESS, i, waitSemaphores.get(i));
+                VkPresentInfoKHR.pWaitSemaphores(presentInfo, waitSemArray);
+            }
+            VkPresentInfoKHR.swapchainCount(presentInfo, swapchains.size());
+            MemorySegment swapchainArray = arena.allocate(ValueLayout.ADDRESS, swapchains.size());
+            MemorySegment imageIndexArray = arena.allocate(ValueLayout.JAVA_INT, imageIndices.size());
+            for (int i = 0; i < swapchains.size(); i++) {
+                swapchainArray.setAtIndex(ValueLayout.ADDRESS, i, swapchains.get(i));
+                imageIndexArray.setAtIndex(ValueLayout.JAVA_INT, i, imageIndices.get(i));
+            }
             VkPresentInfoKHR.pSwapchains(presentInfo, swapchainArray);
             VkPresentInfoKHR.pImageIndices(presentInfo, imageIndexArray);
             VkPresentInfoKHR.pResults(presentInfo, MemorySegment.NULL);

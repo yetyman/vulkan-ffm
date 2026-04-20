@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.command;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.VulkanFFM;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -44,12 +45,16 @@ public record VkBind(MemorySegment handle, BindType type, int bindPoint, int fir
     }
 
     public static void bindVertexBuffers(MemorySegment cmd, int firstBinding, MemorySegment buffer, long offset) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment buffers = arena.allocate(ValueLayout.ADDRESS);
-            MemorySegment offsets = arena.allocate(ValueLayout.JAVA_LONG);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment buffers = ba.alloc(ValueLayout.ADDRESS.byteSize());
+            MemorySegment offsets = ba.alloc(ValueLayout.JAVA_LONG.byteSize());
             buffers.set(ValueLayout.ADDRESS, 0, buffer);
             offsets.set(ValueLayout.JAVA_LONG, 0, offset);
             VulkanFFM.vkCmdBindVertexBuffers(cmd, firstBinding, 1, buffers, offsets);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -93,10 +98,14 @@ public record VkBind(MemorySegment handle, BindType type, int bindPoint, int fir
     }
 
     public static void bindDescriptorSets(MemorySegment cmd, int pipelineBindPoint, MemorySegment pipelineLayout, int firstSet, MemorySegment descriptorSet) {
-        try (Arena arena = Arena.ofConfined()) {
-            MemorySegment descriptorSets = arena.allocate(ValueLayout.ADDRESS);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment descriptorSets = ba.alloc(ValueLayout.ADDRESS.byteSize());
             descriptorSets.set(ValueLayout.ADDRESS, 0, descriptorSet);
             VulkanFFM.vkCmdBindDescriptorSets(cmd, pipelineBindPoint, pipelineLayout, firstSet, 1, descriptorSets, 0, MemorySegment.NULL);
+        } finally {
+            ba.pop();
         }
     }
 
@@ -113,13 +122,16 @@ public record VkBind(MemorySegment handle, BindType type, int bindPoint, int fir
                 VulkanFFM.vkCmdBindDescriptorSets(cmd, bindPoint, layout, firstSet, 1, handle, 0, MemorySegment.NULL);
             }
             case VERTEX_BUFFERS -> {
-                // For vertex buffers, handle contains buffer handle, layout contains offset
-                try (Arena arena = Arena.ofConfined()) {
-                    MemorySegment buffers = arena.allocate(ValueLayout.ADDRESS);
-                    MemorySegment offsets = arena.allocate(ValueLayout.JAVA_LONG);
+                BumpAllocator ba = BumpAllocator.get();
+                ba.push();
+                try {
+                    MemorySegment buffers = ba.alloc(ValueLayout.ADDRESS.byteSize());
+                    MemorySegment offsets = ba.alloc(ValueLayout.JAVA_LONG.byteSize());
                     buffers.set(ValueLayout.ADDRESS, 0, handle);
-                    offsets.set(ValueLayout.JAVA_LONG, 0, layout.address()); // offset stored in layout field
+                    offsets.set(ValueLayout.JAVA_LONG, 0, layout.address());
                     VulkanFFM.vkCmdBindVertexBuffers(cmd, firstSet, 1, buffers, offsets);
+                } finally {
+                    ba.pop();
                 }
             }
             case INDEX_BUFFER -> {
