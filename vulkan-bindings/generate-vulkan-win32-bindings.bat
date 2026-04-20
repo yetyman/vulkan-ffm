@@ -13,6 +13,12 @@ cmd /c jextract ^
   %VULKAN_INCLUDE%\vulkan\vulkan.h
 echo Core Vulkan bindings generated
 
+REM Inject Linker.Option.critical(false) on eligible downcall handles
+echo Injecting critical natives...
+call mvn compile -q
+call mvn exec:java -q "-Dexec.mainClass=io.github.yetyman.criticalgen.CriticalNativeInjector" "-Dexec.args=%OUTPUT_DIR%\io\github\yetyman\vulkan\generated"
+echo Critical natives injected
+
 REM Generate dynamic function loaders
 echo Generating dynamic function loaders...
 call mvn compile -q

@@ -368,7 +368,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPhysicalDeviceOpticalFlowImageFormatsNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -431,7 +431,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateOpticalFlowSessionNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -492,7 +492,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyOpticalFlowSessionNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -556,7 +556,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkBindOpticalFlowSessionImageNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -617,7 +617,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdOpticalFlowExecuteNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -740,7 +740,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkAntiLagUpdateAMD");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -960,7 +960,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateShadersEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1021,7 +1021,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyShaderEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1084,7 +1084,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetShaderBinaryDataEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1146,7 +1146,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBindShadersEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1207,7 +1207,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdSetDepthClampRangeEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1270,7 +1270,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetFramebufferTilePropertiesQCOM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1332,7 +1332,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDynamicRenderingTilePropertiesQCOM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1484,7 +1484,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPhysicalDeviceCooperativeVectorPropertiesNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1545,7 +1545,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkConvertCooperativeVectorMatrixNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1606,7 +1606,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdConvertCooperativeVectorMatrixNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -1893,7 +1893,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkSetLatencySleepModeNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2016,7 +2016,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkSetLatencyMarkerNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2077,7 +2077,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetLatencyTimingsNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2137,7 +2137,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkQueueNotifyOutOfBandNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2368,7 +2368,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateDataGraphPipelinesARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2431,7 +2431,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateDataGraphPipelineSessionARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2494,7 +2494,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDataGraphPipelineSessionBindPointRequirementsARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2555,7 +2555,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDataGraphPipelineSessionMemoryRequirementsARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2617,7 +2617,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkBindDataGraphPipelineSessionMemoryARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2678,7 +2678,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyDataGraphPipelineSessionARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2739,7 +2739,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDispatchDataGraphARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2802,7 +2802,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDataGraphPipelineAvailablePropertiesARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2865,7 +2865,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDataGraphPipelinePropertiesARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2928,7 +2928,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPhysicalDeviceQueueFamilyDataGraphPropertiesARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -2989,7 +2989,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPhysicalDeviceQueueFamilyDataGraphProcessingEnginePropertiesARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3121,7 +3121,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdSetAttachmentFeedbackLoopEnableEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3208,7 +3208,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBindTileMemoryQCOM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3268,7 +3268,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDecompressMemoryEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3332,7 +3332,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDecompressMemoryIndirectCountEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3446,7 +3446,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateExternalComputeQueueNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3507,7 +3507,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyExternalComputeQueueNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3568,7 +3568,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetExternalComputeQueueDataNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -3950,7 +3950,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetClusterAccelerationStructureBuildSizesNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4010,7 +4010,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBuildClusterAccelerationStructureIndirectNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4167,7 +4167,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPartitionedAccelerationStructuresBuildSizesNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4227,7 +4227,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBuildPartitionedAccelerationStructuresNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4537,7 +4537,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetGeneratedCommandsMemoryRequirementsEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4598,7 +4598,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdPreprocessGeneratedCommandsEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4659,7 +4659,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdExecuteGeneratedCommandsEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4722,7 +4722,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateIndirectCommandsLayoutEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4783,7 +4783,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyIndirectCommandsLayoutEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4846,7 +4846,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateIndirectExecutionSetEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4907,7 +4907,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyIndirectExecutionSetEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -4969,7 +4969,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkUpdateIndirectExecutionSetPipelineEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5031,7 +5031,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkUpdateIndirectExecutionSetShaderEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5093,7 +5093,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetPhysicalDeviceCooperativeMatrixFlexibleDimensionsPropertiesNV");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5163,7 +5163,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkEnumeratePhysicalDeviceQueueFamilyPerformanceCountersByRegionARM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5223,7 +5223,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdEndRendering2EXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5283,7 +5283,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBeginCustomResolveEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5433,7 +5433,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCreateAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5494,7 +5494,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkDestroyAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5556,7 +5556,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBuildAccelerationStructuresKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5620,7 +5620,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdBuildAccelerationStructuresIndirectKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5684,7 +5684,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkBuildAccelerationStructuresKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5746,7 +5746,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCopyAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5808,7 +5808,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCopyAccelerationStructureToMemoryKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5870,7 +5870,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCopyMemoryToAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5936,7 +5936,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkWriteAccelerationStructuresPropertiesKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -5996,7 +5996,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdCopyAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6056,7 +6056,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdCopyAccelerationStructureToMemoryKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6116,7 +6116,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdCopyMemoryToAccelerationStructureKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6177,7 +6177,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetAccelerationStructureDeviceAddressKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6241,7 +6241,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdWriteAccelerationStructuresPropertiesKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6302,7 +6302,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetDeviceAccelerationStructureCompatibilityKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6365,7 +6365,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetAccelerationStructureBuildSizesKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6476,7 +6476,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdTraceRaysKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6607,7 +6607,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetRayTracingCaptureReplayShaderGroupHandlesKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6671,7 +6671,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdTraceRaysIndirectKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6734,7 +6734,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkGetRayTracingShaderGroupStackSizeKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6794,7 +6794,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdSetRayTracingPipelineStackSizeKHR");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6856,7 +6856,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDrawMeshTasksEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6919,7 +6919,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDrawMeshTasksIndirectEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
@@ -6984,7 +6984,7 @@ public class VulkanFFM extends VulkanFFM_1 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("vkCmdDrawMeshTasksIndirectCountEXT");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
     }
 
     /**
