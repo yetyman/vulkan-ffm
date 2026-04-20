@@ -103,6 +103,12 @@ public VkBuffer build(Arena arena) {
 
 FFM `MethodHandle` invocations for Vulkan calls carry safepoint-check overhead. For hot-path per-frame calls this is measurable. `Linker.Option.critical(false)` removes the safepoint check, reducing call overhead significantly.
 
+### Device-level proc addr functions and JIT limits
+
+Functions loaded via `vkGetDeviceProcAddr` (e.g. `vkCmdBeginRendering`, timeline semaphore ops) are stored as instance `MethodHandle` fields on `VkDevice`. The JIT cannot constant-fold an instance field load, so `invokeExact` through these handles carries indirect-call overhead that jextract-generated `static final` handles do not.
+
+The correct long-term fix is **per-device bytecode generation**: at device creation time, use ASM or ByteBuddy to emit a class with `static final MethodHandle` fields bound to the resolved function pointer addresses. This matches jextract performance exactly — the JIT sees a class-level constant and can inline through the downcall. The generated class is discarded when the device is closed. This is non-trivial but well-understood; defer until profiling shows it matters at scale.
+
 ### Rules for critical native eligibility
 ```
 Use critical if ALL:

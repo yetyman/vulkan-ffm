@@ -89,19 +89,19 @@ public record VkRenderPassCmd(VkDevice device, MemorySegment renderPass, MemoryS
     }
 
     // Dynamic rendering methods (Vulkan 1.3 / VK_KHR_dynamic_rendering)
-    public static void beginRendering(VkDevice device, VkCommandBuffer cmd, MemorySegment renderingInfo) {
+    public static void beginRendering(VkDevice device, VkCommandBuffer cmd, MemorySegment renderingInfo) throws Throwable {
         beginRendering(device, cmd.handle(), renderingInfo);
     }
 
-    public static void beginRendering(VkDevice device, MemorySegment cmd, MemorySegment renderingInfo) {
+    public static void beginRendering(VkDevice device, MemorySegment cmd, MemorySegment renderingInfo) throws Throwable {
         device.cmdBeginRendering(cmd, renderingInfo);
     }
 
-    public static void endRendering(VkDevice device, VkCommandBuffer cmd) {
+    public static void endRendering(VkDevice device, VkCommandBuffer cmd) throws Throwable {
         endRendering(device, cmd.handle());
     }
 
-    public static void endRendering(VkDevice device, MemorySegment cmd) {
+    public static void endRendering(VkDevice device, MemorySegment cmd) throws Throwable {
         device.cmdEndRendering(cmd);
     }
 

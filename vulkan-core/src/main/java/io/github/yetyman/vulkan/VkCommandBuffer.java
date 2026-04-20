@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -17,11 +18,17 @@ public class VkCommandBuffer {
     }
 
     public void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, long srcOffset, long dstOffset, long size) {
-        MemorySegment copyRegion = Arena.ofAuto().allocate(24);
-        copyRegion.set(ValueLayout.JAVA_LONG, 0, srcOffset);
-        copyRegion.set(ValueLayout.JAVA_LONG, 8, dstOffset);
-        copyRegion.set(ValueLayout.JAVA_LONG, 16, size);
-        VulkanFFM.vkCmdCopyBuffer(handle, srcBuffer.handle(), dstBuffer.handle(), 1, copyRegion);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment copyRegion = ba.alloc(24);
+            copyRegion.set(ValueLayout.JAVA_LONG, 0, srcOffset);
+            copyRegion.set(ValueLayout.JAVA_LONG, 8, dstOffset);
+            copyRegion.set(ValueLayout.JAVA_LONG, 16, size);
+            VulkanFFM.vkCmdCopyBuffer(handle, srcBuffer.handle(), dstBuffer.handle(), 1, copyRegion);
+        } finally {
+            ba.pop();
+        }
     }
 
     public void end() {
@@ -85,25 +92,29 @@ public class VkCommandBuffer {
         }
 
         public void execute(Arena arena) {
-            MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(arena);
-            VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO.value());
-            VkCommandBufferBeginInfo.pNext(beginInfo, MemorySegment.NULL);
-            VkCommandBufferBeginInfo.flags(beginInfo, flags);
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            try {
+                MemorySegment beginInfo = VkCommandBufferBeginInfo.allocate(ba);
+                VkCommandBufferBeginInfo.sType(beginInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO.value());
+                VkCommandBufferBeginInfo.pNext(beginInfo, MemorySegment.NULL);
+                VkCommandBufferBeginInfo.flags(beginInfo, flags);
 
-            MemorySegment inheritanceInfo = MemorySegment.NULL;
-            if (inheritanceRenderPass != null) {
-                inheritanceInfo = VkCommandBufferInheritanceInfo.allocate(arena);
-                VkCommandBufferInheritanceInfo.sType(inheritanceInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO.value());
-                VkCommandBufferInheritanceInfo.pNext(inheritanceInfo, MemorySegment.NULL);
-                VkCommandBufferInheritanceInfo.renderPass(inheritanceInfo, inheritanceRenderPass);
-                VkCommandBufferInheritanceInfo.subpass(inheritanceInfo, inheritanceSubpass);
-                VkCommandBufferInheritanceInfo.framebuffer(inheritanceInfo, inheritanceFramebuffer != null ? inheritanceFramebuffer : MemorySegment.NULL);
+                MemorySegment inheritanceInfo = MemorySegment.NULL;
+                if (inheritanceRenderPass != null) {
+                    inheritanceInfo = VkCommandBufferInheritanceInfo.allocate(ba);
+                    VkCommandBufferInheritanceInfo.sType(inheritanceInfo, VkStructureType.VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO.value());
+                    VkCommandBufferInheritanceInfo.pNext(inheritanceInfo, MemorySegment.NULL);
+                    VkCommandBufferInheritanceInfo.renderPass(inheritanceInfo, inheritanceRenderPass);
+                    VkCommandBufferInheritanceInfo.subpass(inheritanceInfo, inheritanceSubpass);
+                    VkCommandBufferInheritanceInfo.framebuffer(inheritanceInfo, inheritanceFramebuffer != null ? inheritanceFramebuffer : MemorySegment.NULL);
+                }
+
+                VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, inheritanceInfo);
+                VkResult.fromInt(VulkanFFM.vkBeginCommandBuffer(commandBuffer, beginInfo)).check();
+            } finally {
+                ba.pop();
             }
-
-            VkCommandBufferBeginInfo.pInheritanceInfo(beginInfo, inheritanceInfo);
-
-            int result = VulkanFFM.vkBeginCommandBuffer(commandBuffer, beginInfo);
-            VkResult.fromInt(result).check();
         }
     }
 

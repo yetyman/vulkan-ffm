@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.generated.*;
 import io.github.yetyman.vulkan.command.VkRenderPassCmd;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 import java.util.ArrayList;
@@ -41,7 +42,11 @@ public class VkRendering {
      * Ends a dynamic rendering pass.
      */
     public static void end(VkDevice device, MemorySegment commandBuffer) {
-        VkRenderPassCmd.endRendering(device, commandBuffer);
+        try {
+            VkRenderPassCmd.endRendering(device, commandBuffer);
+        } catch (Throwable t) {
+            throw new AssertionError("vkCmdEndRendering invokeExact signature mismatch", t);
+        }
     }
 
     public static class Builder {
@@ -185,53 +190,69 @@ public class VkRendering {
         public void begin(MemorySegment commandBuffer, Arena arena) {
             if (device == null) throw new IllegalStateException("device not set");
 
-            MemorySegment renderingInfo = VkRenderingInfo.allocate(arena);
-            VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
-            VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
-            VkRenderingInfo.flags(renderingInfo, flags);
-            VkRenderingInfo.layerCount(renderingInfo, layers);
-            VkRenderingInfo.viewMask(renderingInfo, viewMask);
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            MemorySegment renderingInfo;
+            try {
+                renderingInfo = VkRenderingInfo.allocate(ba);
+                VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
+                VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
+                VkRenderingInfo.flags(renderingInfo, flags);
+                VkRenderingInfo.layerCount(renderingInfo, layers);
+                VkRenderingInfo.viewMask(renderingInfo, viewMask);
 
-            MemorySegment renderArea = VkRenderingInfo.renderArea(renderingInfo);
-            MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(renderArea);
-            MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(renderArea);
-            VkOffset2D.x(offset, x);
-            VkOffset2D.y(offset, y);
-            VkExtent2D.width(extent, width);
-            VkExtent2D.height(extent, height);
+                MemorySegment renderArea = VkRenderingInfo.renderArea(renderingInfo);
+                MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(renderArea);
+                MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(renderArea);
+                VkOffset2D.x(offset, x);
+                VkOffset2D.y(offset, y);
+                VkExtent2D.width(extent, width);
+                VkExtent2D.height(extent, height);
 
-            if (!colorAttachments.isEmpty()) {
-                MemorySegment colorArray = arena.allocate(VkRenderingAttachmentInfo.layout(), colorAttachments.size());
-                for (int i = 0; i < colorAttachments.size(); i++) {
-                    MemorySegment slot = colorArray.asSlice(
-                            i * VkRenderingAttachmentInfo.layout().byteSize(),
-                            VkRenderingAttachmentInfo.layout());
-                    fillAttachment(slot, colorAttachments.get(i), arena);
+                if (!colorAttachments.isEmpty()) {
+                    MemorySegment colorArray = ba.allocate(
+                            VkRenderingAttachmentInfo.layout().byteSize() * colorAttachments.size(),
+                            VkRenderingAttachmentInfo.layout().byteAlignment());
+                    for (int i = 0; i < colorAttachments.size(); i++) {
+                        MemorySegment slot = colorArray.asSlice(
+                                i * VkRenderingAttachmentInfo.layout().byteSize(),
+                                VkRenderingAttachmentInfo.layout());
+                        fillAttachment(slot, colorAttachments.get(i));
+                    }
+                    VkRenderingInfo.colorAttachmentCount(renderingInfo, colorAttachments.size());
+                    VkRenderingInfo.pColorAttachments(renderingInfo, colorArray);
                 }
-                VkRenderingInfo.colorAttachmentCount(renderingInfo, colorAttachments.size());
-                VkRenderingInfo.pColorAttachments(renderingInfo, colorArray);
+
+                if (depthAttachment != null) {
+                    MemorySegment depthSlot = VkRenderingAttachmentInfo.allocate(ba);
+                    fillAttachment(depthSlot, depthAttachment);
+                    VkRenderingInfo.pDepthAttachment(renderingInfo, depthSlot);
+                } else {
+                    VkRenderingInfo.pDepthAttachment(renderingInfo, MemorySegment.NULL);
+                }
+
+                if (stencilAttachment != null) {
+                    MemorySegment stencilSlot = VkRenderingAttachmentInfo.allocate(ba);
+                    fillAttachment(stencilSlot, stencilAttachment);
+                    VkRenderingInfo.pStencilAttachment(renderingInfo, stencilSlot);
+                } else {
+                    VkRenderingInfo.pStencilAttachment(renderingInfo, MemorySegment.NULL);
+                }
+            } finally {
+                // intentionally not popping here — renderingInfo must remain valid through the Vulkan call
             }
 
-            if (depthAttachment != null) {
-                MemorySegment depthSlot = VkRenderingAttachmentInfo.allocate(arena);
-                fillAttachment(depthSlot, depthAttachment, arena);
-                VkRenderingInfo.pDepthAttachment(renderingInfo, depthSlot);
-            } else {
-                VkRenderingInfo.pDepthAttachment(renderingInfo, MemorySegment.NULL);
+            // Vulkan call outside the catch scope so the JIT can inline through invokeExact
+            try {
+                VkRenderPassCmd.beginRendering(device, commandBuffer, renderingInfo);
+            } catch (Throwable t) {
+                throw new AssertionError("vkCmdBeginRendering invokeExact signature mismatch", t);
+            } finally {
+                ba.pop();
             }
-
-            if (stencilAttachment != null) {
-                MemorySegment stencilSlot = VkRenderingAttachmentInfo.allocate(arena);
-                fillAttachment(stencilSlot, stencilAttachment, arena);
-                VkRenderingInfo.pStencilAttachment(renderingInfo, stencilSlot);
-            } else {
-                VkRenderingInfo.pStencilAttachment(renderingInfo, MemorySegment.NULL);
-            }
-
-            VkRenderPassCmd.beginRendering(device, commandBuffer, renderingInfo);
         }
 
-        private void fillAttachment(MemorySegment slot, AttachmentConfig cfg, Arena arena) {
+        private void fillAttachment(MemorySegment slot, AttachmentConfig cfg) {
             VkRenderingAttachmentInfo.sType(slot, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO.value());
             VkRenderingAttachmentInfo.pNext(slot, MemorySegment.NULL);
             VkRenderingAttachmentInfo.imageView(slot, cfg.imageView);

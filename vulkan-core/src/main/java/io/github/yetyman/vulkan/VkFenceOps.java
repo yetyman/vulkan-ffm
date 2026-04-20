@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan;
 
 import io.github.yetyman.vulkan.generated.VulkanFFM;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -29,9 +30,15 @@ public class VkFenceOps {
      * Reset a single fence to unsignaled state.
      */
     public static VkResult reset(VkDevice device, VkFence fence, Arena arena) {
-        MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS);
-        fenceArray.set(ValueLayout.ADDRESS, 0, fence.handle());
-        return Vulkan.resetFences(device.handle(), 1, fenceArray);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize());
+            fenceArray.set(ValueLayout.ADDRESS, 0, fence.handle());
+            return Vulkan.resetFences(device.handle(), 1, fenceArray);
+        } finally {
+            ba.pop();
+        }
     }
 
     public static class Builder {
@@ -63,19 +70,29 @@ public class VkFenceOps {
         }
 
         public VkResult execute(Arena arena) {
-            MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS, fences.length);
-            for (int i = 0; i < fences.length; i++) {
-                fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            try {
+                MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize() * fences.length);
+                for (int i = 0; i < fences.length; i++)
+                    fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
+                return Vulkan.waitForFences(device.handle(), fences.length, fenceArray, waitAll ? 1 : 0, timeout);
+            } finally {
+                ba.pop();
             }
-            return Vulkan.waitForFences(device.handle(), fences.length, fenceArray, waitAll ? 1 : 0, timeout);
         }
 
         public VkResult reset(Arena arena) {
-            MemorySegment fenceArray = arena.allocate(ValueLayout.ADDRESS, fences.length);
-            for (int i = 0; i < fences.length; i++) {
-                fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            try {
+                MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize() * fences.length);
+                for (int i = 0; i < fences.length; i++)
+                    fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
+                return Vulkan.resetFences(device.handle(), fences.length, fenceArray);
+            } finally {
+                ba.pop();
             }
-            return Vulkan.resetFences(device.handle(), fences.length, fenceArray);
         }
     }
 }

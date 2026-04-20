@@ -24,7 +24,7 @@ public class VkDevice implements AutoCloseable {
     private VkInstance instance;
     private final java.util.Map<Integer, VkQueue> queueCache = new java.util.HashMap<>();
 
-    private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
+private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
         this.handle = handle;
         this.physicalDevice = physicalDevice;
         Linker linker = Linker.nativeLinker();
@@ -80,24 +80,16 @@ public class VkDevice implements AutoCloseable {
         }
     }
 
-    public void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) {
+    public void cmdBeginRendering(MemorySegment commandBuffer, MemorySegment renderingInfo) throws Throwable {
         if (vkCmdBeginRendering == null)
             throw new UnsupportedOperationException("vkCmdBeginRendering not available — enable dynamic rendering feature on device creation");
-        try {
-            vkCmdBeginRendering.invokeExact(commandBuffer, renderingInfo);
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
-        }
+        vkCmdBeginRendering.invokeExact(commandBuffer, renderingInfo);
     }
 
-    public void cmdEndRendering(MemorySegment commandBuffer) {
+    public void cmdEndRendering(MemorySegment commandBuffer) throws Throwable {
         if (vkCmdEndRendering == null)
             throw new UnsupportedOperationException("vkCmdEndRendering not available — enable dynamic rendering feature on device creation");
-        try {
-            vkCmdEndRendering.invokeExact(commandBuffer);
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
-        }
+        vkCmdEndRendering.invokeExact(commandBuffer);
     }
 
     /**

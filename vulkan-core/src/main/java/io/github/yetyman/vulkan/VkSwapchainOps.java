@@ -4,6 +4,10 @@ import java.lang.foreign.*;
 
 public class VkSwapchainOps {
 
+    // Pre-allocated thread-local output slot — avoids any per-call allocation for acquireNextImage
+    private static final ThreadLocal<MemorySegment> IMAGE_INDEX_SLOT =
+            ThreadLocal.withInitial(() -> Arena.global().allocate(ValueLayout.JAVA_INT));
+
     public static AcquireBuilder acquireNextImage(VkDevice device, MemorySegment swapchain) {
         return new AcquireBuilder(device, swapchain);
     }
@@ -36,7 +40,7 @@ public class VkSwapchainOps {
         }
 
         public int execute(Arena arena) {
-            MemorySegment imageIndex = arena.allocate(ValueLayout.JAVA_INT);
+            MemorySegment imageIndex = IMAGE_INDEX_SLOT.get();
             Vulkan.acquireNextImageKHR(device.handle(), swapchain, timeout, semaphore, fence, imageIndex).check();
             return imageIndex.get(ValueLayout.JAVA_INT, 0);
         }
