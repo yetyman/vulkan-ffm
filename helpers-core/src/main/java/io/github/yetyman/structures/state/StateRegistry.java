@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.state;
+package io.github.yetyman.structures.state;
 
 import java.util.Arrays;
 import java.util.HashMap;

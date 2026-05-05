@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.state;
+package io.github.yetyman.structures.state;
 
 /**
  * Strategy for accumulating and flushing dirty slots during a batch.

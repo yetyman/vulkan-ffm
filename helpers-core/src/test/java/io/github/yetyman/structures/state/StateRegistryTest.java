@@ -1,5 +1,6 @@
-package io.github.yetyman.vulkan.state;
+package io.github.yetyman.structures.state;
 
+import io.github.yetyman.structures.state.StateRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

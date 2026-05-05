@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.state;
+package io.github.yetyman.structures.state;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;

@@ -1,4 +1,4 @@
-package io.github.yetyman.vulkan.spatial;
+package io.github.yetyman.structures.spatial;
 
 import java.util.ArrayList;
 import java.util.Arrays;

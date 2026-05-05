@@ -7,7 +7,7 @@ import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import io.github.yetyman.vulkan.commands.CommandManager;
 import io.github.yetyman.vulkan.highlevel.*;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.sample.complex.culling.Camera;
+import io.github.yetyman.structures.spatial.Camera;
 import io.github.yetyman.vulkan.sample.complex.postprocessing.AdaptiveAA;
 import io.github.yetyman.vulkan.shaders.ShaderManager;
 import io.github.yetyman.vulkan.util.Logger;

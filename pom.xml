@@ -12,6 +12,7 @@
     <modules>
         <module>vulkan-core</module>
         <module>sample-app</module>
+        <module>helpers-core</module>
     </modules>
     
     <profiles>
