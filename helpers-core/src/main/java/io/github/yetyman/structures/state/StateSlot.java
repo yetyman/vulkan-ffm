@@ -24,7 +24,7 @@ import java.util.Arrays;
  * Checked by BatchStrategy.flush() to skip the acquire barrier and virtual dispatch
  * on slots with no listeners.
  */
-sealed abstract class StateSlot permits
+sealed public abstract class StateSlot permits
         StateSlot.BoolSlot, StateSlot.IntSlot, StateSlot.FloatSlot, StateSlot.LongSlot,
         StateSlot.DoubleSlot, StateSlot.DoublesSlot, StateSlot.IntsSlot,
         StateSlot.ConstrainedStringSlot, StateSlot.UnconstrainedStringSlot, StateSlot.ObjectSlot, StateSlot.EnumSlot {
@@ -105,7 +105,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class BoolSlot extends StateSlot {
+    public static final class BoolSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -125,8 +125,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        boolean getValue()            { return (boolean) VALUE.getOpaque(this); }
-        void    setValue(boolean v)   { VALUE.setOpaque(this, v); }
+        public boolean getValue()            { return (boolean) VALUE.getOpaque(this); }
+        public void    setValue(boolean v)   { VALUE.setOpaque(this, v); }
 
         BooleanListener addListener(BooleanListener l) {
             synchronized (this) {
@@ -182,7 +182,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class IntSlot extends StateSlot {
+    public static final class IntSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -202,8 +202,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        int  getValue()         { return (int) VALUE.getOpaque(this); }
-        void setValue(int v)    { VALUE.setOpaque(this, v); }
+        public int  getValue()         { return (int) VALUE.getOpaque(this); }
+        public void setValue(int v)    { VALUE.setOpaque(this, v); }
 
         IntListener addListener(IntListener l) {
             synchronized (this) {
@@ -258,7 +258,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class FloatSlot extends StateSlot {
+    public static final class FloatSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -278,8 +278,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        float getValue()          { return (float) VALUE.getOpaque(this); }
-        void  setValue(float v)   { VALUE.setOpaque(this, v); }
+        public float getValue()          { return (float) VALUE.getOpaque(this); }
+        public void  setValue(float v)   { VALUE.setOpaque(this, v); }
 
         FloatListener addListener(FloatListener l) {
             synchronized (this) {
@@ -334,7 +334,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class LongSlot extends StateSlot {
+    public static final class LongSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -354,8 +354,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        long getValue()          { return (long) VALUE.getOpaque(this); }
-        void setValue(long v)    { VALUE.setOpaque(this, v); }
+        public long getValue()          { return (long) VALUE.getOpaque(this); }
+        public void setValue(long v)    { VALUE.setOpaque(this, v); }
 
         LongListener addListener(LongListener l) {
             synchronized (this) {
@@ -410,7 +410,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class DoubleSlot extends StateSlot {
+    public static final class DoubleSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -430,8 +430,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        double getValue()           { return (double) VALUE.getOpaque(this); }
-        void   setValue(double v)   { VALUE.setOpaque(this, v); }
+        public double getValue()           { return (double) VALUE.getOpaque(this); }
+        public void   setValue(double v)   { VALUE.setOpaque(this, v); }
 
         DoubleListener addListener(DoubleListener l) {
             synchronized (this) {
@@ -486,7 +486,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class DoublesSlot extends StateSlot {
+    public static final class DoublesSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -506,8 +506,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        double[] getValue()             { return (double[]) VALUE.getOpaque(this); }
-        void     setValue(double[] v)   { VALUE.setOpaque(this, v); }
+        public double[] getValue()             { return (double[]) VALUE.getOpaque(this); }
+        public void     setValue(double[] v)   { VALUE.setOpaque(this, v); }
 
         DoublesListener addListener(DoublesListener l) {
             synchronized (this) {
@@ -560,7 +560,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class IntsSlot extends StateSlot {
+    public static final class IntsSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -580,8 +580,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        int[] getValue()           { return (int[]) VALUE.getOpaque(this); }
-        void  setValue(int[] v)    { VALUE.setOpaque(this, v); }
+        public int[] getValue()           { return (int[]) VALUE.getOpaque(this); }
+        public void  setValue(int[] v)    { VALUE.setOpaque(this, v); }
 
         IntsListener addListener(IntsListener l) {
             synchronized (this) {
@@ -634,7 +634,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class ConstrainedStringSlot extends StateSlot {
+    public static final class ConstrainedStringSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -656,10 +656,10 @@ sealed abstract class StateSlot permits
             this.value = allowed[0];
         }
 
-        String getValue()           { return (String) VALUE.getOpaque(this); }
-        void   setValue(String v)   { VALUE.setOpaque(this, v); }
+        public String getValue()           { return (String) VALUE.getOpaque(this); }
+        public void   setValue(String v)   { VALUE.setOpaque(this, v); }
 
-        boolean isAllowed(String v) {
+        public boolean isAllowed(String v) {
             for (int i = 0; i < allowed.length; i++) if (allowed[i].equals(v)) return true;
             return false;
         }
@@ -715,7 +715,7 @@ sealed abstract class StateSlot permits
 
     // ------------------------------------------------------------------
 
-    static final class UnconstrainedStringSlot extends StateSlot {
+    public static final class UnconstrainedStringSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -735,8 +735,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        String getValue()           { return (String) VALUE.getOpaque(this); }
-        void   setValue(String v)   { VALUE.setOpaque(this, v); }
+        public String getValue()           { return (String) VALUE.getOpaque(this); }
+        public void   setValue(String v)   { VALUE.setOpaque(this, v); }
 
         StringListener addListener(StringListener l) {
             synchronized (this) {
@@ -790,7 +790,7 @@ sealed abstract class StateSlot permits
     // ------------------------------------------------------------------
 
     @SuppressWarnings("unchecked")
-    static final class ObjectSlot extends StateSlot {
+    public static final class ObjectSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -810,8 +810,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        Object getValue()           { return VALUE.getOpaque(this); }
-        void   setValue(Object v)   { VALUE.setOpaque(this, v); }
+        public Object getValue()           { return VALUE.getOpaque(this); }
+        public void   setValue(Object v)   { VALUE.setOpaque(this, v); }
 
         <T> ObjectListener<T> addListener(ObjectListener<T> l) {
             synchronized (this) {
@@ -866,7 +866,7 @@ sealed abstract class StateSlot permits
     // ------------------------------------------------------------------
 
     @SuppressWarnings("unchecked")
-    static final class EnumSlot extends StateSlot {
+    public static final class EnumSlot extends StateSlot {
         private static final VarHandle VALUE;
         private static final VarHandle LISTENERS;
         static {
@@ -888,8 +888,8 @@ sealed abstract class StateSlot permits
             this.value = initial;
         }
 
-        Enum getValue()          { return (Enum) VALUE.getOpaque(this); }
-        void setValue(Enum v)    { VALUE.setOpaque(this, v); }
+        public Enum getValue()          { return (Enum) VALUE.getOpaque(this); }
+        public void setValue(Enum v)    { VALUE.setOpaque(this, v); }
 
         <E extends Enum<E>> EnumListener<E> addListener(EnumListener<E> l) {
             synchronized (this) {

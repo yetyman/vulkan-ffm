@@ -340,3 +340,20 @@ renderList.graphicsPass("geometry")
 - `RenderList` owns: attachment setup, begin/end, barrier placement
 - Scene graph owns: pipeline selection, descriptor binding, draw call generation
 - Neither layer knows about the other's internals
+
+---
+
+## Shared Timeout / Timeline System
+
+A single dedicated thread draining a priority queue of `(triggerTimeNanos, Runnable)` pairs via `LockSupport.parkNanos` to the next deadline. Intended to replace ad-hoc `ScheduledExecutorService` usage and provide sub-millisecond precision for timeout-driven state transitions.
+
+### Current stubs waiting on this
+- `MouseState.moving` — should be set `true` on position update, `false` after a configurable idle timeout
+- `MouseState.dragging` — derived from `moving && any button DOWN`; needs `moving` to be correct first
+- `MouseState.scrolling` — same pattern as `moving` but for scroll events
+
+### Planned scope
+- Wall-clock timeline: `schedule(delayNanos, Runnable)` → returns a cancellable handle
+- Tick-driven timeline (future): advanced explicitly by simulation loop, not wall-clock
+- Lives in `helpers-core`, no Vulkan dependency
+- `StateRegistry` listeners schedule into it naturally for timeout-driven derived state
