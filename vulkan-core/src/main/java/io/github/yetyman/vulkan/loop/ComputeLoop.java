@@ -169,9 +169,11 @@ public class ComputeLoop implements ILifecycle {
             VkSubmit.Builder submitBuilder = VkSubmit.builder().commandBuffer(cmd);
             if (semaphore != null) {
                 submitBuilder.signalTimelineSemaphore(semaphore, signalValue);
-                semaphore.recordSignal(signalValue);
             }
             submitBuilder.submit(queue, fence.handle(), frameArena);
+            if (semaphore != null) {
+                semaphore.recordSignal(signalValue);
+            }
         }
     }
 

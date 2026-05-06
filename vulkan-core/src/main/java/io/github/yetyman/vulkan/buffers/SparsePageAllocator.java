@@ -213,7 +213,19 @@ class SparsePageAllocator implements AutoCloseable {
             MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(memProps, i);
             if ((VkMemoryType.propertyFlags(memType) & memoryProperties) == memoryProperties) return i;
         }
-        throw new RuntimeException("Failed to find suitable memory type");
+        // If HOST_COHERENT was required but not available, retry with just HOST_VISIBLE
+        int hostCoherentBit = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
+        if ((memoryProperties & hostCoherentBit) != 0) {
+            int relaxed = memoryProperties & ~hostCoherentBit;
+            for (int i = 0; i < typeCount; i++) {
+                if ((typeBits & (1 << i)) == 0) continue;
+                MemorySegment memType = VkPhysicalDeviceMemoryProperties.memoryTypes(memProps, i);
+                if ((VkMemoryType.propertyFlags(memType) & relaxed) == relaxed) return i;
+            }
+        }
+        throw new UnsupportedOperationException(
+                "No memory type satisfies flags 0x" + Integer.toHexString(memoryProperties)
+                + " for this sparse buffer — the device may not support host-visible sparse pages");
     }
 
     @Override

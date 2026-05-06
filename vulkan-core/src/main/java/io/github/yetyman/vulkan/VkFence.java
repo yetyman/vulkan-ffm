@@ -49,7 +49,16 @@ public class VkFence implements AutoCloseable {
      */
     public void reset() {
         try (Arena tmp = Arena.ofConfined()) {
-            // Only wait if fence is actually in use
+            VkFenceOps.reset(device, this, tmp).check();
+        }
+    }
+
+    /**
+     * Waits for the fence to become signaled, then resets it to unsignaled.
+     * Use this when the fence may still be in-flight and you need to block until it completes.
+     */
+    public void awaitAndReset() {
+        try (Arena tmp = Arena.ofConfined()) {
             VkResult status = VkFenceOps.getStatus(device, this);
             if (status == VkResult.NOT_READY) {
                 VkFenceOps.wait(device, this, Long.MAX_VALUE, tmp).check();

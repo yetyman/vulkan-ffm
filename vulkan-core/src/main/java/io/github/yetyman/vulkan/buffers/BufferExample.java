@@ -57,43 +57,82 @@ public class BufferExample {
             Vulkan.createInstance(createInfo, instancePtr).check();
             MemorySegment instance = instancePtr.get(ValueLayout.ADDRESS, 0);
 
-            // --- Physical + logical device ---
-            MemorySegment physHandle = VkPhysicalDeviceOps.enumerate(instance).first(arena);
-            VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physHandle);
-            int queueFamily = VkQueueFamily.findGraphics(physicalDevice, arena);
-            int sparseFamily = -1;
-            try {
-                sparseFamily = VkQueueFamily.findSparseBinding(physicalDevice, arena);
-            } catch (VulkanException ignored) {
+            MemorySegment[] physHandles = VkPhysicalDeviceOps.enumerate(instance).execute(arena);
+            System.out.println("Found " + physHandles.length + " Vulkan device(s).");
+
+            List<String> passed = new ArrayList<>();
+            List<String> failed = new ArrayList<>();
+
+            for (int gpuIndex = 0; gpuIndex < physHandles.length; gpuIndex++) {
+                MemorySegment physHandle = physHandles[gpuIndex];
+                MemorySegment propsSegment = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.allocate(arena);
+                io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceProperties(physHandle, propsSegment);
+                String gpuName = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.deviceName(propsSegment).getString(0);
+
+                System.out.println("\n========================================");
+                System.out.println("GPU " + gpuIndex + ": " + gpuName);
+                System.out.println("========================================");
+
+                try (Arena gpuArena = Arena.ofConfined()) {
+                    runTests(instance, physHandle, gpuArena);
+                    passed.add(gpuName);
+                } catch (Throwable t) {
+                    System.err.println("FAILED on GPU " + gpuIndex + " (" + gpuName + "): " + t.getMessage());
+                    t.printStackTrace(System.err);
+                    failed.add(gpuName);
+                }
             }
 
-            VkDevice device = VkDevice.builder()
+            Vulkan.destroyInstance(instance);
+
+            System.out.println("\n========================================");
+            System.out.println("SUMMARY");
+            System.out.println("========================================");
+            for (String name : passed) System.out.println("  PASS  " + name);
+            for (String name : failed) System.err.println("  FAIL  " + name);
+            if (failed.isEmpty()) System.out.println("\nAll GPUs passed.");
+            else System.err.println("\n" + failed.size() + " GPU(s) failed.");
+        }
+    }
+
+    private static void runTests(MemorySegment instance, MemorySegment physHandle, Arena arena) throws InterruptedException {
+        VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physHandle);
+        int queueFamily = VkQueueFamily.findGraphics(physicalDevice, arena);
+        int sparseFamily = -1;
+        try {
+            sparseFamily = VkQueueFamily.findSparseBinding(physicalDevice, arena);
+        } catch (VulkanException ignored) {
+        }
+
+        VkDevice device = VkDevice.builder()
+                .physicalDevice(physicalDevice)
+                .queueFamily(queueFamily)
+                .enableSparseBinding()
+                .enableTimelineSemaphore()
+                .build(arena);
+        if (sparseFamily >= 0 && sparseFamily != queueFamily) {
+            device.close();
+            device = VkDevice.builder()
                     .physicalDevice(physicalDevice)
                     .queueFamily(queueFamily)
+                    .queueFamily(sparseFamily)
                     .enableSparseBinding()
                     .enableTimelineSemaphore()
                     .build(arena);
-            if (sparseFamily >= 0 && sparseFamily != queueFamily) {
-                device.close();
-                device = VkDevice.builder()
-                        .physicalDevice(physicalDevice)
-                        .queueFamily(queueFamily)
-                        .queueFamily(sparseFamily)
-                        .enableSparseBinding()
-                        .enableTimelineSemaphore()
-                        .build(arena);
-            }
+        }
+        final VkDevice finalDevice = device;
+        try {
 
-            VkQueue queue = VkQueue.builder().device(device).familyIndex(queueFamily).build(arena);
-            queue.setSubmitter(new io.github.yetyman.vulkan.queue.DirectSubmitter(queue.handle()));
-            VkQueue sparseQueue = sparseFamily >= 0
-                    ? VkQueue.builder().device(device).familyIndex(sparseFamily).build(arena)
-                    : queue;
+        VkQueue queue = VkQueue.builder().device(device).familyIndex(queueFamily).build(arena);
+        queue.setSubmitter(new io.github.yetyman.vulkan.queue.DirectSubmitter(queue.handle()));
+        VkQueue sparseQueue = sparseFamily >= 0
+                ? VkQueue.builder().device(device).familyIndex(sparseFamily).build(arena)
+                : queue;
 
-            ByteBuffer data = ByteBuffer.allocate((int) SIZE);
-            data.putInt(0, MAGIC);
-            ByteBuffer data2 = ByteBuffer.allocate((int) SIZE);
-            data2.putInt(0, MAGIC2);
+        ByteBuffer data = ByteBuffer.allocate((int) SIZE);
+        data.putInt(0, MAGIC);
+        ByteBuffer data2 = ByteBuffer.allocate((int) SIZE);
+        data2.putInt(0, MAGIC2);
 
             // =========================================================
             // MAPPED
@@ -404,6 +443,8 @@ public class BufferExample {
 
                     buf.flush();
                     System.out.println("SPARSE(MAPPED) flush: ok");
+                } catch (UnsupportedOperationException e) {
+                    System.out.println("SPARSE(MAPPED): skipped (" + e.getMessage() + ")");
                 }
             } else {
                 System.out.println("SPARSE: skipped (device does not support sparse binding)");
@@ -549,10 +590,9 @@ public class BufferExample {
                 System.out.println("REBAR: skipped (device does not support ReBAR)");
             }
 
-            device.close();
-            Vulkan.destroyInstance(instance);
-
-            System.out.println("\nAll tests passed.");
+            System.out.println("\nAll tests passed on this GPU.");
+        } finally {
+            finalDevice.close();
         }
     }
 
