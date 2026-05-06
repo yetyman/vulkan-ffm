@@ -40,6 +40,12 @@ public abstract class GraphicsFrame implements AutoCloseable {
     private VkSemaphore acquireSemaphorePool;
     private int currentFrame = 0;
     private final int maxFramesInFlight;
+    // tracks which frame-slot last submitted work for each swapchain image index; -1 = never used
+    private int[] imageLastFrame;
+
+    private final java.util.List<TimelineWait> timelineWaits = new java.util.ArrayList<>();
+
+    private record TimelineWait(VkTimelineSemaphore semaphore, int stageMask) {}
 
     private Arena[] frameArenas;
     private Arena currentFrameArena;
@@ -148,6 +154,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
         for (int i = 0; i < maxFramesInFlight; i++) {
             inFlightFences[i] = VkFence.create(arena, device, true);
         }
+        imageLastFrame = new int[swapchainImageViews.length];
+        java.util.Arrays.fill(imageLastFrame, -1);
         frameArenas = new Arena[maxFramesInFlight];
         for (int i = 0; i < maxFramesInFlight; i++) {
             frameArenas[i] = Arena.ofShared();
@@ -189,6 +197,18 @@ public abstract class GraphicsFrame implements AutoCloseable {
         return queue;
     }
 
+    /**
+     * Adds a GPU-side wait on a timeline semaphore to every graphics submit.
+     * The current counter value is sampled at submit time each frame.
+     * Call before the render loop starts.
+     *
+     * @param semaphore the timeline semaphore to wait on
+     * @param stageMask the pipeline stage at which to wait
+     */
+    public void addTimelineWait(VkTimelineSemaphore semaphore, int stageMask) {
+        timelineWaits.add(new TimelineWait(semaphore, stageMask));
+    }
+
     public void drawFrame() {
         if (swapchain == null) {
             try {
@@ -215,17 +235,31 @@ public abstract class GraphicsFrame implements AutoCloseable {
                 .execute(currentFrameArena);
 
         VkSemaphore justSignaled = acquireSemaphorePool;
+        // imageAvailableSemaphores[imgIdx] was signaled by the previous acquire of this image.
+        // It is only safe to reuse once the frame that waited on it has completed.
+        int lastFrame = imageLastFrame[imgIdx];
+        if (lastFrame >= 0 && lastFrame != currentFrame) {
+            VkFenceOps.waitFor(device)
+                    .fence(inFlightFences[lastFrame].handle())
+                    .execute(currentFrameArena).check();
+        }
         acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
         imageAvailableSemaphores[imgIdx] = justSignaled;
 
         recordCommandBuffer(commandBuffers[currentFrame], imgIdx, currentFrameArena);
 
-        VkSubmit.builder()
+        VkSubmit.Builder submitBuilder = VkSubmit.builder()
                 .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
                         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
                 .commandBuffer(commandBuffers[currentFrame])
-                .signalSemaphore(renderFinishedSemaphores[imgIdx].handle())
-                .submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena);
+                .signalSemaphore(renderFinishedSemaphores[imgIdx].handle());
+        for (TimelineWait w : timelineWaits) {
+            long val = w.semaphore().completedGeneration();
+            if (val > 0) submitBuilder.waitTimelineSemaphore(w.semaphore(), val, w.stageMask());
+        }
+        submitBuilder.submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena);
+
+        imageLastFrame[imgIdx] = currentFrame;
 
         VkPresent.builder()
                 .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
@@ -270,6 +304,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
         acquireSemaphorePool.close();
         imageAvailableSemaphores = new VkSemaphore[swapchainImageViews.length];
         renderFinishedSemaphores = new VkSemaphore[swapchainImageViews.length];
+        imageLastFrame = new int[swapchainImageViews.length];
+        java.util.Arrays.fill(imageLastFrame, -1);
         try (Arena tmp = Arena.ofConfined()) {
             for (int i = 0; i < swapchainImageViews.length; i++) {
                 imageAvailableSemaphores[i] = VkSemaphore.create(tmp, device);

@@ -160,7 +160,7 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
 
     @Override
     protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
-        long gen = computeLoop.completedGeneration();
+        long gen = computeLoop.semaphore().completedGeneration();
         VkDescriptorSet fragSet = (gen % 2 == 0 && gen > 0) ? fragSetB : fragSetA;
 
         fragSet.bind(commandBuffer, pipeline, 0, frameArena);

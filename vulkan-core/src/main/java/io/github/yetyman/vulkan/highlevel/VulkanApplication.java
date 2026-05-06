@@ -124,6 +124,8 @@ public abstract class VulkanApplication implements AutoCloseable {
 
             if (config.validationLayers.length > 0) builder.validationLayers(config.validationLayers);
 
+            configureVulkanContext(builder);
+
             vulkanContext = builder.build();
             surface = config.windowSystem.createSurface(vulkanContext.instance().handle(), window, vulkanContext.arena());
             log("Vulkan initialized");
@@ -218,5 +220,12 @@ public abstract class VulkanApplication implements AutoCloseable {
     }
 
     protected void configureInput(InputManager inputManager) {
+    }
+
+    /**
+     * Called before the VulkanContext is built. Override to customize device selection,
+     * extensions, or other context options. Example: {@code builder.preferDiscreteGpu()}.
+     */
+    protected void configureVulkanContext(VulkanContext.Builder builder) {
     }
 }

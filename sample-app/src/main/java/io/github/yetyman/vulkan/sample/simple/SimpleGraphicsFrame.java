@@ -31,6 +31,13 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
     protected abstract VkPipeline createPipeline();
 
     /**
+     * Called each frame before the render pass begins. Use for barriers that must be outside
+     * the render pass (e.g. compute-to-vertex memory barriers).
+     */
+    protected void beforeRenderPass(VkCommandBuffer commandBuffer, Arena frameArena) {
+    }
+
+    /**
      * Called each frame after pipeline bind and viewport/scissor setup, before the draw call.
      */
     protected abstract void onDraw(VkCommandBuffer commandBuffer, Arena frameArena);
@@ -81,6 +88,8 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
     @Override
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
+
+        beforeRenderPass(commandBuffer, frameArena);
 
         if (useDynamicRendering) {
             VkImageBarrier.builder()

@@ -4,7 +4,7 @@ import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.Vulkan;
 
 import java.lang.foreign.MemorySegment;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -30,21 +30,23 @@ public final class MailboxSubmitter implements IQueueSubmitter, AutoCloseable {
         return submitInfo.toArray(java.lang.foreign.ValueLayout.JAVA_BYTE);
     }
 
-    private final ConcurrentLinkedQueue<Pending> mailbox = new ConcurrentLinkedQueue<>();
+    private final LinkedTransferQueue<Pending> mailbox = new LinkedTransferQueue<>();
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Thread submissionThread;
 
     public MailboxSubmitter(MemorySegment queueHandle, String threadName) {
         submissionThread = Thread.ofPlatform().name(threadName).start(() -> {
             while (running.get() || !mailbox.isEmpty()) {
-                Pending p = mailbox.poll();
-                if (p != null) {
-                    try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
-                        MemorySegment seg = arena.allocateFrom(java.lang.foreign.ValueLayout.JAVA_BYTE, p.submitInfoBytes());
-                        VkSubmit.queueSubmit(queueHandle, 1, seg, p.fence()).check();
+                try {
+                    Pending p = mailbox.poll(1, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    if (p != null) {
+                        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+                            MemorySegment seg = arena.allocateFrom(java.lang.foreign.ValueLayout.JAVA_BYTE, p.submitInfoBytes());
+                            VkSubmit.queueSubmit(queueHandle, 1, seg, p.fence()).check();
+                        }
                     }
-                } else {
-                    Thread.onSpinWait();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             }
         });

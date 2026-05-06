@@ -7,8 +7,6 @@ import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
 import io.github.yetyman.vulkan.loop.ComputeLoop;
 import io.github.yetyman.vulkan.loop.LoopDriver;
-import io.github.yetyman.vulkan.queue.DirectSubmitter;
-import io.github.yetyman.vulkan.queue.MutexSubmitter;
 import io.github.yetyman.vulkan.sample.windowing.GLFWInputSystem;
 import io.github.yetyman.vulkan.sample.windowing.GLFWWindowSystem;
 import io.github.yetyman.vulkan.util.Logger;
@@ -28,16 +26,6 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
 
         VkQueue graphicsQueue = vulkanContext().graphicsVkQueue();
         VkQueue computeQueue = vulkanContext().computeVkQueue();
-
-        if (graphicsQueue.handle().equals(computeQueue.handle())) {
-            MutexSubmitter sharedSubmitter = new MutexSubmitter(graphicsQueue.handle());
-            graphicsQueue.setSubmitter(sharedSubmitter);
-            computeQueue.setSubmitter(new MutexSubmitter(computeQueue.handle(), sharedSubmitter.lock()));
-            Logger.info("Compute: shared queue (MutexSubmitter)");
-        } else {
-            computeQueue.setSubmitter(new DirectSubmitter(computeQueue.handle()));
-            Logger.info("Compute: dedicated queue (DirectSubmitter)");
-        }
 
         frame = new GameOfLifeGraphicsFrame(
                 vulkanContext().arena(), vulkanContext().device(),

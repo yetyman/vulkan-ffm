@@ -55,7 +55,6 @@ public class ComputeLoop implements ILifecycle {
     private final LoopDriver driver;
     private final Work work;
     private final String threadName;
-    private final java.util.concurrent.atomic.AtomicLong completedGen = new java.util.concurrent.atomic.AtomicLong(0);
 
     // Per-run resources — allocated on start(), released on awaitStopped()
     private Arena runArena;
@@ -141,13 +140,6 @@ public class ComputeLoop implements ILifecycle {
     }
 
     /**
-     * @return the last completed generation as a cheap CPU-side read (no kernel call).
-     */
-    public long completedGeneration() {
-        return completedGen.get();
-    }
-
-    /**
      * @return the timeline semaphore used to signal completion, or null if none was set.
      */
     public VkTimelineSemaphore semaphore() {
@@ -175,9 +167,11 @@ public class ComputeLoop implements ILifecycle {
             long signalValue = gen;
 
             VkSubmit.Builder submitBuilder = VkSubmit.builder().commandBuffer(cmd);
-            if (semaphore != null) submitBuilder.signalTimelineSemaphore(semaphore, signalValue);
+            if (semaphore != null) {
+                submitBuilder.signalTimelineSemaphore(semaphore, signalValue);
+                semaphore.recordSignal(signalValue);
+            }
             submitBuilder.submit(queue, fence.handle(), frameArena);
-            completedGen.set(signalValue);
         }
     }
 

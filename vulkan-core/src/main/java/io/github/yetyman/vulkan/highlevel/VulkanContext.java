@@ -235,6 +235,7 @@ public class VulkanContext implements AutoCloseable {
         private String[] validationLayers = null;
         private MemorySegment surface = null;
         private boolean enableValidation = false;
+        private boolean preferDiscreteGpu = false;
 
         private Builder() {
         }
@@ -289,6 +290,14 @@ public class VulkanContext implements AutoCloseable {
         }
 
         /**
+         * Prefers a discrete GPU over integrated when selecting the physical device.
+         */
+        public Builder preferDiscreteGpu() {
+            this.preferDiscreteGpu = true;
+            return this;
+        }
+
+        /**
          * Enables validation layers
          */
         public Builder enableValidation() {
@@ -297,6 +306,27 @@ public class VulkanContext implements AutoCloseable {
                 validationLayers = new String[]{"VK_LAYER_KHRONOS_validation"};
             }
             return this;
+        }
+
+        private static MemorySegment selectPhysicalDevice(MemorySegment[] devices, boolean preferDiscrete, Arena arena) {
+            if (devices.length == 0) throw new RuntimeException("No Vulkan devices found");
+            if (!preferDiscrete || devices.length == 1) return devices[0];
+            int discreteType = VkPhysicalDeviceType.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU.value();
+            int integratedType = VkPhysicalDeviceType.VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU.value();
+            MemorySegment best = devices[0];
+            int bestScore = -1;
+            MemorySegment props = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.allocate(arena);
+            for (MemorySegment d : devices) {
+                io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceProperties(d, props);
+                int type = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.deviceType(props);
+                int score = type == discreteType ? 2 : type == integratedType ? 1 : 0;
+                if (score > bestScore) { bestScore = score; best = d; }
+            }
+            return best;
+        }
+
+        private static MemorySegment selectPhysicalDevice(MemorySegment instance, boolean preferDiscrete, Arena arena) {
+            return selectPhysicalDevice(VkPhysicalDeviceOps.enumerate(instance).execute(arena), preferDiscrete, arena);
         }
 
         private static Set<String> getAvailableExtensions(VkPhysicalDevice physicalDevice, Arena arena) {
@@ -348,7 +378,7 @@ public class VulkanContext implements AutoCloseable {
                 VkInstance instance = instanceBuilder.build(arena);
 
                 // Select physical device
-                MemorySegment physicalDeviceHandle = VkPhysicalDeviceOps.enumerate(instance.handle()).first(arena);
+                MemorySegment physicalDeviceHandle = selectPhysicalDevice(instance.handle(), preferDiscreteGpu, arena);
                 VkPhysicalDevice physicalDevice = VkPhysicalDevice.wrap(physicalDeviceHandle);
 
                 // Find queue families
@@ -390,9 +420,28 @@ public class VulkanContext implements AutoCloseable {
                 VkDevice device = deviceBuilder.build(arena);
                 VulkanCapabilities.initialize(physicalDevice);
 
-                VkQueue graphicsQueue = new VkQueue(device, device.getQueue(graphicsFamily, 0), graphicsFamily);
-                VkQueue presentQueue = new VkQueue(device, device.getQueue(presentFamily, 0), presentFamily);
-                VkQueue computeQueue = new VkQueue(device, device.getQueue(computeFamily, computeQueueIndex), computeFamily);
+                MemorySegment graphicsHandle = device.getQueue(graphicsFamily, 0);
+                MemorySegment presentHandle  = device.getQueue(presentFamily, 0);
+                MemorySegment computeHandle  = device.getQueue(computeFamily, computeQueueIndex);
+
+                // Shared handles must share a submitter — MutexSubmitter serializes concurrent vkQueueSubmit calls.
+                io.github.yetyman.vulkan.queue.MutexSubmitter sharedSubmitter = null;
+                if (computeHandle.equals(graphicsHandle) || presentHandle.equals(graphicsHandle)) {
+                    sharedSubmitter = new io.github.yetyman.vulkan.queue.MutexSubmitter(graphicsHandle);
+                }
+
+                VkQueue graphicsQueue = sharedSubmitter != null
+                        ? new VkQueue(device, graphicsHandle, graphicsFamily, new java.util.concurrent.atomic.AtomicReference<>(sharedSubmitter))
+                        : new VkQueue(device, graphicsHandle, graphicsFamily);
+
+                VkQueue presentQueue = presentHandle.equals(graphicsHandle)
+                        ? new VkQueue(device, presentHandle, presentFamily, new java.util.concurrent.atomic.AtomicReference<>(sharedSubmitter))
+                        : new VkQueue(device, presentHandle, presentFamily);
+
+                VkQueue computeQueue = computeHandle.equals(graphicsHandle)
+                        ? new VkQueue(device, computeHandle, computeFamily, new java.util.concurrent.atomic.AtomicReference<>(
+                                new io.github.yetyman.vulkan.queue.MutexSubmitter(computeHandle, sharedSubmitter.lock())))
+                        : new VkQueue(device, computeHandle, computeFamily);
 
                 return new VulkanContext(arena, instance, physicalDevice, device,
                         graphicsQueue, presentQueue, computeQueue,

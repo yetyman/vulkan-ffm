@@ -15,6 +15,7 @@ import java.lang.foreign.ValueLayout;
 public class VkTimelineSemaphore implements AutoCloseable {
     private final MemorySegment handle;
     private final VkDevice device;
+    private final java.util.concurrent.atomic.AtomicLong lastSignaled = new java.util.concurrent.atomic.AtomicLong(0);
 
     private VkTimelineSemaphore(MemorySegment handle, VkDevice device) {
         this.handle = handle;
@@ -83,6 +84,21 @@ public class VkTimelineSemaphore implements AutoCloseable {
             device.getSemaphoreCounterValue(handle, ptr).check();
             return ptr.get(ValueLayout.JAVA_LONG, 0);
         }
+    }
+
+    /**
+     * Records that this semaphore has been submitted to signal {@code value}.
+     * Called by submit infrastructure after queueSubmit. Not a GPU query.
+     */
+    public void recordSignal(long value) {
+        lastSignaled.accumulateAndGet(value, Math::max);
+    }
+
+    /**
+     * @return the highest value this semaphore has been submitted to signal, as a cheap CPU-side read.
+     */
+    public long completedGeneration() {
+        return lastSignaled.get();
     }
 
     public MemorySegment handle() {

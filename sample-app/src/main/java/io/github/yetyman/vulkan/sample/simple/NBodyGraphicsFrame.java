@@ -31,7 +31,6 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
     private VkDescriptorSet       graphicsSet;
 
     private VkTimelineSemaphore computeDone;
-    private ComputeLoop         computeLoop;
 
     public NBodyGraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                               MemorySegment surface, int width, int height) {
@@ -141,7 +140,8 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     ComputeLoop buildComputeLoop(VkQueue computeQueue) {
-        computeLoop = ComputeLoop.builder()
+        addTimelineWait(computeDone, VkPipelineStageFlagBits.VK_PIPELINE_STAGE_VERTEX_SHADER_BIT.value());
+        ComputeLoop computeLoop = ComputeLoop.builder()
                 .device(device)
                 .queue(computeQueue)
                 .queueFamilyIndex(computeQueue.familyIndex())
@@ -173,6 +173,17 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
                 })
                 .build();
         return computeLoop;
+    }
+
+    @Override
+    protected void beforeRenderPass(VkCommandBuffer commandBuffer, Arena frameArena) {
+        VkMemoryBarrier.builder()
+                .srcAccess(VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT.value())
+                .dstAccess(VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value())
+                .build(frameArena)
+                .execute(commandBuffer.handle(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_VERTEX_SHADER_BIT.value());
     }
 
     @Override
