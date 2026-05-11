@@ -386,4 +386,34 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
+    // -- Query Pool (GPU timestamps) --
+
+    public static VkResult createQueryPool(MemorySegment device, MemorySegment createInfo, MemorySegment queryPool) {
+        int result = VulkanFFM.vkCreateQueryPool(device, createInfo, MemorySegment.NULL, queryPool);
+        return VkResult.fromInt(result);
+    }
+
+    public static void destroyQueryPool(MemorySegment device, MemorySegment queryPool) {
+        VulkanFFM.vkDestroyQueryPool(device, queryPool, MemorySegment.NULL);
+    }
+
+    public static VkResult getQueryPoolResults(MemorySegment device, MemorySegment queryPool,
+                                               int firstQuery, int queryCount, long dataSize,
+                                               MemorySegment data, long stride, int flags) {
+        int result = VulkanFFM.vkGetQueryPoolResults(device, queryPool, firstQuery, queryCount, dataSize, data, stride, flags);
+        return VkResult.fromInt(result);
+    }
+
+    public static void cmdResetQueryPool(MemorySegment commandBuffer, MemorySegment queryPool, int firstQuery, int queryCount) {
+        VulkanFFM.vkCmdResetQueryPool(commandBuffer, queryPool, firstQuery, queryCount);
+    }
+
+    public static void cmdWriteTimestamp(MemorySegment commandBuffer, int pipelineStage, MemorySegment queryPool, int query) {
+        VulkanFFM.vkCmdWriteTimestamp(commandBuffer, pipelineStage, queryPool, query);
+    }
+
+    public static void resetQueryPool(MemorySegment device, MemorySegment queryPool, int firstQuery, int queryCount) {
+        VulkanFFM.vkResetQueryPool(device, queryPool, firstQuery, queryCount);
+    }
+
 }
