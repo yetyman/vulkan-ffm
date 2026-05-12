@@ -40,6 +40,13 @@ public class RenderGraphExecutor {
     /**
      * Executes all buckets of a compiled graph into the given command buffer.
      *
+     * stub -- external semaphore waits/signals declared on nodes (externalWaits, externalSignals)
+     * are not emitted. Multi-queue submission with inter-queue semaphores is not implemented.
+     * All nodes are recorded into a single command buffer regardless of queue assignment.
+     * GPU timestamp queries are not inserted around nodes (TimestampQueryPool exists but is
+     * not integrated here). Parallel bucket execution is not implemented -- buckets execute
+     * sequentially on the provided command buffer.
+     *
      * @return per-node CPU recording times (GPU times require timestamp readback).
      *         The returned map is owned by this executor and will be cleared on next execute().
      */

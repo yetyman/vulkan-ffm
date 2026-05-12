@@ -198,6 +198,11 @@ public class RenderList implements AutoCloseable {
             return this;
         }
 
+        /**
+         * stub -- parallel execution is not implemented. Setting threadCount > 1 will
+         * still execute sequentially on the calling thread. Secondary command buffer
+         * recording on worker threads and vkCmdExecuteCommands are not wired up.
+         */
         public PassBuilder parallel(int threadCount) {
             pass.threadCount = threadCount;
             return this;
@@ -457,11 +462,13 @@ public class RenderList implements AutoCloseable {
         }
 
         private void executeParallel(MemorySegment commandBuffer, VkImageView swapchainImageView, Arena frameArena) {
+            // stub -- executes sequentially despite threadCount > 1. Real parallel execution
+            // requires secondary command buffer allocation per thread, recording on worker threads,
+            // and vkCmdExecuteCommands to merge them. Not implemented.
             if (parallelExecutor == null) return;
             Map<String, MemorySegment> resolved = new HashMap<>();
             for (String name : reads.keySet()) resolved.put(name, owner.resolveView(name, swapchainImageView));
             for (String name : writes.keySet()) resolved.put(name, owner.resolveView(name, swapchainImageView));
-            // stub — parallel wiring tracked in NEXT_STEPS
             for (int i = 0; i < threadCount; i++) {
                 parallelExecutor.execute(commandBuffer, i, resolved, frameArena);
             }

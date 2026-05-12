@@ -68,6 +68,12 @@ public class RenderGraphCompiler {
 
     /**
      * Full compilation from declared nodes to execution plan.
+     *
+     * stub -- stages 7-8 (memory aliasing + transient allocation) and stage 11 (timestamp
+     * insertion) from the plan are not executed here. The aliaser is accepted but never called.
+     * Transient resources are not allocated by the compiler. GPU timestamp query insertion
+     * is not part of the compilation output. These must be implemented for the graph to
+     * manage memory efficiently and provide GPU timing data.
      */
     public CompiledGraph compile(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
         // Stage 1: Validate

@@ -23,6 +23,16 @@ import java.util.Map;
 /**
  * Top-level render graph. Declares resources and nodes, compiles to an execution plan,
  * and executes per-frame with automatic barrier emission and stats collection.
+ *
+ * stub -- the following planned features are not yet integrated:
+ * - resize(w, h): re-describing and re-allocating transient resources on dimension change
+ * - persistent resource ring management: PersistentResourceRing exists but is not wired
+ *   into the graph builder or executor (no .persistent() / .transient() builder methods)
+ * - transient resource allocation: the graph does not allocate or own any GPU resources;
+ *   all resources must be pre-allocated externally and wrapped in GraphResource impls
+ * - fast recompile paths: topology-unchanged shortcuts are not implemented
+ * - multi-command-buffer submission: all nodes record into a single externally-provided
+ *   command buffer regardless of queue assignment
  */
 public class RenderGraph {
 

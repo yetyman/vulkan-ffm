@@ -64,9 +64,11 @@ public class SplitBarrierStrategy implements BarrierStrategy {
             .transition(oldLayout, newLayout);
 
         // Queue ownership transfer
+        // stub -- queue family ownership transfer is not implemented. The release+acquire
+        // barrier pair required for cross-queue resource sharing is not emitted. All resources
+        // are treated as if they stay on the same queue family. Multi-queue graphs will have
+        // incorrect synchronization until this is implemented.
         if (srcQueue != VK_QUEUE_FAMILY_IGNORED && consumer.stageMask() != 0) {
-            // We don't know the dst queue family here -- that's resolved by the graph executor.
-            // For now, use IGNORED (no transfer). The graph will set this when it knows assignments.
             builder.queueFamilyTransfer(VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED);
         }
 
