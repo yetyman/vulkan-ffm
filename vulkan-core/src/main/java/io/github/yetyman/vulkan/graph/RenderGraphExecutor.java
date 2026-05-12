@@ -1,8 +1,8 @@
 package io.github.yetyman.vulkan.graph;
 
-import io.github.yetyman.vulkan.VkBarrier;
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits;
 import io.github.yetyman.vulkan.graph.barriers.BarrierBatch;
 import io.github.yetyman.vulkan.graph.barriers.BarrierStrategy;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
@@ -19,10 +19,18 @@ import java.util.Map;
 
 /**
  * Executes a compiled render graph for one frame. Emits barriers between nodes,
- * records commands, and collects timing data.
+ * records commands, inserts GPU timestamps, and collects timing data.
  *
  * Designed for zero per-frame allocations in steady state: all internal structures
  * are pre-allocated and reused across frames.
+ *
+ * stub -- external semaphore waits/signals declared on nodes (externalWaits, externalSignals)
+ * are not emitted into submit info. Multi-queue submission with inter-queue semaphores is not
+ * implemented. All nodes are recorded into a single command buffer regardless of queue
+ * assignment. Parallel bucket execution is not implemented -- buckets execute sequentially.
+ * Feedback edge resource resolution (substituting the correct ring slot) is not performed
+ * by the executor -- the graph advances the ring but nodes must access the correct copy
+ * via the PersistentResourceManager or ExecutionContext.
  */
 public class RenderGraphExecutor {
 
@@ -32,20 +40,37 @@ public class RenderGraphExecutor {
     private final MutableExecutionContext ctx = new MutableExecutionContext();
     private HashMap<String, Long> cpuTimes;
 
+    private TimestampQueryPool timestampPool;
+    private boolean timestampsEnabled = false;
+
     public RenderGraphExecutor(VkDevice device, BarrierStrategy barrierStrategy) {
         this.device = device;
         this.barrierStrategy = barrierStrategy;
     }
 
     /**
-     * Executes all buckets of a compiled graph into the given command buffer.
+     * Enables GPU timestamp collection. Must be called before the first execute().
      *
-     * stub -- external semaphore waits/signals declared on nodes (externalWaits, externalSignals)
-     * are not emitted. Multi-queue submission with inter-queue semaphores is not implemented.
-     * All nodes are recorded into a single command buffer regardless of queue assignment.
-     * GPU timestamp queries are not inserted around nodes (TimestampQueryPool exists but is
-     * not integrated here). Parallel bucket execution is not implemented -- buckets execute
-     * sequentially on the provided command buffer.
+     * @param pool the timestamp query pool to use
+     */
+    public void enableTimestamps(TimestampQueryPool pool) {
+        this.timestampPool = pool;
+        this.timestampsEnabled = true;
+    }
+
+    /** Disables GPU timestamp collection */
+    public void disableTimestamps() {
+        this.timestampsEnabled = false;
+    }
+
+    /** @return the timestamp query pool, or null if not enabled */
+    public TimestampQueryPool timestampPool() { return timestampPool; }
+
+    /** @return true if GPU timestamps are being collected */
+    public boolean timestampsEnabled() { return timestampsEnabled; }
+
+    /**
+     * Executes all buckets of a compiled graph into the given command buffer.
      *
      * @return per-node CPU recording times (GPU times require timestamp readback).
      *         The returned map is owned by this executor and will be cleared on next execute().
@@ -68,6 +93,11 @@ public class RenderGraphExecutor {
         ctx.frameGeneration = frameGeneration;
         ctx.previousStats = previousStats;
 
+        // Reset timestamp queries for this frame
+        if (timestampsEnabled && timestampPool != null) {
+            timestampPool.reset(commandBuffer.handle());
+        }
+
         for (ExecutionBucket bucket : compiled.executionBuckets()) {
             QueueAssignment queue = bucket.queue();
             ctx.queue = queue;
@@ -80,10 +110,22 @@ public class RenderGraphExecutor {
                     executeBarrierBatch(commandBuffer, barrierBatch);
                 }
 
+                // Begin timestamp
+                if (timestampsEnabled && timestampPool != null) {
+                    timestampPool.writeBeginTimestamp(commandBuffer.handle(), node.name(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value());
+                }
+
                 // Record node commands
                 long startNanos = System.nanoTime();
                 node.execute(ctx);
                 cpuTimes.put(node.name(), System.nanoTime() - startNanos);
+
+                // End timestamp
+                if (timestampsEnabled && timestampPool != null) {
+                    timestampPool.writeEndTimestamp(commandBuffer.handle(), node.name(),
+                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
+                }
 
                 // Update resource state after execution
                 for (ResourceEdge edge : node.writes()) {
@@ -115,7 +157,7 @@ public class RenderGraphExecutor {
     }
 
     private void executeBarrierBatch(VkCommandBuffer cmd, BarrierBatch batch) {
-        if (cmd == null) return; // no-op in headless/test mode
+        if (cmd == null) return;
         for (int i = 0; i < batch.count(); i++) {
             batch.get(i).execute(cmd.handle(), batch.srcStageMask(), batch.dstStageMask());
         }

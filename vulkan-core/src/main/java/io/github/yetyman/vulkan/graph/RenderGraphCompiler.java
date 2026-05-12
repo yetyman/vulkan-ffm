@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.graph;
 
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
+import io.github.yetyman.vulkan.graph.memory.AliasingStrategy;
+import io.github.yetyman.vulkan.graph.memory.ResourceAlias;
 import io.github.yetyman.vulkan.graph.nodes.NodeType;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
@@ -10,9 +12,9 @@ import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.SchedulingStrategy;
 import io.github.yetyman.vulkan.graph.barriers.BarrierStrategy;
-import io.github.yetyman.vulkan.graph.memory.AliasingStrategy;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -22,7 +24,7 @@ import java.util.Set;
 
 /**
  * Compiles a render graph declaration into an executable plan.
- * Runs validation, lifetime computation, culling, scheduling, barrier synthesis, and aliasing.
+ * Runs validation, lifetime computation, culling, scheduling, aliasing, and barrier synthesis.
  */
 public class RenderGraphCompiler {
 
@@ -44,7 +46,6 @@ public class RenderGraphCompiler {
      * to advance). Detects cycles in feedback dependencies.
      */
     public void versionResources(List<RenderNode> nodes) {
-        // Collect all resources written in this frame
         Set<GraphResource> produced = new HashSet<>();
         for (RenderNode node : nodes) {
             for (ResourceEdge edge : node.writes()) {
@@ -52,7 +53,6 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Validate that every feedback edge's resource is also written this frame
         for (RenderNode node : nodes) {
             for (var feedbackEdge : node.feedbackReads()) {
                 GraphResource res = feedbackEdge.resource();
@@ -68,12 +68,10 @@ public class RenderGraphCompiler {
 
     /**
      * Full compilation from declared nodes to execution plan.
+     * Stages: validate, version, lifetimes, cull, schedule, alias.
      *
-     * stub -- stages 7-8 (memory aliasing + transient allocation) and stage 11 (timestamp
-     * insertion) from the plan are not executed here. The aliaser is accepted but never called.
-     * Transient resources are not allocated by the compiler. GPU timestamp query insertion
-     * is not part of the compilation output. These must be implemented for the graph to
-     * manage memory efficiently and provide GPU timing data.
+     * stub -- stage 11 (GPU timestamp query insertion) is not part of the compilation output.
+     * Timestamps are inserted by the executor at runtime, not baked into the compiled plan.
      */
     public CompiledGraph compile(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
         // Stage 1: Validate
@@ -91,7 +89,50 @@ public class RenderGraphCompiler {
         // Stage 5-6: Schedule (queue assignment + topological sort)
         List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
 
-        return new CompiledGraph(activeNodes, buckets, lifetimes);
+        // Stage 7: Alias transient resources with non-overlapping lifetimes
+        List<ResourceAlias> aliasingGroups = computeAliasing(activeNodes);
+
+        return new CompiledGraph(activeNodes, buckets, lifetimes, aliasingGroups);
+    }
+
+    /**
+     * Partial recompile: skips validation and versioning, re-runs lifetimes through aliasing.
+     * Used after resize when topology is unchanged but resource sizes changed.
+     */
+    public CompiledGraph recompileFromLifetimes(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
+        Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(nodes);
+        List<RenderNode> activeNodes = cull(nodes);
+        List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
+        List<ResourceAlias> aliasingGroups = computeAliasing(activeNodes);
+        return new CompiledGraph(activeNodes, buckets, lifetimes, aliasingGroups);
+    }
+
+    /**
+     * Stage 7: Compute aliasing groups for transient resources.
+     */
+    private List<ResourceAlias> computeAliasing(List<RenderNode> activeNodes) {
+        if (aliasingStrategy == null) return Collections.emptyList();
+
+        // Collect all transient resources referenced by active nodes
+        List<GraphResource> transientResources = new ArrayList<>();
+        Set<GraphResource> seen = new HashSet<>();
+        for (RenderNode node : activeNodes) {
+            for (ResourceEdge edge : node.writes()) {
+                GraphResource res = edge.resource();
+                if (res.isTransient() && seen.add(res)) {
+                    transientResources.add(res);
+                }
+            }
+            for (ResourceEdge edge : node.reads()) {
+                GraphResource res = edge.resource();
+                if (res.isTransient() && seen.add(res)) {
+                    transientResources.add(res);
+                }
+            }
+        }
+
+        if (transientResources.isEmpty()) return Collections.emptyList();
+        return aliasingStrategy.alias(transientResources);
     }
 
     /**
@@ -146,7 +187,6 @@ public class RenderGraphCompiler {
      * Uses reverse reachability from sink nodes.
      */
     public List<RenderNode> cull(List<RenderNode> nodes) {
-        // Build reverse dependency map: resource -> nodes that write it
         Map<GraphResource, List<RenderNode>> producers = new HashMap<>();
         for (RenderNode node : nodes) {
             for (ResourceEdge edge : node.writes()) {
@@ -154,7 +194,6 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Find sink nodes
         Set<RenderNode> reachable = new HashSet<>();
         List<RenderNode> worklist = new ArrayList<>();
 
@@ -166,7 +205,6 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Walk backwards through dependencies
         while (!worklist.isEmpty()) {
             RenderNode current = worklist.remove(worklist.size() - 1);
             for (ResourceEdge readEdge : current.reads()) {
@@ -181,7 +219,6 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Return only reachable nodes in original order
         List<RenderNode> result = new ArrayList<>();
         for (RenderNode node : nodes) {
             if (reachable.contains(node)) {
