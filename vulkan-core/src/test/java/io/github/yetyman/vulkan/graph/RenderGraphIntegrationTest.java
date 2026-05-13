@@ -89,7 +89,7 @@ class RenderGraphIntegrationTest {
         // Execute (no real command buffer needed -- nodes just record to our list)
         RenderGraphExecutor executor = new RenderGraphExecutor(null, new SplitBarrierStrategy());
         try (Arena arena = Arena.ofConfined()) {
-            executor.execute(compiled, null, arena, 0, 0, null);
+            executor.executeInto(compiled, null, arena, 0, 0, null);
         }
 
         // Verify execution order respects dependencies
@@ -120,7 +120,7 @@ class RenderGraphIntegrationTest {
 
         RenderGraphExecutor executor = new RenderGraphExecutor(null, new SplitBarrierStrategy());
         try (Arena arena = Arena.ofConfined()) {
-            executor.execute(compiled, null, arena, 0, 0, null);
+            executor.executeInto(compiled, null, arena, 0, 0, null);
         }
 
         // After execution, buf should have writer's access/stage/queue
@@ -282,7 +282,7 @@ class RenderGraphIntegrationTest {
         RenderGraphExecutor executor = new RenderGraphExecutor(null, null);
         Map<String, Long> cpuTimes;
         try (Arena arena = Arena.ofConfined()) {
-            cpuTimes = executor.execute(compiled, null, arena, 0, 0, null);
+            cpuTimes = executor.executeInto(compiled, null, arena, 0, 0, null);
         }
 
         assertTrue(cpuTimes.containsKey("slow"));

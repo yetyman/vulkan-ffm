@@ -325,6 +325,11 @@ public class Vulkan {
         return VkResult.fromInt(result);
     }
 
+    public static VkResult resetCommandPool(MemorySegment device, MemorySegment commandPool, int flags) {
+        int result = VulkanFFM.vkResetCommandPool(device, commandPool, flags);
+        return VkResult.fromInt(result);
+    }
+
     public static void destroySwapchainKHR(MemorySegment device, MemorySegment swapchain) {
         VulkanFFM.vkDestroySwapchainKHR(device, swapchain, MemorySegment.NULL);
     }

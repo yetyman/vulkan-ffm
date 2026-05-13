@@ -282,7 +282,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         swapchainRes.reset();
 
         // The graph executor handles everything: pass ordering, barrier emission, draw calls
-        executor.execute(compiledGraph, commandBuffer, frameArena, imageIndex, 0, null);
+        executor.executeInto(compiledGraph, commandBuffer, frameArena, imageIndex, 0, null);
 
         // Final transition to present (the graph's PresentNode is a no-op, so we do this explicitly)
         io.github.yetyman.vulkan.VkImageBarrier.builder()

@@ -38,11 +38,21 @@ import java.util.Map;
  * Persistent resources are managed via PersistentResourceRing for cross-frame access.
  * Imported resources are externally owned and only tracked for synchronization.
  *
+ * Multi-queue execution: the executor allocates per-queue-family command buffers, emits
+ * queue ownership transfer barriers (release+acquire pairs), and submits with inter-queue
+ * timeline semaphores. External semaphore waits/signals declared on nodes are wired into
+ * the correct queue's submit info. Nodes within a bucket are recorded in parallel on
+ * secondary command buffers when the bucket exceeds the parallel threshold.
+ *
  * stub -- the following planned features are not yet integrated:
  * - fast recompile paths: topology-unchanged shortcuts beyond resize are not implemented
- * - multi-command-buffer submission: all nodes record into a single externally-provided
- *   command buffer regardless of queue assignment
- * - external semaphore wait/signal emission at submit time
+ * - feedback edge ring semaphore chain: PersistentResourceRing does indexing but has no
+ *   synchronization to prevent overwriting a copy the GPU is still reading
+ * - AdaptiveSchedulingStrategy: feedback weights are computed but not consumed for queue
+ *   assignment decisions
+ * - CpuWorkNode host barrier emission after CPU work completes
+ * - bindless resource conservative barriers (bindlessReads not wired)
+ * - debug label integration (vkCmdBeginDebugUtilsLabel/vkCmdEndDebugUtilsLabel)
  */
 public class RenderGraph implements AutoCloseable {
 
@@ -104,10 +114,15 @@ public class RenderGraph implements AutoCloseable {
     public static Builder builder() { return new Builder(); }
 
     /**
-     * Executes one frame of the graph. Records commands into the provided command buffer,
-     * emits all necessary barriers, and collects CPU timing data.
+     * Executes one frame of the graph using multi-queue submission. Allocates per-queue command
+     * buffers internally, records all nodes, and submits to the appropriate queues with
+     * inter-queue timeline semaphore synchronization.
+     *
+     * @param frameArena arena scoped to this frame
+     * @param frameIndex which frame-in-flight slot (0..framesInFlight-1)
+     * @param frameFence fence to signal when all submissions complete, or MemorySegment.NULL
      */
-    public void execute(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
+    public void execute(Arena frameArena, int frameIndex, MemorySegment frameFence) {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
 
@@ -115,6 +130,30 @@ public class RenderGraph implements AutoCloseable {
         persistentManager.advanceFrame(gen);
 
         Map<String, Long> cpuTimes = executor.execute(
+            compiledGraph, frameArena, frameIndex, gen, previousStats);
+
+        // Submit all per-queue command buffers with inter-queue semaphore dependencies
+        executor.submit(frameArena, frameFence);
+
+        stats.recordCpuTimes(cpuTimes);
+    }
+
+    /**
+     * Executes one frame of the graph into a single externally-provided command buffer.
+     * This is the legacy single-queue path for callers that manage their own command buffers
+     * and submission. No multi-queue support -- all nodes record into the provided buffer.
+     *
+     * @param frameArena arena scoped to this frame
+     * @param frameIndex which frame-in-flight slot
+     * @param commandBuffer the externally-managed command buffer (must already be in recording state)
+     */
+    public void executeInto(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
+        long gen = frameGeneration++;
+        stats.beginFrame(gen);
+
+        persistentManager.advanceFrame(gen);
+
+        Map<String, Long> cpuTimes = executor.executeInto(
             compiledGraph, commandBuffer, frameArena, frameIndex, gen, previousStats);
 
         stats.recordCpuTimes(cpuTimes);
@@ -252,6 +291,7 @@ public class RenderGraph implements AutoCloseable {
         if (transientAllocator != null) {
             transientAllocator.close();
         }
+        executor.close();
         graphArena.close();
     }
 

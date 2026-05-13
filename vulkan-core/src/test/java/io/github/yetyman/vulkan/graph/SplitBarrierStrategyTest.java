@@ -152,4 +152,98 @@ class SplitBarrierStrategyTest {
             assertEquals(0x00000080, batch.dstStageMask());
         }
     }
+
+    @Test
+    void emitsOwnershipTransfer_bufferCrossQueue() {
+        // Buffer written on queue family 0 (compute), read on queue family 1 (graphics)
+        GraphResource buf = TestResources.transientBuffer("crossQueue");
+        buf.updateState(0x00000040, 0x00000800, 0); // SHADER_WRITE, COMPUTE, queue family 0
+
+        ResourceEdge consumer = ResourceEdge.read(buf, 0x00000020, 0x00000080); // SHADER_READ, FRAGMENT
+
+        strategy.setConsumerQueueFamily(1); // consumer is on queue family 1
+
+        try (Arena arena = Arena.ofConfined()) {
+            BarrierBatch batch = new BarrierBatch();
+            strategy.emit(buf, consumer, batch, arena);
+
+            // Should NOT emit a same-queue barrier
+            assertTrue(batch.hasNoSameQueueBarriers(), "Cross-queue should not emit same-queue barrier");
+            // Should emit an ownership transfer pair
+            assertTrue(batch.hasOwnershipTransfers(), "Cross-queue should emit ownership transfer");
+            assertEquals(1, batch.transferCount());
+
+            var transfer = batch.getTransfer(0);
+            assertEquals(0, transfer.srcQueueFamily());
+            assertEquals(1, transfer.dstQueueFamily());
+        }
+    }
+
+    @Test
+    void emitsOwnershipTransfer_imageCrossQueue_withLayoutTransition() {
+        // Image written on queue family 0 (compute), read on queue family 1 (graphics)
+        // with a layout transition from GENERAL(1) to SHADER_READ_ONLY(5)
+        TestImageResource img = new TestImageResource("crossQueueImg", 1, 0x00000040, 0x00000800);
+        img.updateState(0x00000040, 0x00000800, 0); // SHADER_WRITE, COMPUTE, queue family 0
+
+        ResourceEdge consumer = ResourceEdge.readImage(img, 0x00000020, 0x00000080, 5); // SHADER_READ, FRAGMENT, layout=5
+
+        strategy.setConsumerQueueFamily(1);
+
+        try (Arena arena = Arena.ofConfined()) {
+            BarrierBatch batch = new BarrierBatch();
+            strategy.emit(img, consumer, batch, arena);
+
+            assertTrue(batch.hasNoSameQueueBarriers());
+            assertTrue(batch.hasOwnershipTransfers());
+            assertEquals(1, batch.transferCount());
+
+            var transfer = batch.getTransfer(0);
+            assertEquals(0, transfer.srcQueueFamily());
+            assertEquals(1, transfer.dstQueueFamily());
+
+            // Layout should be updated
+            assertEquals(5, img.currentLayout());
+        }
+    }
+
+    @Test
+    void noOwnershipTransfer_sameQueueFamily() {
+        // Both on queue family 0 -- no ownership transfer needed
+        GraphResource buf = TestResources.transientBuffer("sameQueue");
+        buf.updateState(0x00000040, 0x00000800, 0); // SHADER_WRITE, COMPUTE, queue family 0
+
+        ResourceEdge consumer = ResourceEdge.read(buf, 0x00000020, 0x00000080);
+
+        strategy.setConsumerQueueFamily(0); // same queue family
+
+        try (Arena arena = Arena.ofConfined()) {
+            BarrierBatch batch = new BarrierBatch();
+            strategy.emit(buf, consumer, batch, arena);
+
+            // Should emit a regular same-queue barrier, not an ownership transfer
+            assertFalse(batch.hasNoSameQueueBarriers(), "Same-queue write-to-read should emit barrier");
+            assertFalse(batch.hasOwnershipTransfers(), "Same-queue should not emit ownership transfer");
+        }
+    }
+
+    @Test
+    void noOwnershipTransfer_ignoredQueueFamily() {
+        // Source queue is IGNORED -- no ownership transfer
+        GraphResource buf = TestResources.transientBuffer("ignored");
+        buf.updateState(0x00000040, 0x00000800, ~0); // SHADER_WRITE, COMPUTE, QUEUE_FAMILY_IGNORED
+
+        ResourceEdge consumer = ResourceEdge.read(buf, 0x00000020, 0x00000080);
+
+        strategy.setConsumerQueueFamily(1);
+
+        try (Arena arena = Arena.ofConfined()) {
+            BarrierBatch batch = new BarrierBatch();
+            strategy.emit(buf, consumer, batch, arena);
+
+            // Should emit a regular barrier since source is IGNORED
+            assertFalse(batch.hasNoSameQueueBarriers());
+            assertFalse(batch.hasOwnershipTransfers());
+        }
+    }
 }
