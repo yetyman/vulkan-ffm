@@ -15,6 +15,7 @@ public class VkImageGraphResource implements GraphImageResource {
     private final boolean transientResource;
     private final boolean imported;
     private final ResourceLifetime lifetime = new ResourceLifetime();
+    private MemorySegment imageViewHandle = MemorySegment.NULL;
 
     private VkImageGraphResource(String name, VkImage image, boolean transientResource, boolean imported) {
         this.name = name;
@@ -85,4 +86,10 @@ public class VkImageGraphResource implements GraphImageResource {
     public void updateLayout(int layout) {
         image.updateState(layout, image.lastAccessMask(), image.lastStageMask(), image.owningQueueFamily());
     }
+
+    @Override
+    public MemorySegment imageView() { return imageViewHandle; }
+
+    /** Sets the default image view handle for this resource (used by auto-rendering) */
+    public void setImageView(MemorySegment imageView) { this.imageViewHandle = imageView; }
 }

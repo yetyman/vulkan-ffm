@@ -27,6 +27,15 @@ public interface GraphImageResource extends GraphResource {
     int sampleCount();
 
     /**
+     * Returns the default VkImageView handle for this resource.
+     * For transient resources allocated by the graph, this is a full-image view
+     * created alongside the image. For imported resources, this must be set by the caller.
+     *
+     * @return the VkImageView handle, or MemorySegment.NULL if no view is available
+     */
+    default java.lang.foreign.MemorySegment imageView() { return java.lang.foreign.MemorySegment.NULL; }
+
+    /**
      * Updates the tracked layout after a layout transition.
      */
     void updateLayout(int layout);

@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.graph.nodes;
 
+import io.github.yetyman.vulkan.VkRendering;
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
@@ -14,6 +15,11 @@ import java.util.function.Consumer;
 
 /**
  * A rasterization pass node in the render graph.
+ *
+ * When a {@code VkRendering.Builder} is provided via {@link Builder#autoRendering(VkRendering.Builder)},
+ * the executor automatically begins dynamic rendering before calling execute() and ends it after,
+ * using the builder's cached zero-allocation path. The node's execute lambda only needs to record
+ * draw calls.
  */
 public class GraphicsPassNode implements RenderNode {
 
@@ -29,6 +35,9 @@ public class GraphicsPassNode implements RenderNode {
     private final Consumer<NodeStats> statsFunc;
     private volatile boolean active = true;
 
+    // Auto-rendering: a pre-configured VkRendering.Builder that the executor caches and reuses
+    private final VkRendering.Builder renderingBuilder;
+
     private GraphicsPassNode(Builder b) {
         this.name = b.name;
         this.reads = Collections.unmodifiableList(b.reads);
@@ -40,6 +49,7 @@ public class GraphicsPassNode implements RenderNode {
         this.scheduleHint = b.scheduleHint;
         this.executeFunc = b.executeFunc;
         this.statsFunc = b.statsFunc;
+        this.renderingBuilder = b.renderingBuilder;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -58,6 +68,12 @@ public class GraphicsPassNode implements RenderNode {
 
     /** Allows toggling this node on/off (e.g. from onStats feedback) */
     public void setActive(boolean active) { this.active = active; }
+
+    /** @return true if this node uses auto-managed dynamic rendering */
+    public boolean autoRendering() { return renderingBuilder != null; }
+
+    /** @return the VkRendering.Builder for auto-rendering, or null if not enabled */
+    public VkRendering.Builder renderingBuilder() { return renderingBuilder; }
 
     @Override
     public void execute(ExecutionContext ctx) {
@@ -80,6 +96,7 @@ public class GraphicsPassNode implements RenderNode {
         private ScheduleHint scheduleHint = ScheduleHint.NONE;
         private Consumer<ExecutionContext> executeFunc;
         private Consumer<NodeStats> statsFunc;
+        private VkRendering.Builder renderingBuilder;
 
         private Builder() {}
 
@@ -93,6 +110,21 @@ public class GraphicsPassNode implements RenderNode {
         public Builder scheduleHint(ScheduleHint hint) { this.scheduleHint = hint; return this; }
         public Builder execute(Consumer<ExecutionContext> func) { this.executeFunc = func; return this; }
         public Builder onStats(Consumer<NodeStats> func) { this.statsFunc = func; return this; }
+
+        /**
+         * Enables auto-managed dynamic rendering using the provided VkRendering.Builder.
+         * The graph will call buildAndCache() on this builder at compile time, then
+         * beginCached()/end() around each execute() call with zero per-frame allocation.
+         *
+         * The caller configures the VkRendering.Builder with attachments, load/store ops,
+         * clear values, and render area as usual. The graph handles caching and patching.
+         *
+         * @param rendering a fully-configured VkRendering.Builder (device, attachments, area set)
+         */
+        public Builder autoRendering(VkRendering.Builder rendering) {
+            this.renderingBuilder = rendering;
+            return this;
+        }
 
         public GraphicsPassNode build() {
             if (name == null) throw new IllegalStateException("name not set");

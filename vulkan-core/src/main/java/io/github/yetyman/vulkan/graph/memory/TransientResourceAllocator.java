@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.graph.memory;
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkImage;
+import io.github.yetyman.vulkan.VkImageView;
 import io.github.yetyman.vulkan.graph.resources.BufferDesc;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ImageDesc;
@@ -29,6 +30,7 @@ public class TransientResourceAllocator implements AutoCloseable {
     private final VkDevice device;
     private final Arena arena;
     private final List<VkImage> allocatedImages = new ArrayList<>();
+    private final List<VkImageView> allocatedImageViews = new ArrayList<>();
     private final List<VkBuffer> allocatedBuffers = new ArrayList<>();
     private final Map<String, GraphResource> allocatedResources = new HashMap<>();
 
@@ -39,6 +41,7 @@ public class TransientResourceAllocator implements AutoCloseable {
 
     /**
      * Allocates a transient image resource from its descriptor.
+     * Also creates a default full-image VkImageView for use with auto-rendering.
      *
      * @param name resource name
      * @param desc image descriptor
@@ -57,6 +60,20 @@ public class TransientResourceAllocator implements AutoCloseable {
 
         allocatedImages.add(image);
         VkImageGraphResource resource = VkImageGraphResource.transientResource(name, image);
+
+        // Create a default image view for auto-rendering support
+        int aspectMask = isDepthFormat(desc.format())
+            ? 0x00000002  // VK_IMAGE_ASPECT_DEPTH_BIT
+            : 0x00000001; // VK_IMAGE_ASPECT_COLOR_BIT
+        VkImageView view = VkImageView.builder()
+            .device(device)
+            .image(image.handle())
+            .format(desc.format())
+            .aspectMask(aspectMask)
+            .build(arena);
+        allocatedImageViews.add(view);
+        resource.setImageView(view.handle());
+
         allocatedResources.put(name, resource);
         return resource;
     }
@@ -191,15 +208,25 @@ public class TransientResourceAllocator implements AutoCloseable {
     }
 
     private void destroyAll() {
+        for (VkImageView view : allocatedImageViews) {
+            view.close();
+        }
         for (VkImage image : allocatedImages) {
             image.close();
         }
         for (VkBuffer buffer : allocatedBuffers) {
             buffer.close();
         }
+        allocatedImageViews.clear();
         allocatedImages.clear();
         allocatedBuffers.clear();
         allocatedResources.clear();
+    }
+
+    private static boolean isDepthFormat(int format) {
+        // VK_FORMAT_D16_UNORM=124, D32_SFLOAT=126, D16_UNORM_S8_UINT=128,
+        // D24_UNORM_S8_UINT=129, D32_SFLOAT_S8_UINT=130
+        return format == 124 || format == 126 || format == 128 || format == 129 || format == 130;
     }
 
     @Override

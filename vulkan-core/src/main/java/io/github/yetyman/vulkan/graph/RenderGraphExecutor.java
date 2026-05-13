@@ -14,6 +14,7 @@ import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
 import io.github.yetyman.vulkan.graph.feedback.FrameStats;
 import io.github.yetyman.vulkan.graph.nodes.ExecutionContext;
+import io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode;
 import io.github.yetyman.vulkan.graph.nodes.NodeType;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphImageResource;
@@ -330,7 +331,18 @@ public class RenderGraphExecutor implements AutoCloseable {
                 }
 
                 long startNanos = System.nanoTime();
+
+                var rendering = getAutoRendering(node);
+                if (rendering != null) {
+                    rendering.beginCached(commandBuffer.handle());
+                }
+
                 node.execute(ctx);
+
+                if (rendering != null) {
+                    io.github.yetyman.vulkan.VkRendering.end(device, commandBuffer.handle());
+                }
+
                 cpuTimes.put(node.name(), System.nanoTime() - startNanos);
 
                 if (debugLabelsEnabled) {
@@ -405,7 +417,20 @@ public class RenderGraphExecutor implements AutoCloseable {
 
             ctx.commandBuffer = primaryCmd;
             long startNanos = System.nanoTime();
+
+            // Auto-begin dynamic rendering for GraphicsPassNodes with autoRendering enabled
+            var rendering = getAutoRendering(node);
+            if (rendering != null) {
+                rendering.beginCached(primaryCmd.handle());
+            }
+
             node.execute(ctx);
+
+            // Auto-end dynamic rendering
+            if (rendering != null) {
+                io.github.yetyman.vulkan.VkRendering.end(device, primaryCmd.handle());
+            }
+
             cpuTimes.put(node.name(), System.nanoTime() - startNanos);
 
             if (debugLabelsEnabled) {
@@ -643,6 +668,17 @@ public class RenderGraphExecutor implements AutoCloseable {
     private VkTimelineSemaphore getOrCreateInterQueueSemaphore(String key) {
         return interQueueSemaphores.computeIfAbsent(key,
             k -> VkTimelineSemaphore.create(device, 0, semaphoreArena));
+    }
+
+    /**
+     * Returns the VkRendering.Builder for a node if it's a GraphicsPassNode with autoRendering
+     * enabled and the builder has been cached. Returns null otherwise.
+     */
+    private static io.github.yetyman.vulkan.VkRendering.Builder getAutoRendering(RenderNode node) {
+        if (node instanceof GraphicsPassNode gpn && gpn.autoRendering()) {
+            return gpn.renderingBuilder();
+        }
+        return null;
     }
 
     /**

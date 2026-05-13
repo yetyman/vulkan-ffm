@@ -117,6 +117,9 @@ public class RenderGraph implements AutoCloseable {
 
         // Compile immediately
         this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues);
+
+        // Initialize auto-rendering configs for GraphicsPassNodes
+        initializeAutoRendering();
     }
 
     public static Builder builder() { return new Builder(); }
@@ -238,6 +241,13 @@ public class RenderGraph implements AutoCloseable {
         // Reallocate physical resources
         transientAllocator.reallocate(transientImageDescs, transientBufferDescs);
 
+        // Patch auto-rendering configs with new dimensions (zero allocation)
+        for (RenderNode node : nodes) {
+            if (node instanceof io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode gpn && gpn.autoRendering()) {
+                gpn.renderingBuilder().patchRenderArea(0, 0, newWidth, newHeight);
+            }
+        }
+
         // Recompile (fast path: skip validation and versioning since topology is unchanged)
         this.compiledGraph = compiler.recompileFromLifetimes(new ArrayList<>(nodes), queues);
     }
@@ -310,6 +320,14 @@ public class RenderGraph implements AutoCloseable {
         }
         for (Map.Entry<String, BufferDesc> entry : transientBufferDescs.entrySet()) {
             transientAllocator.allocateBuffer(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void initializeAutoRendering() {
+        for (RenderNode node : nodes) {
+            if (node instanceof io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode gpn && gpn.autoRendering()) {
+                gpn.renderingBuilder().buildAndCache(graphArena);
+            }
         }
     }
 
