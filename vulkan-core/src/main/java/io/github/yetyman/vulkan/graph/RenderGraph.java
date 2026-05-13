@@ -44,15 +44,18 @@ import java.util.Map;
  * the correct queue's submit info. Nodes within a bucket are recorded in parallel on
  * secondary command buffers when the bucket exceeds the parallel threshold.
  *
+ * Feedback loop: GPU timestamps feed into AdaptiveFeedbackHandler which computes per-node
+ * cost estimates. AdaptiveSchedulingStrategy consumes these to decide queue assignments.
+ * Node activation changes trigger fast recompile (cull + reschedule only).
+ *
+ * Persistent resource rings use timeline semaphores to prevent overwriting a slot the GPU
+ * is still reading. CpuWorkNode writes automatically get HOST_WRITE state so the next
+ * consumer gets the correct host barrier. Bindless resources get conservative barriers.
+ *
  * stub -- the following planned features are not yet integrated:
- * - fast recompile paths: topology-unchanged shortcuts beyond resize are not implemented
- * - feedback edge ring semaphore chain: PersistentResourceRing does indexing but has no
- *   synchronization to prevent overwriting a copy the GPU is still reading
- * - AdaptiveSchedulingStrategy: feedback weights are computed but not consumed for queue
- *   assignment decisions
- * - CpuWorkNode host barrier emission after CPU work completes
- * - bindless resource conservative barriers (bindlessReads not wired)
  * - debug label integration (vkCmdBeginDebugUtilsLabel/vkCmdEndDebugUtilsLabel)
+ * - write-after-write hazard detection in validation
+ * - RenderList deprecation/removal
  */
 public class RenderGraph implements AutoCloseable {
 
@@ -106,6 +109,11 @@ public class RenderGraph implements AutoCloseable {
         // Allocate transient resources
         this.transientAllocator = new TransientResourceAllocator(device, graphArena);
         allocateTransientResources();
+
+        // Initialize persistent resource ring semaphores
+        if (!persistentRings.isEmpty()) {
+            persistentManager.initializeSemaphores(device, graphArena);
+        }
 
         // Compile immediately
         this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues);
@@ -291,6 +299,7 @@ public class RenderGraph implements AutoCloseable {
         if (transientAllocator != null) {
             transientAllocator.close();
         }
+        persistentManager.closeSemaphores();
         executor.close();
         graphArena.close();
     }
@@ -309,11 +318,25 @@ public class RenderGraph implements AutoCloseable {
         if (feedbackHandler != null) {
             feedbackHandler.onStats(frameStats);
         }
-        for (RenderNode node : compiledGraph.activeNodes()) {
+
+        // Deliver stats to nodes and detect activation changes
+        boolean activationChanged = false;
+        for (RenderNode node : nodes) {
             var nodeStats = frameStats.forNode(node.name());
             if (nodeStats != null) {
+                boolean waActive = node.isActive();
                 node.onStats(nodeStats);
+                if (waActive != node.isActive()) {
+                    activationChanged = true;
+                }
             }
+        }
+
+        // Fast recompile if any node toggled active state
+        if (activationChanged) {
+            this.compiledGraph = compiler.recompileFromCull(
+                new ArrayList<>(nodes), queues,
+                compiledGraph.lifetimes(), compiledGraph.aliasingGroups());
         }
     }
 

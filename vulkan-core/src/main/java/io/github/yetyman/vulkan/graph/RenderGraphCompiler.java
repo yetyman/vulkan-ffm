@@ -108,6 +108,19 @@ public class RenderGraphCompiler {
     }
 
     /**
+     * Minimal recompile: only re-culls and re-schedules. Used when node active states may have
+     * changed (via onStats feedback) but topology and resource sizes are unchanged.
+     * Skips validation, versioning, lifetime computation, and aliasing.
+     */
+    public CompiledGraph recompileFromCull(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues,
+                                           Map<GraphResource, ResourceLifetime> cachedLifetimes,
+                                           List<ResourceAlias> cachedAliasing) {
+        List<RenderNode> activeNodes = cull(nodes);
+        List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
+        return new CompiledGraph(activeNodes, buckets, cachedLifetimes, cachedAliasing);
+    }
+
+    /**
      * Stage 7: Compute aliasing groups for transient resources.
      */
     private List<ResourceAlias> computeAliasing(List<RenderNode> activeNodes) {

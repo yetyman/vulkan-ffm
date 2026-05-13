@@ -8,6 +8,7 @@ import io.github.yetyman.vulkan.enums.VkCommandBufferUsageFlagBits;
 import io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits;
 import io.github.yetyman.vulkan.graph.barriers.BarrierBatch;
 import io.github.yetyman.vulkan.graph.barriers.BarrierStrategy;
+import io.github.yetyman.vulkan.graph.barriers.ConservativeBarrierStrategy;
 import io.github.yetyman.vulkan.graph.barriers.OwnershipTransfer;
 import io.github.yetyman.vulkan.graph.barriers.SplitBarrierStrategy;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
@@ -377,9 +378,21 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
 
             // Update resource state
+            // For CPU work nodes, force HOST_WRITE access and HOST stage on all writes
+            // so the barrier strategy automatically emits the correct host barrier
+            // when the next GPU node reads the resource
+            int effectiveAccessMask;
+            int effectiveStageMask;
             for (ResourceEdge edge : node.writes()) {
                 GraphResource res = edge.resource();
-                res.updateState(edge.accessMask(), edge.stageMask(), queueFamily);
+                if (node.type() == io.github.yetyman.vulkan.graph.nodes.NodeType.CPU_WORK) {
+                    effectiveAccessMask = 0x00004000; // VK_ACCESS_HOST_WRITE_BIT
+                    effectiveStageMask = 0x00004000;  // VK_PIPELINE_STAGE_HOST_BIT
+                } else {
+                    effectiveAccessMask = edge.accessMask();
+                    effectiveStageMask = edge.stageMask();
+                }
+                res.updateState(effectiveAccessMask, effectiveStageMask, queueFamily);
                 if (edge.imageLayout() >= 0 && res instanceof io.github.yetyman.vulkan.graph.resources.GraphImageResource imgRes) {
                     imgRes.updateLayout(edge.imageLayout());
                 }
@@ -536,6 +549,8 @@ public class RenderGraphExecutor implements AutoCloseable {
         deferred.clear();
     }
 
+    private static final ConservativeBarrierStrategy CONSERVATIVE = new ConservativeBarrierStrategy();
+
     private void emitBarriersForNode(RenderNode node, BarrierBatch batch, int consumerQueueFamily, Arena arena) {
         if (barrierStrategy == null) return;
 
@@ -552,6 +567,16 @@ public class RenderGraphExecutor implements AutoCloseable {
             GraphResource resource = writeEdge.resource();
             if (resource.lastAccessMask() != 0 || resource.lastStageMask() != 0) {
                 barrierStrategy.emit(resource, writeEdge, batch, arena);
+            }
+        }
+
+        // Bindless resources: apply conservative barriers since exact access is unknown
+        for (GraphResource bindlessRes : node.bindlessReads()) {
+            if (bindlessRes.lastAccessMask() != 0 || bindlessRes.lastStageMask() != 0) {
+                // Synthesize a read edge for the conservative strategy
+                ResourceEdge syntheticEdge = ResourceEdge.read(bindlessRes, 0x00000020, // SHADER_READ
+                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT.value());
+                CONSERVATIVE.emit(bindlessRes, syntheticEdge, batch, arena);
             }
         }
     }
