@@ -52,10 +52,10 @@ import java.util.Map;
  * is still reading. CpuWorkNode writes automatically get HOST_WRITE state so the next
  * consumer gets the correct host barrier. Bindless resources get conservative barriers.
  *
- * stub -- the following planned features are not yet integrated:
- * - debug label integration (vkCmdBeginDebugUtilsLabel/vkCmdEndDebugUtilsLabel)
- * - write-after-write hazard detection in validation
- * - RenderList deprecation/removal
+ * Debug labels (vkCmdBeginDebugUtilsLabelEXT/vkCmdEndDebugUtilsLabelEXT) are inserted
+ * around each node when enabled, with colors derived from node type.
+ *
+ * Validation detects: orphan reads, write-after-write hazards, feedback edge cycles.
  */
 public class RenderGraph implements AutoCloseable {
 

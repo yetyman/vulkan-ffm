@@ -79,6 +79,7 @@ public class RenderGraphExecutor implements AutoCloseable {
     // Timing
     private TimestampQueryPool timestampPool;
     private boolean timestampsEnabled = false;
+    private boolean debugLabelsEnabled = false;
     private HashMap<String, Long> cpuTimes;
 
     // Mutable execution context reused across nodes
@@ -125,6 +126,15 @@ public class RenderGraphExecutor implements AutoCloseable {
 
     /** @return true if GPU timestamps are being collected */
     public boolean timestampsEnabled() { return timestampsEnabled; }
+
+    /** Enables debug label insertion around each node (visible in RenderDoc/validation layers) */
+    public void enableDebugLabels() { this.debugLabelsEnabled = true; }
+
+    /** Disables debug label insertion */
+    public void disableDebugLabels() { this.debugLabelsEnabled = false; }
+
+    /** @return true if debug labels are being inserted */
+    public boolean debugLabelsEnabled() { return debugLabelsEnabled; }
 
     /**
      * Executes all buckets of a compiled graph. Records commands into per-queue command buffers,
@@ -291,9 +301,17 @@ public class RenderGraphExecutor implements AutoCloseable {
                         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value());
                 }
 
+                if (debugLabelsEnabled) {
+                    DebugLabels.beginForNode(commandBuffer.handle(), node.name(), node.type(), frameArena);
+                }
+
                 long startNanos = System.nanoTime();
                 node.execute(ctx);
                 cpuTimes.put(node.name(), System.nanoTime() - startNanos);
+
+                if (debugLabelsEnabled) {
+                    DebugLabels.end(commandBuffer.handle());
+                }
 
                 if (timestampsEnabled && timestampPool != null) {
                     timestampPool.writeEndTimestamp(commandBuffer.handle(), node.name(),
@@ -365,11 +383,21 @@ public class RenderGraphExecutor implements AutoCloseable {
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value());
             }
 
+            // Debug label
+            if (debugLabelsEnabled) {
+                DebugLabels.beginForNode(primaryCmd.handle(), node.name(), node.type(), frameArena);
+            }
+
             // Record node commands
             ctx.commandBuffer = primaryCmd;
             long startNanos = System.nanoTime();
             node.execute(ctx);
             cpuTimes.put(node.name(), System.nanoTime() - startNanos);
+
+            // End debug label
+            if (debugLabelsEnabled) {
+                DebugLabels.end(primaryCmd.handle());
+            }
 
             // End timestamp
             if (timestampsEnabled && timestampPool != null) {

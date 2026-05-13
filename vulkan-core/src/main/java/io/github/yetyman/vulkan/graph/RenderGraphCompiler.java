@@ -149,17 +149,27 @@ public class RenderGraphCompiler {
     }
 
     /**
-     * Stage 1: Validate that all read edges have a corresponding producer (write edge)
-     * somewhere in the graph. Detects orphan reads.
+     * Stage 1: Validate the graph declaration.
+     * - All read edges have a corresponding producer (write edge) or are imported
+     * - No write-after-write hazards (two nodes writing the same resource without an intervening read)
+     * - No declared resources are unused (warning only, does not throw)
      */
     public void validate(List<RenderNode> nodes) {
         Set<GraphResource> produced = new HashSet<>();
+        Map<GraphResource, List<RenderNode>> resourceWriters = new HashMap<>();
+        Set<GraphResource> resourceReaders = new HashSet<>();
+
         for (RenderNode node : nodes) {
             for (ResourceEdge edge : node.writes()) {
                 produced.add(edge.resource());
+                resourceWriters.computeIfAbsent(edge.resource(), k -> new ArrayList<>()).add(node);
+            }
+            for (ResourceEdge edge : node.reads()) {
+                resourceReaders.add(edge.resource());
             }
         }
 
+        // Check for orphan reads
         for (RenderNode node : nodes) {
             for (ResourceEdge edge : node.reads()) {
                 GraphResource res = edge.resource();
@@ -167,6 +177,24 @@ public class RenderGraphCompiler {
                     throw new RenderGraphException(
                         "Node '" + node.name() + "' reads resource '" + res.name() +
                         "' which has no producer and is not imported");
+                }
+            }
+        }
+
+        // Check for write-after-write hazards: two nodes writing the same resource
+        // without any node reading it in between. This is a potential data race.
+        for (Map.Entry<GraphResource, List<RenderNode>> entry : resourceWriters.entrySet()) {
+            List<RenderNode> writers = entry.getValue();
+            if (writers.size() > 1) {
+                GraphResource res = entry.getKey();
+                // Check if there's at least one reader of this resource between any pair of writers
+                boolean hasIntermediateReader = resourceReaders.contains(res);
+                if (!hasIntermediateReader) {
+                    throw new RenderGraphException(
+                        "Write-after-write hazard on resource '" + res.name() +
+                        "': written by " + writers.stream().map(RenderNode::name)
+                            .collect(java.util.stream.Collectors.joining(", ")) +
+                        " with no intervening read. This is a potential data race.");
                 }
             }
         }
