@@ -9,15 +9,16 @@ import java.util.Map;
 /**
  * Collects per-frame timing data and produces FrameStats.
  * Pre-allocates internal maps to avoid per-frame HashMap creation.
- * The build() output is a new FrameStats each frame (immutable snapshot for consumers),
- * but the internal collection maps are reused.
+ * Uses a double-buffer approach: the snapshot map alternates between two pre-allocated
+ * maps so that the previous FrameStats remains valid while the next frame collects data.
  */
 public class RenderGraphStats {
 
     private long frameGeneration;
     private final HashMap<String, Long> cpuRecordTimes;
     private final HashMap<String, Long> gpuTimes;
-    private final HashMap<String, NodeStats> nodeStatsBuffer;
+    private final HashMap<String, NodeStats>[] snapshotBuffers;
+    private int currentSnapshot = 0;
     private long totalGpuNanos;
     private long totalCpuNanos;
 
@@ -26,10 +27,14 @@ public class RenderGraphStats {
     }
 
     /** @param expectedNodeCount pre-size internal maps to this capacity */
+    @SuppressWarnings("unchecked")
     public RenderGraphStats(int expectedNodeCount) {
         this.cpuRecordTimes = HashMap.newHashMap(expectedNodeCount);
         this.gpuTimes = HashMap.newHashMap(expectedNodeCount);
-        this.nodeStatsBuffer = HashMap.newHashMap(expectedNodeCount);
+        this.snapshotBuffers = new HashMap[]{
+            HashMap.newHashMap(expectedNodeCount),
+            HashMap.newHashMap(expectedNodeCount)
+        };
     }
 
     /** Begins collecting for a new frame. Clears previous data without reallocating. */
@@ -37,7 +42,6 @@ public class RenderGraphStats {
         this.frameGeneration = frameGeneration;
         cpuRecordTimes.clear();
         gpuTimes.clear();
-        nodeStatsBuffer.clear();
         totalGpuNanos = 0;
         totalCpuNanos = 0;
     }
@@ -65,21 +69,28 @@ public class RenderGraphStats {
         totalGpuNanos += nanos;
     }
 
-    /** Builds the final FrameStats for this frame. Allocates a new map for the immutable snapshot. */
+    /**
+     * Builds the final FrameStats for this frame. Uses a pre-allocated double-buffered
+     * snapshot map to avoid per-frame allocation. The returned FrameStats is valid until
+     * the second subsequent call to build() (two frames later).
+     */
     public FrameStats build() {
-        nodeStatsBuffer.clear();
+        // Swap to the other snapshot buffer
+        currentSnapshot = 1 - currentSnapshot;
+        HashMap<String, NodeStats> snapshot = snapshotBuffers[currentSnapshot];
+        snapshot.clear();
+
         for (String name : cpuRecordTimes.keySet()) {
             long cpu = cpuRecordTimes.getOrDefault(name, 0L);
             long gpu = gpuTimes.getOrDefault(name, 0L);
-            nodeStatsBuffer.put(name, new NodeStats(gpu, cpu, frameGeneration));
+            snapshot.put(name, new NodeStats(gpu, cpu, frameGeneration));
         }
         for (String name : gpuTimes.keySet()) {
-            if (!nodeStatsBuffer.containsKey(name)) {
-                nodeStatsBuffer.put(name, new NodeStats(gpuTimes.get(name), 0, frameGeneration));
+            if (!snapshot.containsKey(name)) {
+                snapshot.put(name, new NodeStats(gpuTimes.get(name), 0, frameGeneration));
             }
         }
-        // Snapshot: FrameStats takes ownership of a copy
-        return new FrameStats(frameGeneration, totalGpuNanos, totalCpuNanos, new HashMap<>(nodeStatsBuffer));
+        // FrameStats wraps the snapshot directly (no copy). Valid until 2 frames later.
+        return new FrameStats(frameGeneration, totalGpuNanos, totalCpuNanos, snapshot);
     }
 }
-

@@ -2,12 +2,16 @@ package io.github.yetyman.vulkan.graph.feedback;
 
 import io.github.yetyman.vulkan.graph.nodes.NodeStats;
 
-import java.util.Collections;
 import java.util.Map;
 
 /**
  * Aggregate statistics for a completed frame. Contains per-node GPU timestamps,
  * total frame time, and memory usage.
+ *
+ * The nodeStats map is a double-buffered snapshot owned by RenderGraphStats.
+ * It remains valid for two frames (until the snapshot buffer is reused).
+ * Consumers should read values immediately in onStats() callbacks rather than
+ * holding references across frames.
  */
 public class FrameStats {
 
@@ -20,7 +24,7 @@ public class FrameStats {
         this.frameGeneration = frameGeneration;
         this.totalGpuNanos = totalGpuNanos;
         this.totalCpuNanos = totalCpuNanos;
-        this.nodeStats = Collections.unmodifiableMap(nodeStats);
+        this.nodeStats = nodeStats;
     }
 
     /** @return monotonic frame counter */

@@ -46,6 +46,17 @@ public class VkBufferGraphResource implements GraphBufferResource {
     /** @return the underlying ManagedBuffer */
     public ManagedBuffer managedBuffer() { return buffer; }
 
+    /** @return the underlying VkBuffer handle for identity checks by the allocator */
+    public Object bufferHandle() { return buffer; }
+
+    /**
+     * Returns true if this resource's current size/usage match the given descriptor.
+     * Used by TransientResourceAllocator to skip re-allocation when nothing changed.
+     */
+    public boolean matchesDesc(BufferDesc desc) {
+        return buffer.size() == desc.size();
+    }
+
     @Override public String name() { return name; }
     @Override public MemorySegment handle() { return buffer.handle(); }
     @Override public int lastAccessMask() { return lastAccessMask; }

@@ -1,6 +1,10 @@
 package io.github.yetyman.vulkan.graph.barriers;
 
 import io.github.yetyman.vulkan.VkBarrier;
+import io.github.yetyman.vulkan.command.VkBarrierCmd;
+
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 
 /**
  * Accumulates barriers for a single transition point between passes.
@@ -14,6 +18,10 @@ import io.github.yetyman.vulkan.VkBarrier;
  *   correct queue's command buffer.
  *
  * Uses fixed-capacity arrays to avoid per-frame ArrayList allocations.
+ *
+ * Batched execution: {@link #executeBatched(MemorySegment, Arena)} coalesces all barriers
+ * into a single vkCmdPipelineBarrier call with combined stage masks and contiguous barrier
+ * arrays. This is significantly faster than emitting one vkCmdPipelineBarrier per barrier.
  */
 public class BarrierBatch {
 
@@ -86,7 +94,7 @@ public class BarrierBatch {
     /** @return number of same-queue barriers in this batch */
     public int count() { return count; }
 
-    /** @return combined source stage mask for all same-queue barriers (for single vkCmdPipelineBarrier call) */
+    /** @return combined source stage mask for all same-queue barriers */
     public int combinedSrcStageMask() {
         int mask = 0;
         for (int i = 0; i < count; i++) mask |= srcStages[i];
@@ -114,6 +122,72 @@ public class BarrierBatch {
 
     /** @return true if this batch has ownership transfers */
     public boolean hasOwnershipTransfers() { return transferCount > 0; }
+
+    /**
+     * Executes all same-queue barriers in a single vkCmdPipelineBarrier call by coalescing
+     * barriers of the same type into contiguous arrays. This is the preferred execution path
+     * as it minimizes driver overhead (one call instead of N).
+     *
+     * Barriers are grouped by type (memory, buffer, image) and emitted in one combined call
+     * with the union of all src/dst stage masks.
+     *
+     * @param commandBuffer the command buffer handle
+     * @param arena arena for temporary array allocation (frame arena)
+     */
+    public void executeBatched(MemorySegment commandBuffer, Arena arena) {
+        if (count == 0) return;
+
+        // Count barriers by type
+        int memoryCount = 0, bufferCount = 0, imageCount = 0;
+        for (int i = 0; i < count; i++) {
+            switch (barriers[i].getType()) {
+                case MEMORY -> memoryCount++;
+                case BUFFER -> bufferCount++;
+                case IMAGE -> imageCount++;
+            }
+        }
+
+        // Build contiguous arrays for each type
+        long bufBarrierSize = io.github.yetyman.vulkan.generated.VkBufferMemoryBarrier.layout().byteSize();
+        long imgBarrierSize = io.github.yetyman.vulkan.generated.VkImageMemoryBarrier.layout().byteSize();
+        long memBarrierSize = io.github.yetyman.vulkan.generated.VkMemoryBarrier.layout().byteSize();
+
+        MemorySegment memBarriers = memoryCount > 0
+            ? arena.allocate(io.github.yetyman.vulkan.generated.VkMemoryBarrier.layout(), memoryCount)
+            : MemorySegment.NULL;
+        MemorySegment bufBarriers = bufferCount > 0
+            ? arena.allocate(io.github.yetyman.vulkan.generated.VkBufferMemoryBarrier.layout(), bufferCount)
+            : MemorySegment.NULL;
+        MemorySegment imgBarriers = imageCount > 0
+            ? arena.allocate(io.github.yetyman.vulkan.generated.VkImageMemoryBarrier.layout(), imageCount)
+            : MemorySegment.NULL;
+
+        int memIdx = 0, bufIdx = 0, imgIdx = 0;
+        for (int i = 0; i < count; i++) {
+            VkBarrier barrier = barriers[i];
+            MemorySegment src = barrier.handle();
+            switch (barrier.getType()) {
+                case MEMORY -> {
+                    MemorySegment.copy(src, 0, memBarriers, memIdx * memBarrierSize, memBarrierSize);
+                    memIdx++;
+                }
+                case BUFFER -> {
+                    MemorySegment.copy(src, 0, bufBarriers, bufIdx * bufBarrierSize, bufBarrierSize);
+                    bufIdx++;
+                }
+                case IMAGE -> {
+                    MemorySegment.copy(src, 0, imgBarriers, imgIdx * imgBarrierSize, imgBarrierSize);
+                    imgIdx++;
+                }
+            }
+        }
+
+        int combinedSrc = combinedSrcStageMask();
+        int combinedDst = combinedDstStageMask();
+
+        VkBarrierCmd.pipelineBarrier(commandBuffer, combinedSrc, combinedDst, 0,
+            memoryCount, memBarriers, bufferCount, bufBarriers, imageCount, imgBarriers);
+    }
 
     /** Resets the batch for reuse. Does not deallocate the backing arrays. */
     public void clear() {

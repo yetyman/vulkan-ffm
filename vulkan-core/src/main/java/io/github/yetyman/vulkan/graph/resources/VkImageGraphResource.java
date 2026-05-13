@@ -41,6 +41,22 @@ public class VkImageGraphResource implements GraphImageResource {
     /** @return the underlying VkImage */
     public VkImage vkImage() { return image; }
 
+    /** @return the underlying VkImage (for allocator identity checks) */
+    public VkImage image() { return image; }
+
+    /**
+     * Returns true if this resource's current dimensions/format match the given descriptor.
+     * Used by TransientResourceAllocator to skip re-allocation on resize when nothing changed.
+     */
+    public boolean matchesDesc(ImageDesc desc) {
+        return image.width() == desc.width()
+            && image.height() == desc.height()
+            && image.format() == desc.format()
+            && image.mipLevels() == desc.mipLevels()
+            && image.layers() == desc.arrayLayers()
+            && image.sampleCount() == desc.samples();
+    }
+
     @Override public String name() { return name; }
     @Override public MemorySegment handle() { return image.handle(); }
     @Override public int lastAccessMask() { return image.lastAccessMask(); }

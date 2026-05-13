@@ -335,7 +335,7 @@ public class RenderGraph implements AutoCloseable {
         // Fast recompile if any node toggled active state
         if (activationChanged) {
             this.compiledGraph = compiler.recompileFromCull(
-                new ArrayList<>(nodes), queues,
+                nodes, queues,
                 compiledGraph.lifetimes(), compiledGraph.aliasingGroups());
         }
     }

@@ -1,6 +1,5 @@
 package io.github.yetyman.vulkan.graph;
 
-import io.github.yetyman.vulkan.VkBarrier;
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkTimelineSemaphore;
@@ -83,6 +82,9 @@ public class RenderGraphExecutor implements AutoCloseable {
     // Deferred acquire barriers: key = dstQueueFamily, accumulated during recording
     private final Map<Integer, BarrierBatch> deferredAcquires = new HashMap<>();
 
+    // Tracks which queue family pairs have cross-queue resource dependencies this frame
+    private final java.util.HashSet<Long> crossQueueDependencies = new java.util.HashSet<>();
+
     // Reusable barrier batch (sequential path only)
     private final BarrierBatch barrierBatch = new BarrierBatch();
 
@@ -157,6 +159,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         submissions.clear();
         primaryCommandBuffers.clear();
         deferredAcquires.clear();
+        crossQueueDependencies.clear();
 
         int nodeCount = compiled.activeNodes().size();
         if (cpuTimes == null || cpuTimes.size() < nodeCount) {
@@ -186,7 +189,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             int queueFamily = bucket.queue().queueFamilyIndex();
             VkCommandBuffer primaryCmd = primaryCommandBuffers.get(queueFamily);
 
-            emitDeferredAcquires(queueFamily, primaryCmd);
+            emitDeferredAcquires(queueFamily, primaryCmd, frameArena);
 
             ctx.queue = bucket.queue();
             ctx.commandBuffer = primaryCmd;
@@ -211,20 +214,33 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Submits all per-queue command buffers with inter-queue timeline semaphore dependencies.
      * Must be called after {@link #execute}.
      *
+     * Only inserts semaphores between queue families that have actual resource dependencies
+     * (determined by the compiled graph's bucket ordering and cross-queue resource edges).
+     *
      * @param submitArena arena for submit struct allocation
      * @param frameFence fence to signal when the last submission completes, or NULL
      */
     public void submit(Arena submitArena, MemorySegment frameFence) {
         List<QueueSubmission> orderedSubmissions = new ArrayList<>(submissions.values());
 
+        // Only insert semaphores between queues that have cross-queue dependencies.
+        // The executor already recorded ownership transfer barriers between dependent queues.
+        // We use the deferredAcquires map as evidence of cross-queue dependencies:
+        // if queue B had deferred acquires from queue A, then A must signal before B waits.
         for (int i = 0; i < orderedSubmissions.size(); i++) {
             QueueSubmission sub = orderedSubmissions.get(i);
             if (!sub.hasWork()) continue;
 
+            // Check if any later submission on a different queue depends on this one
             for (int j = i + 1; j < orderedSubmissions.size(); j++) {
                 QueueSubmission dependent = orderedSubmissions.get(j);
                 if (!dependent.hasWork()) continue;
                 if (dependent.queueFamilyIndex() == sub.queueFamilyIndex()) continue;
+
+                // Only add semaphore if there's a known dependency (cross-queue resource edge)
+                if (!hasCrossQueueDependency(sub.queueFamilyIndex(), dependent.queueFamilyIndex())) {
+                    continue;
+                }
 
                 String key = sub.queueFamilyIndex() + ":" + dependent.queueFamilyIndex();
                 VkTimelineSemaphore sem = getOrCreateInterQueueSemaphore(key);
@@ -238,6 +254,21 @@ public class RenderGraphExecutor implements AutoCloseable {
             MemorySegment fence = (i == orderedSubmissions.size() - 1) ? frameFence : MemorySegment.NULL;
             sub.submit(fence, submitArena);
         }
+    }
+
+    /**
+     * Returns true if there is a cross-queue resource dependency from srcFamily to dstFamily
+     * in the current frame. Determined by whether ownership transfers were recorded between them.
+     */
+    private boolean hasCrossQueueDependency(int srcFamily, int dstFamily) {
+        // Evidence: the barrier emission phase recorded ownership transfers from src to dst,
+        // which means deferred acquires were queued for the dst queue from the src queue.
+        // We track this via a set populated during barrier emission.
+        return crossQueueDependencies.contains(crossQueueKey(srcFamily, dstFamily));
+    }
+
+    private static long crossQueueKey(int srcFamily, int dstFamily) {
+        return ((long) srcFamily << 32) | (dstFamily & 0xFFFFFFFFL);
     }
 
     /**
@@ -277,7 +308,7 @@ public class RenderGraphExecutor implements AutoCloseable {
                 barrierBatch.clear();
                 emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
                 if (!barrierBatch.hasNoSameQueueBarriers()) {
-                    executeBarrierBatch(commandBuffer, barrierBatch);
+                    executeBarrierBatch(commandBuffer, barrierBatch, frameArena);
                 }
                 if (barrierBatch.hasOwnershipTransfers()) {
                     for (int i = 0; i < barrierBatch.transferCount(); i++) {
@@ -356,7 +387,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
 
             if (!barrierBatch.hasNoSameQueueBarriers()) {
-                executeBarrierBatch(primaryCmd, barrierBatch);
+                executeBarrierBatch(primaryCmd, barrierBatch, frameArena);
             }
 
             if (barrierBatch.hasOwnershipTransfers()) {
@@ -407,7 +438,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         for (int i = 0; i < nodeCount; i++) {
             BarrierBatch nodeBatch = nodeBatches[i];
             if (!nodeBatch.hasNoSameQueueBarriers()) {
-                executeBarrierBatch(primaryCmd, nodeBatch);
+                executeBarrierBatch(primaryCmd, nodeBatch, frameArena);
             }
             if (nodeBatch.hasOwnershipTransfers()) {
                 routeOwnershipTransfers(nodeBatch, queueFamily, primaryCmd);
@@ -419,8 +450,7 @@ public class RenderGraphExecutor implements AutoCloseable {
 
         for (VkCommandBuffer sec : secondaries) {
             VkCommandBuffer.begin(sec)
-                .flags(VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.value()
-                     | VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT.value())
+                .flags(VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.value())
                 .execute(frameArena);
         }
 
@@ -461,25 +491,22 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
         }
 
-        // Insert per-node timestamps around each secondary execution.
-        // For parallel buckets, timestamps bracket the vkCmdExecuteCommands call per-node
-        // by writing begin before execute and end after. Since secondaries execute in order
-        // within a single vkCmdExecuteCommands call, this gives approximate per-node timing.
+        // Insert per-node timestamps by executing each secondary individually with
+        // begin/end timestamps bracketing each one. This gives accurate per-node GPU timing
+        // even for parallel-recorded secondaries.
         if (timestampsEnabled && timestampPool != null) {
+            MemorySegment singleHandle = frameArena.allocate(ValueLayout.ADDRESS, 1);
             for (int i = 0; i < nodeCount; i++) {
                 timestampPool.writeBeginTimestamp(primaryCmd.handle(), nodes.get(i).name(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value());
-            }
-        }
-
-        // vkCmdExecuteCommands -- use frame arena to avoid extra allocation
-        executeSecondaries(primaryCmd, secondaries, frameArena);
-
-        if (timestampsEnabled && timestampPool != null) {
-            for (int i = 0; i < nodeCount; i++) {
+                singleHandle.setAtIndex(ValueLayout.ADDRESS, 0, secondaries[i].handle());
+                VulkanFFM.vkCmdExecuteCommands(primaryCmd.handle(), 1, singleHandle);
                 timestampPool.writeEndTimestamp(primaryCmd.handle(), nodes.get(i).name(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
             }
+        } else {
+            // No timestamps: execute all secondaries in one call for efficiency
+            executeSecondaries(primaryCmd, secondaries, frameArena);
         }
 
         // Update resource state (sequential -- state is shared)
@@ -517,6 +544,9 @@ public class RenderGraphExecutor implements AutoCloseable {
         for (int i = 0; i < batch.transferCount(); i++) {
             OwnershipTransfer transfer = batch.getTransfer(i);
 
+            // Record that this queue pair has a cross-queue dependency
+            crossQueueDependencies.add(crossQueueKey(transfer.srcQueueFamily(), transfer.dstQueueFamily()));
+
             if (transfer.srcQueueFamily() == currentQueueFamily) {
                 transfer.releaseBarrier().execute(currentCmd.handle(),
                     transfer.releaseSrcStage(), transfer.releaseDstStage());
@@ -535,10 +565,10 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
     }
 
-    private void emitDeferredAcquires(int queueFamily, VkCommandBuffer cmd) {
+    private void emitDeferredAcquires(int queueFamily, VkCommandBuffer cmd, Arena arena) {
         BarrierBatch deferred = deferredAcquires.get(queueFamily);
         if (deferred == null || deferred.count() == 0) return;
-        executeBarrierBatch(cmd, deferred);
+        executeBarrierBatch(cmd, deferred, arena);
         deferred.clear();
     }
 
@@ -571,14 +601,12 @@ public class RenderGraphExecutor implements AutoCloseable {
     }
 
     /**
-     * Executes barriers with per-barrier stage masks. Each barrier is emitted individually
-     * with its own src/dst stage pair for correct granularity.
+     * Executes all barriers in the batch via a single coalesced vkCmdPipelineBarrier call.
+     * Barriers of the same type are packed into contiguous arrays with combined stage masks.
      */
-    private void executeBarrierBatch(VkCommandBuffer cmd, BarrierBatch batch) {
+    private void executeBarrierBatch(VkCommandBuffer cmd, BarrierBatch batch, Arena arena) {
         if (cmd == null || batch.count() == 0) return;
-        for (int i = 0; i < batch.count(); i++) {
-            batch.get(i).execute(cmd.handle(), batch.srcStage(i), batch.dstStage(i));
-        }
+        batch.executeBatched(cmd.handle(), arena);
     }
 
     private void executeSecondaries(VkCommandBuffer primary, VkCommandBuffer[] secondaries, Arena arena) {

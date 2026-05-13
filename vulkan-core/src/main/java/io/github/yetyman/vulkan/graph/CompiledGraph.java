@@ -21,10 +21,10 @@ public class CompiledGraph {
     private final Map<GraphResource, ResourceLifetime> lifetimes;
     private final List<ResourceAlias> aliasingGroups;
 
-    public CompiledGraph(List<RenderNode> activeNodes,
-                         List<ExecutionBucket> executionBuckets,
-                         Map<GraphResource, ResourceLifetime> lifetimes,
-                         List<ResourceAlias> aliasingGroups) {
+    CompiledGraph(List<RenderNode> activeNodes,
+                  List<ExecutionBucket> executionBuckets,
+                  Map<GraphResource, ResourceLifetime> lifetimes,
+                  List<ResourceAlias> aliasingGroups) {
         this.activeNodes = Collections.unmodifiableList(activeNodes);
         this.executionBuckets = Collections.unmodifiableList(executionBuckets);
         this.lifetimes = Collections.unmodifiableMap(lifetimes);

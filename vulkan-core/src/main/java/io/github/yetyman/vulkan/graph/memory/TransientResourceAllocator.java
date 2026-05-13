@@ -4,8 +4,6 @@ import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkImage;
 import io.github.yetyman.vulkan.graph.resources.BufferDesc;
-import io.github.yetyman.vulkan.graph.resources.GraphBufferResource;
-import io.github.yetyman.vulkan.graph.resources.GraphImageResource;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ImageDesc;
 import io.github.yetyman.vulkan.graph.resources.VkBufferGraphResource;
@@ -96,21 +94,100 @@ public class TransientResourceAllocator implements AutoCloseable {
     }
 
     /**
-     * Destroys all allocated resources and re-allocates them with new descriptors.
-     * Used during resize.
+     * Destroys and re-allocates only resources whose descriptors have changed.
+     * Resources with unchanged descriptors are kept as-is. Used during resize.
      *
      * @param imageDescs image descriptors keyed by resource name
      * @param bufferDescs buffer descriptors keyed by resource name
      */
     public void reallocate(Map<String, ImageDesc> imageDescs, Map<String, BufferDesc> bufferDescs) {
-        destroyAll();
+        // Destroy images that changed or were removed
+        var imgIter = allocatedImages.iterator();
+        while (imgIter.hasNext()) {
+            VkImage img = imgIter.next();
+            // Find the resource entry for this image
+            String name = findImageResourceName(img);
+            if (name == null || !imageDescs.containsKey(name)) {
+                img.close();
+                imgIter.remove();
+                if (name != null) allocatedResources.remove(name);
+            } else {
+                ImageDesc newDesc = imageDescs.get(name);
+                VkImageGraphResource existing = (VkImageGraphResource) allocatedResources.get(name);
+                if (existing != null && !existing.matchesDesc(newDesc)) {
+                    img.close();
+                    imgIter.remove();
+                    allocatedResources.remove(name);
+                }
+            }
+        }
 
+        // Destroy buffers that changed or were removed
+        var bufIter = allocatedBuffers.iterator();
+        while (bufIter.hasNext()) {
+            VkBuffer buf = bufIter.next();
+            String name = findBufferResourceName(buf);
+            if (name == null || !bufferDescs.containsKey(name)) {
+                buf.close();
+                bufIter.remove();
+                if (name != null) allocatedResources.remove(name);
+            } else {
+                BufferDesc newDesc = bufferDescs.get(name);
+                VkBufferGraphResource existing = (VkBufferGraphResource) allocatedResources.get(name);
+                if (existing != null && !existing.matchesDesc(newDesc)) {
+                    buf.close();
+                    bufIter.remove();
+                    allocatedResources.remove(name);
+                }
+            }
+        }
+
+        // Allocate missing resources
+        for (Map.Entry<String, ImageDesc> entry : imageDescs.entrySet()) {
+            if (!allocatedResources.containsKey(entry.getKey())) {
+                allocateImage(entry.getKey(), entry.getValue());
+            }
+        }
+        for (Map.Entry<String, BufferDesc> entry : bufferDescs.entrySet()) {
+            if (!allocatedResources.containsKey(entry.getKey())) {
+                allocateBuffer(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * Destroys all resources and re-allocates from scratch. Used when incremental
+     * reallocate is not possible (e.g. aliasing group changes).
+     */
+    public void reallocateAll(Map<String, ImageDesc> imageDescs, Map<String, BufferDesc> bufferDescs) {
+        destroyAll();
         for (Map.Entry<String, ImageDesc> entry : imageDescs.entrySet()) {
             allocateImage(entry.getKey(), entry.getValue());
         }
         for (Map.Entry<String, BufferDesc> entry : bufferDescs.entrySet()) {
             allocateBuffer(entry.getKey(), entry.getValue());
         }
+    }
+
+    private String findImageResourceName(VkImage image) {
+        for (Map.Entry<String, GraphResource> entry : allocatedResources.entrySet()) {
+            if (entry.getValue() instanceof VkImageGraphResource imgRes && imgRes.image() == image) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private String findBufferResourceName(VkBuffer buffer) {
+        for (Map.Entry<String, GraphResource> entry : allocatedResources.entrySet()) {
+            if (entry.getValue() instanceof VkBufferGraphResource bufRes) {
+                // The TransientManagedBufferAdapter wraps the VkBuffer, so check handle equality
+                if (bufRes.managedBuffer().handle().equals(buffer.handle())) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
     }
 
     private void destroyAll() {
