@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.graph;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.memory.AliasingStrategy;
 import io.github.yetyman.vulkan.graph.memory.ResourceAlias;
+import io.github.yetyman.vulkan.graph.memory.SemaphorePartialOrder;
 import io.github.yetyman.vulkan.graph.nodes.NodeType;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
@@ -21,10 +22,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Compiles a render graph declaration into an executable plan.
  * Runs validation, lifetime computation, culling, scheduling, aliasing, and barrier synthesis.
+ *
+ * Multi-queue aliasing: after scheduling assigns nodes to queues, the compiler builds a
+ * partial order from the bucket structure and inter-queue semaphore edges. This partial order
+ * is provided to the aliasing strategy so it can correctly determine which transient resources
+ * on different queues can safely share memory.
  */
 public class RenderGraphCompiler {
 
@@ -68,10 +75,7 @@ public class RenderGraphCompiler {
 
     /**
      * Full compilation from declared nodes to execution plan.
-     * Stages: validate, version, lifetimes, cull, schedule, alias.
-     *
-     * stub -- stage 11 (GPU timestamp query insertion) is not part of the compilation output.
-     * Timestamps are inserted by the executor at runtime, not baked into the compiled plan.
+     * Stages: validate, version, lifetimes, cull, schedule, alias (with partial order).
      */
     public CompiledGraph compile(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
         // Stage 1: Validate
@@ -80,16 +84,22 @@ public class RenderGraphCompiler {
         // Stage 2: Version persistent resources (resolve feedback edges)
         versionResources(nodes);
 
-        // Stage 3: Compute lifetimes
-        Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(nodes);
-
         // Stage 4: Cull unreachable passes
         List<RenderNode> activeNodes = cull(nodes);
 
         // Stage 5-6: Schedule (queue assignment + topological sort)
         List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
 
-        // Stage 7: Alias transient resources with non-overlapping lifetimes
+        // Stage 3: Compute lifetimes with queue family information from scheduling
+        Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(activeNodes, buckets);
+
+        // Stage 7: Build partial order from bucket structure for multi-queue aliasing
+        ResourceLifetime.PartialOrder partialOrder = SemaphorePartialOrder.build(buckets, activeNodes);
+        if (aliasingStrategy != null) {
+            aliasingStrategy.setPartialOrder(partialOrder);
+        }
+
+        // Stage 7b: Alias transient resources with non-overlapping lifetimes
         List<ResourceAlias> aliasingGroups = computeAliasing(activeNodes);
 
         return new CompiledGraph(activeNodes, buckets, lifetimes, aliasingGroups);
@@ -100,10 +110,16 @@ public class RenderGraphCompiler {
      * Used after resize when topology is unchanged but resource sizes changed.
      */
     public CompiledGraph recompileFromLifetimes(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
-        Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(nodes);
         List<RenderNode> activeNodes = cull(nodes);
         List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
+        Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(activeNodes, buckets);
+
+        ResourceLifetime.PartialOrder partialOrder = SemaphorePartialOrder.build(buckets, activeNodes);
+        if (aliasingStrategy != null) {
+            aliasingStrategy.setPartialOrder(partialOrder);
+        }
         List<ResourceAlias> aliasingGroups = computeAliasing(activeNodes);
+
         return new CompiledGraph(activeNodes, buckets, lifetimes, aliasingGroups);
     }
 
@@ -121,12 +137,51 @@ public class RenderGraphCompiler {
     }
 
     /**
+     * Stage 3: Compute first-write to last-read lifetime intervals for each resource,
+     * including queue family information from the scheduled buckets.
+     */
+    public Map<GraphResource, ResourceLifetime> computeLifetimes(List<RenderNode> nodes,
+                                                                  List<ExecutionBucket> buckets) {
+        // Build node -> (passIndex, queueFamily) mapping from buckets
+        Map<RenderNode, Integer> nodeToPassIndex = new HashMap<>();
+        Map<RenderNode, Integer> nodeToQueueFamily = new HashMap<>();
+        int passIndex = 0;
+        for (ExecutionBucket bucket : buckets) {
+            int queueFamily = bucket.queue().queueFamilyIndex();
+            for (RenderNode node : bucket.nodes()) {
+                nodeToPassIndex.put(node, passIndex);
+                nodeToQueueFamily.put(node, queueFamily);
+                passIndex++;
+            }
+        }
+
+        Map<GraphResource, ResourceLifetime> lifetimes = new LinkedHashMap<>();
+
+        for (RenderNode node : nodes) {
+            int idx = nodeToPassIndex.getOrDefault(node, -1);
+            int queue = nodeToQueueFamily.getOrDefault(node, -1);
+            if (idx < 0) continue; // culled node
+
+            for (ResourceEdge edge : node.writes()) {
+                GraphResource res = edge.resource();
+                lifetimes.computeIfAbsent(res, k -> res.lifetime()).recordWrite(idx, queue);
+            }
+
+            for (ResourceEdge edge : node.reads()) {
+                GraphResource res = edge.resource();
+                lifetimes.computeIfAbsent(res, k -> res.lifetime()).recordRead(idx, queue);
+            }
+        }
+
+        return lifetimes;
+    }
+
+    /**
      * Stage 7: Compute aliasing groups for transient resources.
      */
     private List<ResourceAlias> computeAliasing(List<RenderNode> activeNodes) {
         if (aliasingStrategy == null) return Collections.emptyList();
 
-        // Collect all transient resources referenced by active nodes
         List<GraphResource> transientResources = new ArrayList<>();
         Set<GraphResource> seen = new HashSet<>();
         for (RenderNode node : activeNodes) {
@@ -152,7 +207,6 @@ public class RenderGraphCompiler {
      * Stage 1: Validate the graph declaration.
      * - All read edges have a corresponding producer (write edge) or are imported
      * - No write-after-write hazards (two nodes writing the same resource without an intervening read)
-     * - No declared resources are unused (warning only, does not throw)
      */
     public void validate(List<RenderNode> nodes) {
         Set<GraphResource> produced = new HashSet<>();
@@ -169,7 +223,6 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Check for orphan reads
         for (RenderNode node : nodes) {
             for (ResourceEdge edge : node.reads()) {
                 GraphResource res = edge.resource();
@@ -181,46 +234,20 @@ public class RenderGraphCompiler {
             }
         }
 
-        // Check for write-after-write hazards: two nodes writing the same resource
-        // without any node reading it in between. This is a potential data race.
         for (Map.Entry<GraphResource, List<RenderNode>> entry : resourceWriters.entrySet()) {
             List<RenderNode> writers = entry.getValue();
             if (writers.size() > 1) {
                 GraphResource res = entry.getKey();
-                // Check if there's at least one reader of this resource between any pair of writers
                 boolean hasIntermediateReader = resourceReaders.contains(res);
                 if (!hasIntermediateReader) {
                     throw new RenderGraphException(
                         "Write-after-write hazard on resource '" + res.name() +
                         "': written by " + writers.stream().map(RenderNode::name)
-                            .collect(java.util.stream.Collectors.joining(", ")) +
+                            .collect(Collectors.joining(", ")) +
                         " with no intervening read. This is a potential data race.");
                 }
             }
         }
-    }
-
-    /**
-     * Stage 3: Compute first-write to last-read lifetime intervals for each resource.
-     */
-    public Map<GraphResource, ResourceLifetime> computeLifetimes(List<RenderNode> nodes) {
-        Map<GraphResource, ResourceLifetime> lifetimes = new LinkedHashMap<>();
-
-        for (int i = 0; i < nodes.size(); i++) {
-            RenderNode node = nodes.get(i);
-
-            for (ResourceEdge edge : node.writes()) {
-                GraphResource res = edge.resource();
-                lifetimes.computeIfAbsent(res, k -> res.lifetime()).recordWrite(i);
-            }
-
-            for (ResourceEdge edge : node.reads()) {
-                GraphResource res = edge.resource();
-                lifetimes.computeIfAbsent(res, k -> res.lifetime()).recordRead(i);
-            }
-        }
-
-        return lifetimes;
     }
 
     /**

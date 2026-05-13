@@ -16,8 +16,10 @@ public interface BarrierStrategy {
      *
      * @param resource the resource being transitioned
      * @param consumer the edge declaring how the next pass will access the resource
+     * @param consumerQueueFamily the queue family index of the consuming node
      * @param batch accumulator for the barriers to emit
      * @param arena arena for barrier struct allocation
      */
-    void emit(GraphResource resource, ResourceEdge consumer, BarrierBatch batch, Arena arena);
+    void emit(GraphResource resource, ResourceEdge consumer, int consumerQueueFamily,
+              BarrierBatch batch, Arena arena);
 }

@@ -33,7 +33,7 @@ class FeedbackAndRingTest {
 
     @Test
     void feedback_convergesOverMultipleFrames() {
-        AdaptiveFeedbackHandler handler = new AdaptiveFeedbackHandler(0.3, 0.0); // no momentum for predictable test
+        AdaptiveFeedbackHandler handler = new AdaptiveFeedbackHandler(0.3, 0.05, 0.0, 1.0, 3.0, 1); // no momentum, no decay for predictable test
 
         // Feed constant 5ms for 20 frames
         for (int i = 0; i < 20; i++) {
@@ -50,7 +50,7 @@ class FeedbackAndRingTest {
 
     @Test
     void feedback_resistsSingleSpike() {
-        AdaptiveFeedbackHandler handler = new AdaptiveFeedbackHandler(0.1, 0.8);
+        AdaptiveFeedbackHandler handler = new AdaptiveFeedbackHandler(0.1, 0.05, 0.8, 1.0, 3.0, 1);
 
         // Establish baseline at 2ms
         for (int i = 0; i < 10; i++) {
@@ -76,9 +76,12 @@ class FeedbackAndRingTest {
         AdaptiveFeedbackHandler handler = new AdaptiveFeedbackHandler();
         assertFalse(handler.isWarmedUp());
 
-        handler.onStats(new FrameStats(0, 1_000_000, 100_000, Map.of(
-            "pass", new NodeStats(1_000_000, 100_000, 0)
-        )));
+        // Feed enough frames to satisfy warmup (default warmupFrames=8)
+        for (int i = 0; i < 8; i++) {
+            handler.onStats(new FrameStats(i, 1_000_000, 100_000, Map.of(
+                "pass", new NodeStats(1_000_000, 100_000, i)
+            )));
+        }
         assertTrue(handler.isWarmedUp());
     }
 

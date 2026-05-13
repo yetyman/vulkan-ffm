@@ -184,6 +184,71 @@ public class VkRendering {
             return this;
         }
 
+        // Cached struct state for zero-allocation repeat calls
+        private MemorySegment cachedRenderingInfo;
+        private MemorySegment cachedColorArray;
+        private long cachedAttachmentStride;
+
+        /**
+         * Patches the image view for a color attachment at the given index in the cached struct.
+         * Only valid after at least one call to {@link #begin} or {@link #buildAndCache}.
+         * Zero allocation.
+         */
+        public void patchColorView(int index, MemorySegment imageView) {
+            MemorySegment slot = cachedColorArray.asSlice(
+                index * cachedAttachmentStride, VkRenderingAttachmentInfo.layout());
+            VkRenderingAttachmentInfo.imageView(slot, imageView);
+        }
+
+        /**
+         * Patches the depth attachment image view in the cached struct. Zero allocation.
+         */
+        public void patchDepthView(MemorySegment imageView) {
+            if (cachedRenderingInfo == null) return;
+            MemorySegment depthSlot = VkRenderingInfo.pDepthAttachment(cachedRenderingInfo);
+            if (depthSlot != null && !depthSlot.equals(MemorySegment.NULL)) {
+                VkRenderingAttachmentInfo.imageView(depthSlot, imageView);
+            }
+        }
+
+        /**
+         * Patches the render area in the cached struct (e.g. after resize). Zero allocation.
+         */
+        public void patchRenderArea(int x, int y, int width, int height) {
+            this.x = x; this.y = y; this.width = width; this.height = height;
+            if (cachedRenderingInfo != null) {
+                MemorySegment renderArea = VkRenderingInfo.renderArea(cachedRenderingInfo);
+                MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(renderArea);
+                MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(renderArea);
+                VkOffset2D.x(offset, x);
+                VkOffset2D.y(offset, y);
+                VkExtent2D.width(extent, width);
+                VkExtent2D.height(extent, height);
+            }
+        }
+
+        /**
+         * Builds the VkRenderingInfo into the given arena and caches it for future
+         * {@link #beginCached} calls. Call this once at init time with a long-lived arena.
+         */
+        public void buildAndCache(Arena arena) {
+            cachedRenderingInfo = buildRenderingInfo(arena);
+        }
+
+        /**
+         * Begins a rendering pass using the cached struct. Zero allocation.
+         * Requires a prior call to {@link #buildAndCache}.
+         * Use {@link #patchColorView} to update image views before calling this.
+         */
+        public void beginCached(MemorySegment commandBuffer) {
+            if (cachedRenderingInfo == null) throw new IllegalStateException("buildAndCache not called");
+            try {
+                VkRenderPassCmd.beginRendering(device, commandBuffer, cachedRenderingInfo);
+            } catch (Throwable t) {
+                throw new AssertionError("vkCmdBeginRendering invokeExact signature mismatch", t);
+            }
+        }
+
         /**
          * Builds the VkRenderingInfo and calls vkCmdBeginRendering.
          */
@@ -194,52 +259,9 @@ public class VkRendering {
             ba.push();
             MemorySegment renderingInfo;
             try {
-                renderingInfo = VkRenderingInfo.allocate(ba);
-                VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
-                VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
-                VkRenderingInfo.flags(renderingInfo, flags);
-                VkRenderingInfo.layerCount(renderingInfo, layers);
-                VkRenderingInfo.viewMask(renderingInfo, viewMask);
-
-                MemorySegment renderArea = VkRenderingInfo.renderArea(renderingInfo);
-                MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(renderArea);
-                MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(renderArea);
-                VkOffset2D.x(offset, x);
-                VkOffset2D.y(offset, y);
-                VkExtent2D.width(extent, width);
-                VkExtent2D.height(extent, height);
-
-                if (!colorAttachments.isEmpty()) {
-                    MemorySegment colorArray = ba.allocate(
-                            VkRenderingAttachmentInfo.layout().byteSize() * colorAttachments.size(),
-                            VkRenderingAttachmentInfo.layout().byteAlignment());
-                    for (int i = 0; i < colorAttachments.size(); i++) {
-                        MemorySegment slot = colorArray.asSlice(
-                                i * VkRenderingAttachmentInfo.layout().byteSize(),
-                                VkRenderingAttachmentInfo.layout());
-                        fillAttachment(slot, colorAttachments.get(i));
-                    }
-                    VkRenderingInfo.colorAttachmentCount(renderingInfo, colorAttachments.size());
-                    VkRenderingInfo.pColorAttachments(renderingInfo, colorArray);
-                }
-
-                if (depthAttachment != null) {
-                    MemorySegment depthSlot = VkRenderingAttachmentInfo.allocate(ba);
-                    fillAttachment(depthSlot, depthAttachment);
-                    VkRenderingInfo.pDepthAttachment(renderingInfo, depthSlot);
-                } else {
-                    VkRenderingInfo.pDepthAttachment(renderingInfo, MemorySegment.NULL);
-                }
-
-                if (stencilAttachment != null) {
-                    MemorySegment stencilSlot = VkRenderingAttachmentInfo.allocate(ba);
-                    fillAttachment(stencilSlot, stencilAttachment);
-                    VkRenderingInfo.pStencilAttachment(renderingInfo, stencilSlot);
-                } else {
-                    VkRenderingInfo.pStencilAttachment(renderingInfo, MemorySegment.NULL);
-                }
+                renderingInfo = buildRenderingInfoInto(ba);
             } finally {
-                // intentionally not popping here — renderingInfo must remain valid through the Vulkan call
+                // intentionally not popping here -- renderingInfo must remain valid through the Vulkan call
             }
 
             // Vulkan call outside the catch scope so the JIT can inline through invokeExact
@@ -250,6 +272,62 @@ public class VkRendering {
             } finally {
                 ba.pop();
             }
+        }
+
+        private MemorySegment buildRenderingInfo(Arena arena) {
+            return buildRenderingInfoInto(arena);
+        }
+
+        private MemorySegment buildRenderingInfoInto(SegmentAllocator allocator) {
+            MemorySegment renderingInfo = VkRenderingInfo.allocate(allocator);
+            VkRenderingInfo.sType(renderingInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDERING_INFO.value());
+            VkRenderingInfo.pNext(renderingInfo, MemorySegment.NULL);
+            VkRenderingInfo.flags(renderingInfo, flags);
+            VkRenderingInfo.layerCount(renderingInfo, layers);
+            VkRenderingInfo.viewMask(renderingInfo, viewMask);
+
+            MemorySegment renderArea = VkRenderingInfo.renderArea(renderingInfo);
+            MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(renderArea);
+            MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(renderArea);
+            VkOffset2D.x(offset, x);
+            VkOffset2D.y(offset, y);
+            VkExtent2D.width(extent, width);
+            VkExtent2D.height(extent, height);
+
+            if (!colorAttachments.isEmpty()) {
+                cachedAttachmentStride = VkRenderingAttachmentInfo.layout().byteSize();
+                MemorySegment colorArray = allocator.allocate(
+                        cachedAttachmentStride * colorAttachments.size(),
+                        VkRenderingAttachmentInfo.layout().byteAlignment());
+                for (int i = 0; i < colorAttachments.size(); i++) {
+                    MemorySegment slot = colorArray.asSlice(
+                            i * cachedAttachmentStride,
+                            VkRenderingAttachmentInfo.layout());
+                    fillAttachment(slot, colorAttachments.get(i));
+                }
+                VkRenderingInfo.colorAttachmentCount(renderingInfo, colorAttachments.size());
+                VkRenderingInfo.pColorAttachments(renderingInfo, colorArray);
+                cachedColorArray = colorArray;
+            }
+
+            if (depthAttachment != null) {
+                MemorySegment depthSlot = VkRenderingAttachmentInfo.allocate(allocator);
+                fillAttachment(depthSlot, depthAttachment);
+                VkRenderingInfo.pDepthAttachment(renderingInfo, depthSlot);
+            } else {
+                VkRenderingInfo.pDepthAttachment(renderingInfo, MemorySegment.NULL);
+            }
+
+            if (stencilAttachment != null) {
+                MemorySegment stencilSlot = VkRenderingAttachmentInfo.allocate(allocator);
+                fillAttachment(stencilSlot, stencilAttachment);
+                VkRenderingInfo.pStencilAttachment(renderingInfo, stencilSlot);
+            } else {
+                VkRenderingInfo.pStencilAttachment(renderingInfo, MemorySegment.NULL);
+            }
+
+            cachedRenderingInfo = renderingInfo;
+            return renderingInfo;
         }
 
         private void fillAttachment(MemorySegment slot, AttachmentConfig cfg) {

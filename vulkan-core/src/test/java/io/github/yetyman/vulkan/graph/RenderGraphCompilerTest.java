@@ -7,11 +7,15 @@ import io.github.yetyman.vulkan.graph.nodes.PresentNode;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ResourceLifetime;
+import io.github.yetyman.vulkan.graph.scheduling.ExecutionBucket;
 import io.github.yetyman.vulkan.graph.scheduling.ListSchedulingStrategy;
+import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
+import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +97,10 @@ class RenderGraphCompilerTest {
             .execute(ctx -> {})
             .build();
 
-        Map<GraphResource, ResourceLifetime> lifetimes = compiler.computeLifetimes(List.of(writer, reader));
+        List<RenderNode> nodes = List.of(writer, reader);
+        List<ExecutionBucket> buckets = List.of(new ExecutionBucket(
+            new QueueAssignment(MemorySegment.NULL, 0, QueueCapability.COMPUTE), nodes));
+        Map<GraphResource, ResourceLifetime> lifetimes = compiler.computeLifetimes(nodes, buckets);
 
         ResourceLifetime lt = lifetimes.get(buf);
         assertNotNull(lt);
@@ -122,7 +129,10 @@ class RenderGraphCompilerTest {
             .execute(ctx -> {})
             .build();
 
-        Map<GraphResource, ResourceLifetime> lifetimes = compiler.computeLifetimes(List.of(writer, reader1, reader2));
+        List<RenderNode> nodes = List.of(writer, reader1, reader2);
+        List<ExecutionBucket> buckets = List.of(new ExecutionBucket(
+            new QueueAssignment(MemorySegment.NULL, 0, QueueCapability.COMPUTE), nodes));
+        Map<GraphResource, ResourceLifetime> lifetimes = compiler.computeLifetimes(nodes, buckets);
 
         ResourceLifetime lt = lifetimes.get(buf);
         assertEquals(0, lt.firstWritePass());

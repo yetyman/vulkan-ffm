@@ -4,7 +4,8 @@ import io.github.yetyman.vulkan.VkBarrier;
 
 /**
  * Accumulates barriers for a single transition point between passes.
- * Batched barriers are emitted as a single vkCmdPipelineBarrier call.
+ * Each barrier retains its own src/dst stage masks so they can be emitted
+ * with correct per-barrier granularity rather than a single combined mask.
  *
  * Supports two categories:
  * - Regular barriers: same-queue transitions, emitted on the consuming node's command buffer
@@ -20,9 +21,9 @@ public class BarrierBatch {
     private static final int DEFAULT_TRANSFER_CAPACITY = 4;
 
     private VkBarrier[] barriers;
+    private int[] srcStages;
+    private int[] dstStages;
     private int count;
-    private int srcStageMask = 0;
-    private int dstStageMask = 0;
 
     private OwnershipTransfer[] transfers;
     private int transferCount;
@@ -33,21 +34,31 @@ public class BarrierBatch {
 
     public BarrierBatch(int capacity) {
         this.barriers = new VkBarrier[capacity];
+        this.srcStages = new int[capacity];
+        this.dstStages = new int[capacity];
         this.count = 0;
         this.transfers = new OwnershipTransfer[DEFAULT_TRANSFER_CAPACITY];
         this.transferCount = 0;
     }
 
-    /** Adds a same-queue barrier to this batch */
+    /** Adds a same-queue barrier to this batch with its specific stage masks */
     public void add(VkBarrier barrier, int srcStage, int dstStage) {
         if (count == barriers.length) {
-            VkBarrier[] grown = new VkBarrier[barriers.length * 2];
-            System.arraycopy(barriers, 0, grown, 0, count);
-            barriers = grown;
+            int newCap = barriers.length * 2;
+            VkBarrier[] grownBarriers = new VkBarrier[newCap];
+            int[] grownSrc = new int[newCap];
+            int[] grownDst = new int[newCap];
+            System.arraycopy(barriers, 0, grownBarriers, 0, count);
+            System.arraycopy(srcStages, 0, grownSrc, 0, count);
+            System.arraycopy(dstStages, 0, grownDst, 0, count);
+            barriers = grownBarriers;
+            srcStages = grownSrc;
+            dstStages = grownDst;
         }
-        barriers[count++] = barrier;
-        srcStageMask |= srcStage;
-        dstStageMask |= dstStage;
+        barriers[count] = barrier;
+        srcStages[count] = srcStage;
+        dstStages[count] = dstStage;
+        count++;
     }
 
     /**
@@ -66,14 +77,28 @@ public class BarrierBatch {
     /** @return barrier at index i */
     public VkBarrier get(int i) { return barriers[i]; }
 
+    /** @return source stage mask for barrier at index i */
+    public int srcStage(int i) { return srcStages[i]; }
+
+    /** @return destination stage mask for barrier at index i */
+    public int dstStage(int i) { return dstStages[i]; }
+
     /** @return number of same-queue barriers in this batch */
     public int count() { return count; }
 
-    /** @return combined source stage mask for same-queue barriers */
-    public int srcStageMask() { return srcStageMask; }
+    /** @return combined source stage mask for all same-queue barriers (for single vkCmdPipelineBarrier call) */
+    public int combinedSrcStageMask() {
+        int mask = 0;
+        for (int i = 0; i < count; i++) mask |= srcStages[i];
+        return mask;
+    }
 
-    /** @return combined destination stage mask for same-queue barriers */
-    public int dstStageMask() { return dstStageMask; }
+    /** @return combined destination stage mask for all same-queue barriers */
+    public int combinedDstStageMask() {
+        int mask = 0;
+        for (int i = 0; i < count; i++) mask |= dstStages[i];
+        return mask;
+    }
 
     /** @return true if this batch has no barriers of any kind */
     public boolean isEmpty() { return count == 0 && transferCount == 0; }
@@ -96,17 +121,10 @@ public class BarrierBatch {
             barriers[i] = null;
         }
         count = 0;
-        srcStageMask = 0;
-        dstStageMask = 0;
 
         for (int i = 0; i < transferCount; i++) {
             transfers[i] = null;
         }
         transferCount = 0;
-    }
-
-    /** @return all same-queue barriers as a list (for compatibility). Allocates -- avoid in hot path. */
-    public java.util.List<VkBarrier> barriers() {
-        return java.util.List.of(java.util.Arrays.copyOf(barriers, count));
     }
 }

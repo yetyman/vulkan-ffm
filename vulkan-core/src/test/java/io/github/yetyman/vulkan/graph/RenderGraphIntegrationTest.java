@@ -138,11 +138,11 @@ class RenderGraphIntegrationTest {
         SplitBarrierStrategy strategy = new SplitBarrierStrategy();
         try (Arena arena = Arena.ofConfined()) {
             BarrierBatch batch = new BarrierBatch();
-            strategy.emit(buf, ResourceEdge.read(buf, SHADER_READ, FRAGMENT_STAGE), batch, arena);
+            strategy.emit(buf, ResourceEdge.read(buf, SHADER_READ, FRAGMENT_STAGE), 0, batch, arena);
 
             assertFalse(batch.isEmpty());
-            assertEquals(COMPUTE_STAGE, batch.srcStageMask());
-            assertEquals(FRAGMENT_STAGE, batch.dstStageMask());
+            assertEquals(COMPUTE_STAGE, batch.srcStage(0));
+            assertEquals(FRAGMENT_STAGE, batch.dstStage(0));
         }
     }
 
