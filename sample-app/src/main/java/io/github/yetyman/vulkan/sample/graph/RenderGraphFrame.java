@@ -198,6 +198,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         int PRESENT_LAYOUT = VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value();
 
         offscreenRes = new ImageGraphResource("offscreen-color", true, false, width, height);
+        offscreenRes.setHandle(offscreenImage.handle());
         swapchainRes = new ImageGraphResource("swapchain", false, true, width, height);
 
         // Node execute lambdas contain ONLY draw commands -- barriers are handled by the executor
@@ -280,6 +281,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         // Reset resource state each frame (offscreen starts UNDEFINED, swapchain starts UNDEFINED)
         offscreenRes.reset();
         swapchainRes.reset();
+        swapchainRes.setHandle(swapchainImageViews[imageIndex].image());
 
         // The graph executor handles everything: pass ordering, barrier emission, draw calls
         executor.executeInto(compiledGraph, commandBuffer, frameArena, imageIndex, 0, null);
@@ -323,6 +325,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         private final boolean imported;
         private final int w, h;
         private final ResourceLifetime lifetime = new ResourceLifetime();
+        private MemorySegment imageHandle = MemorySegment.NULL;
         private int currentLayout = VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value();
         private int lastAccessMask = 0;
         private int lastStageMask = VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value();
@@ -336,6 +339,8 @@ public class RenderGraphFrame extends GraphicsFrame {
             this.h = h;
         }
 
+        void setHandle(MemorySegment handle) { this.imageHandle = handle; }
+
         void reset() {
             currentLayout = VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value();
             lastAccessMask = 0;
@@ -343,7 +348,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         }
 
         @Override public String name() { return name; }
-        @Override public MemorySegment handle() { return MemorySegment.NULL; }
+        @Override public MemorySegment handle() { return imageHandle; }
         @Override public int lastAccessMask() { return lastAccessMask; }
         @Override public int lastStageMask() { return lastStageMask; }
         @Override public int owningQueueFamily() { return owningQueueFamily; }
