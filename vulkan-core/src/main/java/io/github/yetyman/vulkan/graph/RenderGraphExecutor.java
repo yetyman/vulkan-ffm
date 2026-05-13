@@ -140,7 +140,7 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Executes all buckets of a compiled graph. Records commands into per-queue command buffers,
      * emits barriers (including cross-queue ownership transfers), and builds submission units.
      *
-     * After this method returns, call {@link #submit(Arena)} to submit all queue submissions
+     * After this method returns, call {@link #submit(Arena, MemorySegment)} to submit all queue submissions
      * with the correct inter-queue semaphore dependencies.
      *
      * @return per-node CPU recording times in nanoseconds
@@ -274,18 +274,21 @@ public class RenderGraphExecutor implements AutoCloseable {
             timestampPool.reset(commandBuffer.handle());
         }
 
-        for (ExecutionBucket bucket : compiled.executionBuckets()) {
+        List<ExecutionBucket> buckets = compiled.executionBuckets();
+        for (int b = 0, bucketCount = buckets.size(); b < bucketCount; b++) {
+            ExecutionBucket bucket = buckets.get(b);
+            int queueFamily = bucket.queue().queueFamilyIndex();
             ctx.queue = bucket.queue();
 
-            for (RenderNode node : bucket.nodes()) {
+            List<RenderNode> nodes = bucket.nodes();
+            for (int n = 0, nCount = nodes.size(); n < nCount; n++) {
+                RenderNode node = nodes.get(n);
+
                 barrierBatch.clear();
-                emitBarriersForNode(node, barrierBatch, bucket.queue().queueFamilyIndex(), frameArena);
+                emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
                 if (!barrierBatch.hasNoSameQueueBarriers()) {
                     executeBarrierBatch(commandBuffer, barrierBatch);
                 }
-                // In single-cmd-buffer mode, ownership transfers are emitted as same-queue barriers
-                // (both halves on the same command buffer -- technically incorrect for true multi-queue
-                // but functional for single-queue fallback)
                 if (barrierBatch.hasOwnershipTransfers()) {
                     for (int i = 0; i < barrierBatch.transferCount(); i++) {
                         OwnershipTransfer transfer = barrierBatch.getTransfer(i);
@@ -318,9 +321,11 @@ public class RenderGraphExecutor implements AutoCloseable {
                         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
                 }
 
-                for (ResourceEdge edge : node.writes()) {
+                List<ResourceEdge> writes = node.writes();
+                for (int w = 0, wCount = writes.size(); w < wCount; w++) {
+                    ResourceEdge edge = writes.get(w);
                     GraphResource res = edge.resource();
-                    res.updateState(edge.accessMask(), edge.stageMask(), bucket.queue().queueFamilyIndex());
+                    res.updateState(edge.accessMask(), edge.stageMask(), queueFamily);
                     if (edge.imageLayout() >= 0 && res instanceof io.github.yetyman.vulkan.graph.resources.GraphImageResource imgRes) {
                         imgRes.updateLayout(edge.imageLayout());
                     }
@@ -361,8 +366,11 @@ public class RenderGraphExecutor implements AutoCloseable {
 
     private void recordBucketSequential(ExecutionBucket bucket, VkCommandBuffer primaryCmd, Arena frameArena) {
         int queueFamily = bucket.queue().queueFamilyIndex();
+        List<RenderNode> nodes = bucket.nodes();
 
-        for (RenderNode node : bucket.nodes()) {
+        for (int n = 0, nCount = nodes.size(); n < nCount; n++) {
+            RenderNode node = nodes.get(n);
+
             // Emit barriers
             barrierBatch.clear();
             emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
@@ -406,12 +414,11 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
 
             // Update resource state
-            // For CPU work nodes, force HOST_WRITE access and HOST stage on all writes
-            // so the barrier strategy automatically emits the correct host barrier
-            // when the next GPU node reads the resource
             int effectiveAccessMask;
             int effectiveStageMask;
-            for (ResourceEdge edge : node.writes()) {
+            List<ResourceEdge> writes = node.writes();
+            for (int w = 0, wCount = writes.size(); w < wCount; w++) {
+                ResourceEdge edge = writes.get(w);
                 GraphResource res = edge.resource();
                 if (node.type() == io.github.yetyman.vulkan.graph.nodes.NodeType.CPU_WORK) {
                     effectiveAccessMask = 0x00004000; // VK_ACCESS_HOST_WRITE_BIT
@@ -578,6 +585,9 @@ public class RenderGraphExecutor implements AutoCloseable {
     }
 
     private static final ConservativeBarrierStrategy CONSERVATIVE = new ConservativeBarrierStrategy();
+    // Pre-allocated synthetic edge for bindless barrier emission -- reused each frame
+    private static final int BINDLESS_SHADER_READ = 0x00000020;
+    private static final int BINDLESS_ALL_COMMANDS = 0x00010000;
 
     private void emitBarriersForNode(RenderNode node, BarrierBatch batch, int consumerQueueFamily, Arena arena) {
         if (barrierStrategy == null) return;
@@ -587,11 +597,14 @@ public class RenderGraphExecutor implements AutoCloseable {
             splitStrategy.setConsumerQueueFamily(consumerQueueFamily);
         }
 
-        for (ResourceEdge readEdge : node.reads()) {
-            barrierStrategy.emit(readEdge.resource(), readEdge, batch, arena);
+        List<ResourceEdge> reads = node.reads();
+        for (int i = 0, size = reads.size(); i < size; i++) {
+            barrierStrategy.emit(reads.get(i).resource(), reads.get(i), batch, arena);
         }
 
-        for (ResourceEdge writeEdge : node.writes()) {
+        List<ResourceEdge> writes = node.writes();
+        for (int i = 0, size = writes.size(); i < size; i++) {
+            ResourceEdge writeEdge = writes.get(i);
             GraphResource resource = writeEdge.resource();
             if (resource.lastAccessMask() != 0 || resource.lastStageMask() != 0) {
                 barrierStrategy.emit(resource, writeEdge, batch, arena);
@@ -599,12 +612,14 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
 
         // Bindless resources: apply conservative barriers since exact access is unknown
-        for (GraphResource bindlessRes : node.bindlessReads()) {
+        List<GraphResource> bindless = node.bindlessReads();
+        for (int i = 0, size = bindless.size(); i < size; i++) {
+            GraphResource bindlessRes = bindless.get(i);
             if (bindlessRes.lastAccessMask() != 0 || bindlessRes.lastStageMask() != 0) {
-                // Synthesize a read edge for the conservative strategy
-                ResourceEdge syntheticEdge = ResourceEdge.read(bindlessRes, 0x00000020, // SHADER_READ
-                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_ALL_COMMANDS_BIT.value());
-                CONSERVATIVE.emit(bindlessRes, syntheticEdge, batch, arena);
+                // Use a lightweight inline emit rather than allocating a synthetic ResourceEdge
+                CONSERVATIVE.emit(bindlessRes,
+                    ResourceEdge.read(bindlessRes, BINDLESS_SHADER_READ, BINDLESS_ALL_COMMANDS),
+                    batch, arena);
             }
         }
     }
@@ -633,16 +648,22 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Wires external semaphore waits/signals declared on nodes into the correct queue's submission.
      */
     private void wireExternalSemaphores(CompiledGraph compiled) {
-        for (ExecutionBucket bucket : compiled.executionBuckets()) {
+        List<ExecutionBucket> buckets = compiled.executionBuckets();
+        for (int b = 0, bCount = buckets.size(); b < bCount; b++) {
+            ExecutionBucket bucket = buckets.get(b);
             QueueSubmission sub = submissions.get(bucket.queue().queueFamilyIndex());
             if (sub == null) continue;
 
-            for (RenderNode node : bucket.nodes()) {
-                for (SemaphoreEdge wait : node.externalWaits()) {
-                    sub.addExternalWait(wait);
+            List<RenderNode> nodes = bucket.nodes();
+            for (int n = 0, nCount = nodes.size(); n < nCount; n++) {
+                RenderNode node = nodes.get(n);
+                List<SemaphoreEdge> waits = node.externalWaits();
+                for (int i = 0, size = waits.size(); i < size; i++) {
+                    sub.addExternalWait(waits.get(i));
                 }
-                for (SemaphoreEdge signal : node.externalSignals()) {
-                    sub.addExternalSignal(signal);
+                List<SemaphoreEdge> signals = node.externalSignals();
+                for (int i = 0, size = signals.size(); i < size; i++) {
+                    sub.addExternalSignal(signals.get(i));
                 }
             }
         }
