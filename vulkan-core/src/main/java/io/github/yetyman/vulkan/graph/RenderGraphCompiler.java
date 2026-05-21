@@ -158,6 +158,7 @@ public class RenderGraphCompiler {
     /**
      * Stage 3: Compute first-write to last-read lifetime intervals for each resource,
      * including queue family information from the scheduled buckets.
+     * Also tracks temporal physical slot lifetimes for cross-frame aliasing.
      */
     public Map<GraphResource, ResourceLifetime> computeLifetimes(List<RenderNode> nodes,
                                                                   List<ExecutionBucket> buckets) {
@@ -190,6 +191,20 @@ public class RenderGraphCompiler {
                 GraphResource res = edge.resource();
                 lifetimes.computeIfAbsent(res, k -> res.lifetime()).recordRead(idx, queue);
             }
+
+            // Track temporal physical slot lifetimes for cross-frame aliasing
+            for (TemporalEdge te : node.temporalEdges()) {
+                if (te.temporalResource().physicalSlots() == null) continue;
+                if (te.isReadPrevious()) {
+                    GraphResource readSlot = te.temporalResource().previousReadSlot();
+                    lifetimes.computeIfAbsent(readSlot, k -> readSlot.lifetime()).recordRead(idx, queue);
+                    te.temporalResource().recordUse(idx);
+                } else if (te.isWriteCurrent()) {
+                    GraphResource writeSlot = te.temporalResource().currentWriteSlot();
+                    lifetimes.computeIfAbsent(writeSlot, k -> writeSlot.lifetime()).recordWrite(idx, queue);
+                    te.temporalResource().recordUse(idx);
+                }
+            }
         }
 
         return lifetimes;
@@ -197,6 +212,7 @@ public class RenderGraphCompiler {
 
     /**
      * Stage 7: Compute aliasing groups for transient resources.
+     * Includes temporal physical slots with their submission-local lifetimes for cross-frame aliasing.
      */
     private List<ResourceAlias> computeAliasing(List<RenderNode> activeNodes) {
         if (aliasingStrategy == null) return Collections.emptyList();

@@ -12,6 +12,7 @@ import io.github.yetyman.vulkan.graph.barriers.ConservativeBarrierStrategy;
 import io.github.yetyman.vulkan.graph.barriers.OwnershipTransfer;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
+import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.feedback.FrameStats;
 import io.github.yetyman.vulkan.graph.nodes.ExecutionContext;
 import io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode;
@@ -98,6 +99,12 @@ public class RenderGraphExecutor implements AutoCloseable {
     // Mutable execution context reused across nodes (sequential path)
     private final MutableExecutionContext ctx = new MutableExecutionContext();
 
+    // Temporal resources for slot resolution and auto-advance
+    private Map<String, io.github.yetyman.vulkan.graph.resources.TemporalResource> temporalResources = Map.of();
+
+    // Imported resources for final-layout barrier emission
+    private List<io.github.yetyman.vulkan.graph.resources.ImportedResource> importedResources = List.of();
+
     /**
      * @param device the logical device
      * @param barrierStrategy strategy for barrier synthesis
@@ -145,6 +152,31 @@ public class RenderGraphExecutor implements AutoCloseable {
     public boolean debugLabelsEnabled() { return debugLabelsEnabled; }
 
     /**
+     * Sets the temporal resources for slot resolution during execution.
+     * The executor uses these to populate ExecutionContext.temporalRead/Write methods
+     * and to auto-advance temporal resources after nodes with writesTemporalCurrent edges.
+     */
+    public void setTemporalResources(List<io.github.yetyman.vulkan.graph.resources.TemporalResource> resources) {
+        if (resources == null || resources.isEmpty()) {
+            this.temporalResources = Map.of();
+        } else {
+            Map<String, io.github.yetyman.vulkan.graph.resources.TemporalResource> map = new HashMap<>();
+            for (var tr : resources) {
+                map.put(tr.name(), tr);
+            }
+            this.temporalResources = map;
+        }
+    }
+
+    /**
+     * Sets the imported resources for final-layout barrier emission.
+     * After all nodes execute, the executor transitions imported resources to their declared finalLayout.
+     */
+    public void setImportedResources(List<io.github.yetyman.vulkan.graph.resources.ImportedResource> resources) {
+        this.importedResources = resources != null ? resources : List.of();
+    }
+
+    /**
      * Executes all buckets of a compiled graph. Records commands into per-queue command buffers,
      * emits barriers (including cross-queue ownership transfers), and builds submission units.
      *
@@ -173,6 +205,8 @@ public class RenderGraphExecutor implements AutoCloseable {
         ctx.frameIndex = frameIndex;
         ctx.frameGeneration = frameGeneration;
         ctx.previousStats = previousStats;
+        ctx.temporalResources = temporalResources;
+        ctx.importedResources = importedResources;
 
         allocatePrimaryCommandBuffers(compiled);
 
@@ -291,6 +325,8 @@ public class RenderGraphExecutor implements AutoCloseable {
         ctx.frameIndex = frameIndex;
         ctx.frameGeneration = frameGeneration;
         ctx.previousStats = previousStats;
+        ctx.temporalResources = temporalResources;
+        ctx.importedResources = importedResources;
 
         if (timestampsEnabled && timestampPool != null) {
             timestampPool.reset(commandBuffer.handle());
@@ -357,6 +393,9 @@ public class RenderGraphExecutor implements AutoCloseable {
                 updateResourceState(node, queueFamily);
             }
         }
+
+        // Emit final-layout transitions for imported resources
+        emitFinalLayoutBarriers(commandBuffer, frameArena);
 
         return cpuTimes;
     }
@@ -559,6 +598,23 @@ public class RenderGraphExecutor implements AutoCloseable {
                 imgRes.updateLayout(edge.imageLayout());
             }
         }
+
+        // Auto-advance temporal resources after nodes that write to them
+        // and update the physical slot's tracked state
+        if (!temporalResources.isEmpty()) {
+            for (TemporalEdge te : node.temporalEdges()) {
+                if (te.isWriteCurrent()) {
+                    // Update the write slot's state before advancing
+                    GraphResource writeSlot = te.temporalResource().currentWriteSlot();
+                    writeSlot.updateState(te.accessMask(), te.stageMask(), queueFamily);
+                    te.temporalResource().onWriteExecuted();
+                } else if (te.isReadPrevious()) {
+                    // Update the read slot's state (it was read this frame)
+                    GraphResource readSlot = te.temporalResource().previousReadSlot();
+                    readSlot.updateState(te.accessMask(), te.stageMask(), queueFamily);
+                }
+            }
+        }
     }
 
     /**
@@ -614,6 +670,28 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
         }
 
+        // Temporal resource barriers: emit barriers for physical slots accessed by temporal edges
+        if (!temporalResources.isEmpty()) {
+            for (TemporalEdge te : node.temporalEdges()) {
+                io.github.yetyman.vulkan.graph.resources.TemporalResource tr = te.temporalResource();
+                if (te.isReadPrevious()) {
+                    // The read slot was last written by a previous frame's compute/graphics pass
+                    GraphResource readSlot = tr.previousReadSlot();
+                    if (readSlot.lastAccessMask() != 0 || readSlot.lastStageMask() != 0) {
+                        ResourceEdge syntheticRead = ResourceEdge.read(readSlot, te.accessMask(), te.stageMask());
+                        barrierStrategy.emit(readSlot, syntheticRead, consumerQueueFamily, batch, arena);
+                    }
+                } else if (te.isWriteCurrent()) {
+                    // The write slot may have been read by a previous frame
+                    GraphResource writeSlot = tr.currentWriteSlot();
+                    if (writeSlot.lastAccessMask() != 0 || writeSlot.lastStageMask() != 0) {
+                        ResourceEdge syntheticWrite = ResourceEdge.write(writeSlot, te.accessMask(), te.stageMask());
+                        barrierStrategy.emit(writeSlot, syntheticWrite, consumerQueueFamily, batch, arena);
+                    }
+                }
+            }
+        }
+
         List<GraphResource> bindless = node.bindlessReads();
         for (int i = 0, size = bindless.size(); i < size; i++) {
             GraphResource bindlessRes = bindless.get(i);
@@ -622,6 +700,29 @@ public class RenderGraphExecutor implements AutoCloseable {
                     ResourceEdge.read(bindlessRes, BINDLESS_SHADER_READ, BINDLESS_ALL_COMMANDS),
                     consumerQueueFamily, batch, arena);
             }
+        }
+    }
+
+    private void emitFinalLayoutBarriers(VkCommandBuffer cmd, Arena arena) {
+        if (importedResources.isEmpty()) return;
+        for (var imported : importedResources) {
+            int currentLayout = imported.currentLayout();
+            int finalLayout = imported.finalLayout();
+            if (currentLayout == finalLayout) continue;
+            if (currentLayout == 0) continue; // VK_IMAGE_LAYOUT_UNDEFINED - not yet transitioned by graph
+            if (imported.handle().equals(MemorySegment.NULL)) continue;
+
+            // Emit image layout transition to final layout
+            io.github.yetyman.vulkan.VkImageBarrier.builder()
+                .image(imported.handle())
+                .srcAccess(imported.lastAccessMask())
+                .dstAccess(0)
+                .transition(currentLayout, finalLayout)
+                .build(arena)
+                .execute(cmd.handle(), imported.lastStageMask(),
+                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
+
+            imported.updateLayout(finalLayout);
         }
     }
 
@@ -692,6 +793,8 @@ public class RenderGraphExecutor implements AutoCloseable {
         long frameGeneration;
         QueueAssignment queue;
         FrameStats previousStats;
+        Map<String, io.github.yetyman.vulkan.graph.resources.TemporalResource> temporalResources;
+        List<io.github.yetyman.vulkan.graph.resources.ImportedResource> importedResources;
 
         @Override public VkCommandBuffer commandBuffer() { return commandBuffer; }
         @Override public Arena frameArena() { return frameArena; }
@@ -699,5 +802,58 @@ public class RenderGraphExecutor implements AutoCloseable {
         @Override public long frameGeneration() { return frameGeneration; }
         @Override public QueueAssignment queue() { return queue; }
         @Override public FrameStats previousStats() { return previousStats; }
+
+        @Override
+        public MemorySegment temporalReadHandle(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            return tr != null ? tr.previousReadSlot().handle() : MemorySegment.NULL;
+        }
+
+        @Override
+        public MemorySegment temporalWriteHandle(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            return tr != null ? tr.currentWriteSlot().handle() : MemorySegment.NULL;
+        }
+
+        @Override
+        public GraphResource temporalRead(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            return tr != null ? tr.previousReadSlot() : null;
+        }
+
+        @Override
+        public GraphResource temporalWrite(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            return tr != null ? tr.currentWriteSlot() : null;
+        }
+
+        @Override
+        public io.github.yetyman.vulkan.VkDescriptorSet temporalReadDescriptorSet(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            if (tr == null || tr.readDescriptorBinding() == null) return null;
+            return tr.readDescriptorBinding().readSet(tr.writeCount(), tr.bufferCount());
+        }
+
+        @Override
+        public io.github.yetyman.vulkan.VkDescriptorSet temporalWriteDescriptorSet(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            if (tr == null || tr.writeDescriptorBinding() == null) return null;
+            return tr.writeDescriptorBinding().writeSet(tr.writeCount(), tr.bufferCount());
+        }
+
+        @Override
+        public MemorySegment importedHandle(String name) {
+            if (importedResources == null) return MemorySegment.NULL;
+            for (var ir : importedResources) {
+                if (ir.name().equals(name)) return ir.handle();
+            }
+            return MemorySegment.NULL;
+        }
+
+        @Override
+        public int temporalStaleness(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            return tr != null ? tr.staleness() : -1;
+        }
     }
 }

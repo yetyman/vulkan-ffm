@@ -1,0 +1,55 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (push_constant) uniform PC {
+    int width;
+    int height;
+    float time;
+    float trailDecay;  // 0.0 = no trail, 0.99 = long trail
+} pc;
+
+// Previous frame's output (temporal read)
+layout (set = 0, binding = 0) readonly buffer HistoryIn { vec4 pixels[]; } history;
+// Current frame's output (temporal write)
+layout (set = 0, binding = 1) writeonly buffer HistoryOut { vec4 pixels[]; } output_;
+
+void main() {
+    int x = int(gl_GlobalInvocationID.x);
+    int y = int(gl_GlobalInvocationID.y);
+    if (x >= pc.width || y >= pc.height) return;
+
+    int idx = y * pc.width + x;
+
+    // Normalized coordinates
+    vec2 uv = vec2(float(x) / float(pc.width), float(y) / float(pc.height));
+    vec2 center = uv - 0.5;
+
+    // Animated shapes - multiple orbiting circles
+    vec4 newColor = vec4(0.0);
+
+    for (int i = 0; i < 5; i++) {
+        float angle = pc.time * (0.8 + float(i) * 0.3) + float(i) * 1.2566;
+        float radius = 0.15 + float(i) * 0.05;
+        vec2 pos = vec2(cos(angle), sin(angle)) * radius;
+        float dist = length(center - pos);
+        float circle = smoothstep(0.04, 0.02, dist);
+
+        // Each circle gets a different color
+        vec3 col = vec3(
+            0.5 + 0.5 * sin(float(i) * 2.1 + pc.time),
+            0.5 + 0.5 * sin(float(i) * 2.1 + pc.time + 2.094),
+            0.5 + 0.5 * sin(float(i) * 2.1 + pc.time + 4.189)
+        );
+        newColor += vec4(col * circle, circle);
+    }
+
+    // Blend with history (temporal feedback)
+    vec4 prev = history.pixels[idx];
+    vec4 result = prev * pc.trailDecay + newColor * (1.0 - pc.trailDecay * 0.5);
+
+    // Slight color shift on the trail for visual interest
+    result.rgb *= vec3(0.998, 0.995, 1.002);
+
+    output_.pixels[idx] = result;
+}

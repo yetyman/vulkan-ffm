@@ -15,6 +15,8 @@ import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ImageDesc;
 import io.github.yetyman.vulkan.graph.resources.PersistentResourceManager;
 import io.github.yetyman.vulkan.graph.resources.PersistentResourceRing;
+import io.github.yetyman.vulkan.graph.resources.ResourceDescriptor;
+import io.github.yetyman.vulkan.graph.resources.ImportedResource;
 import io.github.yetyman.vulkan.graph.resources.TemporalResource;
 import io.github.yetyman.vulkan.graph.resources.VkImageGraphResource;
 import io.github.yetyman.vulkan.graph.resources.VkBufferGraphResource;
@@ -73,12 +75,16 @@ public class RenderGraph implements AutoCloseable {
     private final Map<String, ImageDesc> transientImageDescs;
     private final Map<String, BufferDesc> transientBufferDescs;
     private final Map<String, GraphResource> importedResources;
+    private final List<ImportedResource> importedResourceList;
     private final Map<String, PersistentResourceRing<?>> persistentRings;
     private final List<TemporalResource> temporalResources;
     private final PersistentResourceManager persistentManager;
 
     // Compiled graph cache by PassMask
     private final Map<PassMask, CompiledGraph> compiledCache;
+
+    // Dynamic pass groups
+    private final List<PassGroup> passGroups;
 
     // Allocated transient resources (owned by this graph)
     private TransientResourceAllocator transientAllocator;
@@ -98,11 +104,13 @@ public class RenderGraph implements AutoCloseable {
         this.transientImageDescs = new LinkedHashMap<>(b.transientImageDescs);
         this.transientBufferDescs = new LinkedHashMap<>(b.transientBufferDescs);
         this.importedResources = new LinkedHashMap<>(b.importedResources);
+        this.importedResourceList = List.copyOf(b.importedResourceList);
         this.persistentRings = new LinkedHashMap<>(b.persistentRings);
         this.temporalResources = List.copyOf(b.temporalResources);
         this.persistentManager = new PersistentResourceManager(
             new LinkedHashMap<>(b.persistentRings));
         this.compiledCache = new HashMap<>();
+        this.passGroups = new ArrayList<>(b.passGroups);
         this.graphArena = Arena.ofShared();
 
         SchedulingStrategy scheduling = b.schedulingStrategy != null ? b.schedulingStrategy : new ListSchedulingStrategy();
@@ -111,11 +119,16 @@ public class RenderGraph implements AutoCloseable {
 
         this.compiler = new RenderGraphCompiler(scheduling, barriers, aliasing);
         this.executor = new RenderGraphExecutor(device, barriers);
+        this.executor.setTemporalResources(temporalResources);
+        this.executor.setImportedResources(importedResourceList);
         this.stats = new RenderGraphStats();
 
         // Allocate transient resources
         this.transientAllocator = new TransientResourceAllocator(device, graphArena);
         allocateTransientResources();
+
+        // Allocate temporal resource physical slots
+        allocateTemporalResources();
 
         // Initialize persistent resource ring semaphores
         if (!persistentRings.isEmpty()) {
@@ -161,6 +174,9 @@ public class RenderGraph implements AutoCloseable {
      * This is the legacy single-queue path for callers that manage their own command buffers
      * and submission. No multi-queue support -- all nodes record into the provided buffer.
      *
+     * Automatically selects the correct compiled graph variant based on current pass activation
+     * state, using the PassMask cache for repeated patterns.
+     *
      * @param frameArena arena scoped to this frame
      * @param frameIndex which frame-in-flight slot
      * @param commandBuffer the externally-managed command buffer (must already be in recording state)
@@ -169,10 +185,24 @@ public class RenderGraph implements AutoCloseable {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
 
+        // Invalidate cache if any pass group changed count
+        for (PassGroup group : passGroups) {
+            if (group.countChanged()) {
+                compiledCache.clear();
+                break;
+            }
+        }
+
+        // Select compiled graph for current activation state (cached)
+        List<RenderNode> effective = effectiveNodes();
+        PassMask mask = PassMask.evaluate(effective);
+        CompiledGraph active = compiledCache.computeIfAbsent(mask,
+            m -> compiler.compile(effective, queues, temporalResources));
+
         persistentManager.advanceFrame(gen);
 
         Map<String, Long> cpuTimes = executor.executeInto(
-            compiledGraph, commandBuffer, frameArena, frameIndex, gen, previousStats);
+            active, commandBuffer, frameArena, frameIndex, gen, previousStats);
 
         stats.recordCpuTimes(cpuTimes);
     }
@@ -283,8 +313,50 @@ public class RenderGraph implements AutoCloseable {
         compiledCache.clear();
     }
 
+    /**
+     * Creates a dynamic pass group. Passes added to the group are included in compilation.
+     * The group can be cleared and re-populated each frame.
+     *
+     * @param name group name
+     * @param maxCount maximum expected pass count
+     * @return the pass group
+     */
+    public PassGroup addPassGroup(String name, int maxCount) {
+        PassGroup group = new PassGroup(name, maxCount);
+        passGroups.add(group);
+        return group;
+    }
+
+    /** @return all effective nodes (static nodes + dynamic group members) */
+    private List<RenderNode> effectiveNodes() {
+        if (passGroups.isEmpty()) return new ArrayList<>(nodes);
+        List<RenderNode> all = new ArrayList<>(nodes);
+        for (PassGroup group : passGroups) {
+            all.addAll(group.nodes());
+        }
+        return all;
+    }
+
+    /**
+     * Instantiates a subgraph template and returns a builder for connecting inputs/params.
+     *
+     * @param template the template to instantiate
+     * @return an instantiation builder
+     */
+    public SubgraphTemplate.InstantiationBuilder instantiate(SubgraphTemplate template) {
+        return new SubgraphTemplate.InstantiationBuilder(template);
+    }
+
     /** @return the declared temporal resources */
     public List<TemporalResource> temporalResources() { return temporalResources; }
+
+    /** @return an imported resource by name, or null if not found */
+    public ImportedResource importedImage(String name) {
+        for (ImportedResource ir : importedResourceList) {
+            if (ir.name().equals(name)) return ir;
+        }
+        return null;
+    }
 
     /**
      * Returns the graph resource for a given name. Searches transient, imported, and persistent resources.
@@ -350,6 +422,30 @@ public class RenderGraph implements AutoCloseable {
         }
     }
 
+    private void allocateTemporalResources() {
+        for (TemporalResource tr : temporalResources) {
+            if (tr.physicalSlots() != null) continue; // already allocated externally
+
+            ResourceDescriptor desc = tr.descriptor();
+            GraphResource[] slots = new GraphResource[tr.bufferCount()];
+
+            for (int i = 0; i < tr.bufferCount(); i++) {
+                String slotName = tr.name() + "_slot" + i;
+                if (desc.kind() == ResourceDescriptor.ResourceKind.BUFFER) {
+                    VkBufferGraphResource res = transientAllocator.allocateBuffer(slotName,
+                        BufferDesc.custom(desc.bufferSize(), desc.usageFlags()));
+                    slots[i] = res;
+                } else {
+                    VkImageGraphResource res = transientAllocator.allocateImage(slotName,
+                        ImageDesc.custom(desc.width(), desc.height(), desc.depth(),
+                            desc.format(), desc.usageFlags(), 1, 1, 1));
+                    slots[i] = res;
+                }
+            }
+            tr.setPhysicalSlots(slots);
+        }
+    }
+
     private void initializeAutoRendering() {
         for (RenderNode node : nodes) {
             if (node instanceof io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode gpn && gpn.autoRendering()) {
@@ -395,8 +491,10 @@ public class RenderGraph implements AutoCloseable {
         private final Map<String, ImageDesc> transientImageDescs = new LinkedHashMap<>();
         private final Map<String, BufferDesc> transientBufferDescs = new LinkedHashMap<>();
         private final Map<String, GraphResource> importedResources = new LinkedHashMap<>();
+        private final List<ImportedResource> importedResourceList = new ArrayList<>();
         private final Map<String, PersistentResourceRing<?>> persistentRings = new LinkedHashMap<>();
         private final List<TemporalResource> temporalResources = new ArrayList<>();
+        private final List<PassGroup> passGroups = new ArrayList<>();
         private SchedulingStrategy schedulingStrategy;
         private BarrierStrategy barrierStrategy;
         private AliasingStrategy aliasingStrategy;
@@ -451,6 +549,19 @@ public class RenderGraph implements AutoCloseable {
          */
         public Builder imported(String name, GraphResource resource) {
             this.importedResources.put(name, resource);
+            return this;
+        }
+
+        /**
+         * Imports an externally-owned image resource with declared initial and final layouts.
+         * The graph inserts barriers at first use (initial -> required) and last use (current -> final).
+         * Use {@link ImportedResource#rebind(java.lang.foreign.MemorySegment)} each frame for swapchain images.
+         *
+         * @param resource the imported resource declaration
+         */
+        public Builder importedImage(ImportedResource resource) {
+            this.importedResources.put(resource.name(), resource);
+            this.importedResourceList.add(resource);
             return this;
         }
 

@@ -50,6 +50,9 @@ public interface RenderNode {
     /** @return scheduling hint for placement in the execution timeline */
     default ScheduleHint scheduleHint() { return ScheduleHint.NONE; }
 
+    /** @return priority for graceful degradation (lower priority = dropped first under budget pressure) */
+    default Priority priority() { return Priority.MEDIUM; }
+
     /** @return required queue capability */
     default QueueCapability requiredQueue() { return QueueCapability.ANY; }
 
