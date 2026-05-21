@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.graph.nodes;
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
+import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
@@ -36,6 +37,9 @@ public interface RenderNode {
 
     /** @return feedback edges (reads from previous frames) */
     default List<FeedbackEdge> feedbackReads() { return Collections.emptyList(); }
+
+    /** @return temporal edges (cross-frame cycle dependencies on TemporalResources) */
+    default List<TemporalEdge> temporalEdges() { return Collections.emptyList(); }
 
     /**
      * Resources accessed via bindless descriptors. The graph applies conservative barriers

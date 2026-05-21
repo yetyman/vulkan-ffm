@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.graph;
 
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
+import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.memory.AliasingStrategy;
 import io.github.yetyman.vulkan.graph.memory.ResourceAlias;
 import io.github.yetyman.vulkan.graph.memory.SemaphorePartialOrder;
@@ -8,6 +9,7 @@ import io.github.yetyman.vulkan.graph.nodes.NodeType;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ResourceLifetime;
+import io.github.yetyman.vulkan.graph.resources.TemporalResource;
 import io.github.yetyman.vulkan.graph.scheduling.ExecutionBucket;
 import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
@@ -38,6 +40,7 @@ public class RenderGraphCompiler {
     private final SchedulingStrategy schedulingStrategy;
     private final BarrierStrategy barrierStrategy;
     private final AliasingStrategy aliasingStrategy;
+    private final TemporalUnroller temporalUnroller;
 
     public RenderGraphCompiler(SchedulingStrategy schedulingStrategy,
                                BarrierStrategy barrierStrategy,
@@ -45,6 +48,7 @@ public class RenderGraphCompiler {
         this.schedulingStrategy = schedulingStrategy;
         this.barrierStrategy = barrierStrategy;
         this.aliasingStrategy = aliasingStrategy;
+        this.temporalUnroller = new TemporalUnroller();
     }
 
     /**
@@ -78,8 +82,23 @@ public class RenderGraphCompiler {
      * Stages: validate, version, lifetimes, cull, schedule, alias (with partial order).
      */
     public CompiledGraph compile(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues) {
+        return compile(nodes, queues, Collections.emptyList());
+    }
+
+    /**
+     * Full compilation with temporal resource support.
+     * Stages: validate, temporal validate, version, lifetimes, cull, schedule, alias.
+     */
+    public CompiledGraph compile(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> queues,
+                                 List<TemporalResource> temporalResources) {
         // Stage 1: Validate
         validate(nodes);
+
+        // Stage 1b: Validate temporal edges (completeness, no non-temporal cycles)
+        if (!temporalResources.isEmpty()) {
+            temporalUnroller.validate(nodes, temporalResources);
+            temporalUnroller.validateStartingPoints(nodes, temporalResources);
+        }
 
         // Stage 2: Version persistent resources (resolve feedback edges)
         versionResources(nodes);
@@ -300,6 +319,10 @@ public class RenderGraphCompiler {
         if (node.type() == NodeType.PRESENT) return true;
         for (ResourceEdge edge : node.writes()) {
             if (!edge.resource().isTransient()) return true;
+        }
+        // Temporal writes are sinks (they persist across frames)
+        for (TemporalEdge te : node.temporalEdges()) {
+            if (te.isWriteCurrent()) return true;
         }
         return false;
     }

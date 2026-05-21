@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.graph.nodes;
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
+import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
@@ -23,6 +24,7 @@ public class ComputePassNode implements RenderNode {
     private final List<SemaphoreEdge> externalWaits;
     private final List<SemaphoreEdge> externalSignals;
     private final List<FeedbackEdge> feedbackReads;
+    private final List<TemporalEdge> temporalEdges;
     private final List<GraphResource> bindlessReads;
     private final ScheduleHint scheduleHint;
     private final QueueCapability requiredQueue;
@@ -37,6 +39,7 @@ public class ComputePassNode implements RenderNode {
         this.externalWaits = Collections.unmodifiableList(b.externalWaits);
         this.externalSignals = Collections.unmodifiableList(b.externalSignals);
         this.feedbackReads = Collections.unmodifiableList(b.feedbackReads);
+        this.temporalEdges = Collections.unmodifiableList(b.temporalEdges);
         this.bindlessReads = Collections.unmodifiableList(b.bindlessReads);
         this.scheduleHint = b.scheduleHint;
         this.requiredQueue = b.requiredQueue;
@@ -53,6 +56,7 @@ public class ComputePassNode implements RenderNode {
     @Override public List<SemaphoreEdge> externalWaits() { return externalWaits; }
     @Override public List<SemaphoreEdge> externalSignals() { return externalSignals; }
     @Override public List<FeedbackEdge> feedbackReads() { return feedbackReads; }
+    @Override public List<TemporalEdge> temporalEdges() { return temporalEdges; }
     @Override public List<GraphResource> bindlessReads() { return bindlessReads; }
     @Override public ScheduleHint scheduleHint() { return scheduleHint; }
     @Override public QueueCapability requiredQueue() { return requiredQueue; }
@@ -77,6 +81,7 @@ public class ComputePassNode implements RenderNode {
         private final List<SemaphoreEdge> externalWaits = new ArrayList<>();
         private final List<SemaphoreEdge> externalSignals = new ArrayList<>();
         private final List<FeedbackEdge> feedbackReads = new ArrayList<>();
+        private final List<TemporalEdge> temporalEdges = new ArrayList<>();
         private final List<GraphResource> bindlessReads = new ArrayList<>();
         private ScheduleHint scheduleHint = ScheduleHint.NONE;
         private QueueCapability requiredQueue = QueueCapability.COMPUTE;
@@ -91,6 +96,7 @@ public class ComputePassNode implements RenderNode {
         public Builder externalWait(SemaphoreEdge edge) { this.externalWaits.add(edge); return this; }
         public Builder externalSignal(SemaphoreEdge edge) { this.externalSignals.add(edge); return this; }
         public Builder feedbackRead(FeedbackEdge edge) { this.feedbackReads.add(edge); return this; }
+        public Builder temporalEdge(TemporalEdge edge) { this.temporalEdges.add(edge); return this; }
         public Builder bindlessReads(GraphResource resource) { this.bindlessReads.add(resource); return this; }
         public Builder scheduleHint(ScheduleHint hint) { this.scheduleHint = hint; return this; }
         public Builder requiredQueue(QueueCapability cap) { this.requiredQueue = cap; return this; }

@@ -15,6 +15,7 @@ import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.resources.ImageDesc;
 import io.github.yetyman.vulkan.graph.resources.PersistentResourceManager;
 import io.github.yetyman.vulkan.graph.resources.PersistentResourceRing;
+import io.github.yetyman.vulkan.graph.resources.TemporalResource;
 import io.github.yetyman.vulkan.graph.resources.VkImageGraphResource;
 import io.github.yetyman.vulkan.graph.resources.VkBufferGraphResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
@@ -73,7 +74,11 @@ public class RenderGraph implements AutoCloseable {
     private final Map<String, BufferDesc> transientBufferDescs;
     private final Map<String, GraphResource> importedResources;
     private final Map<String, PersistentResourceRing<?>> persistentRings;
+    private final List<TemporalResource> temporalResources;
     private final PersistentResourceManager persistentManager;
+
+    // Compiled graph cache by PassMask
+    private final Map<PassMask, CompiledGraph> compiledCache;
 
     // Allocated transient resources (owned by this graph)
     private TransientResourceAllocator transientAllocator;
@@ -94,8 +99,10 @@ public class RenderGraph implements AutoCloseable {
         this.transientBufferDescs = new LinkedHashMap<>(b.transientBufferDescs);
         this.importedResources = new LinkedHashMap<>(b.importedResources);
         this.persistentRings = new LinkedHashMap<>(b.persistentRings);
+        this.temporalResources = List.copyOf(b.temporalResources);
         this.persistentManager = new PersistentResourceManager(
             new LinkedHashMap<>(b.persistentRings));
+        this.compiledCache = new HashMap<>();
         this.graphArena = Arena.ofShared();
 
         SchedulingStrategy scheduling = b.schedulingStrategy != null ? b.schedulingStrategy : new ListSchedulingStrategy();
@@ -116,7 +123,7 @@ public class RenderGraph implements AutoCloseable {
         }
 
         // Compile immediately
-        this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues);
+        this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues, temporalResources);
 
         // Initialize auto-rendering configs for GraphicsPassNodes
         initializeAutoRendering();
@@ -256,8 +263,28 @@ public class RenderGraph implements AutoCloseable {
      * Recompiles the graph (e.g. after node activation change).
      */
     public void recompile() {
-        this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues);
+        this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues, temporalResources);
     }
+
+    /**
+     * Compiles the graph for the current pass mask, using the cache if available.
+     * This is the preferred compilation path for multi-rate rendering where pass masks
+     * alternate between a small set of patterns.
+     *
+     * @return the compiled graph for the current activation state
+     */
+    public CompiledGraph compileForCurrentMask() {
+        PassMask mask = PassMask.evaluate(nodes);
+        return compiledCache.computeIfAbsent(mask, m -> compiler.compile(new ArrayList<>(nodes), queues, temporalResources));
+    }
+
+    /** Invalidates the compiled graph cache (call after structural changes) */
+    public void invalidateCache() {
+        compiledCache.clear();
+    }
+
+    /** @return the declared temporal resources */
+    public List<TemporalResource> temporalResources() { return temporalResources; }
 
     /**
      * Returns the graph resource for a given name. Searches transient, imported, and persistent resources.
@@ -369,6 +396,7 @@ public class RenderGraph implements AutoCloseable {
         private final Map<String, BufferDesc> transientBufferDescs = new LinkedHashMap<>();
         private final Map<String, GraphResource> importedResources = new LinkedHashMap<>();
         private final Map<String, PersistentResourceRing<?>> persistentRings = new LinkedHashMap<>();
+        private final List<TemporalResource> temporalResources = new ArrayList<>();
         private SchedulingStrategy schedulingStrategy;
         private BarrierStrategy barrierStrategy;
         private AliasingStrategy aliasingStrategy;
@@ -435,6 +463,17 @@ public class RenderGraph implements AutoCloseable {
          */
         public Builder persistent(String name, PersistentResourceRing<?> ring) {
             this.persistentRings.put(name, ring);
+            return this;
+        }
+
+        /**
+         * Declares a temporal resource that participates in cross-frame cycles.
+         * The graph manages physical slot allocation and flip logic automatically.
+         *
+         * @param resource the temporal resource declaration
+         */
+        public Builder temporal(TemporalResource resource) {
+            this.temporalResources.add(resource);
             return this;
         }
 
