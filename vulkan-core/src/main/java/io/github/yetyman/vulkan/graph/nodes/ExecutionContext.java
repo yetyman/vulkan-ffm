@@ -87,6 +87,16 @@ public interface ExecutionContext {
     default VkDescriptorSet temporalWriteDescriptorSet(String temporalResourceName) { return null; }
 
     /**
+     * Returns a paired descriptor set with both read (binding 0) and write (binding 1) slots bound.
+     * For compute shaders that read the previous frame and write the current frame in one dispatch.
+     * Only available if the temporal resource was configured with pairedDescriptor().
+     *
+     * @param temporalResourceName the name of the temporal resource
+     * @return the paired descriptor set for the current flip state, or null if not configured
+     */
+    default VkDescriptorSet temporalPairedDescriptorSet(String temporalResourceName) { return null; }
+
+    /**
      * Returns the current handle of an imported resource.
      * For swapchain images, this is the handle that was most recently bound via rebind().
      *
@@ -94,6 +104,15 @@ public interface ExecutionContext {
      * @return the handle, or NULL if not found
      */
     default MemorySegment importedHandle(String importedResourceName) { return MemorySegment.NULL; }
+
+    /**
+     * Returns the current image view of an imported resource.
+     * For swapchain images, this is the image view that was most recently bound via rebindWithView().
+     *
+     * @param importedResourceName the name of the imported resource
+     * @return the image view handle, or NULL if not found or not set
+     */
+    default MemorySegment importedImageView(String importedResourceName) { return MemorySegment.NULL; }
 
     /**
      * Returns how many submissions have passed since a temporal resource was last written.
@@ -104,4 +123,44 @@ public interface ExecutionContext {
      * @return submissions since last write, or -1 if not found
      */
     default int temporalStaleness(String temporalResourceName) { return -1; }
+
+    /**
+     * Returns whether an optional resource's source is available (its writer is active).
+     * Nodes can use this to decide whether to sample the optional resource or use a fallback.
+     *
+     * @param resourceName the name of the optional resource
+     * @return true if the resource has an active writer and valid data
+     */
+    default boolean isOptionalAvailable(String resourceName) { return false; }
+
+    /**
+     * Returns the current iteration index for IterativePassNode execution.
+     * Only meaningful inside an IterativePassNode's execute lambda.
+     *
+     * @return the 0-based iteration index, or -1 if not in an iterative pass
+     */
+    default int iterationIndex() { return -1; }
+
+    /**
+     * Returns the read handle for a ping-pong resource at the current iteration.
+     * Even iterations read from slot 0, odd iterations read from slot 1.
+     * Only meaningful inside an IterativePassNode with readsAndWrites resources.
+     *
+     * @param resourceName the name of the ping-pong resource
+     * @return the handle to read from this iteration, or NULL if not found
+     */
+    default MemorySegment iterationReadHandle(String resourceName) { return MemorySegment.NULL; }
+
+    /**
+     * Returns the write handle for a ping-pong resource at the current iteration.
+     * Even iterations write to slot 1, odd iterations write to slot 0.
+     * Only meaningful inside an IterativePassNode with readsAndWrites resources.
+     *
+     * @param resourceName the name of the ping-pong resource
+     * @return the handle to write to this iteration, or NULL if not found
+     */
+    default MemorySegment iterationWriteHandle(String resourceName) { return MemorySegment.NULL; }
+
+    /** Sets the current iteration index (called by IterativePassNode during its loop) */
+    default void setIterationIndex(int index) {}
 }

@@ -2,10 +2,12 @@ package io.github.yetyman.vulkan.graph.nodes;
 
 import io.github.yetyman.vulkan.VkRendering;
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
+import io.github.yetyman.vulkan.graph.edges.OptionalEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
 import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
+import io.github.yetyman.vulkan.graph.resources.ImportedResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
 
@@ -32,6 +34,7 @@ public class GraphicsPassNode implements RenderNode {
     private final List<FeedbackEdge> feedbackReads;
     private final List<TemporalEdge> temporalEdges;
     private final List<GraphResource> bindlessReads;
+    private final List<OptionalEdge> optionalReads;
     private final ScheduleHint scheduleHint;
     private final Consumer<ExecutionContext> executeFunc;
     private final Consumer<NodeStats> statsFunc;
@@ -39,6 +42,10 @@ public class GraphicsPassNode implements RenderNode {
 
     // Auto-rendering: a pre-configured VkRendering.Builder that the executor caches and reuses
     private final VkRendering.Builder renderingBuilder;
+
+    // Optional imported resource whose image view is patched into the auto-rendering color attachment each frame
+    private final ImportedResource colorAttachmentImport;
+    private final int colorAttachmentIndex;
 
     private GraphicsPassNode(Builder b) {
         this.name = b.name;
@@ -49,10 +56,13 @@ public class GraphicsPassNode implements RenderNode {
         this.feedbackReads = Collections.unmodifiableList(b.feedbackReads);
         this.temporalEdges = Collections.unmodifiableList(b.temporalEdges);
         this.bindlessReads = Collections.unmodifiableList(b.bindlessReads);
+        this.optionalReads = Collections.unmodifiableList(b.optionalReads);
         this.scheduleHint = b.scheduleHint;
         this.executeFunc = b.executeFunc;
         this.statsFunc = b.statsFunc;
         this.renderingBuilder = b.renderingBuilder;
+        this.colorAttachmentImport = b.colorAttachmentImport;
+        this.colorAttachmentIndex = b.colorAttachmentIndex;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -66,6 +76,7 @@ public class GraphicsPassNode implements RenderNode {
     @Override public List<FeedbackEdge> feedbackReads() { return feedbackReads; }
     @Override public List<TemporalEdge> temporalEdges() { return temporalEdges; }
     @Override public List<GraphResource> bindlessReads() { return bindlessReads; }
+    @Override public List<OptionalEdge> optionalReads() { return optionalReads; }
     @Override public ScheduleHint scheduleHint() { return scheduleHint; }
     @Override public QueueCapability requiredQueue() { return QueueCapability.GRAPHICS; }
     @Override public boolean isActive() { return active; }
@@ -78,6 +89,12 @@ public class GraphicsPassNode implements RenderNode {
 
     /** @return the VkRendering.Builder for auto-rendering, or null if not enabled */
     public VkRendering.Builder renderingBuilder() { return renderingBuilder; }
+
+    /** @return the imported resource used as color attachment, or null if not configured */
+    public ImportedResource colorAttachmentImport() { return colorAttachmentImport; }
+
+    /** @return the color attachment index to patch with the imported resource's image view */
+    public int colorAttachmentIndex() { return colorAttachmentIndex; }
 
     @Override
     public void execute(ExecutionContext ctx) {
@@ -98,10 +115,13 @@ public class GraphicsPassNode implements RenderNode {
         private final List<FeedbackEdge> feedbackReads = new ArrayList<>();
         private final List<TemporalEdge> temporalEdges = new ArrayList<>();
         private final List<GraphResource> bindlessReads = new ArrayList<>();
+        private final List<OptionalEdge> optionalReads = new ArrayList<>();
         private ScheduleHint scheduleHint = ScheduleHint.NONE;
         private Consumer<ExecutionContext> executeFunc;
         private Consumer<NodeStats> statsFunc;
         private VkRendering.Builder renderingBuilder;
+        private ImportedResource colorAttachmentImport;
+        private int colorAttachmentIndex = 0;
 
         private Builder() {}
 
@@ -113,6 +133,7 @@ public class GraphicsPassNode implements RenderNode {
         public Builder feedbackRead(FeedbackEdge edge) { this.feedbackReads.add(edge); return this; }
         public Builder temporalEdge(TemporalEdge edge) { this.temporalEdges.add(edge); return this; }
         public Builder bindlessReads(GraphResource resource) { this.bindlessReads.add(resource); return this; }
+        public Builder optionalRead(OptionalEdge edge) { this.optionalReads.add(edge); return this; }
         public Builder scheduleHint(ScheduleHint hint) { this.scheduleHint = hint; return this; }
         public Builder execute(Consumer<ExecutionContext> func) { this.executeFunc = func; return this; }
         public Builder onStats(Consumer<NodeStats> func) { this.statsFunc = func; return this; }
@@ -130,6 +151,37 @@ public class GraphicsPassNode implements RenderNode {
         public Builder autoRendering(VkRendering.Builder rendering) {
             this.renderingBuilder = rendering;
             return this;
+        }
+
+        /**
+         * Configures the auto-rendering to patch its color attachment image view from an
+         * ImportedResource each frame. The executor calls patchColorView(index, importedResource.handle())
+         * before beginCached(), so the correct swapchain image is always used.
+         *
+         * Requires {@link #autoRendering(VkRendering.Builder)} to be set.
+         * Also automatically adds a write edge for the imported resource with
+         * COLOR_ATTACHMENT_WRITE access and COLOR_ATTACHMENT_OUTPUT stage.
+         *
+         * @param imported the imported resource (e.g. swapchain image)
+         * @param attachmentIndex which color attachment index to patch (usually 0)
+         */
+        public Builder colorAttachment(ImportedResource imported, int attachmentIndex) {
+            this.colorAttachmentImport = imported;
+            this.colorAttachmentIndex = attachmentIndex;
+            // Auto-add write edge for the imported resource with correct layout
+            // VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT = 0x100
+            // VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT = 0x400
+            // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL = 2
+            this.writes.add(ResourceEdge.writeImage(imported, 0x100, 0x400, 2));
+            return this;
+        }
+
+        /**
+         * Configures the auto-rendering to patch color attachment 0 from an ImportedResource.
+         * Shorthand for {@link #colorAttachment(ImportedResource, int)} with index 0.
+         */
+        public Builder colorAttachment(ImportedResource imported) {
+            return colorAttachment(imported, 0);
         }
 
         public GraphicsPassNode build() {

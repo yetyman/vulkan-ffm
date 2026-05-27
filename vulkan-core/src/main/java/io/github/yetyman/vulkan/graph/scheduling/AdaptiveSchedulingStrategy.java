@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.graph.scheduling;
 
+import io.github.yetyman.vulkan.graph.edges.DependencyEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.feedback.AdaptiveFeedbackHandler;
 import io.github.yetyman.vulkan.graph.nodes.NodeType;
@@ -61,9 +62,10 @@ public class AdaptiveSchedulingStrategy implements SchedulingStrategy {
     }
 
     @Override
-    public List<ExecutionBucket> schedule(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> availableQueues) {
+    public List<ExecutionBucket> schedule(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> availableQueues,
+                                          List<DependencyEdge> dependencyEdges) {
         if (!feedbackHandler.isWarmedUp()) {
-            return fallback.schedule(nodes, availableQueues);
+            return fallback.schedule(nodes, availableQueues, dependencyEdges);
         }
 
         QueueAssignment asyncCompute = availableQueues.get(QueueCapability.COMPUTE);
@@ -72,10 +74,10 @@ public class AdaptiveSchedulingStrategy implements SchedulingStrategy {
 
         if (asyncCompute == null || graphics == null ||
             asyncCompute.queueFamilyIndex() == graphics.queueFamilyIndex()) {
-            return fallback.schedule(nodes, availableQueues);
+            return fallback.schedule(nodes, availableQueues, dependencyEdges);
         }
 
-        List<RenderNode> sorted = TopologicalSort.sort(nodes, this::priority);
+        List<RenderNode> sorted = TopologicalSort.sort(nodes, this::priority, dependencyEdges);
 
         Map<RenderNode, Double> criticalPathLength = computeCriticalPathLengths(sorted);
         double maxCriticalPath = criticalPathLength.values().stream().mapToDouble(d -> d).max().orElse(0);

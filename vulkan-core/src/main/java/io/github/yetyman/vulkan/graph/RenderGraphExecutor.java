@@ -105,6 +105,9 @@ public class RenderGraphExecutor implements AutoCloseable {
     // Imported resources for final-layout barrier emission
     private List<io.github.yetyman.vulkan.graph.resources.ImportedResource> importedResources = List.of();
 
+    // GPU-to-CPU readback handles
+    private List<ReadbackHandle> readbacks = List.of();
+
     /**
      * @param device the logical device
      * @param barrierStrategy strategy for barrier synthesis
@@ -174,6 +177,11 @@ public class RenderGraphExecutor implements AutoCloseable {
      */
     public void setImportedResources(List<io.github.yetyman.vulkan.graph.resources.ImportedResource> resources) {
         this.importedResources = resources != null ? resources : List.of();
+    }
+
+    /** Sets the readback handles for GPU-to-CPU copy recording */
+    public void setReadbacks(List<ReadbackHandle> handles) {
+        this.readbacks = handles != null ? handles : List.of();
     }
 
     /**
@@ -368,12 +376,35 @@ public class RenderGraphExecutor implements AutoCloseable {
 
                 long startNanos = System.nanoTime();
 
+                // Populate optional availability for this node
+                List<io.github.yetyman.vulkan.graph.edges.OptionalEdge> optionals = node.optionalReads();
+                if (!optionals.isEmpty()) {
+                    if (ctx.availableOptionals == null) ctx.availableOptionals = new java.util.HashSet<>();
+                    else ctx.availableOptionals.clear();
+                    for (var opt : optionals) {
+                        if (opt.resource().lastAccessMask() != 0 || opt.resource().lastStageMask() != 0) {
+                            ctx.availableOptionals.add(opt.resource().name());
+                        }
+                    }
+                }
+
                 var rendering = getAutoRendering(node);
                 if (rendering != null) {
                     rendering.beginCached(commandBuffer.handle());
                 }
 
+                // Set up ping-pong slots for iterative nodes
+                if (node instanceof io.github.yetyman.vulkan.graph.nodes.IterativePassNode ipn
+                        && !ipn.pingPongSlots().isEmpty()) {
+                    ctx.pingPongSlots = ipn.pingPongSlots();
+                }
+
                 node.execute(ctx);
+
+                // Clear ping-pong slots after iterative node
+                if (node instanceof io.github.yetyman.vulkan.graph.nodes.IterativePassNode) {
+                    ctx.pingPongSlots = null;
+                }
 
                 if (rendering != null) {
                     io.github.yetyman.vulkan.VkRendering.end(device, commandBuffer.handle());
@@ -393,6 +424,9 @@ public class RenderGraphExecutor implements AutoCloseable {
                 updateResourceState(node, queueFamily);
             }
         }
+
+        // Record readback copies (after all nodes, before final-layout barriers)
+        emitReadbackCopies(commandBuffer, frameArena, frameGeneration);
 
         // Emit final-layout transitions for imported resources
         emitFinalLayoutBarriers(commandBuffer, frameArena);
@@ -701,6 +735,43 @@ public class RenderGraphExecutor implements AutoCloseable {
                     consumerQueueFamily, batch, arena);
             }
         }
+
+        // Optional edges: emit barrier only if the source has been written (writer is active)
+        List<io.github.yetyman.vulkan.graph.edges.OptionalEdge> optionals = node.optionalReads();
+        for (int i = 0, size = optionals.size(); i < size; i++) {
+            var opt = optionals.get(i);
+            GraphResource res = opt.resource();
+            // Resource is available if it has been written this frame (lastAccessMask != 0)
+            if (res.lastAccessMask() != 0 || res.lastStageMask() != 0) {
+                ResourceEdge syntheticRead = ResourceEdge.read(res, opt.accessMask(), opt.stageMask());
+                barrierStrategy.emit(res, syntheticRead, consumerQueueFamily, batch, arena);
+            }
+        }
+    }
+
+    private void emitReadbackCopies(VkCommandBuffer cmd, Arena arena, long submissionIndex) {
+        if (readbacks.isEmpty()) return;
+        for (ReadbackHandle rb : readbacks) {
+            if (!rb.shouldExecute(submissionIndex)) continue;
+            if (rb.stagingBuffer() == null || rb.stagingBuffer().equals(MemorySegment.NULL)) continue;
+            if (rb.source().handle().equals(MemorySegment.NULL)) continue;
+
+            // Barrier: source last access -> TRANSFER_READ
+            io.github.yetyman.vulkan.VkBufferBarrier.builder()
+                .buffer(rb.source().handle())
+                .srcAccess(rb.source().lastAccessMask())
+                .dstAccess(0x00000800) // VK_ACCESS_TRANSFER_READ_BIT
+                .build(arena)
+                .execute(cmd.handle(), rb.source().lastStageMask(),
+                    VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value());
+
+            // Copy source -> staging
+            io.github.yetyman.vulkan.command.VkCopy.copyBuffer(
+                cmd.handle(), rb.source().handle(), rb.stagingBuffer(),
+                rb.offset(), 0, rb.size());
+
+            rb.markReady();
+        }
     }
 
     private void emitFinalLayoutBarriers(VkCommandBuffer cmd, Arena arena) {
@@ -774,9 +845,15 @@ public class RenderGraphExecutor implements AutoCloseable {
     /**
      * Returns the VkRendering.Builder for a node if it's a GraphicsPassNode with autoRendering
      * enabled and the builder has been cached. Returns null otherwise.
+     * If the node has a colorAttachmentImport, patches the image view before returning.
      */
     private static io.github.yetyman.vulkan.VkRendering.Builder getAutoRendering(RenderNode node) {
         if (node instanceof GraphicsPassNode gpn && gpn.autoRendering()) {
+            // Patch imported resource image view into the cached rendering struct
+            var imported = gpn.colorAttachmentImport();
+            if (imported != null && !imported.imageView().equals(MemorySegment.NULL)) {
+                gpn.renderingBuilder().patchColorView(gpn.colorAttachmentIndex(), imported.imageView());
+            }
             return gpn.renderingBuilder();
         }
         return null;
@@ -795,6 +872,9 @@ public class RenderGraphExecutor implements AutoCloseable {
         FrameStats previousStats;
         Map<String, io.github.yetyman.vulkan.graph.resources.TemporalResource> temporalResources;
         List<io.github.yetyman.vulkan.graph.resources.ImportedResource> importedResources;
+        java.util.Set<String> availableOptionals;
+        int currentIteration = -1;
+        Map<String, MemorySegment[]> pingPongSlots; // resourceName -> [slot0, slot1]
 
         @Override public VkCommandBuffer commandBuffer() { return commandBuffer; }
         @Override public Arena frameArena() { return frameArena; }
@@ -842,6 +922,14 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
 
         @Override
+        public io.github.yetyman.vulkan.VkDescriptorSet temporalPairedDescriptorSet(String name) {
+            var tr = temporalResources != null ? temporalResources.get(name) : null;
+            if (tr == null || tr.pairedDescriptorBinding() == null) return null;
+            // The paired binding's writeSet gives the set where read=previous, write=current
+            return tr.pairedDescriptorBinding().writeSet(tr.writeCount(), tr.bufferCount());
+        }
+
+        @Override
         public MemorySegment importedHandle(String name) {
             if (importedResources == null) return MemorySegment.NULL;
             for (var ir : importedResources) {
@@ -851,9 +939,45 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
 
         @Override
+        public MemorySegment importedImageView(String name) {
+            if (importedResources == null) return MemorySegment.NULL;
+            for (var ir : importedResources) {
+                if (ir.name().equals(name)) return ir.imageView();
+            }
+            return MemorySegment.NULL;
+        }
+
+        @Override
         public int temporalStaleness(String name) {
             var tr = temporalResources != null ? temporalResources.get(name) : null;
             return tr != null ? tr.staleness() : -1;
+        }
+
+        @Override
+        public boolean isOptionalAvailable(String resourceName) {
+            return availableOptionals != null && availableOptionals.contains(resourceName);
+        }
+
+        @Override
+        public int iterationIndex() { return currentIteration; }
+
+        @Override
+        public void setIterationIndex(int index) { this.currentIteration = index; }
+
+        @Override
+        public MemorySegment iterationReadHandle(String resourceName) {
+            if (pingPongSlots == null || currentIteration < 0) return MemorySegment.NULL;
+            MemorySegment[] slots = pingPongSlots.get(resourceName);
+            if (slots == null) return MemorySegment.NULL;
+            return slots[currentIteration % 2]; // even reads slot 0, odd reads slot 1
+        }
+
+        @Override
+        public MemorySegment iterationWriteHandle(String resourceName) {
+            if (pingPongSlots == null || currentIteration < 0) return MemorySegment.NULL;
+            MemorySegment[] slots = pingPongSlots.get(resourceName);
+            if (slots == null) return MemorySegment.NULL;
+            return slots[(currentIteration + 1) % 2]; // even writes slot 1, odd writes slot 0
         }
     }
 }

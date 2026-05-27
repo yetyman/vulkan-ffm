@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.graph.nodes;
 
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
+import io.github.yetyman.vulkan.graph.edges.OptionalEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
 import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
@@ -26,6 +27,7 @@ public class ComputePassNode implements RenderNode {
     private final List<FeedbackEdge> feedbackReads;
     private final List<TemporalEdge> temporalEdges;
     private final List<GraphResource> bindlessReads;
+    private final List<OptionalEdge> optionalReads;
     private final ScheduleHint scheduleHint;
     private final QueueCapability requiredQueue;
     private final Consumer<ExecutionContext> executeFunc;
@@ -41,6 +43,7 @@ public class ComputePassNode implements RenderNode {
         this.feedbackReads = Collections.unmodifiableList(b.feedbackReads);
         this.temporalEdges = Collections.unmodifiableList(b.temporalEdges);
         this.bindlessReads = Collections.unmodifiableList(b.bindlessReads);
+        this.optionalReads = Collections.unmodifiableList(b.optionalReads);
         this.scheduleHint = b.scheduleHint;
         this.requiredQueue = b.requiredQueue;
         this.executeFunc = b.executeFunc;
@@ -58,6 +61,7 @@ public class ComputePassNode implements RenderNode {
     @Override public List<FeedbackEdge> feedbackReads() { return feedbackReads; }
     @Override public List<TemporalEdge> temporalEdges() { return temporalEdges; }
     @Override public List<GraphResource> bindlessReads() { return bindlessReads; }
+    @Override public List<OptionalEdge> optionalReads() { return optionalReads; }
     @Override public ScheduleHint scheduleHint() { return scheduleHint; }
     @Override public QueueCapability requiredQueue() { return requiredQueue; }
     @Override public boolean isActive() { return active; }
@@ -83,6 +87,7 @@ public class ComputePassNode implements RenderNode {
         private final List<FeedbackEdge> feedbackReads = new ArrayList<>();
         private final List<TemporalEdge> temporalEdges = new ArrayList<>();
         private final List<GraphResource> bindlessReads = new ArrayList<>();
+        private final List<OptionalEdge> optionalReads = new ArrayList<>();
         private ScheduleHint scheduleHint = ScheduleHint.NONE;
         private QueueCapability requiredQueue = QueueCapability.COMPUTE;
         private Consumer<ExecutionContext> executeFunc;
@@ -98,6 +103,7 @@ public class ComputePassNode implements RenderNode {
         public Builder feedbackRead(FeedbackEdge edge) { this.feedbackReads.add(edge); return this; }
         public Builder temporalEdge(TemporalEdge edge) { this.temporalEdges.add(edge); return this; }
         public Builder bindlessReads(GraphResource resource) { this.bindlessReads.add(resource); return this; }
+        public Builder optionalRead(OptionalEdge edge) { this.optionalReads.add(edge); return this; }
         public Builder scheduleHint(ScheduleHint hint) { this.scheduleHint = hint; return this; }
         public Builder requiredQueue(QueueCapability cap) { this.requiredQueue = cap; return this; }
         public Builder execute(Consumer<ExecutionContext> func) { this.executeFunc = func; return this; }

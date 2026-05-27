@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.graph.scheduling;
 
 import io.github.yetyman.vulkan.graph.RenderGraphException;
+import io.github.yetyman.vulkan.graph.edges.DependencyEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
@@ -31,6 +32,20 @@ public final class TopologicalSort {
      * @throws RenderGraphException if a cycle is detected
      */
     public static List<RenderNode> sort(List<RenderNode> nodes, ToIntFunction<RenderNode> priorityFunc) {
+        return sort(nodes, priorityFunc, List.of());
+    }
+
+    /**
+     * Performs topological sort with dependency edges and priority tie-breaking.
+     *
+     * @param nodes the nodes to sort
+     * @param priorityFunc assigns a priority to each node; higher priority is scheduled first
+     * @param dependencyEdges manual ordering constraints (inactive edges are filtered)
+     * @return nodes in topological order
+     * @throws RenderGraphException if a cycle is detected
+     */
+    public static List<RenderNode> sort(List<RenderNode> nodes, ToIntFunction<RenderNode> priorityFunc,
+                                        List<DependencyEdge> dependencyEdges) {
         Map<RenderNode, Set<RenderNode>> successors = new HashMap<>(nodes.size());
         Map<RenderNode, Integer> inDegree = new HashMap<>(nodes.size());
 
@@ -59,6 +74,20 @@ public final class TopologicalSort {
             }
         }
 
+        // Add manual dependency edges (from -> to ordering)
+        Set<RenderNode> nodeSet = new HashSet<>(nodes);
+        for (DependencyEdge dep : dependencyEdges) {
+            if (!dep.isActive()) continue;
+            RenderNode from = dep.from();
+            RenderNode to = dep.to();
+            // Only add if both nodes are in the active set
+            if (nodeSet.contains(from) && nodeSet.contains(to) && from != to) {
+                if (successors.get(from).add(to)) {
+                    inDegree.merge(to, 1, Integer::sum);
+                }
+            }
+        }
+
         List<RenderNode> ready = new ArrayList<>();
         for (RenderNode node : nodes) {
             if (inDegree.get(node) == 0) {
@@ -82,8 +111,16 @@ public final class TopologicalSort {
         }
 
         if (sorted.size() != nodes.size()) {
+            // Find nodes involved in the cycle (those not yet sorted)
+            Set<RenderNode> sortedSet = new HashSet<>(sorted);
+            List<String> cycleNodes = new ArrayList<>();
+            for (RenderNode node : nodes) {
+                if (!sortedSet.contains(node)) cycleNodes.add(node.name());
+            }
             throw new RenderGraphException(
-                "Cycle detected in render graph: " + sorted.size() + " of " + nodes.size() + " nodes sorted");
+                "Cycle detected in render graph: " + sorted.size() + " of " + nodes.size() +
+                " nodes sorted. Nodes in cycle: " + String.join(", ", cycleNodes) +
+                ". Check for circular resource dependencies or use TemporalEdge for cross-frame feedback.");
         }
 
         return sorted;

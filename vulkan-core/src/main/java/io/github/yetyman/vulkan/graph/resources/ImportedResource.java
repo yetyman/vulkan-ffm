@@ -25,6 +25,7 @@ public class ImportedResource implements GraphImageResource {
     private final ResourceLifetime lifetime = new ResourceLifetime();
 
     private volatile MemorySegment handle;
+    private volatile MemorySegment imageView; // optional: image view for rendering attachment
     private volatile int currentLayout;
     private volatile int lastAccessMask;
     private volatile int lastStageMask;
@@ -38,6 +39,7 @@ public class ImportedResource implements GraphImageResource {
         this.initialLayout = b.initialLayout;
         this.finalLayout = b.finalLayout;
         this.handle = b.handle != null ? b.handle : MemorySegment.NULL;
+        this.imageView = b.imageView != null ? b.imageView : MemorySegment.NULL;
         this.currentLayout = b.initialLayout;
         this.lastAccessMask = 0;
         this.lastStageMask = 0x00000001; // TOP_OF_PIPE
@@ -54,6 +56,18 @@ public class ImportedResource implements GraphImageResource {
         this.lastAccessMask = 0;
         this.lastStageMask = 0x00000001;
     }
+
+    /** Rebinds both the image handle and image view (e.g. for per-frame swapchain image selection) */
+    public void rebindWithView(MemorySegment newHandle, MemorySegment newImageView) {
+        this.handle = newHandle;
+        this.imageView = newImageView;
+        this.currentLayout = initialLayout;
+        this.lastAccessMask = 0;
+        this.lastStageMask = 0x00000001;
+    }
+
+    /** @return the image view handle, or NULL if not set */
+    public MemorySegment imageView() { return imageView; }
 
     /** @return the layout the graph should leave this resource in after last use */
     public int finalLayout() { return finalLayout; }
@@ -89,6 +103,7 @@ public class ImportedResource implements GraphImageResource {
     public static class Builder {
         private String name;
         private MemorySegment handle;
+        private MemorySegment imageView;
         private int format;
         private int width;
         private int height;
@@ -99,6 +114,7 @@ public class ImportedResource implements GraphImageResource {
 
         public Builder name(String name) { this.name = name; return this; }
         public Builder handle(MemorySegment handle) { this.handle = handle; return this; }
+        public Builder imageView(MemorySegment imageView) { this.imageView = imageView; return this; }
         public Builder format(int format) { this.format = format; return this; }
         public Builder dimensions(int width, int height) { this.width = width; this.height = height; return this; }
         public Builder initialLayout(int layout) { this.initialLayout = layout; return this; }

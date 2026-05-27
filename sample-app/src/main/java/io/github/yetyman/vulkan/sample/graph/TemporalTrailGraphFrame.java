@@ -1,16 +1,28 @@
 package io.github.yetyman.vulkan.sample.graph;
 
-import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.VkCommandBuffer;
+import io.github.yetyman.vulkan.VkComputePipeline;
+import io.github.yetyman.vulkan.VkDescriptorSetLayout;
+import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkPipeline;
+import io.github.yetyman.vulkan.VkQueue;
+import io.github.yetyman.vulkan.VkRendering;
+import io.github.yetyman.vulkan.Vulkan;
 import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkPushConstantsCmd;
 import io.github.yetyman.vulkan.command.VkSetState;
-import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.enums.VkAttachmentLoadOp;
+import io.github.yetyman.vulkan.enums.VkAttachmentStoreOp;
+import io.github.yetyman.vulkan.enums.VkFormat;
+import io.github.yetyman.vulkan.enums.VkImageLayout;
+import io.github.yetyman.vulkan.enums.VkPipelineBindPoint;
+import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 import io.github.yetyman.vulkan.graph.RenderGraph;
 import io.github.yetyman.vulkan.graph.RenderGraphVisualizer;
-import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.nodes.ComputePassNode;
 import io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode;
+import io.github.yetyman.vulkan.graph.resources.ImportedResource;
 import io.github.yetyman.vulkan.graph.resources.InitialState;
 import io.github.yetyman.vulkan.graph.resources.ResourceDescriptor;
 import io.github.yetyman.vulkan.graph.resources.TemporalResource;
@@ -22,34 +34,36 @@ import io.github.yetyman.vulkan.shaders.CompiledShader;
 import io.github.yetyman.vulkan.shaders.ShaderInstance;
 import io.github.yetyman.vulkan.shaders.ShaderLoader;
 
-import java.lang.foreign.*;
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 
 /**
  * Temporal trail effect driven by the render graph.
  *
  * Demonstrates:
- * - TemporalResource with auto-allocated physical slots
- * - ctx.temporalReadHandle() / ctx.temporalWriteHandle() for slot resolution
- * - Automatic flip advancement by the executor
- * - ImportedResource for swapchain with auto final-layout transition
- * - Graph-determined execution order from resource dependencies
- * - Zero manual barrier management in node lambdas (except swapchain begin-rendering)
+ * - TemporalResource with graph-allocated physical slots (no manual buffer creation)
+ * - Paired temporal descriptor binding (compute reads+writes in one set, auto-selected)
+ * - Single temporal descriptor binding (fragment reads one buffer, auto-selected)
+ * - ImportedResource for swapchain with auto-rendering and auto barriers
+ * - Zero manual barrier management, zero manual descriptor set selection
  */
 public class TemporalTrailGraphFrame extends GraphicsFrame {
 
     private static final int GRID_W = 512;
     private static final int GRID_H = 512;
 
-    private VkBuffer pixelsA, pixelsB;
+    // Compute pipeline
     private VkDescriptorSetLayout computeLayout;
-    private VkDescriptorPool computePool;
-    private VkDescriptorSet computeSetAtoB, computeSetBtoA;
     private VkComputePipeline computePipeline;
+
+    // Display pipeline
     private CompiledShader fragCompiled;
     private ShaderInstance fragShader;
-    private VkDescriptorPool fragDescriptorPool;
-    private VkDescriptorSet fragSetA, fragSetB;
     private VkPipeline displayPipeline;
+
+    // Imported swapchain resource
+    private ImportedResource swapchainImport;
 
     private RenderGraph graph;
     private final long startTime = System.nanoTime();
@@ -69,24 +83,9 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
         int cs = VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value();
         int fs = VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value();
 
-        // Buffers
-        pixelsA = VkBuffer.builder().device(device).size(bufSize).storageBuffer().hostVisible().build(arena);
-        pixelsB = VkBuffer.builder().device(device).size(bufSize).storageBuffer().hostVisible().build(arena);
-        try (Arena tmp = Arena.ofConfined()) {
-            pixelsA.map(tmp).fill((byte) 0); pixelsA.unmap();
-            pixelsB.map(tmp).fill((byte) 0); pixelsB.unmap();
-        }
-
-        // Compute descriptors
+        // Compute layout: binding 0 = read, binding 1 = write
         computeLayout = VkDescriptorSetLayout.builder().device(device)
             .storageBuffer(0, cs).storageBuffer(1, cs).build(arena);
-        computePool = VkDescriptorPool.builder().device(device).maxSets(2).storageBuffers(4).build(arena);
-        computeSetAtoB = computePool.allocateDescriptorSet(computeLayout);
-        computeSetBtoA = computePool.allocateDescriptorSet(computeLayout);
-        try (Arena tmp = Arena.ofConfined()) {
-            computeSetAtoB.bind(0, pixelsA, tmp); computeSetAtoB.bind(1, pixelsB, tmp);
-            computeSetBtoA.bind(0, pixelsB, tmp); computeSetBtoA.bind(1, pixelsA, tmp);
-        }
         computePipeline = VkComputePipeline.builder().device(device)
             .computeShader(ShaderLoader.builder("/shaders/temporal_trail.comp").compile())
             .descriptorSetLayouts(computeLayout.handle())
@@ -95,13 +94,6 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
         // Display pipeline
         fragCompiled = ShaderLoader.compileShader("/shaders/temporal_trail.frag");
         fragShader = ShaderInstance.from(fragCompiled, device);
-        fragDescriptorPool = VkDescriptorPool.builder().device(device).maxSets(2).storageBuffers(2).build(arena);
-        var fl = fragShader.layouts().get(0).getLayout();
-        fragSetA = fragDescriptorPool.allocateDescriptorSet(fl);
-        fragSetB = fragDescriptorPool.allocateDescriptorSet(fl);
-        try (Arena tmp = Arena.ofConfined()) {
-            fragSetA.bind(0, pixelsA, tmp); fragSetB.bind(0, pixelsB, tmp);
-        }
         var pb = VkPipeline.builder().device(device)
             .vertexShader(ShaderLoader.builder("/shaders/fullscreen.vert").compile())
             .fragmentShader(fragCompiled.getSpirV())
@@ -113,37 +105,44 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
         displayPipeline = pb.build(arena);
         fragShader.pipelineLayout(displayPipeline.layout());
 
-        // -- Temporal resource --
+        // Imported swapchain
+        swapchainImport = ImportedResource.builder()
+            .name("swapchain")
+            .format(VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+            .dimensions(width, height)
+            .initialLayout(VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value())
+            .finalLayout(VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
+            .build();
+
+        // Temporal resource: graph allocates buffers, creates paired + single descriptor sets
+        var fragLayout = fragShader.layouts().get(0).getLayout();
         TemporalResource trailHistory = TemporalResource.builder()
             .name("trail_history")
-            .descriptor(ResourceDescriptor.buffer(bufSize, 0x80 | 0x20))
+            .descriptor(ResourceDescriptor.buffer(bufSize, 0x80 | 0x20)) // STORAGE | TRANSFER_DST
             .bufferCount(2)
             .initialState(InitialState.Clear.BLACK)
+            .pairedDescriptor(0, 1, computeLayout) // compute: read@0, write@1
+            .descriptorBinding(0)                   // fragment: read@0
+            .descriptorLayout(fragLayout)
             .build();
-        trailHistory.setPhysicalSlots(new io.github.yetyman.vulkan.graph.resources.GraphResource[]{
-            wrapBuf("trail_A", pixelsA), wrapBuf("trail_B", pixelsB)
-        });
 
-        // Dummy resource for ordering (compute -> display dependency)
-        var orderingRes = wrapBuf("compute_output", pixelsA);
-
-        // -- Build graph --
+        // Build graph
         graph = RenderGraph.builder()
             .device(device)
             .queue(QueueCapability.GRAPHICS, queue.handle(), queueFamilyIndex)
             .queue(QueueCapability.COMPUTE, queue.handle(), queueFamilyIndex)
             .temporal(trailHistory)
+            .importedImage(swapchainImport)
             .node(ComputePassNode.builder()
                 .name("trail-compute")
                 .temporalEdge(TemporalEdge.readPrevious(trailHistory, 0x20, 0x800))
                 .temporalEdge(TemporalEdge.writeCurrent(trailHistory, 0x40, 0x800))
-                .writes(ResourceEdge.write(orderingRes, 0x40, 0x800))
                 .scheduleHint(ScheduleHint.EARLY)
                 .execute(ctx -> {
                     var cmd = ctx.commandBuffer();
                     var fa = ctx.frameArena();
-                    MemorySegment rh = ctx.temporalReadHandle("trail_history");
-                    var set = rh.equals(pixelsA.handle()) ? computeSetAtoB : computeSetBtoA;
+                    // Paired descriptor set: read@0 + write@1, auto-selected by flip state
+                    var set = ctx.temporalPairedDescriptorSet("trail_history");
                     computePipeline.bind(cmd.handle());
                     set.bind(cmd, computePipeline, 0, fa);
                     float t = (float)((System.nanoTime() - startTime) / 1e9);
@@ -158,29 +157,22 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
                 .build())
             .node(GraphicsPassNode.builder()
                 .name("trail-display")
-                .reads(ResourceEdge.read(orderingRes, 0x20, 0x80))
-                .writes(ResourceEdge.write(orderingRes, 0x100, 0x400))
+                // Read the temporal resource (what compute just wrote) - establishes ordering
+                .temporalEdge(TemporalEdge.readPrevious(trailHistory, 0x20, 0x80))
+                // Auto-rendering: graph handles barriers + VkRendering begin/end for swapchain
+                .autoRendering(VkRendering.builder().device(device)
+                    .renderArea(0, 0, width, height)
+                    .colorAttachment(MemorySegment.NULL, // patched per-frame by colorAttachment(import)
+                        VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
+                        VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                        VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
+                        0, 0, 0, 1))
+                .colorAttachment(swapchainImport)
                 .execute(ctx -> {
                     var cmd = ctx.commandBuffer();
                     var fa = ctx.frameArena();
-                    int idx = ctx.frameIndex();
-
-                    // Begin rendering to swapchain
-                    VkImageBarrier.builder()
-                        .image(swapchainImageViews[idx].image())
-                        .srcAccess(0).dstAccess(0x100)
-                        .transition(VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
-                            VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value())
-                        .build(fa).execute(cmd.handle(), 0x1, 0x400);
-                    VkRendering.builder().device(device).renderArea(0, 0, width, height)
-                        .colorAttachment(swapchainImageViews[idx].handle(),
-                            VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
-                            VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
-                            VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
-                            0, 0, 0, 1).begin(cmd.handle(), fa);
-
-                    MemorySegment wh = ctx.temporalWriteHandle("trail_history");
-                    var fragSet = wh.equals(pixelsA.handle()) ? fragSetA : fragSetB;
+                    // Single descriptor set: read@0, auto-selected by flip state
+                    var fragSet = ctx.temporalReadDescriptorSet("trail_history");
                     VkBind.bindPipeline(cmd, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), displayPipeline.handle());
                     VkSetState.setViewport(cmd, 0, 0, 0, width, height, 0, 1);
                     VkSetState.setScissor(cmd, 0, 0, 0, width, height);
@@ -190,16 +182,6 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
                     pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
                     VkPushConstantsCmd.pushConstants(cmd, displayPipeline.layout(), fs, 0, pc, 8);
                     DrawCommand.direct(3, 1).execute(cmd.handle());
-
-                    VkRendering.end(device, cmd.handle());
-
-                    // Present transition
-                    VkImageBarrier.builder()
-                        .image(swapchainImageViews[idx].image())
-                        .srcAccess(0x100).dstAccess(0)
-                        .transition(VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
-                            VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
-                        .build(fa).execute(cmd.handle(), 0x400, 0x2000);
                 })
                 .build())
             .build();
@@ -207,6 +189,11 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
 
     @Override
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
+        // Rebind swapchain image for this frame (graph uses it for barriers + auto-rendering)
+        swapchainImport.rebindWithView(
+            swapchainImageViews[imageIndex].image(),
+            swapchainImageViews[imageIndex].handle());
+
         VkCommandBuffer.begin(commandBuffer).execute(frameArena);
         graph.executeInto(frameArena, imageIndex, commandBuffer);
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
@@ -217,27 +204,7 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
         if (graph != null) graph.close();
         if (displayPipeline != null) displayPipeline.close();
         if (fragShader != null) fragShader.close();
-        if (fragDescriptorPool != null) fragDescriptorPool.close();
         if (computePipeline != null) computePipeline.close();
-        if (computePool != null) computePool.close();
         if (computeLayout != null) computeLayout.close();
-        if (pixelsB != null) pixelsB.close();
-        if (pixelsA != null) pixelsA.close();
-    }
-
-    private static io.github.yetyman.vulkan.graph.resources.GraphResource wrapBuf(String name, VkBuffer buf) {
-        return new io.github.yetyman.vulkan.graph.resources.GraphResource() {
-            @Override public String name() { return name; }
-            @Override public MemorySegment handle() { return buf.handle(); }
-            @Override public int lastAccessMask() { return 0; }
-            @Override public int lastStageMask() { return 0; }
-            @Override public int owningQueueFamily() { return 0; }
-            @Override public void updateState(int a, int s, int q) {}
-            @Override public boolean isTransient() { return false; }
-            @Override public boolean isImported() { return false; }
-            @Override public io.github.yetyman.vulkan.graph.resources.ResourceLifetime lifetime() {
-                return new io.github.yetyman.vulkan.graph.resources.ResourceLifetime();
-            }
-        };
     }
 }

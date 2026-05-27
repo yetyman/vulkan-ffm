@@ -70,6 +70,7 @@ public class RenderGraph implements AutoCloseable {
     private final RenderGraphExecutor executor;
     private final RenderGraphStats stats;
     private final FeedbackHandler feedbackHandler;
+    private final DegradationStrategy degradationStrategy;
 
     // Resource declarations (descriptors, not yet allocated)
     private final Map<String, ImageDesc> transientImageDescs;
@@ -86,6 +87,12 @@ public class RenderGraph implements AutoCloseable {
     // Dynamic pass groups
     private final List<PassGroup> passGroups;
 
+    // Manual ordering constraints
+    private final List<io.github.yetyman.vulkan.graph.edges.DependencyEdge> dependencyEdges;
+
+    // GPU-to-CPU readback handles
+    private final List<ReadbackHandle> readbacks;
+
     // Allocated transient resources (owned by this graph)
     private TransientResourceAllocator transientAllocator;
     private final Arena graphArena;
@@ -94,6 +101,7 @@ public class RenderGraph implements AutoCloseable {
     private CompiledGraph compiledGraph;
     private long frameGeneration = 0;
     private FrameStats previousStats;
+    private volatile boolean executing = false;
 
     private RenderGraph(Builder b) {
         this.device = b.device;
@@ -101,6 +109,7 @@ public class RenderGraph implements AutoCloseable {
         this.nodes = List.copyOf(b.nodes);
         this.queues = Map.copyOf(b.queues);
         this.feedbackHandler = b.feedbackHandler;
+        this.degradationStrategy = b.degradationStrategy != null ? b.degradationStrategy : DegradationStrategy.none();
         this.transientImageDescs = new LinkedHashMap<>(b.transientImageDescs);
         this.transientBufferDescs = new LinkedHashMap<>(b.transientBufferDescs);
         this.importedResources = new LinkedHashMap<>(b.importedResources);
@@ -111,6 +120,8 @@ public class RenderGraph implements AutoCloseable {
             new LinkedHashMap<>(b.persistentRings));
         this.compiledCache = new HashMap<>();
         this.passGroups = new ArrayList<>(b.passGroups);
+        this.dependencyEdges = List.copyOf(b.dependencyEdges);
+        this.readbacks = List.copyOf(b.readbacks);
         this.graphArena = Arena.ofShared();
 
         SchedulingStrategy scheduling = b.schedulingStrategy != null ? b.schedulingStrategy : new ListSchedulingStrategy();
@@ -118,9 +129,11 @@ public class RenderGraph implements AutoCloseable {
         AliasingStrategy aliasing = b.aliasingStrategy != null ? b.aliasingStrategy : new NullAliasingStrategy();
 
         this.compiler = new RenderGraphCompiler(scheduling, barriers, aliasing);
+        this.compiler.setDependencyEdges(dependencyEdges);
         this.executor = new RenderGraphExecutor(device, barriers);
         this.executor.setTemporalResources(temporalResources);
         this.executor.setImportedResources(importedResourceList);
+        this.executor.setReadbacks(readbacks);
         this.stats = new RenderGraphStats();
 
         // Allocate transient resources
@@ -130,13 +143,16 @@ public class RenderGraph implements AutoCloseable {
         // Allocate temporal resource physical slots
         allocateTemporalResources();
 
+        // Allocate readback staging buffers (HOST_VISIBLE, persistently mapped)
+        allocateReadbackBuffers();
+
         // Initialize persistent resource ring semaphores
         if (!persistentRings.isEmpty()) {
             persistentManager.initializeSemaphores(device, graphArena);
         }
 
-        // Compile immediately
-        this.compiledGraph = compiler.compile(new ArrayList<>(nodes), queues, temporalResources);
+        // Compile immediately (include pass group nodes)
+        this.compiledGraph = compiler.compile(effectiveNodes(), queues, temporalResources);
 
         // Initialize auto-rendering configs for GraphicsPassNodes
         initializeAutoRendering();
@@ -154,8 +170,23 @@ public class RenderGraph implements AutoCloseable {
      * @param frameFence fence to signal when all submissions complete, or MemorySegment.NULL
      */
     public void execute(Arena frameArena, int frameIndex, MemorySegment frameFence) {
+        if (executing) throw new IllegalStateException("RenderGraph is already executing (concurrent access)");
+        executing = true;
+        try {
+            executeImpl(frameArena, frameIndex, frameFence);
+        } finally {
+            executing = false;
+        }
+    }
+
+    private void executeImpl(Arena frameArena, int frameIndex, MemorySegment frameFence) {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
+
+        // Advance staleness for all temporal resources
+        for (TemporalResource tr : temporalResources) {
+            tr.advanceSubmission();
+        }
 
         // Advance persistent resource rings to the current frame
         persistentManager.advanceFrame(gen);
@@ -182,8 +213,23 @@ public class RenderGraph implements AutoCloseable {
      * @param commandBuffer the externally-managed command buffer (must already be in recording state)
      */
     public void executeInto(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
+        if (executing) throw new IllegalStateException("RenderGraph is already executing (concurrent access)");
+        executing = true;
+        try {
+            executeIntoImpl(frameArena, frameIndex, commandBuffer);
+        } finally {
+            executing = false;
+        }
+    }
+
+    private void executeIntoImpl(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
+
+        // Advance staleness for all temporal resources (reset by onWriteExecuted if written)
+        for (TemporalResource tr : temporalResources) {
+            tr.advanceSubmission();
+        }
 
         // Invalidate cache if any pass group changed count
         for (PassGroup group : passGroups) {
@@ -194,10 +240,10 @@ public class RenderGraph implements AutoCloseable {
         }
 
         // Select compiled graph for current activation state (cached)
-        List<RenderNode> effective = effectiveNodes();
-        PassMask mask = PassMask.evaluate(effective);
+        List<RenderNode> degraded = degradationStrategy.apply(effectiveNodes(), previousStats);
+        PassMask mask = PassMask.evaluate(degraded);
         CompiledGraph active = compiledCache.computeIfAbsent(mask,
-            m -> compiler.compile(effective, queues, temporalResources));
+            m -> compiler.compile(degraded, queues, temporalResources));
 
         persistentManager.advanceFrame(gen);
 
@@ -277,6 +323,12 @@ public class RenderGraph implements AutoCloseable {
 
         // Reallocate physical resources
         transientAllocator.reallocate(transientImageDescs, transientBufferDescs);
+
+        // Apply temporal resize strategies
+        for (TemporalResource tr : temporalResources) {
+            GraphResource[] oldSlots = tr.physicalSlots();
+            tr.resizeStrategy().onResize(tr, oldSlots, oldSlots, null, graphArena);
+        }
 
         // Patch auto-rendering configs with new dimensions (zero allocation)
         for (RenderNode node : nodes) {
@@ -405,6 +457,14 @@ public class RenderGraph implements AutoCloseable {
         if (timestampPool != null) {
             timestampPool.close();
         }
+        // Close temporal descriptor bindings before transient allocator destroys the buffers
+        for (TemporalResource tr : temporalResources) {
+            if (tr.readDescriptorBinding() != null) tr.readDescriptorBinding().close();
+            if (tr.writeDescriptorBinding() != null && tr.writeDescriptorBinding() != tr.readDescriptorBinding()) {
+                tr.writeDescriptorBinding().close();
+            }
+            if (tr.pairedDescriptorBinding() != null) tr.pairedDescriptorBinding().close();
+        }
         if (transientAllocator != null) {
             transientAllocator.close();
         }
@@ -433,7 +493,7 @@ public class RenderGraph implements AutoCloseable {
                 String slotName = tr.name() + "_slot" + i;
                 if (desc.kind() == ResourceDescriptor.ResourceKind.BUFFER) {
                     VkBufferGraphResource res = transientAllocator.allocateBuffer(slotName,
-                        BufferDesc.custom(desc.bufferSize(), desc.usageFlags()));
+                        BufferDesc.custom(desc.bufferSize(), desc.usageFlags(), desc.memoryProperties()));
                     slots[i] = res;
                 } else {
                     VkImageGraphResource res = transientAllocator.allocateImage(slotName,
@@ -444,12 +504,56 @@ public class RenderGraph implements AutoCloseable {
             }
             tr.setPhysicalSlots(slots);
         }
+
+        // Create graph-managed descriptor bindings for temporal resources that request them
+        for (TemporalResource tr : temporalResources) {
+            if (tr.physicalSlots() == null) continue;
+
+            if (tr.hasPairedDescriptorBinding()) {
+                // Paired: read+write in same set (for compute shaders)
+                var binding = io.github.yetyman.vulkan.graph.resources.TemporalDescriptorBinding
+                    .createPairedForBuffer(device, tr.pairedLayout(), tr.descriptorBinding(),
+                        tr.pairedWriteBinding(), tr, graphArena);
+                if (binding != null) {
+                    tr.setPairedDescriptorBinding(binding);
+                }
+            }
+            if (tr.hasDescriptorBinding()) {
+                // Single: one buffer per set (for fragment shaders that only read)
+                var binding = io.github.yetyman.vulkan.graph.resources.TemporalDescriptorBinding
+                    .createForBuffer(device, tr.descriptorLayout(), tr.descriptorBinding(), tr, graphArena);
+                if (binding != null) {
+                    tr.setReadDescriptorBinding(binding);
+                    tr.setWriteDescriptorBinding(binding);
+                }
+            }
+        }
     }
 
     private void initializeAutoRendering() {
         for (RenderNode node : nodes) {
             if (node instanceof io.github.yetyman.vulkan.graph.nodes.GraphicsPassNode gpn && gpn.autoRendering()) {
                 gpn.renderingBuilder().buildAndCache(graphArena);
+            }
+        }
+    }
+
+    private void allocateReadbackBuffers() {
+        if (readbacks.isEmpty()) return;
+        for (ReadbackHandle rb : readbacks) {
+            if (rb.stagingBuffer() != null) continue; // already allocated
+            // Allocate a HOST_VISIBLE buffer for staging
+            var staging = io.github.yetyman.vulkan.VkBuffer.builder()
+                .device(device)
+                .size(rb.size())
+                .transferDst()
+                .hostVisible()
+                .build(graphArena);
+            try (Arena tmp = Arena.ofConfined()) {
+                MemorySegment mapped = staging.map(tmp);
+                // Persistently mapped - reinterpret with graph arena lifetime
+                MemorySegment persistent = staging.map(graphArena);
+                rb.setStagingBuffer(staging.handle(), persistent);
             }
         }
     }
@@ -495,10 +599,13 @@ public class RenderGraph implements AutoCloseable {
         private final Map<String, PersistentResourceRing<?>> persistentRings = new LinkedHashMap<>();
         private final List<TemporalResource> temporalResources = new ArrayList<>();
         private final List<PassGroup> passGroups = new ArrayList<>();
+        private final List<io.github.yetyman.vulkan.graph.edges.DependencyEdge> dependencyEdges = new ArrayList<>();
+        private final List<ReadbackHandle> readbacks = new ArrayList<>();
         private SchedulingStrategy schedulingStrategy;
         private BarrierStrategy barrierStrategy;
         private AliasingStrategy aliasingStrategy;
         private FeedbackHandler feedbackHandler;
+        private DegradationStrategy degradationStrategy;
 
         private Builder() {}
 
@@ -599,6 +706,21 @@ public class RenderGraph implements AutoCloseable {
 
         /** Sets the feedback handler for adaptive scheduling */
         public Builder onStats(FeedbackHandler handler) { this.feedbackHandler = handler; return this; }
+
+        /** Sets the degradation strategy for graceful pass dropping when over budget */
+        public Builder degradationStrategy(DegradationStrategy strategy) { this.degradationStrategy = strategy; return this; }
+
+        /** Adds a manual ordering constraint between two nodes */
+        public Builder dependencyEdge(io.github.yetyman.vulkan.graph.edges.DependencyEdge edge) {
+            this.dependencyEdges.add(edge);
+            return this;
+        }
+
+        /** Adds a GPU-to-CPU readback handle. The graph allocates staging and records copies. */
+        public Builder readback(ReadbackHandle handle) {
+            this.readbacks.add(handle);
+            return this;
+        }
 
         /** Compiles and returns the render graph */
         public RenderGraph build() {

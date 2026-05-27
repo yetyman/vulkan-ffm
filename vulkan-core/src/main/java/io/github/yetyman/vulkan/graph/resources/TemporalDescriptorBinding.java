@@ -68,6 +68,52 @@ public class TemporalDescriptorBinding implements AutoCloseable {
     }
 
     /**
+     * Creates a paired temporal descriptor binding for a compute shader that reads from one
+     * slot and writes to another in the same descriptor set.
+     *
+     * Allocates N sets (one per flip state). Each set has:
+     * - readBinding bound to the read slot for that flip state
+     * - writeBinding bound to the write slot for that flip state
+     *
+     * Use with ctx.temporalReadDescriptorSet() to get the correct paired set for the current frame.
+     *
+     * @param device the logical device
+     * @param layout the descriptor set layout (must have storage buffers at both bindings)
+     * @param readBinding the binding index for the read buffer
+     * @param writeBinding the binding index for the write buffer
+     * @param temporalResource the temporal resource (must have physical slots allocated)
+     * @param arena arena for allocation (should be graph-lifetime)
+     * @return the binding, or null if physical slots are not allocated
+     */
+    public static TemporalDescriptorBinding createPairedForBuffer(
+            VkDevice device, VkDescriptorSetLayout layout, int readBinding, int writeBinding,
+            TemporalResource temporalResource, Arena arena) {
+        GraphResource[] slots = temporalResource.physicalSlots();
+        if (slots == null) return null;
+
+        int count = slots.length;
+        // Need one set per flip state: set[i] has read=slot[(i-1+count)%count], write=slot[i]
+        VkDescriptorPool pool = VkDescriptorPool.builder()
+            .device(device)
+            .maxSets(count)
+            .storageBuffers(count * 2)
+            .build(arena);
+
+        VkDescriptorSet[] sets = new VkDescriptorSet[count];
+        for (int i = 0; i < count; i++) {
+            sets[i] = pool.allocateDescriptorSet(layout);
+            int readSlotIdx = (i - 1 + count) % count;
+            int writeSlotIdx = i;
+            try (Arena tmp = Arena.ofConfined()) {
+                sets[i].bindBuffer(readBinding, 7, slots[readSlotIdx].handle(), 0, -1, tmp);
+                sets[i].bindBuffer(writeBinding, 7, slots[writeSlotIdx].handle(), 0, -1, tmp);
+            }
+        }
+
+        return new TemporalDescriptorBinding(pool, sets, readBinding);
+    }
+
+    /**
      * Returns the descriptor set bound to the given physical slot index.
      */
     public VkDescriptorSet setForSlot(int slotIndex) {

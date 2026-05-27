@@ -6,9 +6,12 @@ import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
 
+import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -47,6 +50,9 @@ public class IterativePassNode implements RenderNode {
     private volatile boolean active = true;
     private int iterationCount = -1; // pre-determined count, or -1 for predicate
 
+    // Ping-pong slots: resourceName -> [slot0Handle, slot1Handle]
+    private final Map<String, MemorySegment[]> pingPongSlots = new HashMap<>();
+
     private IterativePassNode(Builder b) {
         this.name = b.name;
         this.reads = Collections.unmodifiableList(b.reads);
@@ -83,13 +89,37 @@ public class IterativePassNode implements RenderNode {
     /** Clears the pre-determined count (reverts to predicate) */
     public void clearIterationCount() { this.iterationCount = -1; }
 
+    /**
+     * Registers the two physical buffers for a ping-pong resource.
+     * The executor alternates read/write between these each iteration.
+     *
+     * @param resourceName the name matching a readsAndWrites resource
+     * @param slot0 first buffer handle
+     * @param slot1 second buffer handle
+     */
+    public void setPingPongSlots(String resourceName, MemorySegment slot0, MemorySegment slot1) {
+        pingPongSlots.put(resourceName, new MemorySegment[]{slot0, slot1});
+    }
+
+    /** @return the ping-pong slot map (resourceName -> [slot0, slot1]) */
+    public Map<String, MemorySegment[]> pingPongSlots() { return pingPongSlots; }
+
     @Override
     public void execute(ExecutionContext ctx) {
+        // Set up ping-pong slots on the context if registered
+        if (!pingPongSlots.isEmpty()) {
+            for (var entry : pingPongSlots.entrySet()) {
+                // Use setIterationIndex to signal we're in iterative mode;
+                // the context implementation reads pingPongSlots via iterationReadHandle/iterationWriteHandle
+            }
+        }
         int count = iterationCount >= 0 ? iterationCount : maxIterations;
         for (int i = 0; i < count; i++) {
+            ctx.setIterationIndex(i);
             executeFunc.execute(ctx, i);
             if (continueWhen != null && iterationCount < 0 && !continueWhen.getAsBoolean()) break;
         }
+        ctx.setIterationIndex(-1);
     }
 
     @FunctionalInterface

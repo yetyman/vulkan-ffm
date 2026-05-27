@@ -1,6 +1,7 @@
 package io.github.yetyman.vulkan.graph.nodes;
 
 import io.github.yetyman.vulkan.graph.edges.FeedbackEdge;
+import io.github.yetyman.vulkan.graph.edges.OptionalEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
 import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
@@ -46,6 +47,12 @@ public interface RenderNode {
      * to these since it cannot determine exact access patterns statically.
      */
     default List<GraphResource> bindlessReads() { return Collections.emptyList(); }
+
+    /**
+     * Optional resource reads with fallback values. If the source's writer is inactive,
+     * the fallback is used instead and no barrier is emitted.
+     */
+    default List<OptionalEdge> optionalReads() { return Collections.emptyList(); }
 
     /** @return scheduling hint for placement in the execution timeline */
     default ScheduleHint scheduleHint() { return ScheduleHint.NONE; }

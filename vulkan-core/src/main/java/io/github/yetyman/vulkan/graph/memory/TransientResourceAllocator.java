@@ -86,11 +86,12 @@ public class TransientResourceAllocator implements AutoCloseable {
      * @return the allocated graph resource wrapping the VkBuffer
      */
     public VkBufferGraphResource allocateBuffer(String name, BufferDesc desc) {
-        VkBuffer buffer = VkBuffer.builder()
+        var builder = VkBuffer.builder()
             .device(device)
             .size(desc.size())
-            .usage(desc.usage())
-            .build(arena);
+            .usage(desc.usage());
+        if ((desc.memoryProperties() & 0x02) != 0) builder.hostVisible(); // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        VkBuffer buffer = builder.build(arena);
 
         allocatedBuffers.add(buffer);
         // Wrap in a simple ManagedBuffer adapter for the graph resource

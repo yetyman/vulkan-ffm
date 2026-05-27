@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.graph.scheduling;
 
+import io.github.yetyman.vulkan.graph.edges.DependencyEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.nodes.RenderNode;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
@@ -18,8 +19,9 @@ import java.util.Set;
 public class ListSchedulingStrategy implements SchedulingStrategy {
 
     @Override
-    public List<ExecutionBucket> schedule(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> availableQueues) {
-        List<RenderNode> sorted = TopologicalSort.sort(nodes, this::priority);
+    public List<ExecutionBucket> schedule(List<RenderNode> nodes, Map<QueueCapability, QueueAssignment> availableQueues,
+                                          List<DependencyEdge> dependencyEdges) {
+        List<RenderNode> sorted = TopologicalSort.sort(nodes, this::priority, dependencyEdges);
         return buildBuckets(sorted, availableQueues);
     }
 

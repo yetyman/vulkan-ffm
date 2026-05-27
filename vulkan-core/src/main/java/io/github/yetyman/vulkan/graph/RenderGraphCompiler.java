@@ -1,5 +1,6 @@
 package io.github.yetyman.vulkan.graph;
 
+import io.github.yetyman.vulkan.graph.edges.DependencyEdge;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.edges.TemporalEdge;
 import io.github.yetyman.vulkan.graph.memory.AliasingStrategy;
@@ -41,6 +42,7 @@ public class RenderGraphCompiler {
     private final BarrierStrategy barrierStrategy;
     private final AliasingStrategy aliasingStrategy;
     private final TemporalUnroller temporalUnroller;
+    private List<DependencyEdge> dependencyEdges = List.of();
 
     public RenderGraphCompiler(SchedulingStrategy schedulingStrategy,
                                BarrierStrategy barrierStrategy,
@@ -49,6 +51,11 @@ public class RenderGraphCompiler {
         this.barrierStrategy = barrierStrategy;
         this.aliasingStrategy = aliasingStrategy;
         this.temporalUnroller = new TemporalUnroller();
+    }
+
+    /** Sets the manual dependency edges for scheduling */
+    public void setDependencyEdges(List<DependencyEdge> edges) {
+        this.dependencyEdges = edges != null ? edges : List.of();
     }
 
     /**
@@ -98,6 +105,7 @@ public class RenderGraphCompiler {
         if (!temporalResources.isEmpty()) {
             temporalUnroller.validate(nodes, temporalResources);
             temporalUnroller.validateStartingPoints(nodes, temporalResources);
+            validateTemporalSingleWriter(nodes, temporalResources);
         }
 
         // Stage 2: Version persistent resources (resolve feedback edges)
@@ -107,7 +115,7 @@ public class RenderGraphCompiler {
         List<RenderNode> activeNodes = cull(nodes);
 
         // Stage 5-6: Schedule (queue assignment + topological sort)
-        List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues);
+        List<ExecutionBucket> buckets = schedulingStrategy.schedule(activeNodes, queues, dependencyEdges);
 
         // Stage 3: Compute lifetimes with queue family information from scheduling
         Map<GraphResource, ResourceLifetime> lifetimes = computeLifetimes(activeNodes, buckets);
@@ -262,9 +270,13 @@ public class RenderGraphCompiler {
             for (ResourceEdge edge : node.reads()) {
                 GraphResource res = edge.resource();
                 if (!produced.contains(res) && !res.isImported()) {
+                    // Find which nodes write to help diagnose
+                    String suggestion = "Ensure another node writes to '" + res.name() +
+                        "' before '" + node.name() + "' reads it, or mark it as imported via .imported(\"" +
+                        res.name() + "\", resource).";
                     throw new RenderGraphException(
                         "Node '" + node.name() + "' reads resource '" + res.name() +
-                        "' which has no producer and is not imported");
+                        "' which has no producer and is not imported. " + suggestion);
                 }
             }
         }
@@ -279,8 +291,34 @@ public class RenderGraphCompiler {
                         "Write-after-write hazard on resource '" + res.name() +
                         "': written by " + writers.stream().map(RenderNode::name)
                             .collect(Collectors.joining(", ")) +
-                        " with no intervening read. This is a potential data race.");
+                        " with no intervening read. Add a read edge between the writers, " +
+                        "or use separate resources if the writes are independent.");
                 }
+            }
+        }
+    }
+
+    /**
+     * Validates that each temporal resource has at most one active writer.
+     * Multiple writers to the same temporal resource would corrupt the flip state.
+     */
+    private void validateTemporalSingleWriter(List<RenderNode> nodes, List<TemporalResource> temporalResources) {
+        Map<String, List<String>> writersByTemporal = new HashMap<>();
+        for (RenderNode node : nodes) {
+            if (!node.isActive()) continue;
+            for (TemporalEdge te : node.temporalEdges()) {
+                if (te.isWriteCurrent()) {
+                    writersByTemporal.computeIfAbsent(te.temporalResource().name(), k -> new ArrayList<>())
+                        .add(node.name());
+                }
+            }
+        }
+        for (var entry : writersByTemporal.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                throw new RenderGraphException(
+                    "Temporal resource '" + entry.getKey() + "' has multiple active writers: " +
+                    String.join(", ", entry.getValue()) +
+                    ". Each temporal resource must have exactly one writer per frame.");
             }
         }
     }
