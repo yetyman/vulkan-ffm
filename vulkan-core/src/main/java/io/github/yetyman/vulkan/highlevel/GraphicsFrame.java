@@ -52,6 +52,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
     protected VkFence[] inFlightFences;
 
+    private io.github.yetyman.vulkan.loop.FrameMetrics metrics;
+
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                             MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight,
@@ -176,6 +178,28 @@ public abstract class GraphicsFrame implements AutoCloseable {
         return currentFrame;
     }
 
+    /** @return the maximum number of frames-in-flight (swapchain depth). */
+    public int maxFramesInFlight() {
+        return maxFramesInFlight;
+    }
+
+    /**
+     * Attach a {@link io.github.yetyman.vulkan.loop.FrameMetrics} for per-stage stamps and
+     * slot-based input-to-display latency tracking. The metrics object's slot ring is
+     * configured to {@code maxFramesInFlight} automatically.
+     */
+    public void metrics(io.github.yetyman.vulkan.loop.FrameMetrics metrics) {
+        this.metrics = metrics;
+        if (metrics != null) {
+            metrics.configureSlots(maxFramesInFlight);
+        }
+    }
+
+    /** @return the attached frame metrics, or null if none */
+    public io.github.yetyman.vulkan.loop.FrameMetrics metrics() {
+        return metrics;
+    }
+
     /**
      * @return the renderFinished semaphore handle for the given swapchain image index.
      */
@@ -223,12 +247,20 @@ public abstract class GraphicsFrame implements AutoCloseable {
         frameArenas[currentFrame] = Arena.ofShared();
         currentFrameArena = frameArenas[currentFrame];
 
+        if (metrics != null) metrics.beginFrame();
+
         VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
                 .execute(currentFrameArena).check();
         VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
                 .reset(currentFrameArena).check();
+
+        if (metrics != null) {
+            metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.FENCE_WAIT_END);
+            // Frame at this slot just completed -> compute its true latency and stash this frame's input
+            metrics.onSlotReady(currentFrame);
+        }
 
         int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
                 .semaphore(acquireSemaphorePool.handle())
@@ -247,6 +279,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
         imageAvailableSemaphores[imgIdx] = justSignaled;
 
         recordCommandBuffer(commandBuffers[currentFrame], imgIdx, currentFrameArena);
+        if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.RECORD_END);
 
         VkSubmit.Builder submitBuilder = VkSubmit.builder()
                 .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
@@ -258,6 +291,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
             if (val > 0) submitBuilder.waitTimelineSemaphore(w.semaphore(), val, w.stageMask());
         }
         submitBuilder.submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena);
+        if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.SUBMIT_END);
 
         imageLastFrame[imgIdx] = currentFrame;
 
@@ -265,6 +299,10 @@ public abstract class GraphicsFrame implements AutoCloseable {
                 .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
                 .swapchain(swapchain.handle(), imgIdx)
                 .present(queue.handle(), currentFrameArena);
+        if (metrics != null) {
+            metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.PRESENT_END);
+            metrics.endFrame();
+        }
 
         currentFrame = (currentFrame + 1) % maxFramesInFlight;
     }

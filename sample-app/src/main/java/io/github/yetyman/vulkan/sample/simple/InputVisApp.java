@@ -69,7 +69,7 @@ public class InputVisApp extends VulkanApplication {
                 .driver(LoopDriver.uncapped())
                 .shouldClose(() -> windowSystem().shouldClose(window()))
                 .onResize(dims -> frame.resize(dims[0], dims[1]))
-                .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
+                .onFpsUpdate(m -> Logger.info(m.summary()))
                 .build();
 
         loop.start();

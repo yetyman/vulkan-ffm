@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.ILifecycle;
 import io.github.yetyman.vulkan.Vulkan;
+import io.github.yetyman.vulkan.loop.FrameMetrics;
 import io.github.yetyman.vulkan.loop.LoopDriver;
 import io.github.yetyman.vulkan.loop.LoopThread;
 import io.github.yetyman.vulkan.loop.TimingStrategy;
@@ -10,7 +11,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
-import java.util.function.IntConsumer;
 
 /**
  * Composes a {@link GraphicsFrame} with a {@link LoopThread}, handling the standard
@@ -22,7 +22,7 @@ import java.util.function.IntConsumer;
  *     .driver(LoopDriver.uncapped())
  *     .shouldRender(() -> !minimized)
  *     .onResize((w, h) -> renderer.resize(w, h))
- *     .onFpsUpdate(fps -> title.set("FPS: " + fps))
+ *     .onFpsUpdate(m -> title.set(m.summary()))
  *     .build();
  *
  * // Signal a resize from a window callback:
@@ -36,11 +36,13 @@ public class GraphicsLoop implements AutoCloseable {
     private final GraphicsFrame renderer;
     private final LoopThread loopThread;
     private final BooleanSupplier shouldClose;
+    private final FrameMetrics metrics;
 
-    private GraphicsLoop(GraphicsFrame renderer, LoopThread loopThread, BooleanSupplier shouldClose) {
+    private GraphicsLoop(GraphicsFrame renderer, LoopThread loopThread, BooleanSupplier shouldClose, FrameMetrics metrics) {
         this.renderer = renderer;
         this.loopThread = loopThread;
         this.shouldClose = shouldClose;
+        this.metrics = metrics;
     }
 
     public static Builder builder() {
@@ -71,6 +73,11 @@ public class GraphicsLoop implements AutoCloseable {
         return loopThread;
     }
 
+    /** @return the frame metrics tracker (always available, records every frame) */
+    public FrameMetrics metrics() {
+        return metrics;
+    }
+
     /**
      * Runs the loop on the calling thread, blocking until {@code shouldClose} returns true.
      */
@@ -96,7 +103,7 @@ public class GraphicsLoop implements AutoCloseable {
         private volatile int pendingResizeWidth = -1;
         private volatile int pendingResizeHeight = -1;
         private Consumer<int[]> onResize = null;
-        private IntConsumer onFpsUpdate = null;
+        private Consumer<FrameMetrics> onFpsUpdate = null;
         private int idleSleepMs = 10;
         private final java.util.List<ILifecycle> lifecycleDeps = new java.util.ArrayList<>();
 
@@ -156,9 +163,9 @@ public class GraphicsLoop implements AutoCloseable {
         }
 
         /**
-         * Called once per second with the current FPS.
+         * Called once per second with the current frame metrics.
          */
-        public Builder onFpsUpdate(IntConsumer onFpsUpdate) {
+        public Builder onFpsUpdate(Consumer<FrameMetrics> onFpsUpdate) {
             this.onFpsUpdate = onFpsUpdate;
             return this;
         }
@@ -187,22 +194,26 @@ public class GraphicsLoop implements AutoCloseable {
             BooleanSupplier closeCheck = shouldClose;
             BooleanSupplier renderCheck = shouldRender;
             Runnable poll = pollEvents;
-            IntConsumer fpsCallback = onFpsUpdate;
+            Consumer<FrameMetrics> fpsCallback = onFpsUpdate;
             int idleMs = idleSleepMs;
 
             // Shared resize signal — written by signalResize(), read by the loop
             int[] pendingResize = {-1, -1};
             AtomicBoolean dirtySize = new AtomicBoolean(false);
 
-            long[] fpsState = {System.nanoTime(), 0}; // [lastTime, frameCount]
+            long[] fpsState = {System.nanoTime()}; // [lastReportTime]
 
             AtomicReference<LoopThread> loopRef = new AtomicReference<>();
+
+            FrameMetrics metrics = FrameMetrics.create(300);
+            renderer.metrics(metrics);
 
             LoopThread loop = LoopThread.builder()
                     .name(name)
                     .driver(LoopDriver.uncapped())
                     .timing(timing)
                     .work(t -> {
+                        metrics.stampInput(); // input is delivered during poll
                         poll.run();
 
                         if (closeCheck.getAsBoolean()) {
@@ -238,15 +249,13 @@ public class GraphicsLoop implements AutoCloseable {
                             return;
                         }
 
-                        renderer.drawFrame();
+                        renderer.drawFrame(); // owns beginFrame/endFrame via metrics
 
-                        // FPS tracking
+                        // Metrics callback (once per second)
                         if (fpsCallback != null) {
-                            fpsState[1]++;
                             long now = System.nanoTime();
                             if (now - fpsState[0] >= 1_000_000_000L) {
-                                fpsCallback.accept((int) fpsState[1]);
-                                fpsState[1] = 0;
+                                fpsCallback.accept(metrics);
                                 fpsState[0] = now;
                             }
                         }
@@ -256,7 +265,7 @@ public class GraphicsLoop implements AutoCloseable {
             loopRef.set(loop);
 
             // Expose signalResize via the GraphicsLoop instance — store pending, flag dirty
-            GraphicsLoop graphicsLoop = new GraphicsLoop(renderer, loop, closeCheck) {
+            GraphicsLoop graphicsLoop = new GraphicsLoop(renderer, loop, closeCheck, metrics) {
                 @Override
                 public void signalResize(int w, int h) {
                     if (w <= 0 || h <= 0) return;

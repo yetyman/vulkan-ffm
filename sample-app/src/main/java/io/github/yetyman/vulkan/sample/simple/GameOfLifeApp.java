@@ -44,7 +44,7 @@ public class GameOfLifeApp extends VulkanApplication implements ILifecycleListen
                 .shouldClose(() -> windowSystem().shouldClose(window()))
                 .onResize(dims -> frame.resize(dims[0], dims[1]))
                 .lifecycleDependency(computeLoop)
-                .onFpsUpdate(fps -> Logger.info("FPS: " + fps))
+                .onFpsUpdate(m -> Logger.info(m.summary()))
                 .build();
 
         loop.start();
