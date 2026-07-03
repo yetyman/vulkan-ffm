@@ -99,48 +99,26 @@ public VkBuffer build(Arena arena) {
 
 ---
 
-## Critical Natives — FFM Performance Optimization
+## FFM Downcall Optimization — Device-Level Proc-Addr Function Handles
 
-FFM `MethodHandle` invocations for Vulkan calls carry safepoint-check overhead. For hot-path per-frame calls this is measurable. `Linker.Option.critical(false)` removes the safepoint check, reducing call overhead significantly.
+`VkDevice` functions loaded via `vkGetDeviceProcAddr` (e.g. `vkCmdBeginRendering`, timeline semaphore ops) are stored as instance `MethodHandle` fields on `VkDevice`. The JIT cannot constant-fold an instance field load, so `invokeExact` through these handles carries indirect-call overhead that jextract-generated `static final` handles do not. Profiling of the render-graph hot path confirms `VkDevice.cmdBeginRendering` shows up as a real cost.
 
-### Device-level proc addr functions and JIT limits
+This is a general FFM/JIT performance concern independent of critical-native linkage — it applies to any per-instance-loaded function pointer, whether or not it is ever made critical.
 
-Functions loaded via `vkGetDeviceProcAddr` (e.g. `vkCmdBeginRendering`, timeline semaphore ops) are stored as instance `MethodHandle` fields on `VkDevice`. The JIT cannot constant-fold an instance field load, so `invokeExact` through these handles carries indirect-call overhead that jextract-generated `static final` handles do not.
+The correct long-term fix is **per-device bytecode generation**: at device creation time, use ASM or ByteBuddy to emit a class with `static final MethodHandle` fields bound to the resolved function pointer addresses. This matches jextract performance exactly — the JIT sees a class-level constant and can inline through the downcall. The generated class is discarded when the device is closed.
 
-The correct long-term fix is **per-device bytecode generation**: at device creation time, use ASM or ByteBuddy to emit a class with `static final MethodHandle` fields bound to the resolved function pointer addresses. This matches jextract performance exactly — the JIT sees a class-level constant and can inline through the downcall. The generated class is discarded when the device is closed. This is non-trivial but well-understood; defer until profiling shows it matters at scale.
+This is a future concern, not a present one — non-trivial to implement correctly (class generation/loading/unloading lifecycle tied to device lifecycle) and should be deferred until profiling shows it matters at scale beyond what's already been observed.
 
-### Rules for critical native eligibility
-```
-Use critical if ALL:
-  - No validation layers enabled (release mode only)
-  - No callbacks (not vkCreate*DebugUtils*, not blocking waits)
-  - Expected duration < ~10 microseconds
-  - Called in hot path (per-frame or per-draw)
+---
 
-Never critical:
-  - vkWaitForFences, vkAcquireNextImageKHR (blocking)
-  - vkCreateDebugUtilsMessengerEXT (callback)
-  - vkAllocateMemory, vkCreateBuffer (allocating, slow)
-  - Any call that may trigger validation layer upcalls
-```
+## Runtime Configuration — Native Linkage & Validation Layer Control
 
-### Implementation approach
-Maintain three categorization files alongside the generated bindings:
-- `always_critical.txt` — hot path, never has callbacks (vkCmdDraw, vkCmdBindPipeline, vkCmdPushConstants, vkCmdSetViewport, vkCmdSetScissor, vkCmdDispatch, vkCmdBindDescriptorSets, vkCmdDrawIndexed, vkCmdDrawIndirect)
-- `conditional_critical.txt` — critical in release, not in debug/validation
-- `never_critical.txt` — blocking or has callbacks
+Currently, critical-native linkage decisions are fixed at build/generation time (see the vulkan-bindings critical-natives injector) or chosen explicitly per call site (see `VulkanFFMCritical`'s opt-in `*Critical` methods and `disableCriticalOverrides` panic switch). There is no runtime system-property surface for controlling this, and no integration with validation-layer state.
 
-A transformation script patches the generated VulkanFFM handle initialization to add `Linker.Option.critical(false)` based on these lists. Gated by system property:
-```java
-private static final boolean CRITICAL =
-    Boolean.getBoolean("vulkan.critical") && !Boolean.getBoolean("vulkan.validation");
-```
-Selected once at class load time — no runtime branching.
-
-### ZGC interaction
-With ZGC Generational (recommended GC for this codebase), critical natives are safe. ZGC's safepoints are already sub-millisecond; a 10-microsecond critical native delaying one is irrelevant. ZGC's load barriers operate in Java code, not at safepoints, and are unaffected by critical natives. See README for full ZGC notes.
-
-**Upcalls remain unsafe for critical natives regardless of GC.** The upcall restriction is a JVM constraint unrelated to GC behavior. Timeline semaphore callbacks and validation layer callbacks must never be invoked from a critical native call path.
+Wanted, not yet built:
+- System properties (e.g. `vulkan.critical`, `vulkan.validation`) read once at an appropriate initialization point to express user/deployment intent for native linkage aggressiveness.
+- A more complete model tying validation-layer enablement to native linkage decisions automatically — today, enabling validation layers does not automatically call `VulkanFFMCritical.disableCriticalOverrides(true)` or otherwise adjust linkage; a user who enables validation must remember to also flip the panic switch (or avoid opting into `*Critical` call sites) themselves.
+- Consider whether this belongs on `Vulkan`, `VulkanContext`, or a dedicated small config/policy class, and whether it should be static (JVM-wide) or per-`VkDevice`/per-`VulkanContext`.
 
 ---
 
@@ -165,7 +143,7 @@ q.rotate(float x, float y, float z) // apply rotation to a vector
 ```
 
 ### DualQuaternion
-Encodes rotation + translation as q_real + ε·q_dual. Blending multiple dual quaternions produces correct rigid transforms (no candy-wrapper artifact). Non-uniform scale cannot be encoded — handle scale separately.
+Encodes rotation + translation as q_real + e·q_dual. Blending multiple dual quaternions produces correct rigid transforms (no candy-wrapper artifact). Non-uniform scale cannot be encoded — handle scale separately.
 ```java
 DualQuaternion.fromRotationTranslation(Quaternion r, float tx, float ty, float tz)
 DualQuaternion.identity()
