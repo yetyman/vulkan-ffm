@@ -8,7 +8,23 @@ import java.util.Set;
 
 /**
  * Post-processes jextract-generated Java sources to inject Linker.Option.critical(false)
- * on all downcall handles except those that block or fire synchronous upcalls.
+ * on all downcall handles except those in EXCLUDED, which are left as plain (non-critical)
+ * downcalls in the bulk generated files.
+ *
+ * EXCLUDED functions fall into two distinct groups, both left untouched here:
+ *
+ * - Hard-excluded (never safe to be critical, no opt-in exists anywhere): functions that
+ *   register debug/validation callbacks. Critical natives cannot invoke Java upcalls under
+ *   any circumstances, so these must never be made critical, full stop.
+ *
+ * - Conditionally-excluded (may block for a data/context-dependent duration; safe to be
+ *   critical from a correctness standpoint, but risk delaying a thread's cooperation with a
+ *   GC safepoint for that blocking duration): CPU-blocking waits, queue submit/present/bind,
+ *   allocation, pipeline/shader-module creation, deferred operation join, query pool results,
+ *   latency sleep, memory mapping. These get an opt-in critical variant exposed separately in
+ *   io.github.yetyman.vulkan.generated.critical.VulkanFFMCritical, decided per call site by the
+ *   caller (who knows the actual arguments/context and therefore the realistic blocking risk),
+ *   rather than forced globally by this generator.
  *
  * Usage: CriticalNativeInjector <sourceDir> [sourceDir2 ...]
  */
@@ -18,16 +34,21 @@ public class CriticalNativeInjector {
     private static final String DOWNCALL_CRITICAL = "Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));";
     private static final String FIND_OR_THROW = "SYMBOL_LOOKUP.findOrThrow(\"";
 
-    /**
-     * Functions excluded from critical(false):
-     * - CPU-blocking wait functions
-     * - Functions that may block internally (queue submit, present, alloc, pipeline create)
-     * - Debug/validation callback registration (fires upcalls synchronously during any Vulkan call)
-     * - Deferred operation join (explicitly blocks calling thread)
-     * - Query pool results with wait flag (can block; conservative exclusion)
-     * - vkLatencySleepNV (explicitly sleeps)
-     */
-    private static final Set<String> EXCLUDED = Set.of(
+    // Hard-excluded: fires upcalls synchronously during any Vulkan call. Critical natives
+    // cannot invoke Java callbacks under any circumstance - no opt-in critical variant exists
+    // or should ever be added for these.
+    private static final Set<String> HARD_EXCLUDED = Set.of(
+        "vkCreateDebugUtilsMessengerEXT",
+        "vkDestroyDebugUtilsMessengerEXT",
+        "vkCreateDebugReportCallbackEXT",
+        "vkDestroyDebugReportCallbackEXT"
+    );
+
+    // Conditionally-excluded: may block for a duration that depends on arguments/driver/OS
+    // state. Left as plain downcalls here; an opt-in critical variant for each of these is
+    // hand-maintained in io.github.yetyman.vulkan.generated.critical.VulkanFFMCritical, keep
+    // that list in sync if functions are added/removed here.
+    private static final Set<String> CONDITIONALLY_EXCLUDED = Set.of(
         // CPU-blocking waits
         "vkWaitForFences",
         "vkWaitSemaphores",
@@ -41,8 +62,7 @@ public class CriticalNativeInjector {
         "vkQueueSubmit",
         "vkQueueSubmit2",
         "vkQueueSubmit2KHR",
-        // Present — can block on vsync. Comment out to enable critical natives if using
-        // mailbox/immediate present modes (non-blocking).
+        // Present — can block on vsync (timing depends on present mode)
         "vkQueuePresentKHR",
         // Sparse binding submit
         "vkQueueBindSparse",
@@ -56,11 +76,6 @@ public class CriticalNativeInjector {
         "vkCreateExecutionGraphPipelinesAMDX",
         // Shader module creation — driver may compile
         "vkCreateShaderModule",
-        // Debug messenger / report callback registration — fires upcalls synchronously
-        "vkCreateDebugUtilsMessengerEXT",
-        "vkDestroyDebugUtilsMessengerEXT",
-        "vkCreateDebugReportCallbackEXT",
-        "vkDestroyDebugReportCallbackEXT",
         // Deferred operation — explicitly blocks calling thread doing deferred work
         "vkDeferredOperationJoinKHR",
         // Query pool results — conservative: can block with VK_QUERY_RESULT_WAIT_BIT
@@ -72,6 +87,10 @@ public class CriticalNativeInjector {
         "vkMapMemory2",
         "vkMapMemory2KHR"
     );
+
+    private static final Set<String> EXCLUDED = java.util.stream.Stream.concat(
+        HARD_EXCLUDED.stream(), CONDITIONALLY_EXCLUDED.stream()
+    ).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {

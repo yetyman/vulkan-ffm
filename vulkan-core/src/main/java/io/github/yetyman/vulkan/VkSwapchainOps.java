@@ -44,5 +44,20 @@ public class VkSwapchainOps {
             Vulkan.acquireNextImageKHR(device.handle(), swapchain, timeout, semaphore, fence, imageIndex).check();
             return imageIndex.get(ValueLayout.JAVA_INT, 0);
         }
+
+        /**
+         * Same as execute(Arena), but issues the downcall through
+         * io.github.yetyman.vulkan.generated.VulkanFFMCritical, which uses
+         * Linker.Option.critical(false) linkage when active. vkAcquireNextImageKHR can block
+         * waiting for an image depending on the timeout passed; prefer this only where that
+         * risk is acceptable for the call site (e.g. a short or zero timeout).
+         */
+        public int executeCritical(Arena arena) {
+            MemorySegment imageIndex = IMAGE_INDEX_SLOT.get();
+            int result = io.github.yetyman.vulkan.generated.VulkanFFMCritical.vkAcquireNextImageKHRCritical(
+                device.handle(), swapchain, timeout, semaphore, fence, imageIndex);
+            VkResult.fromInt(result).check();
+            return imageIndex.get(ValueLayout.JAVA_INT, 0);
+        }
     }
 }

@@ -82,6 +82,29 @@ public class VkFenceOps {
             }
         }
 
+        /**
+         * Same as execute(Arena), but issues the downcall through
+         * io.github.yetyman.vulkan.generated.VulkanFFMCritical, which uses
+         * Linker.Option.critical(false) linkage when active (see
+         * VulkanFFMCritical.disableCriticalOverrides for the global fallback switch).
+         * Prefer this on hot per-frame wait paths with a known, bounded timeout; avoid it
+         * for waits that may block for a long or unbounded duration.
+         */
+        public VkResult executeCritical(Arena arena) {
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            try {
+                MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize() * fences.length);
+                for (int i = 0; i < fences.length; i++)
+                    fenceArray.setAtIndex(ValueLayout.ADDRESS, i, fences[i]);
+                int result = io.github.yetyman.vulkan.generated.VulkanFFMCritical.vkWaitForFencesCritical(
+                    device.handle(), fences.length, fenceArray, waitAll ? 1 : 0, timeout);
+                return VkResult.fromInt(result);
+            } finally {
+                ba.pop();
+            }
+        }
+
         public VkResult reset(Arena arena) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();

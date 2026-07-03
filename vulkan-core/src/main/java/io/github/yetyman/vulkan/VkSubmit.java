@@ -13,6 +13,17 @@ public class VkSubmit {
         return VkResult.fromInt(result);
     }
 
+    /**
+     * Same as queueSubmit(...), but issues the downcall through
+     * io.github.yetyman.vulkan.generated.VulkanFFMCritical, which uses Linker.Option.critical(false)
+     * linkage when active. vkQueueSubmit is usually fast but can block if the driver's internal
+     * queue is full; prefer this only where that risk is acceptable for the call site.
+     */
+    public static VkResult queueSubmitCritical(MemorySegment queue, int submitCount, MemorySegment submits, MemorySegment fence) {
+        int result = io.github.yetyman.vulkan.generated.VulkanFFMCritical.vkQueueSubmitCritical(queue, submitCount, submits, fence);
+        return VkResult.fromInt(result);
+    }
+
     public static Builder builder() {
         return new Builder();
     }

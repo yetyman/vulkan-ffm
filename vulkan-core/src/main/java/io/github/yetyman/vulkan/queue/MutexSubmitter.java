@@ -45,7 +45,7 @@ public final class MutexSubmitter implements IQueueSubmitter {
     public void submit(MemorySegment submitInfo, MemorySegment fence) {
         lock.lock();
         try {
-            VkSubmit.queueSubmit(queueHandle, 1, submitInfo, fence).check();
+            VkSubmit.queueSubmitCritical(queueHandle, 1, submitInfo, fence).check();
         } finally {
             lock.unlock();
         }

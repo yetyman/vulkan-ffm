@@ -264,7 +264,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
         VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
-                .execute(currentFrameArena).check();
+                .executeCritical(currentFrameArena).check();
         VkFenceOps.waitFor(device)
                 .fence(inFlightFences[currentFrame].handle())
                 .reset(currentFrameArena).check();
@@ -277,7 +277,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
         int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
                 .semaphore(acquireSemaphorePool.handle())
-                .execute(currentFrameArena);
+                .executeCritical(currentFrameArena);
 
         VkSemaphore justSignaled = acquireSemaphorePool;
         // imageAvailableSemaphores[imgIdx] was signaled by the previous acquire of this image.
