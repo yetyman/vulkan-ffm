@@ -54,6 +54,10 @@ public abstract class GraphicsFrame implements AutoCloseable {
 
     private io.github.yetyman.vulkan.loop.FrameMetrics metrics;
 
+    /** When true, frame arenas are Arena.ofShared() — required for parallel command recording.
+     *  When false (default), Arena.ofConfined() — much cheaper FFM session validation. */
+    private boolean sharedFrameArenas = false;
+
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                             MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight,
@@ -159,9 +163,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
         imageLastFrame = new int[swapchainImageViews.length];
         java.util.Arrays.fill(imageLastFrame, -1);
         frameArenas = new Arena[maxFramesInFlight];
-        for (int i = 0; i < maxFramesInFlight; i++) {
-            frameArenas[i] = Arena.ofShared();
-        }
+        // Note: arena allocation deferred to first drawFrame call so confined arenas
+        // are created on the rendering thread, not the construction thread.
     }
 
     /**
@@ -198,6 +201,16 @@ public abstract class GraphicsFrame implements AutoCloseable {
     /** @return the attached frame metrics, or null if none */
     public io.github.yetyman.vulkan.loop.FrameMetrics metrics() {
         return metrics;
+    }
+
+    /**
+     * Enables shared (cross-thread) per-frame arenas. Required if any node records commands
+     * from worker threads (e.g. {@link io.github.yetyman.vulkan.graph.RenderGraphExecutor}
+     * with parallel recording enabled). Default is confined (single-thread, much faster
+     * FFM session validation). Must be set before the first {@link #drawFrame()} call.
+     */
+    public void sharedFrameArenas(boolean shared) {
+        this.sharedFrameArenas = shared;
     }
 
     /**
@@ -243,8 +256,8 @@ public abstract class GraphicsFrame implements AutoCloseable {
             return;
         }
         currentFrameArena = frameArenas[currentFrame];
-        currentFrameArena.close();
-        frameArenas[currentFrame] = Arena.ofShared();
+        if (currentFrameArena != null) currentFrameArena.close();
+        frameArenas[currentFrame] = sharedFrameArenas ? Arena.ofShared() : Arena.ofConfined();
         currentFrameArena = frameArenas[currentFrame];
 
         if (metrics != null) metrics.beginFrame();
@@ -363,7 +376,11 @@ public abstract class GraphicsFrame implements AutoCloseable {
             inFlightFences[i].close();
         }
         if (frameArenas != null) {
-            for (Arena a : frameArenas) a.close();
+            for (Arena a : frameArenas) {
+                if (a != null) {
+                    try { a.close(); } catch (Throwable ignored) { /* may be confined to another thread */ }
+                }
+            }
         }
         commandPool.close();
         if (framebuffers != null) {

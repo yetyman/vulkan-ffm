@@ -41,7 +41,8 @@ public class CriticalNativeInjector {
         "vkQueueSubmit",
         "vkQueueSubmit2",
         "vkQueueSubmit2KHR",
-        // Present — can block on vsync
+        // Present — can block on vsync. Comment out to enable critical natives if using
+        // mailbox/immediate present modes (non-blocking).
         "vkQueuePresentKHR",
         // Sparse binding submit
         "vkQueueBindSparse",
