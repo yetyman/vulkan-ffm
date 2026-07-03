@@ -30,7 +30,7 @@ public class VkPresent {
             return this;
         }
 
-        public VkResult present(MemorySegment queue, Arena arena) {
+        public VkResult present(MemorySegment queue, SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -67,7 +67,7 @@ public class VkPresent {
          * vsync depending on the swapchain's present mode; prefer this only where that risk
          * is acceptable for the call site (e.g. mailbox/immediate present modes).
          */
-        public VkResult presentCritical(MemorySegment queue, Arena arena) {
+        public VkResult presentCritical(MemorySegment queue, SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {

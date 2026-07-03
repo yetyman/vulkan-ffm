@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,19 +28,19 @@ public class VkClearValues {
         return this;
     }
 
-    public MemorySegment build(Arena arena) {
+    public MemorySegment build(SegmentAllocator allocator) {
         if (clearValues.isEmpty()) return MemorySegment.NULL;
 
-        MemorySegment array = arena.allocate(VkClearValue.layout(), clearValues.size());
+        MemorySegment array = allocator.allocate(VkClearValue.layout(), clearValues.size());
 
         for (int i = 0; i < clearValues.size(); i++) {
             MemorySegment clearValue;
             Object value = clearValues.get(i);
 
             if (value instanceof ColorClear color) {
-                clearValue = VkClearValue.color(arena, color.r, color.g, color.b, color.a);
+                clearValue = VkClearValue.color(allocator, color.r, color.g, color.b, color.a);
             } else if (value instanceof DepthClear depth) {
-                clearValue = VkClearValue.depthStencil(arena, depth.depth, depth.stencil);
+                clearValue = VkClearValue.depthStencil(allocator, depth.depth, depth.stencil);
             } else {
                 continue;
             }

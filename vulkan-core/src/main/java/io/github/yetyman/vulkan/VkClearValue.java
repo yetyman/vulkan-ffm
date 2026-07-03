@@ -14,8 +14,8 @@ public class VkClearValue {
     /**
      * Creates a color clear value
      */
-    public static MemorySegment color(Arena arena, float r, float g, float b, float a) {
-        MemorySegment clearValue = arena.allocate(16);
+    public static MemorySegment color(SegmentAllocator allocator, float r, float g, float b, float a) {
+        MemorySegment clearValue = allocator.allocate(16);
         clearValue.set(ValueLayout.JAVA_FLOAT, 0, r);
         clearValue.set(ValueLayout.JAVA_FLOAT, 4, g);
         clearValue.set(ValueLayout.JAVA_FLOAT, 8, b);
@@ -26,8 +26,8 @@ public class VkClearValue {
     /**
      * Creates a depth/stencil clear value
      */
-    public static MemorySegment depthStencil(Arena arena, float depth, int stencil) {
-        MemorySegment clearValue = arena.allocate(16);
+    public static MemorySegment depthStencil(SegmentAllocator allocator, float depth, int stencil) {
+        MemorySegment clearValue = allocator.allocate(16);
         clearValue.set(ValueLayout.JAVA_FLOAT, 0, depth);
         clearValue.set(ValueLayout.JAVA_INT, 4, stencil);
         return clearValue;

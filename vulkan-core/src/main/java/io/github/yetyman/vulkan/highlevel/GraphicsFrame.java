@@ -169,9 +169,17 @@ public abstract class GraphicsFrame implements AutoCloseable {
     }
 
     /**
-     * @return the arena for the current frame-in-flight. Valid from fence-wait through present.
+     * @return the arena for the current frame-in-flight, creating it lazily on first access.
+     * Valid from fence-wait through present, then closed at the start of the next frame in
+     * this slot. Most command recording should prefer {@link #frameAllocator()} instead —
+     * this is only needed when something must outlive a single Vulkan call within the frame
+     * (e.g. cross-thread parallel command recording via RenderGraphExecutor).
      */
     protected Arena frameArena() {
+        if (currentFrameArena == null) {
+            currentFrameArena = sharedFrameArenas ? Arena.ofShared() : Arena.ofConfined();
+            frameArenas[currentFrame] = currentFrameArena;
+        }
         return currentFrameArena;
     }
 
@@ -268,72 +276,68 @@ public abstract class GraphicsFrame implements AutoCloseable {
             }
             return;
         }
-        currentFrameArena = frameArenas[currentFrame];
-        if (currentFrameArena != null) currentFrameArena.close();
-        frameArenas[currentFrame] = sharedFrameArenas ? Arena.ofShared() : Arena.ofConfined();
-        currentFrameArena = frameArenas[currentFrame];
-
-        if (metrics != null) metrics.beginFrame();
-
-        VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .executeCritical(currentFrameArena).check();
-        VkFenceOps.waitFor(device)
-                .fence(inFlightFences[currentFrame].handle())
-                .reset(currentFrameArena).check();
-
-        if (metrics != null) {
-            metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.FENCE_WAIT_END);
-            // Frame at this slot just completed -> compute its true latency and stash this frame's input
-            metrics.onSlotReady(currentFrame);
-        }
-
-        int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
-                .semaphore(acquireSemaphorePool.handle())
-                .executeCritical(currentFrameArena);
-
-        VkSemaphore justSignaled = acquireSemaphorePool;
-        // imageAvailableSemaphores[imgIdx] was signaled by the previous acquire of this image.
-        // It is only safe to reuse once the frame that waited on it has completed.
-        int lastFrame = imageLastFrame[imgIdx];
-        if (lastFrame >= 0 && lastFrame != currentFrame) {
-            VkFenceOps.waitFor(device)
-                    .fence(inFlightFences[lastFrame].handle())
-                    .execute(currentFrameArena).check();
-        }
-        acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
-        imageAvailableSemaphores[imgIdx] = justSignaled;
-
         BumpAllocator ba = BumpAllocator.get();
         ba.push();
         try {
+            currentFrameArena = frameArenas[currentFrame];
+            if (currentFrameArena != null) {
+                currentFrameArena.close();
+                frameArenas[currentFrame] = null;
+                currentFrameArena = null;
+            }
+
+            if (metrics != null) metrics.beginFrame();
+
+            VkFenceOps.waitSingleCritical(device, inFlightFences[currentFrame].handle()).check();
+            VkFenceOps.resetSingle(device, inFlightFences[currentFrame].handle()).check();
+
+            if (metrics != null) {
+                metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.FENCE_WAIT_END);
+                // Frame at this slot just completed -> compute its true latency and stash this frame's input
+                metrics.onSlotReady(currentFrame);
+            }
+
+            int imgIdx = VkSwapchainOps.acquireNextImage(device, swapchain.handle())
+                    .semaphore(acquireSemaphorePool.handle())
+                    .executeCritical(ba);
+
+            VkSemaphore justSignaled = acquireSemaphorePool;
+            // imageAvailableSemaphores[imgIdx] was signaled by the previous acquire of this image.
+            // It is only safe to reuse once the frame that waited on it has completed.
+            int lastFrame = imageLastFrame[imgIdx];
+            if (lastFrame >= 0 && lastFrame != currentFrame) {
+                VkFenceOps.waitSingle(device, inFlightFences[lastFrame].handle()).check();
+            }
+            acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
+            imageAvailableSemaphores[imgIdx] = justSignaled;
+
             recordCommandBuffer(commandBuffers[currentFrame], imgIdx, ba);
+            if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.RECORD_END);
+
+            VkSubmit.Builder submitBuilder = VkSubmit.builder()
+                    .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
+                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
+                    .commandBuffer(commandBuffers[currentFrame])
+                    .signalSemaphore(renderFinishedSemaphores[imgIdx].handle());
+            for (TimelineWait w : timelineWaits) {
+                long val = w.semaphore().completedGeneration();
+                if (val > 0) submitBuilder.waitTimelineSemaphore(w.semaphore(), val, w.stageMask());
+            }
+            submitBuilder.submit(queue, inFlightFences[currentFrame].handle(), ba);
+            if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.SUBMIT_END);
+
+            imageLastFrame[imgIdx] = currentFrame;
+
+            VkPresent.builder()
+                    .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
+                    .swapchain(swapchain.handle(), imgIdx)
+                    .present(queue.handle(), ba);
+            if (metrics != null) {
+                metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.PRESENT_END);
+                metrics.endFrame();
+            }
         } finally {
             ba.pop();
-        }
-        if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.RECORD_END);
-
-        VkSubmit.Builder submitBuilder = VkSubmit.builder()
-                .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
-                        VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
-                .commandBuffer(commandBuffers[currentFrame])
-                .signalSemaphore(renderFinishedSemaphores[imgIdx].handle());
-        for (TimelineWait w : timelineWaits) {
-            long val = w.semaphore().completedGeneration();
-            if (val > 0) submitBuilder.waitTimelineSemaphore(w.semaphore(), val, w.stageMask());
-        }
-        submitBuilder.submit(queue, inFlightFences[currentFrame].handle(), currentFrameArena);
-        if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.SUBMIT_END);
-
-        imageLastFrame[imgIdx] = currentFrame;
-
-        VkPresent.builder()
-                .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
-                .swapchain(swapchain.handle(), imgIdx)
-                .present(queue.handle(), currentFrameArena);
-        if (metrics != null) {
-            metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.PRESENT_END);
-            metrics.endFrame();
         }
 
         currentFrame = (currentFrame + 1) % maxFramesInFlight;

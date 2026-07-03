@@ -156,10 +156,8 @@ public class ComputeLoop implements ILifecycle {
         VkFence fence = fences[slot];
 
         if (gen >= 2) {
-            try (Arena tmp = Arena.ofConfined()) {
-                VkFenceOps.waitFor(device).fence(fence.handle()).execute(tmp).check();
-                VkFenceOps.waitFor(device).fence(fence.handle()).reset(tmp).check();
-            }
+            VkFenceOps.waitSingle(device, fence.handle()).check();
+            VkFenceOps.resetSingle(device, fence.handle()).check();
         }
 
         try (Arena cmdArena = Arena.ofConfined()) {

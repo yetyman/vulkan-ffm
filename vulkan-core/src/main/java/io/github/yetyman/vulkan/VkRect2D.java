@@ -68,8 +68,8 @@ public class VkRect2D {
         /**
          * Creates the rectangle
          */
-        public MemorySegment build(Arena arena) {
-            MemorySegment rect = arena.allocate(io.github.yetyman.vulkan.generated.VkRect2D.layout());
+        public MemorySegment build(SegmentAllocator allocator) {
+            MemorySegment rect = allocator.allocate(io.github.yetyman.vulkan.generated.VkRect2D.layout());
             MemorySegment offset = io.github.yetyman.vulkan.generated.VkRect2D.offset(rect);
             MemorySegment extent = io.github.yetyman.vulkan.generated.VkRect2D.extent(rect);
 

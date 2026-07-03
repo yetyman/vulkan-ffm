@@ -91,7 +91,7 @@ public class VkCommandBuffer {
             return this;
         }
 
-        public void execute(Arena arena) {
+        public void execute(SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -163,10 +163,10 @@ public class VkCommandBuffer {
             return this;
         }
 
-        public void execute(Arena arena) {
-            MemorySegment clearValuesArray = clearValues.build(arena);
+        public void execute(SegmentAllocator allocator) {
+            MemorySegment clearValuesArray = clearValues.build(allocator);
 
-            MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(arena);
+            MemorySegment renderPassInfo = VkRenderPassBeginInfo.allocate(allocator);
             VkRenderPassBeginInfo.sType(renderPassInfo, VkStructureType.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO.value());
             VkRenderPassBeginInfo.pNext(renderPassInfo, MemorySegment.NULL);
             VkRenderPassBeginInfo.renderPass(renderPassInfo, renderPass);
@@ -174,7 +174,7 @@ public class VkCommandBuffer {
             MemorySegment renderArea = io.github.yetyman.vulkan.VkRect2D.builder()
                     .offset(x, y)
                     .extent(width, height)
-                    .build(arena);
+                    .build(allocator);
             MemorySegment.copy(renderArea, 0, VkRenderPassBeginInfo.renderArea(renderPassInfo), 0, renderArea.byteSize());
             VkRenderPassBeginInfo.clearValueCount(renderPassInfo, clearValues.count());
             VkRenderPassBeginInfo.pClearValues(renderPassInfo, clearValuesArray);

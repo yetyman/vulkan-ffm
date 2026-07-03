@@ -39,7 +39,7 @@ public class VkSwapchainOps {
             return this;
         }
 
-        public int execute(Arena arena) {
+        public int execute(SegmentAllocator allocator) {
             MemorySegment imageIndex = IMAGE_INDEX_SLOT.get();
             Vulkan.acquireNextImageKHR(device.handle(), swapchain, timeout, semaphore, fence, imageIndex).check();
             return imageIndex.get(ValueLayout.JAVA_INT, 0);
@@ -52,7 +52,7 @@ public class VkSwapchainOps {
          * waiting for an image depending on the timeout passed; prefer this only where that
          * risk is acceptable for the call site (e.g. a short or zero timeout).
          */
-        public int executeCritical(Arena arena) {
+        public int executeCritical(SegmentAllocator allocator) {
             MemorySegment imageIndex = IMAGE_INDEX_SLOT.get();
             int result = io.github.yetyman.vulkan.generated.VulkanFFMCritical.vkAcquireNextImageKHRCritical(
                 device.handle(), swapchain, timeout, semaphore, fence, imageIndex);

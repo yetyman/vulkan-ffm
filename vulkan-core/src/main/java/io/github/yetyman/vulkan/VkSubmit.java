@@ -118,7 +118,7 @@ public class VkSubmit {
             return signalTimelineSemaphore(semaphore.handle(), value);
         }
 
-        public VkResult submit(MemorySegment queue, MemorySegment fence, Arena arena) {
+        public VkResult submit(MemorySegment queue, MemorySegment fence, SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -131,7 +131,7 @@ public class VkSubmit {
         /**
          * Builds and submits via the queue's installed {@link io.github.yetyman.vulkan.queue.IQueueSubmitter}.
          */
-        public void submit(VkQueue queue, MemorySegment fence, Arena arena) {
+        public void submit(VkQueue queue, MemorySegment fence, SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -146,8 +146,8 @@ public class VkSubmit {
          * Use with {@link VkQueue#submit(MemorySegment, MemorySegment)} to route through
          * the queue's submitter strategy.
          */
-        public MemorySegment build(MemorySegment fence, Arena arena) {
-            return buildInternal(fence, arena);
+        public MemorySegment build(MemorySegment fence, SegmentAllocator allocator) {
+            return buildInternal(fence, allocator);
         }
 
         private MemorySegment buildInternal(MemorySegment fence, SegmentAllocator alloc) {

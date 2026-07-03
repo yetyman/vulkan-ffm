@@ -14,8 +14,76 @@ public class VkFenceOps {
     /**
      * Wait for a single fence with timeout.
      */
-    public static VkResult wait(VkDevice device, VkFence fence, long timeout, Arena arena) {
-        return waitFor(device).fence(fence.handle()).timeout(timeout).execute(arena);
+    public static VkResult wait(VkDevice device, VkFence fence, long timeout, SegmentAllocator allocator) {
+        return waitFor(device).fence(fence.handle()).timeout(timeout).execute(allocator);
+    }
+
+    /**
+     * Wait for a single fence handle with a specified timeout. Allocation-free fast path
+     * for the common single-fence case — bypasses the Builder object entirely.
+     */
+    public static VkResult waitSingle(VkDevice device, MemorySegment fence, long timeout) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize());
+            fenceArray.set(ValueLayout.ADDRESS, 0, fence);
+            return Vulkan.waitForFences(device.handle(), 1, fenceArray, 1, timeout);
+        } finally {
+            ba.pop();
+        }
+    }
+
+    /**
+     * Same as {@link #waitSingle(VkDevice, MemorySegment, long)}, using the default
+     * (effectively infinite) timeout.
+     */
+    public static VkResult waitSingle(VkDevice device, MemorySegment fence) {
+        return waitSingle(device, fence, 0xFFFFFFFFFFFFFFFFL);
+    }
+
+    /**
+     * Same as {@link #waitSingle(VkDevice, MemorySegment, long)}, but issues the downcall
+     * through {@code VulkanFFMCritical} (see {@code executeCritical} for caveats). Prefer
+     * this on hot per-frame wait paths with a known, bounded timeout.
+     */
+    public static VkResult waitSingleCritical(VkDevice device, MemorySegment fence, long timeout) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize());
+            fenceArray.set(ValueLayout.ADDRESS, 0, fence);
+            int result = io.github.yetyman.vulkan.generated.VulkanFFMCritical.vkWaitForFencesCritical(
+                device.handle(), 1, fenceArray, 1, timeout);
+            return VkResult.fromInt(result);
+        } finally {
+            ba.pop();
+        }
+    }
+
+    /**
+     * Same as {@link #waitSingleCritical(VkDevice, MemorySegment, long)}, using the default
+     * (effectively infinite) timeout.
+     */
+    public static VkResult waitSingleCritical(VkDevice device, MemorySegment fence) {
+        return waitSingleCritical(device, fence, 0xFFFFFFFFFFFFFFFFL);
+    }
+
+    /**
+     * Resets a single fence handle. Allocation-free fast path for the common single-fence
+     * case — bypasses the Builder object entirely. Equivalent to {@link #reset(VkDevice, VkFence, SegmentAllocator)}
+     * but takes a raw handle.
+     */
+    public static VkResult resetSingle(VkDevice device, MemorySegment fence) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize());
+            fenceArray.set(ValueLayout.ADDRESS, 0, fence);
+            return Vulkan.resetFences(device.handle(), 1, fenceArray);
+        } finally {
+            ba.pop();
+        }
     }
 
     /**
@@ -29,16 +97,8 @@ public class VkFenceOps {
     /**
      * Reset a single fence to unsignaled state.
      */
-    public static VkResult reset(VkDevice device, VkFence fence, Arena arena) {
-        BumpAllocator ba = BumpAllocator.get();
-        ba.push();
-        try {
-            MemorySegment fenceArray = ba.alloc(ValueLayout.ADDRESS.byteSize());
-            fenceArray.set(ValueLayout.ADDRESS, 0, fence.handle());
-            return Vulkan.resetFences(device.handle(), 1, fenceArray);
-        } finally {
-            ba.pop();
-        }
+    public static VkResult reset(VkDevice device, VkFence fence, SegmentAllocator allocator) {
+        return resetSingle(device, fence.handle());
     }
 
     public static class Builder {
@@ -69,7 +129,7 @@ public class VkFenceOps {
             return this;
         }
 
-        public VkResult execute(Arena arena) {
+        public VkResult execute(SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -90,7 +150,7 @@ public class VkFenceOps {
          * Prefer this on hot per-frame wait paths with a known, bounded timeout; avoid it
          * for waits that may block for a long or unbounded duration.
          */
-        public VkResult executeCritical(Arena arena) {
+        public VkResult executeCritical(SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
@@ -105,7 +165,7 @@ public class VkFenceOps {
             }
         }
 
-        public VkResult reset(Arena arena) {
+        public VkResult reset(SegmentAllocator allocator) {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
