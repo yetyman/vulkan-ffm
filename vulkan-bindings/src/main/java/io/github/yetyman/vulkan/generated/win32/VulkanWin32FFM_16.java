@@ -3,7 +3,6 @@
 package io.github.yetyman.vulkan.generated.win32;
 
 import io.github.yetyman.vulkan.generated.*;
-
 import java.lang.invoke.*;
 import java.lang.foreign.*;
 import java.nio.ByteOrder;
@@ -29,7 +28,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindWindowA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -90,7 +89,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindWindowW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -153,7 +152,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindWindowExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -216,7 +215,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindWindowExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -274,7 +273,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetShellWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -334,7 +333,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterShellHookWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -394,7 +393,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DeregisterShellHookWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -455,7 +454,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumWindows");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -517,7 +516,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumThreadWindows");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -579,7 +578,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetClassNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -641,7 +640,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetClassNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -701,7 +700,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetTopWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -762,7 +761,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowThreadProcessId");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -822,7 +821,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsGUIThread");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -882,7 +881,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetLastActivePopup");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -943,7 +942,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1004,7 +1003,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetWindowsHookA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1065,7 +1064,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetWindowsHookW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1126,7 +1125,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UnhookWindowsHook");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1189,7 +1188,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetWindowsHookExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1252,7 +1251,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetWindowsHookExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1312,7 +1311,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UnhookWindowsHookEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1375,7 +1374,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CallNextHookEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1439,7 +1438,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CheckMenuRadioItem");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1519,7 +1518,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadBitmapA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1580,7 +1579,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadBitmapW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1641,7 +1640,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadCursorA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1702,7 +1701,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadCursorW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1762,7 +1761,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadCursorFromFileA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1822,7 +1821,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadCursorFromFileW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1888,7 +1887,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateCursor");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -1948,7 +1947,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DestroyCursor");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2009,7 +2008,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetSystemCursor");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2076,7 +2075,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadIconA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2137,7 +2136,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadIconW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2204,7 +2203,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PrivateExtractIconsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2271,7 +2270,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PrivateExtractIconsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2337,7 +2336,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateIcon");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2397,7 +2396,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DestroyIcon");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2458,7 +2457,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LookupIconIdFromDirectory");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2522,7 +2521,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LookupIconIdFromDirectoryEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2585,7 +2584,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateIconFromResource");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2651,7 +2650,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateIconFromResourceEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2725,7 +2724,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadCursorCreationScaling");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2790,7 +2789,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadImageA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2855,7 +2854,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadImageW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2919,7 +2918,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CopyImage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -2987,7 +2986,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DrawIconEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3047,7 +3046,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateIconIndirect");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3107,7 +3106,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CopyIcon");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3168,7 +3167,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetIconInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3267,7 +3266,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetIconInfoExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3328,7 +3327,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetIconInfoExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3407,7 +3406,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsDialogMessageA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3468,7 +3467,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsDialogMessageW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3529,7 +3528,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MapDialogRect");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3593,7 +3592,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirListA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3657,7 +3656,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirListW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3720,7 +3719,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirSelectExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3783,7 +3782,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirSelectExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3847,7 +3846,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirListComboBoxA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3911,7 +3910,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirListComboBoxW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -3974,7 +3973,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirSelectComboBoxExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4037,7 +4036,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DlgDirSelectComboBoxExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4120,7 +4119,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetScrollInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4182,7 +4181,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetScrollInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4293,7 +4292,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DefFrameProcA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4357,7 +4356,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DefFrameProcW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4420,7 +4419,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DefMDIChildProcA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4483,7 +4482,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DefMDIChildProcW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4544,7 +4543,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("TranslateMDISysAccel");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4604,7 +4603,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ArrangeIconicWindows");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4673,7 +4672,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateMDIWindowA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4742,7 +4741,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateMDIWindowW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4806,7 +4805,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("TileWindows");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -4870,7 +4869,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CascadeWindows");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5059,7 +5058,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WinHelpA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5122,7 +5121,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WinHelpW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5183,7 +5182,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGuiResources");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5599,7 +5598,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeDisplaySettingsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5660,7 +5659,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeDisplaySettingsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5724,7 +5723,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeDisplaySettingsExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5788,7 +5787,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeDisplaySettingsExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5850,7 +5849,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplaySettingsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5912,7 +5911,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplaySettingsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -5975,7 +5974,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplaySettingsExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6038,7 +6037,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplaySettingsExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6101,7 +6100,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplayDevicesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6164,7 +6163,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplayDevicesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6226,7 +6225,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDisplayConfigBufferSizes");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6290,7 +6289,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetDisplayConfig");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6355,7 +6354,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryDisplayConfig");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6415,7 +6414,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DisplayConfigGetDeviceInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6475,7 +6474,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DisplayConfigSetDeviceInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6538,7 +6537,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SystemParametersInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6601,7 +6600,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SystemParametersInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6665,7 +6664,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SystemParametersInfoForDpi");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6813,7 +6812,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SoundSentry");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6891,7 +6890,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetDebugErrorLevel");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -6951,7 +6950,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetLastErrorEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7013,7 +7012,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InternalGetWindowText");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7071,7 +7070,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CancelShutdown");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7132,7 +7131,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MonitorFromPoint");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7193,7 +7192,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MonitorFromRect");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7254,7 +7253,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MonitorFromWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7348,7 +7347,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetMonitorInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7409,7 +7408,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetMonitorInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7472,7 +7471,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDisplayMonitors");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7534,7 +7533,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NotifyWinEvent");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7600,7 +7599,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetWinEventHook");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7660,7 +7659,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsWinEventHookInstalled");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7720,7 +7719,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UnhookWinEvent");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7813,7 +7812,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGUIThreadInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7873,7 +7872,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("BlockInput");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7931,7 +7930,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetProcessDPIAware");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -7989,7 +7988,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsProcessDPIAware");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8049,7 +8048,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8107,7 +8106,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetThreadDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8167,7 +8166,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8227,7 +8226,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetAwarenessFromDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8287,7 +8286,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDpiFromDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8348,7 +8347,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AreDpiAwarenessContextsEqual");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8408,7 +8407,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8468,7 +8467,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDpiForWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8526,7 +8525,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDpiForSystem");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8586,7 +8585,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemDpiForProcess");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8646,7 +8645,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnableNonClientDpiScaling");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8707,7 +8706,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InheritWindowMonitor");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8767,7 +8766,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetProcessDpiAwarenessContext");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8827,7 +8826,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDpiAwarenessContextForProcess");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8887,7 +8886,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadDpiHostingBehavior");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -8945,7 +8944,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetThreadDpiHostingBehavior");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9005,7 +9004,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowDpiHostingBehavior");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9067,7 +9066,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowModuleFileNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9129,7 +9128,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowModuleFileNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9211,7 +9210,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCursorInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9306,7 +9305,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetWindowInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9387,7 +9386,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetTitleBarInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9500,7 +9499,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetMenuBarInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9590,7 +9589,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetScrollBarInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9679,7 +9678,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetComboBoxInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9740,7 +9739,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetAncestor");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9801,7 +9800,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RealChildWindowFromPoint");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9863,7 +9862,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RealGetWindowClassA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -9925,7 +9924,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RealGetWindowClassW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10021,7 +10020,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetAltTabInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10085,7 +10084,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetAltTabInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10145,7 +10144,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetListBoxInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10203,7 +10202,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LockWorkStation");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10265,7 +10264,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UserHandleGrantAccess");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10469,7 +10468,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawInputData");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10596,7 +10595,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawInputDeviceInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10659,7 +10658,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawInputDeviceInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10721,7 +10720,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawInputBuffer");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10811,7 +10810,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterRawInputDevices");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10873,7 +10872,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRegisteredRawInputDevices");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -10944,7 +10943,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawInputDeviceList");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11006,7 +11005,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DefRawInputProc");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11148,7 +11147,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetPointerDevices");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11209,7 +11208,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetPointerDevice");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11271,7 +11270,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetPointerDeviceProperties");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11332,7 +11331,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterPointerDeviceNotifications");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11394,7 +11393,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetPointerDeviceRects");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11456,7 +11455,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetPointerDeviceCursors");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11520,7 +11519,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetRawPointerDeviceData");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11581,7 +11580,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeWindowMessageFilter");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11653,7 +11652,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeWindowMessageFilterEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11756,7 +11755,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGestureInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11818,7 +11817,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGestureExtraArgs");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11878,7 +11877,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CloseGestureInfoHandle");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -11952,7 +11951,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetGestureConfig");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12017,7 +12016,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGestureConfig");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12078,7 +12077,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ShutdownBlockReasonCreate");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12140,7 +12139,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ShutdownBlockReasonQuery");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12200,7 +12199,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ShutdownBlockReasonDestroy");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12350,7 +12349,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrentInputMessageSource");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12410,7 +12409,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCIMSSM");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12612,7 +12611,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetAutoRotationState");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12672,7 +12671,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDisplayAutoRotationPreferences");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12734,7 +12733,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDisplayAutoRotationPreferencesByProcessId");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12794,7 +12793,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetDisplayAutoRotationPreferences");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12854,7 +12853,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsImmersiveProcess");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12914,7 +12913,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetProcessRestrictionExemption");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -12976,7 +12975,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetAdditionalForegroundBoostProcesses");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13055,7 +13054,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterForTooltipDismissNotification");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13120,7 +13119,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDateFormatA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13185,7 +13184,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDateFormatW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13250,7 +13249,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetTimeFormatA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13315,7 +13314,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetTimeFormatW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13380,7 +13379,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetTimeFormatEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13446,7 +13445,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDateFormatEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -13512,7 +13511,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDurationFormatEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14025,7 +14024,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CompareStringEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14089,7 +14088,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CompareStringOrdinal");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14154,7 +14153,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CompareStringW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14218,7 +14217,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FoldStringW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14282,7 +14281,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetStringTypeExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14345,7 +14344,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetStringTypeW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14410,7 +14409,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MultiByteToWideChar");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14477,7 +14476,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WideCharToMultiByte");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14537,7 +14536,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidCodePage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14595,7 +14594,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetACP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14653,7 +14652,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetOEMCP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14714,7 +14713,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCPInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14776,7 +14775,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCPInfoExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14838,7 +14837,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCPInfoExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14903,7 +14902,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CompareStringA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -14969,7 +14968,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindNLSString");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15034,7 +15033,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LCMapStringW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15099,7 +15098,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LCMapStringA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15162,7 +15161,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetLocaleInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15225,7 +15224,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetLocaleInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15287,7 +15286,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetLocaleInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15349,7 +15348,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetLocaleInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15414,7 +15413,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCalendarInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15479,7 +15478,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCalendarInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15542,7 +15541,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetCalendarInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15605,7 +15604,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetCalendarInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15671,7 +15670,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LoadStringByReference");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15731,7 +15730,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsDBCSLeadByte");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15792,7 +15791,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsDBCSLeadByteEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15853,7 +15852,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LocaleNameToLCID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15916,7 +15915,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LCIDToLocaleName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -15982,7 +15981,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetDurationFormat");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16047,7 +16046,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNumberFormatA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16112,7 +16111,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNumberFormatW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16177,7 +16176,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrencyFormatA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16242,7 +16241,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrencyFormatW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16305,7 +16304,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumCalendarInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16368,7 +16367,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumCalendarInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16431,7 +16430,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumCalendarInfoExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16494,7 +16493,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumCalendarInfoExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16556,7 +16555,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumTimeFormatsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16618,7 +16617,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumTimeFormatsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16680,7 +16679,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDateFormatsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16742,7 +16741,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDateFormatsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16804,7 +16803,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDateFormatsExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16866,7 +16865,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDateFormatsExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16927,7 +16926,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidLanguageGroup");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -16989,7 +16988,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNLSVersion");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17050,7 +17049,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidLocale");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17114,7 +17113,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGeoInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17178,7 +17177,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGeoInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17241,7 +17240,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetGeoInfoEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17303,7 +17302,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemGeoID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17365,7 +17364,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemGeoNames");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17425,7 +17424,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserGeoID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17486,7 +17485,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserDefaultGeoName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17546,7 +17545,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetUserGeoID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17606,7 +17605,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetUserGeoName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17666,7 +17665,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ConvertDefaultLocale");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17724,7 +17723,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemDefaultUILanguage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17782,7 +17781,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetThreadLocale");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17842,7 +17841,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadLocale");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17900,7 +17899,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserDefaultUILanguage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -17958,7 +17957,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserDefaultLangID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18016,7 +18015,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemDefaultLangID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18074,7 +18073,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemDefaultLCID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18132,7 +18131,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserDefaultLCID");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18192,7 +18191,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadUILanguage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18250,7 +18249,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetThreadUILanguage");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18313,7 +18312,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetProcessPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18375,7 +18374,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetProcessPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18438,7 +18437,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18501,7 +18500,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18564,7 +18563,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetThreadPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18626,7 +18625,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18689,7 +18688,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileMUIInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18755,7 +18754,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileMUIPath");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18819,7 +18818,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUILanguageInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18890,7 +18889,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetThreadPreferredUILanguages2");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -18949,7 +18948,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RestoreThreadPreferredUILanguages");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19013,7 +19012,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NotifyUILanguageChange");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19077,7 +19076,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetStringTypeExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19141,7 +19140,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetStringTypeA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19205,7 +19204,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FoldStringA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19266,7 +19265,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemLocalesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19327,7 +19326,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemLocalesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19389,7 +19388,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemLanguageGroupsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19451,7 +19450,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemLanguageGroupsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19514,7 +19513,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumLanguageGroupLocalesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19577,7 +19576,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumLanguageGroupLocalesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19639,7 +19638,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumUILanguagesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19701,7 +19700,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumUILanguagesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19762,7 +19761,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemCodePagesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19823,7 +19822,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemCodePagesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19887,7 +19886,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IdnToAscii");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -19951,7 +19950,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IdnToUnicode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20015,7 +20014,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IdnToNameprepUnicode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20079,7 +20078,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NormalizeString");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20141,7 +20140,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsNormalizedString");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20205,7 +20204,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerifyScripts");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20269,7 +20268,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetStringScripts");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20332,7 +20331,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetLocaleInfoEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20398,7 +20397,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCalendarInfoEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20463,7 +20462,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNumberFormatEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20528,7 +20527,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrencyFormatEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20589,7 +20588,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetUserDefaultLocaleName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20650,7 +20649,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSystemDefaultLocaleName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20714,7 +20713,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsNLSDefinedString");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20776,7 +20775,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNLSVersionEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20838,7 +20837,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidNLSVersion");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20907,7 +20906,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FindNLSStringEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -20975,7 +20974,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LCMapStringEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21035,7 +21034,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("IsValidLocaleName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21100,7 +21099,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumCalendarInfoExEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21163,7 +21162,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDateFormatsExEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21226,7 +21225,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumTimeFormatsEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21289,7 +21288,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumSystemLocalesEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21351,7 +21350,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ResolveLocaleName");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21522,7 +21521,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AllocConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21580,7 +21579,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FreeConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21640,7 +21639,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AttachConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21698,7 +21697,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21756,7 +21755,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleOutputCP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21817,7 +21816,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleMode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21878,7 +21877,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleMode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -21939,7 +21938,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNumberOfConsoleInputEvents");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22002,7 +22001,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleInputA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22065,7 +22064,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleInputW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22128,7 +22127,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PeekConsoleInputA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22191,7 +22190,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("PeekConsoleInputW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22266,7 +22265,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22330,7 +22329,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22394,7 +22393,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22458,7 +22457,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22519,7 +22518,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleCtrlHandler");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22583,7 +22582,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreatePseudoConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22644,7 +22643,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ResizePseudoConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22703,7 +22702,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ClosePseudoConsole");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22767,7 +22766,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FillConsoleOutputCharacterA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22831,7 +22830,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FillConsoleOutputCharacterW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22895,7 +22894,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FillConsoleOutputAttribute");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -22956,7 +22955,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GenerateConsoleCtrlEvent");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23020,7 +23019,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateConsoleScreenBuffer");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23080,7 +23079,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleActiveScreenBuffer");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23140,7 +23139,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("FlushConsoleInputBuffer");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23200,7 +23199,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleCP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23260,7 +23259,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleOutputCP");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23330,7 +23329,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCursorInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23391,7 +23390,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleCursorInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23464,7 +23463,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleScreenBufferInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23541,7 +23540,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleScreenBufferInfoEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23602,7 +23601,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleScreenBufferInfoEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23663,7 +23662,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleScreenBufferSize");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23724,7 +23723,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleCursorPosition");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23784,7 +23783,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetLargestConsoleWindowSize");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23845,7 +23844,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleTextAttribute");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23907,7 +23906,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleWindowInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -23971,7 +23970,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleOutputCharacterA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24035,7 +24034,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleOutputCharacterW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24099,7 +24098,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleOutputAttribute");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24163,7 +24162,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleOutputCharacterA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24227,7 +24226,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleOutputCharacterW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24291,7 +24290,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleOutputAttribute");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24354,7 +24353,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleInputA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24417,7 +24416,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleInputW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24481,7 +24480,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ScrollConsoleScreenBufferA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24545,7 +24544,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ScrollConsoleScreenBufferW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24609,7 +24608,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleOutputA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24673,7 +24672,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WriteConsoleOutputW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24737,7 +24736,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleOutputA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24801,7 +24800,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ReadConsoleOutputW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24862,7 +24861,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleTitleA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24923,7 +24922,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleTitleW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -24984,7 +24983,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleOriginalTitleA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25045,7 +25044,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleOriginalTitleW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25105,7 +25104,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleTitleA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25165,7 +25164,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleTitleW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25225,7 +25224,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetNumberOfConsoleMouseButtons");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25286,7 +25285,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleFontSize");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25348,7 +25347,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrentConsoleFont");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25423,7 +25422,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetCurrentConsoleFontEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25485,7 +25484,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetCurrentConsoleFontEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25555,7 +25554,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleSelectionInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25626,7 +25625,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleHistoryInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25686,7 +25685,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleHistoryInfo");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25746,7 +25745,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleDisplayMode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25808,7 +25807,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleDisplayMode");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25866,7 +25865,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleWindow");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25928,7 +25927,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AddConsoleAliasA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -25990,7 +25989,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AddConsoleAliasW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26053,7 +26052,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26116,7 +26115,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26176,7 +26175,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasesLengthA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26236,7 +26235,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasesLengthW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26294,7 +26293,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasExesLengthA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26352,7 +26351,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasExesLengthW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26414,7 +26413,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26476,7 +26475,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26537,7 +26536,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasExesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26598,7 +26597,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleAliasExesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26657,7 +26656,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ExpungeConsoleCommandHistoryA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26716,7 +26715,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ExpungeConsoleCommandHistoryW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26777,7 +26776,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleNumberOfCommandsA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26838,7 +26837,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetConsoleNumberOfCommandsW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26898,7 +26897,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCommandHistoryLengthA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -26958,7 +26957,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCommandHistoryLengthW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27020,7 +27019,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCommandHistoryA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27082,7 +27081,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleCommandHistoryW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27143,7 +27142,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetConsoleProcessList");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27210,7 +27209,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerFindFileA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27277,7 +27276,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerFindFileW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27344,7 +27343,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerInstallFileA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27411,7 +27410,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerInstallFileW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27472,7 +27471,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoSizeA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27533,7 +27532,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoSizeW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27596,7 +27595,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27659,7 +27658,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27721,7 +27720,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoSizeExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27783,7 +27782,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoSizeExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27847,7 +27846,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27911,7 +27910,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetFileVersionInfoExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -27973,7 +27972,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerLanguageNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28035,7 +28034,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerLanguageNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28098,7 +28097,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerQueryValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28161,7 +28160,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("VerQueryValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28312,7 +28311,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCloseKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28373,7 +28372,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOverridePredefKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28436,7 +28435,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenUserClassesRoot");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28497,7 +28496,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenCurrentUser");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28555,7 +28554,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDisablePredefinedCache");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28613,7 +28612,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDisablePredefinedCacheEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28675,7 +28674,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegConnectRegistryA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28737,7 +28736,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegConnectRegistryW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28800,7 +28799,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegConnectRegistryExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28863,7 +28862,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegConnectRegistryExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28925,7 +28924,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -28987,7 +28986,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29055,7 +29054,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29123,7 +29122,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29193,7 +29192,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyTransactedA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29263,7 +29262,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCreateKeyTransactedW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29324,7 +29323,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29385,7 +29384,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29448,7 +29447,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29511,7 +29510,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29576,7 +29575,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyTransactedA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29641,7 +29640,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyTransactedW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29701,7 +29700,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDisableReflectionKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29761,7 +29760,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnableReflectionKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29822,7 +29821,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryReflectionKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29883,7 +29882,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -29944,7 +29943,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30007,7 +30006,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30070,7 +30069,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30137,7 +30136,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumKeyExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30204,7 +30203,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumKeyExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30271,7 +30270,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30338,7 +30337,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegEnumValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30398,7 +30397,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegFlushKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30461,7 +30460,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegGetKeySecurity");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30523,7 +30522,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30585,7 +30584,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30649,7 +30648,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegNotifyChangeKeyValue");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30711,7 +30710,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30773,7 +30772,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30837,7 +30836,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30901,7 +30900,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -30967,7 +30966,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyTransactedA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31033,7 +31032,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegOpenKeyTransactedW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31104,7 +31103,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryInfoKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31175,7 +31174,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryInfoKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31238,7 +31237,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31301,7 +31300,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31365,7 +31364,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryMultipleValuesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31429,7 +31428,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryMultipleValuesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31494,7 +31493,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryValueExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31559,7 +31558,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegQueryValueExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31622,7 +31621,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegReplaceKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31685,7 +31684,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegReplaceKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31747,7 +31746,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegRestoreKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31809,7 +31808,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegRestoreKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31871,7 +31870,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegRenameKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31933,7 +31932,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSaveKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -31995,7 +31994,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSaveKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32057,7 +32056,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetKeySecurity");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32121,7 +32120,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32185,7 +32184,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32250,7 +32249,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetValueExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32315,7 +32314,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetValueExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32376,7 +32375,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegUnLoadKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32437,7 +32436,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegUnLoadKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32499,7 +32498,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32561,7 +32560,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteKeyValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32626,7 +32625,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetKeyValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32691,7 +32690,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSetKeyValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32752,7 +32751,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteTreeA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32813,7 +32812,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegDeleteTreeW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32875,7 +32874,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCopyTreeA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -32941,7 +32940,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegGetValueA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33007,7 +33006,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegGetValueW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33069,7 +33068,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegCopyTreeW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33135,7 +33134,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadMUIStringA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33201,7 +33200,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadMUIStringW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33265,7 +33264,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadAppKeyA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33329,7 +33328,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegLoadAppKeyW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33393,7 +33392,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateSystemShutdownA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33457,7 +33456,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateSystemShutdownW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33517,7 +33516,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AbortSystemShutdownA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33577,7 +33576,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("AbortSystemShutdownW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33642,7 +33641,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateSystemShutdownExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33707,7 +33706,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateSystemShutdownExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33771,7 +33770,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateShutdownA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33835,7 +33834,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("InitiateShutdownW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33896,7 +33895,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CheckForHiberboot");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -33959,7 +33958,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSaveKeyExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34022,7 +34021,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegSaveKeyExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34120,7 +34119,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnectionA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34182,7 +34181,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnectionW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34245,7 +34244,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection2A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34308,7 +34307,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection2W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34372,7 +34371,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection3A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34436,7 +34435,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection3W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34502,7 +34501,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection4A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34568,7 +34567,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetAddConnection4W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34629,7 +34628,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetCancelConnectionA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34690,7 +34689,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetCancelConnectionW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34752,7 +34751,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetCancelConnection2A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34814,7 +34813,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetCancelConnection2W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34876,7 +34875,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetConnectionA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -34938,7 +34937,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetConnectionW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35000,7 +34999,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetRestoreSingleConnectionW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35067,7 +35066,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetUseConnectionA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35134,7 +35133,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetUseConnectionW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35203,7 +35202,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetUseConnection4A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35272,7 +35271,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetUseConnection4W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35333,7 +35332,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetConnectionDialog");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35394,7 +35393,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetDisconnectDialog");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35484,7 +35483,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetConnectionDialog1A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35544,7 +35543,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetConnectionDialog1W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35634,7 +35633,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetDisconnectDialog1A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35694,7 +35693,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetDisconnectDialog1W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35758,7 +35757,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetOpenEnumA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35822,7 +35821,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetOpenEnumW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35885,7 +35884,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetEnumResourceA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -35948,7 +35947,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetEnumResourceW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36008,7 +36007,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetCloseEnum");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36070,7 +36069,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetResourceParentA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36132,7 +36131,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetResourceParentW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36195,7 +36194,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetResourceInformationA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36258,7 +36257,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetResourceInformationW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36369,7 +36368,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetUniversalNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36432,7 +36431,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetUniversalNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36494,7 +36493,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetUserA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36556,7 +36555,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetUserW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36618,7 +36617,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetProviderNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36680,7 +36679,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetProviderNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36756,7 +36755,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetNetworkInformationA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36817,7 +36816,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetNetworkInformationW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36881,7 +36880,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetLastErrorA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -36945,7 +36944,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WNetGetLastErrorW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37018,7 +37017,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MultinetGetConnectionPerformanceA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37079,7 +37078,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("MultinetGetConnectionPerformanceW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37139,7 +37138,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_CharUpperW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37200,7 +37199,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_lstrcmpW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37261,7 +37260,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_lstrcmpiW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37321,7 +37320,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_lstrlenW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37382,7 +37381,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_wcschr");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37443,7 +37442,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_wcscpy");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37504,7 +37503,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_wcsicmp");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37564,7 +37563,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_wcslen");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -37625,7 +37624,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("uaw_wcsrchr");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38632,7 +38631,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeServiceConfigA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38702,7 +38701,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeServiceConfigW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38764,7 +38763,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeServiceConfig2A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38826,7 +38825,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ChangeServiceConfig2W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38886,7 +38885,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CloseServiceHandle");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -38948,7 +38947,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ControlService");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39020,7 +39019,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateServiceA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39092,7 +39091,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("CreateServiceW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39152,7 +39151,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("DeleteService");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39217,7 +39216,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDependentServicesA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39282,7 +39281,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumDependentServicesW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39349,7 +39348,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumServicesStatusA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39416,7 +39415,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumServicesStatusW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39485,7 +39484,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumServicesStatusExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39554,7 +39553,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("EnumServicesStatusExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39617,7 +39616,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceKeyNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39680,7 +39679,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceKeyNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39743,7 +39742,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceDisplayNameA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39806,7 +39805,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceDisplayNameW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39866,7 +39865,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("LockServiceDatabase");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39926,7 +39925,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NotifyBootConfigStatus");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -39988,7 +39987,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("OpenSCManagerA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40050,7 +40049,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("OpenSCManagerW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40112,7 +40111,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("OpenServiceA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40174,7 +40173,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("OpenServiceW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40237,7 +40236,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceConfigA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40300,7 +40299,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceConfigW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40364,7 +40363,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceConfig2A");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40428,7 +40427,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceConfig2W");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40491,7 +40490,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceLockStatusA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40554,7 +40553,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceLockStatusW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40618,7 +40617,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceObjectSecurity");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40679,7 +40678,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceStatus");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40743,7 +40742,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceStatusEx");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40804,7 +40803,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterServiceCtrlHandlerA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40865,7 +40864,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterServiceCtrlHandlerW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40927,7 +40926,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterServiceCtrlHandlerExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -40989,7 +40988,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("RegisterServiceCtrlHandlerExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41051,7 +41050,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetServiceObjectSecurity");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41112,7 +41111,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SetServiceStatus");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41172,7 +41171,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("StartServiceCtrlDispatcherA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41232,7 +41231,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("StartServiceCtrlDispatcherW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41294,7 +41293,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("StartServiceA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41356,7 +41355,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("StartServiceW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41416,7 +41415,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UnlockServiceDatabase");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41478,7 +41477,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NotifyServiceStatusChangeA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41540,7 +41539,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("NotifyServiceStatusChangeW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41603,7 +41602,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ControlServiceExA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41666,7 +41665,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ControlServiceExW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41728,7 +41727,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("QueryServiceDynamicInformation");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41835,7 +41834,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("SubscribeServiceChangeNotifications");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41894,7 +41893,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("UnsubscribeServiceChangeNotifications");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -41957,7 +41956,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("WaitServiceState");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42047,7 +42046,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceRegistryStateKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42129,7 +42128,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetServiceDirectory");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42201,7 +42200,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSharedServiceRegistryStateKey");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42274,7 +42273,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("GetSharedServiceDirectory");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42899,7 +42898,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ImmInstallIMEA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -42960,7 +42959,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ImmInstallIMEW");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -43020,7 +43019,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ImmGetDefaultIMEWnd");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**
@@ -43082,7 +43081,7 @@ class VulkanWin32FFM_16 extends VulkanWin32FFM_17 {
 
         public static final MemorySegment ADDR = SYMBOL_LOOKUP.findOrThrow("ImmGetDescriptionA");
 
-        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC, Linker.Option.critical(false));
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
     }
 
     /**

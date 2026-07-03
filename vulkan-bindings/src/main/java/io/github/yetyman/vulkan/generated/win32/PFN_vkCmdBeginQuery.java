@@ -3,7 +3,6 @@
 package io.github.yetyman.vulkan.generated.win32;
 
 import io.github.yetyman.vulkan.generated.*;
-
 import java.lang.invoke.*;
 import java.lang.foreign.*;
 import java.nio.ByteOrder;

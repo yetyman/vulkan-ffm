@@ -96,12 +96,19 @@ public class CriticalNativeInjector {
     }
 
     private static boolean processFile(Path path) throws IOException {
-        List<String> lines = Files.readAllLines(path);
+        // Read as raw text and split preserving terminators so the file's original line-ending
+        // style (LF or CRLF, possibly mixed) is not collapsed/rewritten by this pass.
+        // Files.readAllLines()/Files.write(path, List<String>) always discard terminators and
+        // rejoin with System.lineSeparator(), which silently normalizes every touched file to
+        // whatever line ending the JVM reports - do not reintroduce that pattern here.
+        String content = Files.readString(path);
+        List<String> lines = splitPreservingTerminators(content);
         boolean changed = false;
         String currentFunction = null;
 
         for (int i = 0; i < lines.size(); i++) {
-            String line = lines.get(i);
+            String lineWithTerminator = lines.get(i);
+            String line = stripTerminator(lineWithTerminator);
 
             int findIdx = line.indexOf(FIND_OR_THROW);
             if (findIdx >= 0) {
@@ -115,7 +122,8 @@ public class CriticalNativeInjector {
 
             if (line.contains(DOWNCALL) && currentFunction != null) {
                 if (!EXCLUDED.contains(currentFunction)) {
-                    lines.set(i, line.replace(DOWNCALL, DOWNCALL_CRITICAL));
+                    String terminator = lineWithTerminator.substring(line.length());
+                    lines.set(i, line.replace(DOWNCALL, DOWNCALL_CRITICAL) + terminator);
                     changed = true;
                 }
                 currentFunction = null;
@@ -123,8 +131,57 @@ public class CriticalNativeInjector {
         }
 
         if (changed) {
-            Files.write(path, lines);
+            StringBuilder rebuilt = new StringBuilder(content.length() + 64);
+            for (String line : lines) {
+                rebuilt.append(line);
+            }
+            Files.writeString(path, rebuilt.toString());
         }
         return changed;
+    }
+
+    /**
+     * Splits text into lines, keeping each line's original terminator (\r\n, \n, or none for a
+     * trailing partial line) attached so the file can be reassembled byte-for-byte identical
+     * except for the targeted replacement.
+     */
+    private static List<String> splitPreservingTerminators(String content) {
+        List<String> result = new java.util.ArrayList<>();
+        int start = 0;
+        int length = content.length();
+        for (int i = 0; i < length; i++) {
+            char c = content.charAt(i);
+            if (c == '\n') {
+                result.add(content.substring(start, i + 1));
+                start = i + 1;
+            } else if (c == '\r') {
+                if (i + 1 < length && content.charAt(i + 1) == '\n') {
+                    result.add(content.substring(start, i + 2));
+                    start = i + 2;
+                    i++;
+                } else {
+                    result.add(content.substring(start, i + 1));
+                    start = i + 1;
+                }
+            }
+        }
+        if (start < length) {
+            result.add(content.substring(start));
+        }
+        return result;
+    }
+
+    /** Returns the line content without its trailing \r\n, \n, or \r terminator, if any. */
+    private static String stripTerminator(String lineWithTerminator) {
+        int end = lineWithTerminator.length();
+        if (end > 0 && lineWithTerminator.charAt(end - 1) == '\n') {
+            end--;
+            if (end > 0 && lineWithTerminator.charAt(end - 1) == '\r') {
+                end--;
+            }
+        } else if (end > 0 && lineWithTerminator.charAt(end - 1) == '\r') {
+            end--;
+        }
+        return lineWithTerminator.substring(0, end);
     }
 }

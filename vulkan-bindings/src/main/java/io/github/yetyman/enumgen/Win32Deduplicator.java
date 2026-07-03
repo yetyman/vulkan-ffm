@@ -64,17 +64,45 @@ public class Win32Deduplicator {
     }
     
     private static void addParentImport(Path file) throws IOException {
-        List<String> lines = Files.readAllLines(file);
-        
-        // Find package line and add import after it
+        // Read as raw text and reinsert the import line using the file's own detected line
+        // terminator, instead of Files.readAllLines()/Files.write(path, List<String>), which
+        // discards original terminators and rejoins with System.lineSeparator(), silently
+        // normalizing the whole file to whatever line ending the JVM reports.
+        String content = Files.readString(file);
+        String terminator = detectLineTerminator(content);
+        List<String> lines = content.isEmpty() ? List.of() : List.of(content.split("\r\n|\r|\n", -1));
+
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
             if (line.startsWith("package ") && line.contains(".win32")) {
                 String parentPackage = line.replace(".win32", "");
-                lines.add(i + 2, "import " + parentPackage.substring(8, parentPackage.length() - 1) + ".*;");
-                Files.write(file, lines);
+                String importLine = "import " + parentPackage.substring(8, parentPackage.length() - 1) + ".*;";
+
+                List<String> updated = new java.util.ArrayList<>(lines);
+                updated.add(i + 2, importLine);
+
+                StringBuilder rebuilt = new StringBuilder(content.length() + importLine.length() + terminator.length());
+                for (int j = 0; j < updated.size(); j++) {
+                    rebuilt.append(updated.get(j));
+                    if (j < updated.size() - 1) {
+                        rebuilt.append(terminator);
+                    }
+                }
+                Files.writeString(file, rebuilt.toString());
                 break;
             }
         }
+    }
+
+    /** Detects the predominant line terminator used in the given text, defaulting to the platform separator if none is found. */
+    private static String detectLineTerminator(String content) {
+        int idx = content.indexOf('\n');
+        if (idx < 0) {
+            return System.lineSeparator();
+        }
+        if (idx > 0 && content.charAt(idx - 1) == '\r') {
+            return "\r\n";
+        }
+        return "\n";
     }
 }
