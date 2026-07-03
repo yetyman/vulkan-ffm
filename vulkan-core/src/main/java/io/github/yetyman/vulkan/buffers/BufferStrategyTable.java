@@ -34,11 +34,18 @@ class BufferStrategyTable {
     static BufferStrategySelection select(AccessFrequency cpuWrite, AccessFrequency cpuRead,
                                           AccessFrequency gpuRead, AccessFrequency gpuWrite, DataScale size) {
         BufferStrategySelection selection = TABLE.get(new TableKey(cpuWrite, cpuRead, gpuRead, gpuWrite, size));
-        // Upgrade STAGING to REBAR at query time if hardware supports it — avoids copy commands entirely
-        if (selection != null && selection.memoryStrategy() == MemoryStrategy.STAGING && VulkanCapabilities.reBar) {
-            return new BufferStrategySelection(MemoryStrategy.REBAR, null);
-        }
-        return selection;
+        if (selection == null || !VulkanCapabilities.reBar || cpuWrite == AccessFrequency.NEVER) return selection;
+        // On ReBAR-capable hardware, upgrade CPU-write strategies that would otherwise require a
+        // staging buffer + copy command to direct ReBAR writes instead — same CPU-side write cost,
+        // no staging allocation, no GPU copy command. Guarded on cpuWrite != NEVER: DEVICE_LOCAL is
+        // also selected for buffers the caller says the CPU never writes (lines below in
+        // computeStrategy), where a CPU-writable ReBAR allocation would be pure waste.
+        // Only applies to the automatic selector; explicit BufferFactory.create(MemoryStrategy, ...)
+        // calls are always honored literally.
+        return switch (selection.memoryStrategy()) {
+            case STAGING, DEVICE_LOCAL -> new BufferStrategySelection(MemoryStrategy.REBAR, null);
+            default -> selection;
+        };
     }
 
     private static BufferStrategySelection computeStrategy(AccessFrequency cpuW, AccessFrequency cpuR,

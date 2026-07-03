@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.buffers.typed;
 
 import io.github.yetyman.vulkan.VkQueue;
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.MirroredBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
@@ -13,11 +13,11 @@ import java.nio.ShortBuffer;
  */
 public class ShortVkBuffer implements AutoCloseable {
     private static final int STRIDE = 2;
-    private final ManagedBuffer buffer;
+    private final IBuffer buffer;
     private final int count;
     private final ShortBuffer mirror;
 
-    public ShortVkBuffer(ManagedBuffer buffer, int count) {
+    public ShortVkBuffer(IBuffer buffer, int count) {
         if ((long) count * STRIDE > buffer.size())
             throw new IllegalArgumentException("Buffer too small: need " + ((long) count * STRIDE) + ", have " + buffer.size());
         this.buffer = buffer;
@@ -29,7 +29,7 @@ public class ShortVkBuffer implements AutoCloseable {
         return count;
     }
 
-    public ManagedBuffer buffer() {
+    public IBuffer buffer() {
         return buffer;
     }
 

@@ -3,10 +3,9 @@ package io.github.yetyman.vulkan.sample.simple;
 import io.github.yetyman.structures.input.KeyboardState;
 import io.github.yetyman.structures.input.MouseState;
 import io.github.yetyman.vulkan.*;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.BufferFactory;
 import io.github.yetyman.vulkan.buffers.BufferUsage;
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
-import io.github.yetyman.vulkan.buffers.MappedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.shaders.DescriptorGroup;
@@ -139,7 +138,7 @@ public class InputVisFrame extends SimpleGraphicsFrame {
 
     private ShaderInstance  vertShader;
     private ShaderInstance  fragShader;
-    private ManagedBuffer   instanceBuffer;
+    private IBuffer         instanceBuffer;
     private DescriptorGroup descriptorGroup;
     private ByteBuffer      stagingBuf;
 
@@ -162,7 +161,7 @@ public class InputVisFrame extends SimpleGraphicsFrame {
 
         instanceBuffer = BufferFactory.create(
                 MemoryStrategy.MAPPED, null, BUFFER_BYTES,
-                BufferUsage.STORAGE, device, null);
+                BufferUsage.STORAGE, device, queue);
 
         stagingBuf = ByteBuffer.allocateDirect(BUFFER_BYTES).order(ByteOrder.nativeOrder());
 
@@ -326,7 +325,7 @@ public class InputVisFrame extends SimpleGraphicsFrame {
         writeKeyRow(NP_ROW4, npLeft, y0 + 5 * (KH*2+KG), KW, KH, KG);
 
         stagingBuf.flip();
-        ((MappedBuffer) instanceBuffer).write(stagingBuf, 0);
+        instanceBuffer.write(stagingBuf, 0, queue);
     }
 
     /**

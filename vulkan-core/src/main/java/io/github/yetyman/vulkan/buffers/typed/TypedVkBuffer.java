@@ -2,7 +2,7 @@ package io.github.yetyman.vulkan.buffers.typed;
 
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.BufferWritable;
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
 import java.nio.ByteBuffer;
@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Typed array view over any {@link ManagedBuffer}.
+ * Typed array view over any {@link IBuffer}.
  * Elements are fixed-stride, serialized via {@link BufferWritable}.
  * Subclass and implement {@link #getInstance} to control T allocation (pooled or fresh).
  * Override {@link #releaseInstance} to return instances to a pool on eviction or close.
@@ -20,13 +20,13 @@ import java.util.List;
  */
 public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoCloseable {
 
-    private final ManagedBuffer buffer;
+    private final IBuffer buffer;
     private final int stride;
     private final int count;
     private final ArrayList<T> mirror;
     private final ThreadLocal<ByteBuffer> scratchPool;
 
-    public TypedVkBuffer(ManagedBuffer buffer, int byteSize, int count, boolean mirrored) {
+    public TypedVkBuffer(IBuffer buffer, int byteSize, int count, boolean mirrored) {
         if ((long) byteSize * count > buffer.size())
             throw new IllegalArgumentException("Buffer too small: need " + ((long) byteSize * count) + ", have " + buffer.size());
         this.buffer = buffer;
@@ -60,7 +60,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         return stride;
     }
 
-    public ManagedBuffer buffer() {
+    public IBuffer buffer() {
         return buffer;
     }
 

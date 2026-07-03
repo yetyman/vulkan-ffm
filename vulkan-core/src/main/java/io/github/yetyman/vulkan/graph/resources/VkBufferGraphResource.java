@@ -1,16 +1,16 @@
 package io.github.yetyman.vulkan.graph.resources;
 
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 
 import java.lang.foreign.MemorySegment;
 
 /**
- * Adapts a ManagedBuffer to the GraphBufferResource interface.
+ * Adapts an IBuffer to the GraphBufferResource interface.
  */
 public class VkBufferGraphResource implements GraphBufferResource {
 
     private final String name;
-    private final ManagedBuffer buffer;
+    private final IBuffer buffer;
     private final boolean transientResource;
     private final boolean imported;
     private final ResourceLifetime lifetime = new ResourceLifetime();
@@ -19,7 +19,7 @@ public class VkBufferGraphResource implements GraphBufferResource {
     private volatile int lastStageMask;
     private volatile int owningQueueFamily;
 
-    private VkBufferGraphResource(String name, ManagedBuffer buffer, boolean transientResource, boolean imported) {
+    private VkBufferGraphResource(String name, IBuffer buffer, boolean transientResource, boolean imported) {
         this.name = name;
         this.buffer = buffer;
         this.transientResource = transientResource;
@@ -29,22 +29,22 @@ public class VkBufferGraphResource implements GraphBufferResource {
     }
 
     /** Creates a transient (graph-managed) buffer resource */
-    public static VkBufferGraphResource transientResource(String name, ManagedBuffer buffer) {
+    public static VkBufferGraphResource transientResource(String name, IBuffer buffer) {
         return new VkBufferGraphResource(name, buffer, true, false);
     }
 
     /** Creates an imported buffer resource (externally owned) */
-    public static VkBufferGraphResource imported(String name, ManagedBuffer buffer) {
+    public static VkBufferGraphResource imported(String name, IBuffer buffer) {
         return new VkBufferGraphResource(name, buffer, false, true);
     }
 
     /** Creates a persistent buffer resource (survives across frames) */
-    public static VkBufferGraphResource persistent(String name, ManagedBuffer buffer) {
+    public static VkBufferGraphResource persistent(String name, IBuffer buffer) {
         return new VkBufferGraphResource(name, buffer, false, false);
     }
 
-    /** @return the underlying ManagedBuffer */
-    public ManagedBuffer managedBuffer() { return buffer; }
+    /** @return the underlying IBuffer */
+    public IBuffer managedBuffer() { return buffer; }
 
     /** @return the underlying VkBuffer handle for identity checks by the allocator */
     public Object bufferHandle() { return buffer; }

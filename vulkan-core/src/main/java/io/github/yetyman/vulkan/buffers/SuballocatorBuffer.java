@@ -7,25 +7,30 @@ import io.github.yetyman.vulkan.VkQueue;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Fixed-size slab allocator backed by a single VkBuffer.
+ * Fixed-size slab allocator backed by a single {@link IBuffer}.
  * All suballocations are exactly {@code slotSize} bytes, aligned to device requirements.
  * Alloc and free are O(1). Create one instance per size class.
  */
-public class SuballocatorBuffer extends AbstractBuffer {
-    private final ManagedBuffer backingBuffer;
+public class SuballocatorBuffer implements IBuffer {
+    private final long totalSize;
+    private final BufferUsage usage;
+    private final IBuffer backingBuffer;
     private final long slotSize;
     private final int slotCount;
     private final ArrayDeque<Integer> freeSlots;
     private final ReentrantLock lock = new ReentrantLock();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public SuballocatorBuffer(VkDevice device,
                               long totalSize, BufferUsage usage, long slotSize,
                               MemoryStrategy backingStrategy,
                               VkQueue transferQueue) {
-        super(device, totalSize, usage, MemoryStrategy.SUBALLOCATOR);
+        this.totalSize = totalSize;
+        this.usage = usage;
 
         long alignment = switch (usage) {
             case UNIFORM -> device.physicalDevice().getMinUniformBufferOffsetAlignment();
@@ -42,14 +47,7 @@ public class SuballocatorBuffer extends AbstractBuffer {
         this.freeSlots = new ArrayDeque<>(slotCount);
         for (int i = slotCount - 1; i >= 0; i--) freeSlots.push(i);
 
-        ManagedBuffer backing = null;
-        try {
-            backing = BufferFactory.create(backingStrategy, backingStrategy, totalSize, usage, device, transferQueue);
-        } catch (Exception e) {
-            arena.close();
-            throw e;
-        }
-        this.backingBuffer = backing;
+        this.backingBuffer = BufferFactory.create(backingStrategy, backingStrategy, totalSize, usage, device, transferQueue);
     }
 
     /**
@@ -106,8 +104,23 @@ public class SuballocatorBuffer extends AbstractBuffer {
     }
 
     @Override
+    public long size() {
+        return totalSize;
+    }
+
+    @Override
+    public BufferUsage usage() {
+        return usage;
+    }
+
+    @Override
     public MemorySegment handle() {
         return backingBuffer.handle();
+    }
+
+    @Override
+    public void write(ByteBuffer data, long offset, VkQueue queue) {
+        backingBuffer.write(data, offset, queue);
     }
 
     @Override
@@ -126,18 +139,20 @@ public class SuballocatorBuffer extends AbstractBuffer {
     }
 
     @Override
-    public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public void copyTo(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         backingBuffer.copyTo(dst, srcOffset, dstOffset, length, queue);
     }
 
     @Override
-    public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         return backingBuffer.copyToAsync(dst, srcOffset, dstOffset, length, queue);
     }
 
     @Override
-    public void closeImpl() {
-        backingBuffer.close();
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            backingBuffer.close();
+        }
     }
 
     private static long alignUp(long value, long alignment) {
@@ -145,11 +160,11 @@ public class SuballocatorBuffer extends AbstractBuffer {
     }
 
     /**
-     * A fixed-size slot within the slab, implementing {@link ManagedBuffer} so it can be passed
+     * A fixed-size slot within the slab, implementing {@link IBuffer} so it can be passed
      * anywhere a buffer is expected. {@link #close()} returns the slot to the slab.
      * {@link #handle()} returns the backing buffer handle — bind with {@link #offset()} as the dynamic offset.
      */
-    public class Suballocation implements ManagedBuffer {
+    public class Suballocation implements IBuffer {
         private final int slot;
         private final long offset;
         private final long size;
@@ -167,14 +182,18 @@ public class SuballocatorBuffer extends AbstractBuffer {
             return offset;
         }
 
-        @Override
-        public MemorySegment handle() {
-            return backingBuffer.handle();
+        /**
+         * @return the backing VkBuffer, if the slab's backing buffer is a {@link ManagedBuffer}.
+         * Throws if the backing buffer does not expose one (e.g. a custom IBuffer implementation).
+         */
+        public VkBuffer vkBuffer() {
+            if (backingBuffer instanceof ManagedBuffer mb) return mb.vkBuffer();
+            throw new UnsupportedOperationException("Backing buffer does not expose a VkBuffer handle");
         }
 
         @Override
-        public VkBuffer vkBuffer() {
-            return backingBuffer.vkBuffer();
+        public MemorySegment handle() {
+            return backingBuffer.handle();
         }
 
         @Override
@@ -185,11 +204,6 @@ public class SuballocatorBuffer extends AbstractBuffer {
         @Override
         public BufferUsage usage() {
             return SuballocatorBuffer.this.usage();
-        }
-
-        @Override
-        public MemoryStrategy memoryStrategy() {
-            return SuballocatorBuffer.this.memoryStrategy();
         }
 
         @Override
@@ -233,12 +247,12 @@ public class SuballocatorBuffer extends AbstractBuffer {
         }
 
         @Override
-        public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+        public void copyTo(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
             SuballocatorBuffer.this.copyTo(dst, offset + srcOffset, dstOffset, length, queue);
         }
 
         @Override
-        public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+        public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
             return SuballocatorBuffer.this.copyToAsync(dst, offset + srcOffset, dstOffset, length, queue);
         }
 

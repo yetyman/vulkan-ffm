@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.shaders;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.buffers.BufferFactory;
 import io.github.yetyman.vulkan.buffers.BufferUsage;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
@@ -192,9 +193,9 @@ public class ShaderExample {
             // =========================================================
             section("DIRTY FLAG / ASYNC BUFFER LOAD");
             long uboSize = 64;
-            try (ManagedBuffer buf0 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
-                 ManagedBuffer buf1 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
-                 ManagedBuffer buf2 = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue)) {
+            try (ManagedBuffer buf0 = (ManagedBuffer) BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
+                 ManagedBuffer buf1 = (ManagedBuffer) BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue);
+                 ManagedBuffer buf2 = (ManagedBuffer) BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, uboSize, BufferUsage.UNIFORM, device, queue)) {
 
                 try (ShaderInstance inst0 = complexCompiled.createInstance(device);
                      ShaderInstance inst1 = complexCompiled.createInstance(device);
@@ -488,8 +489,8 @@ public class ShaderExample {
                 check("compute shader compiled", compSpirv.length > 0);
 
                 // Buffers: host-visible so we can write input and read output directly
-                try (ManagedBuffer inputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
-                     ManagedBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+                try (IBuffer inputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     IBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
 
                     // Fill input: [0, 1, 2, ..., 63]
                     ByteBuffer inputData = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
@@ -566,8 +567,8 @@ public class ShaderExample {
                         + ", descriptor sets: " + shaderReflection.getDescriptorSets().size());
 
                 // Buffers
-                try (ManagedBuffer inputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
-                     ManagedBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+                try (IBuffer inputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     IBuffer outputBuf = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
 
                     ByteBuffer inputData = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
                     for (int i = 0; i < elementCount; i++) inputData.putInt(i + 10); // [10, 11, ..., 73]
@@ -624,11 +625,11 @@ public class ShaderExample {
                         .compileShader();
 
                 // First pair: [10..73]
-                try (ManagedBuffer inputBufA = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
-                     ManagedBuffer outputBufA = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                try (IBuffer inputBufA = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     IBuffer outputBufA = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
                      // Second pair: [100..163]
-                     ManagedBuffer inputBufB = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
-                     ManagedBuffer outputBufB = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
+                     IBuffer inputBufB = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue);
+                     IBuffer outputBufB = BufferFactory.create(MemoryStrategy.MAPPED, null, bufferSize, BufferUsage.STORAGE, device, queue)) {
 
                     ByteBuffer inputDataA = ByteBuffer.allocate(bufferSize).order(ByteOrder.nativeOrder());
                     for (int i = 0; i < elementCount; i++) inputDataA.putInt(i + 10);

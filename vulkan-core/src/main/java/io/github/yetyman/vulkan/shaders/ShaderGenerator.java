@@ -95,7 +95,7 @@ public class ShaderGenerator {
         sb.append("import io.github.yetyman.vulkan.VkDevice;\n");
         sb.append("import io.github.yetyman.vulkan.VkCommandBuffer;\n");
         sb.append("import io.github.yetyman.vulkan.buffers.BufferWritable;\n");
-        sb.append("import io.github.yetyman.vulkan.buffers.ManagedBuffer;\n");
+        sb.append("import io.github.yetyman.vulkan.buffers.IBuffer;\n");
         sb.append("import io.github.yetyman.vulkan.shaders.DescriptorGroup;\n");
         sb.append("import java.lang.foreign.Arena;\n");
         sb.append("import java.nio.ByteBuffer;\n");
@@ -265,7 +265,7 @@ public class ShaderGenerator {
                 if (type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER)
                         || type.equals(SpirvReflectDescriptorType.SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER)) {
                     sb.append("        public ").append(helperName).append(" ").append(name)
-                            .append("(ManagedBuffer buf) { inner.buffer(").append(binding.getBinding()).append(", buf); return this; }\n");
+                            .append("(IBuffer buf) { inner.buffer(").append(binding.getBinding()).append(", buf); return this; }\n");
                 }
             }
 

@@ -27,7 +27,7 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkUnmapMemory;
 /**
  * Manages sparse page binding and host-visible mapping for a sparse VkBuffer.
  * Handles page lifecycle (bind/unbind/map/unmap) independently of data transfer strategy.
- * Used internally by {@link SparseBuffer}.
+ * Used internally by {@link SparseAllocationStrategy} / {@link SparseTransferStrategy}.
  */
 class SparsePageAllocator implements AutoCloseable {
     private final VkDevice device;
@@ -89,6 +89,26 @@ class SparsePageAllocator implements AutoCloseable {
         for (long page = startPage; page <= endPage; page++) {
             if (!boundPages.containsKey(page * pageSize))
                 throw new IllegalStateException("Attempting to access uncommitted sparse page at offset " + (page * pageSize));
+        }
+    }
+
+    /**
+     * Decommits (unbinds and returns to the free pool) every page fully covered by
+     * {@code [offset, offset + length)}. A page at either boundary that is only partially
+     * covered by the range is left committed — only whole pages are decommitted.
+     */
+    void decommitPages(long offset, long length) {
+        long firstFullPage = (offset + pageSize - 1) / pageSize;
+        long lastFullPageExclusive = (offset + length) / pageSize;
+        if (firstFullPage >= lastFullPageExclusive) return;
+
+        bindLock.lock();
+        try {
+            for (long page = firstFullPage; page < lastFullPageExclusive; page++) {
+                unbindPage(page * pageSize);
+            }
+        } finally {
+            bindLock.unlock();
         }
     }
 

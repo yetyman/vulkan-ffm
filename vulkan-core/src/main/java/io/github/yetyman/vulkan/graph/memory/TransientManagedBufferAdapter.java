@@ -3,20 +3,19 @@ package io.github.yetyman.vulkan.graph.memory;
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.BufferUsage;
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
-import io.github.yetyman.vulkan.buffers.MemoryStrategy;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 
 /**
- * Minimal ManagedBuffer adapter for graph-managed transient buffers.
+ * Minimal IBuffer adapter for graph-managed transient buffers.
  * The graph only needs handle() and size() for barrier tracking and descriptor binding.
  * Data transfer operations throw UnsupportedOperationException since transient buffers
  * are GPU-only intermediates not meant for CPU read/write.
  */
-class TransientManagedBufferAdapter implements ManagedBuffer {
+class TransientManagedBufferAdapter implements IBuffer {
 
     private final VkBuffer buffer;
 
@@ -27,17 +26,16 @@ class TransientManagedBufferAdapter implements ManagedBuffer {
     @Override
     public MemorySegment handle() { return buffer.handle(); }
 
-    @Override
-    public VkBuffer vkBuffer() { return buffer; }
+    /**
+     * @return the underlying VkBuffer.
+     */
+    VkBuffer vkBuffer() { return buffer; }
 
     @Override
     public long size() { return buffer.size(); }
 
     @Override
     public BufferUsage usage() { return BufferUsage.STORAGE; }
-
-    @Override
-    public MemoryStrategy memoryStrategy() { return MemoryStrategy.DEVICE_LOCAL; }
 
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
@@ -58,12 +56,12 @@ class TransientManagedBufferAdapter implements ManagedBuffer {
     public void flush() { /* no-op for device-local */ }
 
     @Override
-    public void copyTo(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public void copyTo(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         throw new UnsupportedOperationException("Use graph resource edges for transfers between transient buffers");
     }
 
     @Override
-    public TransferCompletion copyToAsync(ManagedBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         throw new UnsupportedOperationException("Use graph resource edges for transfers between transient buffers");
     }
 

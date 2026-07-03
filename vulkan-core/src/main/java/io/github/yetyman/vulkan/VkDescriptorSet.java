@@ -104,8 +104,6 @@ public class VkDescriptorSet {
      * Binds this descriptor set to a command buffer
      */
     public void bind(MemorySegment commandBuffer, int pipelineBindPoint, MemorySegment pipelineLayout, int firstSet, Arena arena) {
-        MemorySegment descriptorSets = arena.allocate(ValueLayout.ADDRESS);
-        descriptorSets.set(ValueLayout.ADDRESS, 0, handle);
         VkBind.bindDescriptorSets(commandBuffer, pipelineBindPoint, pipelineLayout, firstSet, handle);
     }
 

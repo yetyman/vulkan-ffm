@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.shaders;
 
 import io.github.yetyman.vulkan.*;
-import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.enums.*;
 
 import java.lang.foreign.Arena;
@@ -129,35 +129,35 @@ public class DescriptorGroup implements AutoCloseable {
         /**
          * Adds a storage buffer binding and immediately binds the buffer.
          */
-        public Builder storageBuffer(int binding, ManagedBuffer buffer) {
+        public Builder storageBuffer(int binding, IBuffer buffer) {
             return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, -1, 1, buffer);
         }
 
         /**
          * Adds a storage buffer binding with explicit stage flags.
          */
-        public Builder storageBuffer(int binding, ManagedBuffer buffer, int stageFlags) {
+        public Builder storageBuffer(int binding, IBuffer buffer, int stageFlags) {
             return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stageFlags, 1, buffer);
         }
 
         /**
          * Adds a uniform buffer binding and immediately binds the buffer.
          */
-        public Builder uniformBuffer(int binding, ManagedBuffer buffer) {
+        public Builder uniformBuffer(int binding, IBuffer buffer) {
             return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, -1, 1, buffer);
         }
 
         /**
          * Adds a uniform buffer binding with explicit stage flags.
          */
-        public Builder uniformBuffer(int binding, ManagedBuffer buffer, int stageFlags) {
+        public Builder uniformBuffer(int binding, IBuffer buffer, int stageFlags) {
             return bufferBinding(null, binding, VkDescriptorType.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stageFlags, 1, buffer);
         }
 
         /**
          * Binds a buffer by shader variable name, inferring binding index and type from reflection. Only works with reflection().
          */
-        public Builder buffer(String name, ManagedBuffer buffer) {
+        public Builder buffer(String name, IBuffer buffer) {
             for (int i = 0; i < bindings.size(); i++) {
                 if (name.equals(bindings.get(i).name)) {
                     BindingEntry old = bindings.get(i);
@@ -171,7 +171,7 @@ public class DescriptorGroup implements AutoCloseable {
         /**
          * Binds a buffer to a binding index, inferring descriptor type from reflection. Only works with reflection().
          */
-        public Builder buffer(int binding, ManagedBuffer buffer) {
+        public Builder buffer(int binding, IBuffer buffer) {
             for (int i = 0; i < bindings.size(); i++) {
                 if (bindings.get(i).binding == binding) {
                     BindingEntry old = bindings.get(i);
@@ -182,7 +182,7 @@ public class DescriptorGroup implements AutoCloseable {
             throw new IllegalArgumentException("No reflected binding at index " + binding + " — use storageBuffer()/uniformBuffer() for non-reflected layouts");
         }
 
-        private Builder bufferBinding(String name, int binding, VkDescriptorType type, int stageFlags, int descriptorCount, ManagedBuffer buffer) {
+        private Builder bufferBinding(String name, int binding, VkDescriptorType type, int stageFlags, int descriptorCount, IBuffer buffer) {
             for (int i = 0; i < bindings.size(); i++) {
                 if (bindings.get(i).binding == binding) {
                     BindingEntry old = bindings.get(i);
@@ -267,7 +267,7 @@ public class DescriptorGroup implements AutoCloseable {
         }
 
         private record BindingEntry(String name, int binding, VkDescriptorType type, int stageFlags,
-                                    int descriptorCount, ManagedBuffer buffer, ImageBinding imageBinding) {
+                                    int descriptorCount, IBuffer buffer, ImageBinding imageBinding) {
         }
     }
 

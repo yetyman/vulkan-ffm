@@ -1,59 +1,24 @@
 # Next Steps
 
-## Buffer System Refactor — Composition over Inheritance
+## Known Bug — TransferBatch Fence Threading Violation
 
-The current buffer system uses inheritance (`MappedBuffer extends AbstractBuffer`, etc.) which forces fixed combinations of allocation and IO behavior and causes unnecessary copies when a strategy could avoid them (e.g. ReBar writing directly, ring buffer aliasing). Replace with a composable structure.
+Discovered while regression-testing the buffer system (see `docs/design/buffers/README.md` for the
+current architecture; not introduced by the composition-over-inheritance refactor described there —
+confirmed by code inspection that `TransferBatch`/`BatchTransferCompletion`/`TransferCompletion`
+fence handling is structurally unchanged from before that refactor).
 
-### Target shape
-```java
-public class ManagedBuffer implements AutoCloseable {
-    private final AllocationStrategy allocation; // where memory lives, how it is mapped
-    private final IoStrategy io;                 // how data moves between CPU and GPU
-    private final VkBuffer handle;
-}
-```
+`TransferCompletion.onComplete(callback)` spawns a virtual thread that calls `await()` ->
+`BatchTransferCompletion.await()` -> `VkFenceOps.wait(fence.device(), fence, ...)` on the shared
+`VkFence` with no synchronization. If the main thread concurrently triggers another wait/flush on
+the same fence (e.g. the next test's synchronous read forces a flush before the virtual thread's
+wait call returns), validation layers report `UNASSIGNED-Threading-MultipleThreads-Read` on
+`vkWaitForFences` — Vulkan spec forbids concurrent `vkWaitForFences` calls on the same `VkFence`
+from multiple threads. Reproduced on NVIDIA in `BufferExample`'s `DEVICE_LOCAL writeAsync+onComplete`
+test; did not reproduce on AMD in the same run (timing-dependent).
 
-### AllocationStrategy interface
-Responsible for: which VkDeviceMemory heap, suballocation vs dedicated, persistent mapping, memory property flags.
-Implementations:
-- `DirectAllocationStrategy` — one VkDeviceMemory per buffer (current behavior)
-- `SuballocatedAllocationStrategy` — backed by a suballocator pool (VMA or custom)
-- `ReBarAllocationStrategy` — DEVICE_LOCAL | HOST_VISIBLE when available
-
-### IoStrategy interface
-Responsible for: given data to write/read, what is the optimal transfer path.
-Implementations:
-- `MappedIoStrategy` — persistent CPU map, direct memcpy, no staging
-- `StagingIoStrategy` — write to staging buffer, vkCmdCopyBuffer to device-local
-- `RingIoStrategy` — N-slot ring wrapping another IoStrategy, one slot per frame in flight
-- `DirectIoStrategy` — ReBar direct write, no staging, no persistent map
-
-### Composition examples. just some ideas
-```java
-// host-visible mapped buffer (current MappedBuffer)
-new ManagedBuffer(AllocationStrategy.Direct(HOST_VISIBLE | HOST_COHERENT), IoStrategy.MAPPED, ...)
-
-// device-local with staging (current DeviceLocalBuffer)
-new ManagedBuffer(AllocationStrategy.Direct(DEVICE_LOCAL), IoStrategy.Staging(queue), ...)
-
-// suballocated device-local with staging
-new ManagedBuffer(AllocationStrategy.Suballoc(SuballocationType.XXXXXX), IoStrategy.Staging(queue), ...)
-
-// ReBar direct write
-new ManagedBuffer(AllocationStrategy.ReBar, IoStrategy.DIRECT, ...)
-
-// ring-buffered mapped (current RingBuffer)
-new ManagedBuffer(AllocationStrategy.Direct(HOST_VISIBLE), IoStrategy.RingBuffered(3, RenderSync.with(AtomicInteger x, IoStrategy.MAPPED), ...)
-```
-This composition organization is pending on actual needs to fit in to the architecture. We'll try to do it this way and see what fits. we will NOT be getting rid of the buffer strategy selector.
-
-### VMA integration
-VMA backs `SuballocationStrategy` only. It is not used for direct allocations unless explicitly chosen. Lives in `buffers/vma/` subpackage. 
-
-### Migration path
-- Keep `ManagedBuffer` interface stable (write/read/writeAsync/handle/size/close)
-- Replace SuballocationStrategy class hierarchy with strategy composition
-- `TypedVkBuffer`, `FloatVkBuffer`, etc. unchanged — they wrap `ManagedBuffer` interface
+Fix needs a lock (or per-completion fence) around fence wait/status calls in
+`BatchTransferCompletion`, scoped to whichever `TransferBatch`/fence-pool design ends up being used
+long-term. Not fixed yet — out of scope for the buffer strategy refactor.
 
 ---
 

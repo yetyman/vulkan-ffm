@@ -3,6 +3,8 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
 
+import static io.github.yetyman.vulkan.enums.VkMemoryPropertyFlagBits.*;
+
 public class BufferFactory {
 
     /**
@@ -27,10 +29,9 @@ public class BufferFactory {
      * @param usage             buffer usage flags (UNIFORM, STORAGE, VERTEX, etc.)
      * @param device            Vulkan logical device
      * @param transferQueue     queue for transfer operations
-     * @param commandPool       command pool for transfer commands
      * @return managed buffer instance
      */
-    public static ManagedBuffer create(
+    public static IBuffer create(
             MemoryStrategy strategy,
             MemoryStrategy secondaryStrategy,
             long size,
@@ -39,12 +40,25 @@ public class BufferFactory {
             VkQueue transferQueue) {
 
         return switch (strategy) {
-            case MAPPED -> new MappedBuffer(device, size, usage, true);
-            case MAPPED_CACHED -> new MappedBuffer(device, size, usage, false);
-            case DEVICE_LOCAL -> new DeviceLocalBuffer(device, size, usage, transferQueue, false);
-            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device, size, usage, transferQueue);
-            case STAGING -> new DeviceLocalBuffer(device, size, usage, transferQueue, true);
-            case REBAR -> new ReBarBuffer(device, size, usage);
+            case MAPPED -> managedBuffer(device, size, usage,
+                    new DirectAllocationStrategy(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value(), true),
+                    new MappedTransferStrategy(true));
+            case MAPPED_CACHED -> managedBuffer(device, size, usage,
+                    new DirectAllocationStrategy(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_CACHED_BIT.value(), true),
+                    new MappedTransferStrategy(false));
+            case DEVICE_LOCAL -> managedBuffer(device, size, usage,
+                    new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
+                    new StagingTransferStrategy(false, transferQueue));
+            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device,
+                    managedBuffer(device, size, usage,
+                            new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
+                            new StagingTransferStrategy(false, transferQueue)));
+            case STAGING -> managedBuffer(device, size, usage,
+                    new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
+                    new StagingTransferStrategy(true, transferQueue));
+            case REBAR -> managedBuffer(device, size, usage,
+                    new ReBarAllocationStrategy(),
+                    new DirectTransferStrategy());
             case RING_BUFFER -> {
                 boolean singleOffset = switch (secondaryStrategy) {
                     case MAPPED, MAPPED_CACHED, REBAR -> true;
@@ -54,10 +68,29 @@ public class BufferFactory {
                 };
                 yield new RingBuffer(device, size, usage, secondaryStrategy, 3, transferQueue, singleOffset);
             }
-            case SPARSE -> new SparseBuffer(device, size, usage, secondaryStrategy, transferQueue, transferQueue);
+            case SPARSE -> {
+                int pageMemoryProperties = switch (secondaryStrategy) {
+                    case MAPPED, MAPPED_CACHED ->
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
+                    case DEVICE_LOCAL -> VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
+                    default ->
+                            throw new IllegalArgumentException("Unsupported underlying strategy for sparse buffer: " + secondaryStrategy);
+                };
+                yield managedBuffer(device, size, usage,
+                        new SparseAllocationStrategy(pageMemoryProperties, transferQueue),
+                        new SparseTransferStrategy(transferQueue));
+            }
             case SUBALLOCATOR ->
                     throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
         };
+    }
+
+    private static ManagedBuffer managedBuffer(VkDevice device, long size, BufferUsage usage,
+                                               AllocationStrategy allocation, TransferStrategy transfer) {
+        return ManagedBuffer.builder()
+                .device(device).size(size).usage(usage)
+                .allocation(allocation).transfer(transfer)
+                .build();
     }
 
     /**
@@ -76,6 +109,38 @@ public class BufferFactory {
             VkDevice device,
             VkQueue transferQueue) {
         return new SuballocatorBuffer(device, totalSize, usage, slotSize, backingStrategy, transferQueue);
+    }
+
+    /**
+     * Creates a sparse buffer with the given underlying memory type (MAPPED/MAPPED_CACHED for
+     * host-visible pages, DEVICE_LOCAL for GPU-only pages backed by staged transfers).
+     * The returned {@link ManagedBuffer} also implements {@link SparseCapable} for page
+     * commit/decommit control.
+     *
+     * <p>Note: sparse binding is issued on {@code sparseQueue}; staging transfers for
+     * device-local underlying pages are issued on {@code transferQueue}. Pass the same queue
+     * for both when the device does not expose a separate sparse-binding queue family.
+     *
+     * @param sparseQueue   queue with VK_QUEUE_SPARSE_BINDING_BIT support, for vkQueueBindSparse
+     * @param transferQueue queue for staging transfers (device-local pages only)
+     */
+    public static ManagedBuffer createSparse(
+            long size,
+            BufferUsage usage,
+            MemoryStrategy underlyingStrategy,
+            VkDevice device,
+            VkQueue sparseQueue,
+            VkQueue transferQueue) {
+        int pageMemoryProperties = switch (underlyingStrategy) {
+            case MAPPED, MAPPED_CACHED ->
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value();
+            case DEVICE_LOCAL -> VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value();
+            default ->
+                    throw new IllegalArgumentException("Unsupported underlying strategy for sparse buffer: " + underlyingStrategy);
+        };
+        return managedBuffer(device, size, usage,
+                new SparseAllocationStrategy(pageMemoryProperties, sparseQueue),
+                new SparseTransferStrategy(transferQueue));
     }
 
     /**
@@ -109,7 +174,7 @@ public class BufferFactory {
      * @param transferQueue queue for transfer operations
      * @return optimally configured managed buffer
      */
-    public static ManagedBuffer createAutomatic(
+    public static IBuffer createAutomatic(
             AccessFrequency cpuWrite,
             AccessFrequency cpuRead,
             AccessFrequency gpuRead,

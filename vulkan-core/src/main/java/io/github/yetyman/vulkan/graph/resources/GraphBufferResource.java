@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.graph.resources;
 
 /**
- * A graph resource backed by a VkBuffer / ManagedBuffer.
+ * A graph resource backed by a VkBuffer / IBuffer.
  */
 public interface GraphBufferResource extends GraphResource {
 
