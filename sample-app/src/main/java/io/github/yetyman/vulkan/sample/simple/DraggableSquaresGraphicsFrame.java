@@ -15,6 +15,7 @@ import io.github.yetyman.vulkan.shaders.ShaderLoader;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import io.github.yetyman.structures.spatial.RTree;
 import java.util.HashSet;
@@ -211,16 +212,15 @@ public class DraggableSquaresGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         uploadDirtySquares();
 
-        descSet.bind(commandBuffer, pipeline, 0, frameArena);
+        descSet.bind(commandBuffer, pipeline, 0, frameAllocator);
 
-        MemorySegment pc = frameArena.allocate(PC_SIZE);
-        pc.set(ValueLayout.JAVA_FLOAT, 0, (float) width);
-        pc.set(ValueLayout.JAVA_FLOAT, 4, (float) height);
-        VkPushConstantsCmd.pushConstants(commandBuffer, pipeline.layout(),
-                VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, pc, PC_SIZE);
+        VkPushConstantsCmd.push(commandBuffer, pipeline, VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, PC_SIZE, pc -> {
+            pc.set(ValueLayout.JAVA_FLOAT, 0, (float) width);
+            pc.set(ValueLayout.JAVA_FLOAT, 4, (float) height);
+        });
     }
 
     @Override

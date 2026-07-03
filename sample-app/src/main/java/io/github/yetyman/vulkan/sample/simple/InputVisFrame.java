@@ -14,6 +14,7 @@ import io.github.yetyman.vulkan.shaders.ShaderInstance;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -193,11 +194,11 @@ public class InputVisFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         uploadInstances();
         descriptorGroup.set().bind(commandBuffer,
                 VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(),
-                pipeline.layout(), 0, frameArena);
+                pipeline.layout(), 0, frameAllocator);
     }
 
     @Override protected int vertexCount()   { return 6; }

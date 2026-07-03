@@ -36,6 +36,7 @@ import io.github.yetyman.vulkan.shaders.ShaderLoader;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 
 /**
@@ -188,14 +189,14 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
     }
 
     @Override
-    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
         // Rebind swapchain image for this frame (graph uses it for barriers + auto-rendering)
         swapchainImport.rebindWithView(
             swapchainImageViews[imageIndex].image(),
             swapchainImageViews[imageIndex].handle());
 
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena);
-        graph.executeInto(frameArena, imageIndex, commandBuffer);
+        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
+        graph.executeInto(frameArena(), imageIndex, commandBuffer);
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
 

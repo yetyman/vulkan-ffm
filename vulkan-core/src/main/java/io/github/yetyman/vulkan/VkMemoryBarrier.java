@@ -36,8 +36,8 @@ public class VkMemoryBarrier extends VkBarrier {
             return this;
         }
 
-        public io.github.yetyman.vulkan.VkMemoryBarrier build(Arena arena) {
-            MemorySegment barrier = io.github.yetyman.vulkan.generated.VkMemoryBarrier.allocate(arena);
+        public io.github.yetyman.vulkan.VkMemoryBarrier build(SegmentAllocator allocator) {
+            MemorySegment barrier = io.github.yetyman.vulkan.generated.VkMemoryBarrier.allocate(allocator);
             io.github.yetyman.vulkan.generated.VkMemoryBarrier.sType(barrier, VkStructureType.VK_STRUCTURE_TYPE_MEMORY_BARRIER.value());
             io.github.yetyman.vulkan.generated.VkMemoryBarrier.srcAccessMask(barrier, srcAccessMask);
             io.github.yetyman.vulkan.generated.VkMemoryBarrier.dstAccessMask(barrier, dstAccessMask);

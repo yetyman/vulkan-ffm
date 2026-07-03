@@ -47,7 +47,7 @@ public class TriangleGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         time.set((System.nanoTime() - startTime) / 1_000_000_000.0f);
         vertShader.flush(commandBuffer);
     }

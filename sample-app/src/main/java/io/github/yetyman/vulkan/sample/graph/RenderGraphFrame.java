@@ -49,6 +49,7 @@ import io.github.yetyman.vulkan.shaders.ShaderLoader;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.util.List;
 import java.util.Map;
 
@@ -275,8 +276,8 @@ public class RenderGraphFrame extends GraphicsFrame {
     }
 
     @Override
-    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena);
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
+        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
 
         // Reset resource state each frame (offscreen starts UNDEFINED, swapchain starts UNDEFINED)
         offscreenRes.reset();
@@ -284,7 +285,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         swapchainRes.setHandle(swapchainImageViews[imageIndex].image());
 
         // The graph executor handles everything: pass ordering, barrier emission, draw calls
-        executor.executeInto(compiledGraph, commandBuffer, frameArena, imageIndex, 0, null);
+        executor.executeInto(compiledGraph, commandBuffer, frameArena(), imageIndex, 0, null);
 
         // Final transition to present (the graph's PresentNode is a no-op, so we do this explicitly)
         io.github.yetyman.vulkan.VkImageBarrier.builder()
@@ -294,7 +295,7 @@ public class RenderGraphFrame extends GraphicsFrame {
             .transition(
                 VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
                 VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
-            .build(frameArena)
+            .build(frameAllocator)
             .execute(commandBuffer.handle(),
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());

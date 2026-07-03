@@ -3,9 +3,11 @@ package io.github.yetyman.vulkan.loop;
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.ILifecycle;
 import io.github.yetyman.vulkan.queue.MutexSubmitter;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Runs a compute workload on a dedicated thread using {@link LoopThread}, with its own
@@ -24,9 +26,9 @@ import java.lang.foreign.MemorySegment;
  *     .queue(computeQueue)
  *     .queueFamilyIndex(computeFamily)
  *     .semaphore(done)
- *     .work((cmd, generation, frameArena) -> {
+ *     .work((cmd, generation, frameAllocator) -> {
  *         pipeline.bind(cmd);
- *         descriptorSet.bind(cmd, pipeline, 0, frameArena);
+ *         descriptorSet.bind(cmd, pipeline, 0, frameAllocator);
  *         VkComputePipeline.dispatch(cmd, groupsX, groupsY, 1);
  *     })
  *     .build();
@@ -41,11 +43,13 @@ public class ComputeLoop implements ILifecycle {
 
     /**
      * Work function called each iteration with the current command buffer handle,
-     * the current generation counter, and a per-iteration arena.
+     * the current generation counter, and a thread-local scratch allocator (backed by
+     * {@link BumpAllocator}) valid only for the duration of this call — do not retain it
+     * or segments obtained from it.
      */
     @FunctionalInterface
     public interface Work {
-        void record(MemorySegment commandBuffer, long generation, Arena frameArena);
+        void record(MemorySegment commandBuffer, long generation, SegmentAllocator frameAllocator);
     }
 
     private final VkDevice device;
@@ -158,9 +162,17 @@ public class ComputeLoop implements ILifecycle {
             }
         }
 
-        try (Arena frameArena = Arena.ofConfined()) {
-            VkCommandBuffer.begin(cmd).execute(frameArena);
-            work.record(cmd.handle(), gen, frameArena);
+        try (Arena cmdArena = Arena.ofConfined()) {
+            VkCommandBuffer.begin(cmd).execute(cmdArena);
+
+            BumpAllocator ba = BumpAllocator.get();
+            ba.push();
+            try {
+                work.record(cmd.handle(), gen, ba);
+            } finally {
+                ba.pop();
+            }
+
             Vulkan.endCommandBuffer(cmd.handle()).check();
 
             gen++;
@@ -170,7 +182,7 @@ public class ComputeLoop implements ILifecycle {
             if (semaphore != null) {
                 submitBuilder.signalTimelineSemaphore(semaphore, signalValue);
             }
-            submitBuilder.submit(queue, fence.handle(), frameArena);
+            submitBuilder.submit(queue, fence.handle(), cmdArena);
             if (semaphore != null) {
                 semaphore.recordSignal(signalValue);
             }

@@ -252,7 +252,7 @@ public class VkRendering {
         /**
          * Builds the VkRenderingInfo and calls vkCmdBeginRendering.
          */
-        public void begin(MemorySegment commandBuffer, Arena arena) {
+        public void begin(MemorySegment commandBuffer, SegmentAllocator allocator) {
             if (device == null) throw new IllegalStateException("device not set");
 
             BumpAllocator ba = BumpAllocator.get();
@@ -260,8 +260,11 @@ public class VkRendering {
             MemorySegment renderingInfo;
             try {
                 renderingInfo = buildRenderingInfoInto(ba);
-            } finally {
-                // intentionally not popping here -- renderingInfo must remain valid through the Vulkan call
+            } catch (Throwable t) {
+                // build failed before the Vulkan call -- pop here since the second
+                // try/finally below (which owns the pop for the success path) never runs
+                ba.pop();
+                throw t;
             }
 
             // Vulkan call outside the catch scope so the JIT can inline through invokeExact

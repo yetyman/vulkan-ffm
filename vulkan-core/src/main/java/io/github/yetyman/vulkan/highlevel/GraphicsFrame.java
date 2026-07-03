@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.highlevel;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.enums.*;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
 
@@ -175,6 +176,18 @@ public abstract class GraphicsFrame implements AutoCloseable {
     }
 
     /**
+     * @return a thread-local scratch allocator for the current frame's command recording.
+     * Backed by {@link BumpAllocator} — allocations made through this allocator during
+     * {@link #recordCommandBuffer} (and everything it calls, including {@code beforeRenderPass}
+     * and {@code onDraw} on subclasses) are freed in bulk when recording completes, with no
+     * native allocation on the hot path. Do not retain the returned allocator or any segment
+     * obtained from it beyond the current {@link #recordCommandBuffer} call.
+     */
+    protected SegmentAllocator frameAllocator() {
+        return BumpAllocator.get();
+    }
+
+    /**
      * @return the current frame-in-flight index (0..maxFramesInFlight-1).
      */
     protected int currentFrame() {
@@ -291,7 +304,13 @@ public abstract class GraphicsFrame implements AutoCloseable {
         acquireSemaphorePool = imageAvailableSemaphores[imgIdx];
         imageAvailableSemaphores[imgIdx] = justSignaled;
 
-        recordCommandBuffer(commandBuffers[currentFrame], imgIdx, currentFrameArena);
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            recordCommandBuffer(commandBuffers[currentFrame], imgIdx, ba);
+        } finally {
+            ba.pop();
+        }
         if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.RECORD_END);
 
         VkSubmit.Builder submitBuilder = VkSubmit.builder()
@@ -392,7 +411,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
         cleanupResources();
     }
 
-    protected abstract void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena);
+    protected abstract void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator);
 
     protected VkRenderPass createRenderPassImpl() {
         throw new UnsupportedOperationException(

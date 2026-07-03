@@ -148,9 +148,9 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
                 .semaphore(computeDone)
                 .driver(LoopDriver.uncapped())
                 .name("nbody-compute")
-                .work((cmd, generation, frameArena) -> {
+                .work((cmd, generation, frameAllocator) -> {
                     computePipeline.bind(cmd);
-                    computeSet.bind(cmd, computePipeline, 0, frameArena);
+                    computeSet.bind(cmd, computePipeline, 0, frameAllocator);
 
                     // push_constant layout: int count, float dt, float softening, float gravity
                     computePipeline.pushInt(cmd, 0, PARTICLE_COUNT);
@@ -166,7 +166,7 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
                     VkMemoryBarrier.builder()
                             .srcAccess(VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT.value())
                             .dstAccess(0)
-                            .build(frameArena)
+                            .build(frameAllocator)
                             .execute(cmd,
                                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value(),
                                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
@@ -176,19 +176,19 @@ public class NBodyGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void beforeRenderPass(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void beforeRenderPass(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         VkMemoryBarrier.builder()
                 .srcAccess(VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT.value())
                 .dstAccess(VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value())
-                .build(frameArena)
+                .build(frameAllocator)
                 .execute(commandBuffer.handle(),
                         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value(),
                         VkPipelineStageFlagBits.VK_PIPELINE_STAGE_VERTEX_SHADER_BIT.value());
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
-        graphicsSet.bind(commandBuffer, pipeline, 0, frameArena);
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
+        graphicsSet.bind(commandBuffer, pipeline, 0, frameAllocator);
     }
 
     @Override

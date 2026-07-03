@@ -34,13 +34,13 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
      * Called each frame before the render pass begins. Use for barriers that must be outside
      * the render pass (e.g. compute-to-vertex memory barriers).
      */
-    protected void beforeRenderPass(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void beforeRenderPass(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
     }
 
     /**
      * Called each frame after pipeline bind and viewport/scissor setup, before the draw call.
      */
-    protected abstract void onDraw(VkCommandBuffer commandBuffer, Arena frameArena);
+    protected abstract void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator);
 
     /**
      * @return the number of vertices to draw each frame.
@@ -86,10 +86,10 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
     }
 
     @Override
-    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, Arena frameArena) {
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena);
+    protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
+        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
 
-        beforeRenderPass(commandBuffer, frameArena);
+        beforeRenderPass(commandBuffer, frameAllocator);
 
         if (useDynamicRendering) {
             VkImageBarrier.builder()
@@ -99,7 +99,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                     .transition(
                             VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
                             VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value())
-                    .build(frameArena)
+                    .build(frameAllocator)
                     .execute(commandBuffer.handle(),
                             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value(),
                             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
@@ -113,12 +113,12 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                             VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
                             VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
                             0.0f, 0.0f, 0.0f, 1.0f)
-                    .begin(commandBuffer.handle(), frameArena);
+                    .begin(commandBuffer.handle(), frameAllocator);
         } else {
             VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
                     .renderArea(0, 0, width, height)
                     .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                    .execute(frameArena);
+                    .execute(frameArena());
         }
 
         VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
@@ -126,7 +126,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
         VkSetState.setViewport(commandBuffer, 0, 0, 0, width, height, 0.0f, 1.0f);
         VkSetState.setScissor(commandBuffer, 0, 0, 0, width, height);
 
-        onDraw(commandBuffer, frameArena);
+        onDraw(commandBuffer, frameAllocator);
 
         DrawCommand.direct(vertexCount(), instanceCount()).execute(commandBuffer.handle());
 
@@ -140,7 +140,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
                     .transition(
                             VkImageLayout.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.value(),
                             VkImageLayout.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR.value())
-                    .build(frameArena)
+                    .build(frameAllocator)
                     .execute(commandBuffer.handle(),
                             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value(),
                             VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());

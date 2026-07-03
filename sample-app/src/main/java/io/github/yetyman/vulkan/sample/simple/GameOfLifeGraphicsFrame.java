@@ -136,12 +136,12 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
                 .semaphore(computeDone)
                 .driver(LoopDriver.uncapped())
                 .name("gol-compute")
-                .work((cmd, generation, frameArena) -> {
+                .work((cmd, generation, frameAllocator) -> {
                     int slot = (int) (generation % 2);
                     VkDescriptorSet set = (slot == 0) ? computeSetAtoB : computeSetBtoA;
 
                     computePipeline.bind(cmd);
-                    set.bind(cmd, computePipeline, 0, frameArena);
+                    set.bind(cmd, computePipeline, 0, frameAllocator);
                     computePipeline.pushInt(cmd, 0, GRID_W);
                     computePipeline.pushInt(cmd, 4, GRID_H);
                     VkComputePipeline.dispatch(cmd, (GRID_W + 15) / 16, (GRID_H + 15) / 16, 1);
@@ -149,7 +149,7 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
                     VkMemoryBarrier.builder()
                             .srcAccess(VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT.value())
                             .dstAccess(VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value())
-                            .build(frameArena)
+                            .build(frameAllocator)
                             .execute(cmd,
                                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value(),
                                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value());
@@ -159,17 +159,16 @@ public class GameOfLifeGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         long gen = computeLoop.semaphore().completedGeneration();
         VkDescriptorSet fragSet = (gen % 2 == 0 && gen > 0) ? fragSetB : fragSetA;
 
-        fragSet.bind(commandBuffer, pipeline, 0, frameArena);
+        fragSet.bind(commandBuffer, pipeline, 0, frameAllocator);
 
-        MemorySegment pcData = frameArena.allocate(8);
-        pcData.set(ValueLayout.JAVA_INT, 0, GRID_W);
-        pcData.set(ValueLayout.JAVA_INT, 4, GRID_H);
-        VkPushConstantsCmd.pushConstants(commandBuffer, pipeline.layout(),
-                VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, pcData, 8);
+        VkPushConstantsCmd.push(commandBuffer, pipeline, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8, pcData -> {
+            pcData.set(ValueLayout.JAVA_INT, 0, GRID_W);
+            pcData.set(ValueLayout.JAVA_INT, 4, GRID_H);
+        });
     }
 
     @Override

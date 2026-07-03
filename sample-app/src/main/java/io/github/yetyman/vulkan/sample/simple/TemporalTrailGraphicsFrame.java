@@ -163,7 +163,7 @@ public class TemporalTrailGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void beforeRenderPass(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void beforeRenderPass(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         // -- Temporal feedback: use TemporalResource to select correct slots --
         // The temporal resource knows which slot is "previous" (read) and "current" (write)
         // based on how many times onWriteExecuted() has been called.
@@ -175,16 +175,15 @@ public class TemporalTrailGraphicsFrame extends SimpleGraphicsFrame {
 
         // Dispatch compute: blend history + new frame -> output
         computePipeline.bind(commandBuffer.handle());
-        computeSet.bind(commandBuffer, computePipeline, 0, frameArena);
+        computeSet.bind(commandBuffer, computePipeline, 0, frameAllocator);
 
         float time = (float) ((System.nanoTime() - startTime) / 1_000_000_000.0);
-        MemorySegment pc = frameArena.allocate(16);
-        pc.set(ValueLayout.JAVA_INT, 0, GRID_W);
-        pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
-        pc.set(ValueLayout.JAVA_FLOAT, 8, time);
-        pc.set(ValueLayout.JAVA_FLOAT, 12, 0.92f); // trail decay
-        VkPushConstantsCmd.pushConstants(commandBuffer, computePipeline.layout(),
-            VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, pc, 16);
+        VkPushConstantsCmd.push(commandBuffer, computePipeline, VkShaderStageFlagBits.VK_SHADER_STAGE_COMPUTE_BIT.value(), 0, 16, pc -> {
+            pc.set(ValueLayout.JAVA_INT, 0, GRID_W);
+            pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
+            pc.set(ValueLayout.JAVA_FLOAT, 8, time);
+            pc.set(ValueLayout.JAVA_FLOAT, 12, 0.92f); // trail decay
+        });
 
         VkComputePipeline.dispatch(commandBuffer.handle(), (GRID_W + 15) / 16, (GRID_H + 15) / 16, 1);
 
@@ -192,7 +191,7 @@ public class TemporalTrailGraphicsFrame extends SimpleGraphicsFrame {
         VkMemoryBarrier.builder()
             .srcAccess(VkAccessFlagBits.VK_ACCESS_SHADER_WRITE_BIT.value())
             .dstAccess(VkAccessFlagBits.VK_ACCESS_SHADER_READ_BIT.value())
-            .build(frameArena)
+            .build(frameAllocator)
             .execute(commandBuffer.handle(),
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT.value(),
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT.value());
@@ -202,19 +201,18 @@ public class TemporalTrailGraphicsFrame extends SimpleGraphicsFrame {
     }
 
     @Override
-    protected void onDraw(VkCommandBuffer commandBuffer, Arena frameArena) {
+    protected void onDraw(VkCommandBuffer commandBuffer, SegmentAllocator frameAllocator) {
         // Display the buffer that was just written (current write slot, which just advanced)
         // After onWriteExecuted(), previousReadSlot() points to what we just wrote
         int writeCount = trailHistory.writeCount();
         VkDescriptorSet fragSet = (writeCount % 2 == 0) ? fragSetA : fragSetB;
 
-        fragSet.bind(commandBuffer, pipeline, 0, frameArena);
+        fragSet.bind(commandBuffer, pipeline, 0, frameAllocator);
 
-        MemorySegment pc = frameArena.allocate(8);
-        pc.set(ValueLayout.JAVA_INT, 0, GRID_W);
-        pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
-        VkPushConstantsCmd.pushConstants(commandBuffer, pipeline.layout(),
-            VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, pc, 8);
+        VkPushConstantsCmd.push(commandBuffer, pipeline, VkShaderStageFlagBits.VK_SHADER_STAGE_FRAGMENT_BIT.value(), 0, 8, pc -> {
+            pc.set(ValueLayout.JAVA_INT, 0, GRID_W);
+            pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
+        });
     }
 
     @Override

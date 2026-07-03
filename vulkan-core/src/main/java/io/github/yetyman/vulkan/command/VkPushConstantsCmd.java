@@ -7,6 +7,7 @@ import io.github.yetyman.vulkan.generated.VulkanFFM;
 import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.*;
+import java.util.function.Consumer;
 
 /**
  * Vulkan push constants command wrapper for updating push constant data.
@@ -88,6 +89,44 @@ public record VkPushConstantsCmd(MemorySegment pipelineLayout, int stageFlags, i
         } finally {
             ba.pop();
         }
+    }
+
+    // General-purpose writer-callback push. Allocates the scratch struct from the thread-local
+    // BumpAllocator (no native allocation) and hands it to the writer to fill arbitrary layouts
+    // (mixed ints/floats, nested structs, etc.) before issuing the push constants command.
+    // This is the scalable escape hatch for push constant blocks that don't fit the fixed-arity
+    // pushInt/pushFloat/pushFloats helpers above.
+
+    public static void push(VkCommandBuffer cmd, MemorySegment pipelineLayout, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        push(cmd.handle(), pipelineLayout, stageFlags, offset, size, writer);
+    }
+
+    public static void push(MemorySegment cmd, MemorySegment pipelineLayout, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            MemorySegment data = ba.alloc(size);
+            writer.accept(data);
+            pushConstants(cmd, pipelineLayout, stageFlags, offset, data, size);
+        } finally {
+            ba.pop();
+        }
+    }
+
+    public static void push(VkCommandBuffer cmd, VkPipeline pipeline, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        push(cmd.handle(), pipeline.layout(), stageFlags, offset, size, writer);
+    }
+
+    public static void push(MemorySegment cmd, VkPipeline pipeline, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        push(cmd, pipeline.layout(), stageFlags, offset, size, writer);
+    }
+
+    public static void push(VkCommandBuffer cmd, VkComputePipeline pipeline, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        push(cmd.handle(), pipeline.layout(), stageFlags, offset, size, writer);
+    }
+
+    public static void push(MemorySegment cmd, VkComputePipeline pipeline, int stageFlags, int offset, long size, Consumer<MemorySegment> writer) {
+        push(cmd, pipeline.layout(), stageFlags, offset, size, writer);
     }
 
     // Reusable execution methods
