@@ -10,11 +10,12 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>vulkan-core</module>
-        <module>sample-app</module>
         <module>helpers-core</module>
+        <module>vulkan-core</module>
+        <module>vulkan-ffm-foundation</module>
+        <module>sample-app</module>
     </modules>
-    
+
     <profiles>
         <profile>
             <id>with-bindings</id>
@@ -23,7 +24,10 @@
                 <module>glfw-bindings</module>
                 <module>spirv-reflect-bindings</module>
                 <module>shaderc-bindings</module>
+                <module>stb-truetype-bindings</module>
+                <module>helpers-core</module>
                 <module>vulkan-core</module>
+                <module>vulkan-ffm-foundation</module>
                 <module>sample-app</module>
             </modules>
         </profile>
