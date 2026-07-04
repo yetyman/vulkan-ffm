@@ -9,7 +9,7 @@ import io.github.yetyman.vulkan.graph.resources.GraphBufferResource;
 import io.github.yetyman.vulkan.graph.resources.GraphImageResource;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 
-import java.lang.foreign.Arena;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Default barrier strategy. Emits the minimal barrier needed to transition a resource
@@ -39,7 +39,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
 
     @Override
     public void emit(GraphResource resource, ResourceEdge consumer, int consumerQueueFamily,
-                     BarrierBatch batch, Arena arena) {
+                     BarrierBatch batch, SegmentAllocator allocator) {
         int srcAccess = resource.lastAccessMask();
         int dstAccess = consumer.accessMask();
         int srcStage = resource.lastStageMask();
@@ -51,20 +51,20 @@ public class SplitBarrierStrategy implements BarrierStrategy {
 
         if (resource instanceof GraphImageResource imageRes) {
             emitImageBarrier(imageRes, consumer, srcAccess, dstAccess, srcStage, dstStage,
-                srcQueue, dstQueue, crossQueue, batch, arena);
+                srcQueue, dstQueue, crossQueue, batch, allocator);
         } else if (resource instanceof GraphBufferResource) {
             emitBufferBarrier(resource, srcAccess, dstAccess, srcStage, dstStage,
-                srcQueue, dstQueue, crossQueue, batch, arena);
+                srcQueue, dstQueue, crossQueue, batch, allocator);
         } else {
             emitBufferBarrier(resource, srcAccess, dstAccess, srcStage, dstStage,
-                srcQueue, dstQueue, crossQueue, batch, arena);
+                srcQueue, dstQueue, crossQueue, batch, allocator);
         }
     }
 
     private void emitImageBarrier(GraphImageResource imageRes, ResourceEdge consumer,
                                   int srcAccess, int dstAccess, int srcStage, int dstStage,
                                   int srcQueue, int dstQueue, boolean crossQueue,
-                                  BarrierBatch batch, Arena arena) {
+                                  BarrierBatch batch, SegmentAllocator allocator) {
         int oldLayout = imageRes.currentLayout();
         int newLayout = consumer.imageLayout();
 
@@ -84,7 +84,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
                 .dstAccess(0)
                 .transition(oldLayout, newLayout)
                 .queueFamilyTransfer(srcQueue, dstQueue)
-                .build(arena);
+                .build(allocator);
 
             VkImageBarrier acquireBarrier = VkImageBarrier.builder()
                 .image(imageRes.handle())
@@ -92,7 +92,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
                 .dstAccess(dstAccess)
                 .transition(oldLayout, newLayout)
                 .queueFamilyTransfer(srcQueue, dstQueue)
-                .build(arena);
+                .build(allocator);
 
             batch.addOwnershipTransfer(new OwnershipTransfer(
                 releaseBarrier, acquireBarrier,
@@ -109,7 +109,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
                 .dstAccess(dstAccess)
                 .transition(oldLayout, newLayout)
                 .queueFamilyTransfer(VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED)
-                .build(arena);
+                .build(allocator);
 
             batch.add(barrier, srcStage, dstStage);
         }
@@ -120,7 +120,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
     private void emitBufferBarrier(GraphResource resource,
                                    int srcAccess, int dstAccess, int srcStage, int dstStage,
                                    int srcQueue, int dstQueue, boolean crossQueue,
-                                   BarrierBatch batch, Arena arena) {
+                                   BarrierBatch batch, SegmentAllocator allocator) {
         if (!crossQueue && isReadOnly(srcAccess) && isReadOnly(dstAccess)) {
             return;
         }
@@ -135,14 +135,14 @@ public class SplitBarrierStrategy implements BarrierStrategy {
                 .srcAccess(srcAccess)
                 .dstAccess(0)
                 .queueFamilyTransfer(srcQueue, dstQueue)
-                .build(arena);
+                .build(allocator);
 
             VkBufferBarrier acquireBarrier = VkBufferBarrier.builder()
                 .buffer(resource.handle())
                 .srcAccess(0)
                 .dstAccess(dstAccess)
                 .queueFamilyTransfer(srcQueue, dstQueue)
-                .build(arena);
+                .build(allocator);
 
             batch.addOwnershipTransfer(new OwnershipTransfer(
                 releaseBarrier, acquireBarrier,
@@ -157,7 +157,7 @@ public class SplitBarrierStrategy implements BarrierStrategy {
                 .buffer(resource.handle())
                 .srcAccess(srcAccess)
                 .dstAccess(dstAccess)
-                .build(arena);
+                .build(allocator);
 
             batch.add(barrier, srcStage, dstStage);
         }

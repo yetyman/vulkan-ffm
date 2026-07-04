@@ -3,7 +3,7 @@ package io.github.yetyman.vulkan.graph.barriers;
 import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 
-import java.lang.foreign.Arena;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Strategy interface for synthesizing barriers between passes.
@@ -18,8 +18,8 @@ public interface BarrierStrategy {
      * @param consumer the edge declaring how the next pass will access the resource
      * @param consumerQueueFamily the queue family index of the consuming node
      * @param batch accumulator for the barriers to emit
-     * @param arena arena for barrier struct allocation
+     * @param allocator scratch allocator for barrier struct allocation (frame-scoped)
      */
     void emit(GraphResource resource, ResourceEdge consumer, int consumerQueueFamily,
-              BarrierBatch batch, Arena arena);
+              BarrierBatch batch, SegmentAllocator allocator);
 }

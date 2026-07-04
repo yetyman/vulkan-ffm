@@ -40,7 +40,7 @@ import io.github.yetyman.vulkan.graph.scheduling.ListSchedulingStrategy;
 import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
-import io.github.yetyman.vulkan.highlevel.DrawCommand;
+import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.highlevel.GraphicsFrame;
 import io.github.yetyman.vulkan.shaders.CompiledShader;
 import io.github.yetyman.vulkan.shaders.PushConstant;
@@ -209,7 +209,7 @@ public class RenderGraphFrame extends GraphicsFrame {
             .scheduleHint(ScheduleHint.EARLY)
             .execute(ctx -> {
                 VkCommandBuffer cmd = ctx.commandBuffer();
-                Arena fa = ctx.frameArena();
+                SegmentAllocator fa = ctx.frameArena();
 
                 VkRendering.builder()
                     .device(device)
@@ -228,7 +228,7 @@ public class RenderGraphFrame extends GraphicsFrame {
                 time.set((System.nanoTime() - startTime) / 1_000_000_000.0f);
                 triangleVert.flush(cmd);
 
-                DrawCommand.direct(3, 1).execute(cmd.handle());
+                VkDraw.draw(cmd.handle(), 3, 1);
                 VkRendering.end(device, cmd.handle());
             })
             .build();
@@ -239,7 +239,7 @@ public class RenderGraphFrame extends GraphicsFrame {
             .writes(ResourceEdge.writeImage(swapchainRes, COLOR_WRITE, COLOR_STAGE, COLOR_ATTACH))
             .execute(ctx -> {
                 VkCommandBuffer cmd = ctx.commandBuffer();
-                Arena fa = ctx.frameArena();
+                SegmentAllocator fa = ctx.frameArena();
                 int imageIndex = ctx.frameIndex();
 
                 VkRendering.builder()
@@ -258,7 +258,7 @@ public class RenderGraphFrame extends GraphicsFrame {
 
                 edgeDescSet.bind(cmd, edgePipeline, 0, fa);
 
-                DrawCommand.direct(3, 1).execute(cmd.handle());
+                VkDraw.draw(cmd.handle(), 3, 1);
                 VkRendering.end(device, cmd.handle());
             })
             .build();
@@ -277,7 +277,7 @@ public class RenderGraphFrame extends GraphicsFrame {
 
     @Override
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
+        VkCommandBuffer.begin(commandBuffer).execute(frameAllocator);
 
         // Reset resource state each frame (offscreen starts UNDEFINED, swapchain starts UNDEFINED)
         offscreenRes.reset();
@@ -285,7 +285,7 @@ public class RenderGraphFrame extends GraphicsFrame {
         swapchainRes.setHandle(swapchainImageViews[imageIndex].image());
 
         // The graph executor handles everything: pass ordering, barrier emission, draw calls
-        executor.executeInto(compiledGraph, commandBuffer, frameArena(), imageIndex, 0, null);
+        executor.executeInto(compiledGraph, commandBuffer, frameAllocator, imageIndex, 0, null);
 
         // Final transition to present (the graph's PresentNode is a no-op, so we do this explicitly)
         io.github.yetyman.vulkan.VkImageBarrier.builder()

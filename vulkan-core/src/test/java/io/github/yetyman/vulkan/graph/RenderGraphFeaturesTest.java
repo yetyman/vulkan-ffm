@@ -328,7 +328,7 @@ class RenderGraphFeaturesTest {
     private static class FakeExecutionContext implements io.github.yetyman.vulkan.graph.nodes.ExecutionContext {
         private int iteration = -1;
         @Override public io.github.yetyman.vulkan.VkCommandBuffer commandBuffer() { return null; }
-        @Override public java.lang.foreign.Arena frameArena() { return null; }
+        @Override public java.lang.foreign.SegmentAllocator frameArena() { return null; }
         @Override public int frameIndex() { return 0; }
         @Override public long frameGeneration() { return 0; }
         @Override public io.github.yetyman.vulkan.graph.scheduling.QueueAssignment queue() { return null; }

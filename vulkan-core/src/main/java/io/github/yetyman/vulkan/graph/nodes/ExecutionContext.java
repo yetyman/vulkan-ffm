@@ -6,8 +6,8 @@ import io.github.yetyman.vulkan.graph.feedback.FrameStats;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueAssignment;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Context provided to nodes during the execute phase.
@@ -17,8 +17,12 @@ public interface ExecutionContext {
     /** @return the command buffer to record into */
     VkCommandBuffer commandBuffer();
 
-    /** @return arena scoped to this frame (freed after submit) */
-    Arena frameArena();
+    /**
+     * @return a scratch allocator valid for the duration of this node's execute() call.
+     * Backed by a thread-local bump allocator — do not retain the returned allocator or
+     * any segment obtained from it beyond the current execute() call.
+     */
+    SegmentAllocator frameArena();
 
     /** @return which frame-in-flight slot (0..framesInFlight-1) */
     int frameIndex();

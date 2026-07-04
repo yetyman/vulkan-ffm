@@ -122,7 +122,7 @@ public class VkSubmit {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
-                return queueSubmit(queue, 1, buildInternal(fence, ba), fence);
+                return queueSubmit(queue, 1, buildInternal(fence, ba, null), fence);
             } finally {
                 ba.pop();
             }
@@ -135,7 +135,7 @@ public class VkSubmit {
             BumpAllocator ba = BumpAllocator.get();
             ba.push();
             try {
-                queue.submit(buildInternal(fence, ba), fence);
+                queue.submit(buildInternal(fence, ba, null), fence);
             } finally {
                 ba.pop();
             }
@@ -147,10 +147,114 @@ public class VkSubmit {
          * the queue's submitter strategy.
          */
         public MemorySegment build(MemorySegment fence, SegmentAllocator allocator) {
-            return buildInternal(fence, allocator);
+            return buildInternal(fence, allocator, null);
         }
 
-        private MemorySegment buildInternal(MemorySegment fence, SegmentAllocator alloc) {
+        // --- Cached submit info: zero-allocation per-frame patch-and-submit ---
+        //
+        // Call buildAndCache(Arena) once (e.g. at frame-sync setup time) with the wait/signal
+        // semaphore slots and command buffer slots already configured via the fluent methods
+        // above. The resulting Cached handle lets callers patch individual semaphore/command
+        // buffer handles and timeline values per frame (pointer/value writes only, no native
+        // allocation) before calling submit(...) again.
+        //
+        // Only usable when the shape (wait/signal/command-buffer counts, and whether timeline
+        // values are used) is fixed for the lifetime of the cache -- which is the case for
+        // GraphicsFrame's per-frame-slot submit info (same command buffer per slot, same
+        // number of wait/signal semaphores and timeline waits configured once before the
+        // render loop starts).
+
+        /**
+         * Builds the VkSubmitInfo (and VkTimelineSemaphoreSubmitInfo, if timeline values are
+         * used) into the given long-lived arena and returns a {@link Cached} handle for
+         * zero-allocation per-frame patching. Call once; do not call fluent setters on this
+         * Builder afterward -- use the returned Cached's patch methods instead.
+         */
+        public Cached buildAndCache(Arena arena) {
+            CapturedArrays captured = new CapturedArrays();
+            MemorySegment submitInfo = buildInternal(MemorySegment.NULL, arena, captured);
+            return new Cached(submitInfo, captured.waitSemArray, captured.waitStageArray, captured.cmdBufArray,
+                captured.signalSemArray, captured.waitValueArray, captured.signalValueArray);
+        }
+
+        /**
+         * Zero-allocation handle to a cached VkSubmitInfo struct. Patch individual slots via
+         * the setters below, then call {@link #submit(MemorySegment, MemorySegment)} or
+         * {@link #submit(VkQueue, MemorySegment)}. Not thread-safe -- use from a single thread,
+         * matching the confined recording/submission model of GraphicsFrame.
+         */
+        public static final class Cached {
+            private final MemorySegment submitInfo;
+            private final MemorySegment waitSemArray;
+            private final MemorySegment waitStageArray;
+            private final MemorySegment cmdBufArray;
+            private final MemorySegment signalSemArray;
+            private final MemorySegment waitValueArray;
+            private final MemorySegment signalValueArray;
+
+            private Cached(MemorySegment submitInfo, MemorySegment waitSemArray, MemorySegment waitStageArray,
+                          MemorySegment cmdBufArray, MemorySegment signalSemArray,
+                          MemorySegment waitValueArray, MemorySegment signalValueArray) {
+                this.submitInfo = submitInfo;
+                this.waitSemArray = waitSemArray;
+                this.waitStageArray = waitStageArray;
+                this.cmdBufArray = cmdBufArray;
+                this.signalSemArray = signalSemArray;
+                this.waitValueArray = waitValueArray;
+                this.signalValueArray = signalValueArray;
+            }
+
+            /** Patches the wait semaphore handle at the given index. Zero allocation. */
+            public void patchWaitSemaphore(int index, MemorySegment semaphore) {
+                waitSemArray.setAtIndex(ValueLayout.ADDRESS, index, semaphore);
+            }
+
+            /** Patches the wait dst-stage mask at the given index. Zero allocation. */
+            public void patchWaitStage(int index, int stageMask) {
+                waitStageArray.setAtIndex(ValueLayout.JAVA_INT, index, stageMask);
+            }
+
+            /** Patches the command buffer handle at the given index. Zero allocation. */
+            public void patchCommandBuffer(int index, MemorySegment commandBuffer) {
+                cmdBufArray.setAtIndex(ValueLayout.ADDRESS, index, commandBuffer);
+            }
+
+            /** Patches the signal semaphore handle at the given index. Zero allocation. */
+            public void patchSignalSemaphore(int index, MemorySegment semaphore) {
+                signalSemArray.setAtIndex(ValueLayout.ADDRESS, index, semaphore);
+            }
+
+            /** Patches the timeline wait value at the given wait-slot index. Zero allocation. */
+            public void patchWaitTimelineValue(int index, long value) {
+                waitValueArray.setAtIndex(ValueLayout.JAVA_LONG, index, value);
+            }
+
+            /** Patches the timeline signal value at the given signal-slot index. Zero allocation. */
+            public void patchSignalTimelineValue(int index, long value) {
+                signalValueArray.setAtIndex(ValueLayout.JAVA_LONG, index, value);
+            }
+
+            /** Submits the cached struct directly via vkQueueSubmit. Zero allocation. */
+            public VkResult submit(MemorySegment queue, MemorySegment fence) {
+                return queueSubmit(queue, 1, submitInfo, fence);
+            }
+
+            /** Submits the cached struct via the queue's installed IQueueSubmitter. Zero allocation. */
+            public void submit(VkQueue queue, MemorySegment fence) {
+                queue.submit(submitInfo, fence);
+            }
+
+            /** Same as {@link #submit(MemorySegment, MemorySegment)}, via VulkanFFMCritical. Zero allocation. */
+            public VkResult submitCritical(MemorySegment queue, MemorySegment fence) {
+                return queueSubmitCritical(queue, 1, submitInfo, fence);
+            }
+        }
+
+        private static final class CapturedArrays {
+            MemorySegment waitSemArray, waitStageArray, cmdBufArray, signalSemArray, waitValueArray, signalValueArray;
+        }
+
+        private MemorySegment buildInternal(MemorySegment fence, SegmentAllocator alloc, CapturedArrays captured) {
             MemorySegment submitInfo = VkSubmitInfo.allocate(alloc);
             VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO.value());
             VkSubmitInfo.waitSemaphoreCount(submitInfo, waitCount);
@@ -163,6 +267,10 @@ public class VkSubmit {
                 }
                 VkSubmitInfo.pWaitSemaphores(submitInfo, waitSemArray);
                 VkSubmitInfo.pWaitDstStageMask(submitInfo, waitStageArray);
+                if (captured != null) {
+                    captured.waitSemArray = waitSemArray;
+                    captured.waitStageArray = waitStageArray;
+                }
             }
             VkSubmitInfo.commandBufferCount(submitInfo, cmdCount);
             if (cmdCount > 0) {
@@ -170,6 +278,7 @@ public class VkSubmit {
                 for (int i = 0; i < cmdCount; i++)
                     cmdBufArray.setAtIndex(ValueLayout.ADDRESS, i, commandBuffers[i]);
                 VkSubmitInfo.pCommandBuffers(submitInfo, cmdBufArray);
+                if (captured != null) captured.cmdBufArray = cmdBufArray;
             }
             VkSubmitInfo.signalSemaphoreCount(submitInfo, signalCount);
             if (signalCount > 0) {
@@ -177,6 +286,7 @@ public class VkSubmit {
                 for (int i = 0; i < signalCount; i++)
                     signalSemArray.setAtIndex(ValueLayout.ADDRESS, i, signalSemaphores[i]);
                 VkSubmitInfo.pSignalSemaphores(submitInfo, signalSemArray);
+                if (captured != null) captured.signalSemArray = signalSemArray;
             }
 
             if (hasTimelineValues) {
@@ -189,6 +299,7 @@ public class VkSubmit {
                         arr.setAtIndex(ValueLayout.JAVA_LONG, i, waitValues[i]);
                     VkTimelineSemaphoreSubmitInfo.waitSemaphoreValueCount(timelineInfo, waitCount);
                     VkTimelineSemaphoreSubmitInfo.pWaitSemaphoreValues(timelineInfo, arr);
+                    if (captured != null) captured.waitValueArray = arr;
                 }
                 if (signalCount > 0) {
                     MemorySegment arr = alloc.allocate(ValueLayout.JAVA_LONG, signalCount);
@@ -196,6 +307,7 @@ public class VkSubmit {
                         arr.setAtIndex(ValueLayout.JAVA_LONG, i, signalValues[i]);
                     VkTimelineSemaphoreSubmitInfo.signalSemaphoreValueCount(timelineInfo, signalCount);
                     VkTimelineSemaphoreSubmitInfo.pSignalSemaphoreValues(timelineInfo, arr);
+                    if (captured != null) captured.signalValueArray = arr;
                 }
                 VkSubmitInfo.pNext(submitInfo, timelineInfo);
             } else {

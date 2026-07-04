@@ -28,7 +28,7 @@ import io.github.yetyman.vulkan.graph.resources.ResourceDescriptor;
 import io.github.yetyman.vulkan.graph.resources.TemporalResource;
 import io.github.yetyman.vulkan.graph.scheduling.QueueCapability;
 import io.github.yetyman.vulkan.graph.scheduling.ScheduleHint;
-import io.github.yetyman.vulkan.highlevel.DrawCommand;
+import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.highlevel.GraphicsFrame;
 import io.github.yetyman.vulkan.shaders.CompiledShader;
 import io.github.yetyman.vulkan.shaders.ShaderInstance;
@@ -182,7 +182,7 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
                     pc.set(ValueLayout.JAVA_INT, 0, GRID_W);
                     pc.set(ValueLayout.JAVA_INT, 4, GRID_H);
                     VkPushConstantsCmd.pushConstants(cmd, displayPipeline.layout(), fs, 0, pc, 8);
-                    DrawCommand.direct(3, 1).execute(cmd.handle());
+                    VkDraw.draw(cmd.handle(), 3, 1);
                 })
                 .build())
             .build();
@@ -195,8 +195,8 @@ public class TemporalTrailGraphFrame extends GraphicsFrame {
             swapchainImageViews[imageIndex].image(),
             swapchainImageViews[imageIndex].handle());
 
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
-        graph.executeInto(frameArena(), imageIndex, commandBuffer);
+        VkCommandBuffer.begin(commandBuffer).execute(frameAllocator);
+        graph.executeInto(frameAllocator, imageIndex, commandBuffer);
         Vulkan.endCommandBuffer(commandBuffer.handle()).check();
     }
 

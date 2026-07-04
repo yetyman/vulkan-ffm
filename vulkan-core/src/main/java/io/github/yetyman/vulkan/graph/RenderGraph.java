@@ -27,6 +27,7 @@ import io.github.yetyman.vulkan.graph.scheduling.ListSchedulingStrategy;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -165,37 +166,37 @@ public class RenderGraph implements AutoCloseable {
      * buffers internally, records all nodes, and submits to the appropriate queues with
      * inter-queue timeline semaphore synchronization.
      *
-     * @param frameArena arena scoped to this frame
+     * @param frameAllocator scratch allocator scoped to this frame
      * @param frameIndex which frame-in-flight slot (0..framesInFlight-1)
      * @param frameFence fence to signal when all submissions complete, or MemorySegment.NULL
      */
-    public void execute(Arena frameArena, int frameIndex, MemorySegment frameFence) {
+    public void execute(SegmentAllocator frameAllocator, int frameIndex, MemorySegment frameFence) {
         if (executing) throw new IllegalStateException("RenderGraph is already executing (concurrent access)");
         executing = true;
         try {
-            executeImpl(frameArena, frameIndex, frameFence);
+            executeImpl(frameAllocator, frameIndex, frameFence);
         } finally {
             executing = false;
         }
     }
 
-    private void executeImpl(Arena frameArena, int frameIndex, MemorySegment frameFence) {
+    private void executeImpl(SegmentAllocator frameAllocator, int frameIndex, MemorySegment frameFence) {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
 
         // Advance staleness for all temporal resources
-        for (TemporalResource tr : temporalResources) {
-            tr.advanceSubmission();
+        for (int i = 0, n = temporalResources.size(); i < n; i++) {
+            temporalResources.get(i).advanceSubmission();
         }
 
         // Advance persistent resource rings to the current frame
         persistentManager.advanceFrame(gen);
 
         Map<String, Long> cpuTimes = executor.execute(
-            compiledGraph, frameArena, frameIndex, gen, previousStats);
+            compiledGraph, frameAllocator, frameIndex, gen, previousStats);
 
         // Submit all per-queue command buffers with inter-queue semaphore dependencies
-        executor.submit(frameArena, frameFence);
+        executor.submit(frameAllocator, frameFence);
 
         stats.recordCpuTimes(cpuTimes);
     }
@@ -208,32 +209,32 @@ public class RenderGraph implements AutoCloseable {
      * Automatically selects the correct compiled graph variant based on current pass activation
      * state, using the PassMask cache for repeated patterns.
      *
-     * @param frameArena arena scoped to this frame
+     * @param frameAllocator scratch allocator scoped to this frame
      * @param frameIndex which frame-in-flight slot
      * @param commandBuffer the externally-managed command buffer (must already be in recording state)
      */
-    public void executeInto(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
+    public void executeInto(SegmentAllocator frameAllocator, int frameIndex, VkCommandBuffer commandBuffer) {
         if (executing) throw new IllegalStateException("RenderGraph is already executing (concurrent access)");
         executing = true;
         try {
-            executeIntoImpl(frameArena, frameIndex, commandBuffer);
+            executeIntoImpl(frameAllocator, frameIndex, commandBuffer);
         } finally {
             executing = false;
         }
     }
 
-    private void executeIntoImpl(Arena frameArena, int frameIndex, VkCommandBuffer commandBuffer) {
+    private void executeIntoImpl(SegmentAllocator frameAllocator, int frameIndex, VkCommandBuffer commandBuffer) {
         long gen = frameGeneration++;
         stats.beginFrame(gen);
 
         // Advance staleness for all temporal resources (reset by onWriteExecuted if written)
-        for (TemporalResource tr : temporalResources) {
-            tr.advanceSubmission();
+        for (int i = 0, n = temporalResources.size(); i < n; i++) {
+            temporalResources.get(i).advanceSubmission();
         }
 
         // Invalidate cache if any pass group changed count
-        for (PassGroup group : passGroups) {
-            if (group.countChanged()) {
+        for (int i = 0, n = passGroups.size(); i < n; i++) {
+            if (passGroups.get(i).countChanged()) {
                 compiledCache.clear();
                 break;
             }
@@ -242,13 +243,16 @@ public class RenderGraph implements AutoCloseable {
         // Select compiled graph for current activation state (cached)
         List<RenderNode> degraded = degradationStrategy.apply(effectiveNodes(), previousStats);
         PassMask mask = PassMask.evaluate(degraded);
-        CompiledGraph active = compiledCache.computeIfAbsent(mask,
-            m -> compiler.compile(degraded, queues, temporalResources));
+        CompiledGraph active = compiledCache.get(mask);
+        if (active == null) {
+            active = compiler.compile(degraded, queues, temporalResources);
+            compiledCache.put(mask, active);
+        }
 
         persistentManager.advanceFrame(gen);
 
         Map<String, Long> cpuTimes = executor.executeInto(
-            active, commandBuffer, frameArena, frameIndex, gen, previousStats);
+            active, commandBuffer, frameAllocator, frameIndex, gen, previousStats);
 
         stats.recordCpuTimes(cpuTimes);
     }
@@ -357,7 +361,12 @@ public class RenderGraph implements AutoCloseable {
      */
     public CompiledGraph compileForCurrentMask() {
         PassMask mask = PassMask.evaluate(nodes);
-        return compiledCache.computeIfAbsent(mask, m -> compiler.compile(new ArrayList<>(nodes), queues, temporalResources));
+        CompiledGraph active = compiledCache.get(mask);
+        if (active == null) {
+            active = compiler.compile(new ArrayList<>(nodes), queues, temporalResources);
+            compiledCache.put(mask, active);
+        }
+        return active;
     }
 
     /** Invalidates the compiled graph cache (call after structural changes) */
@@ -381,10 +390,18 @@ public class RenderGraph implements AutoCloseable {
 
     /** @return all effective nodes (static nodes + dynamic group members) */
     private List<RenderNode> effectiveNodes() {
-        if (passGroups.isEmpty()) return new ArrayList<>(nodes);
+        // nodes is immutable (List.copyOf at construction) and never mutated after build(),
+        // so it's safe to return directly when there are no dynamic pass groups to merge in.
+        // Consumers (DegradationStrategy.apply, RenderGraphCompiler.compile) never mutate the
+        // list they're given -- DegradationStrategy.none() passes it straight through, and
+        // dropByPriority() copies before sorting/removing.
+        if (passGroups.isEmpty()) return nodes;
+        // PassGroup contents are expected to change every frame (see PassGroup's class doc:
+        // callers clear() and re-add() per frame), so this merge must be rebuilt every call --
+        // it cannot be cached across frames without risking stale node references.
         List<RenderNode> all = new ArrayList<>(nodes);
-        for (PassGroup group : passGroups) {
-            all.addAll(group.nodes());
+        for (int i = 0, n = passGroups.size(); i < n; i++) {
+            all.addAll(passGroups.get(i).nodes());
         }
         return all;
     }

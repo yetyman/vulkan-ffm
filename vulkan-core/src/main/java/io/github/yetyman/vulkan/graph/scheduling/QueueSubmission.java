@@ -7,8 +7,8 @@ import io.github.yetyman.vulkan.VkSubmit;
 import io.github.yetyman.vulkan.VkTimelineSemaphore;
 import io.github.yetyman.vulkan.graph.edges.SemaphoreEdge;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,7 +90,7 @@ public class QueueSubmission {
      * @param fence fence to signal on completion, or MemorySegment.NULL
      * @param arena arena for submit struct allocation
      */
-    public void submit(MemorySegment fence, Arena arena) {
+    public void submit(MemorySegment fence, SegmentAllocator allocator) {
         if (commandBuffers.isEmpty()) return;
         if (submitted) throw new IllegalStateException("QueueSubmission already submitted");
         submitted = true;
@@ -117,7 +117,7 @@ public class QueueSubmission {
             }
         }
 
-        builder.submit(queue.queueHandle(), fence, arena);
+        builder.submit(queue.queueHandle(), fence, allocator);
     }
 
     /** @return the queue assignment this submission targets */

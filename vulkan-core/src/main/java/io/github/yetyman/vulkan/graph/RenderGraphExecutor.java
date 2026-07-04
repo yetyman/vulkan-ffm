@@ -27,6 +27,7 @@ import io.github.yetyman.vulkan.graph.scheduling.QueueSubmission;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,6 +96,13 @@ public class RenderGraphExecutor implements AutoCloseable {
     private boolean timestampsEnabled = false;
     private boolean debugLabelsEnabled = false;
     private HashMap<String, Long> cpuTimes;
+    // Tracks the last CompiledGraph whose node timings populated cpuTimes. CompiledGraph.activeNodes()
+    // is immutable per instance and RenderGraph reuses the same instance for a given PassMask, so an
+    // identity match here guarantees the active node set (and therefore the key set cpuTimes needs)
+    // is unchanged from the previous call -- letting us overwrite entries in place instead of
+    // clear()-then-repopulate, which would otherwise allocate a fresh HashMap$Node per entry every
+    // frame even though the same keys are reinserted.
+    private CompiledGraph lastCpuTimesGraph;
 
     // Mutable execution context reused across nodes (sequential path)
     private final MutableExecutionContext ctx = new MutableExecutionContext();
@@ -193,7 +201,7 @@ public class RenderGraphExecutor implements AutoCloseable {
      *
      * @return per-node CPU recording times in nanoseconds
      */
-    public Map<String, Long> execute(CompiledGraph compiled, Arena frameArena,
+    public Map<String, Long> execute(CompiledGraph compiled, SegmentAllocator frameAllocator,
                                      int frameIndex, long frameGeneration,
                                      FrameStats previousStats) {
         commandBufferPool.resetAll();
@@ -205,11 +213,16 @@ public class RenderGraphExecutor implements AutoCloseable {
         int nodeCount = compiled.activeNodes().size();
         if (cpuTimes == null || cpuTimes.size() < nodeCount) {
             cpuTimes = HashMap.newHashMap(nodeCount);
-        } else {
+            lastCpuTimesGraph = null;
+        } else if (compiled != lastCpuTimesGraph) {
+            // Different active node set than last call -- stale keys may remain, must clear.
             cpuTimes.clear();
         }
+        // else: same CompiledGraph as last call -- same key set, safe to overwrite entries
+        // in place below without clearing (avoids a HashMap$Node allocation per key per frame).
+        lastCpuTimesGraph = compiled;
 
-        ctx.frameArena = frameArena;
+        ctx.frameArena = frameAllocator;
         ctx.frameIndex = frameIndex;
         ctx.frameGeneration = frameGeneration;
         ctx.previousStats = previousStats;
@@ -219,7 +232,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         allocatePrimaryCommandBuffers(compiled);
 
         for (VkCommandBuffer cmd : primaryCommandBuffers.values()) {
-            VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(frameArena);
+            VkCommandBuffer.begin(cmd).oneTimeSubmit().execute(frameAllocator);
         }
 
         if (timestampsEnabled && timestampPool != null) {
@@ -232,15 +245,15 @@ public class RenderGraphExecutor implements AutoCloseable {
             int queueFamily = bucket.queue().queueFamilyIndex();
             VkCommandBuffer primaryCmd = primaryCommandBuffers.get(queueFamily);
 
-            emitDeferredAcquires(queueFamily, primaryCmd, frameArena);
+            emitDeferredAcquires(queueFamily, primaryCmd, frameAllocator);
 
             ctx.queue = bucket.queue();
             ctx.commandBuffer = primaryCmd;
 
             if (bucket.nodes().size() >= parallelThreshold) {
-                recordBucketParallel(bucket, primaryCmd, frameArena);
+                recordBucketParallel(bucket, primaryCmd, frameAllocator);
             } else {
-                recordBucketSequential(bucket, primaryCmd, frameArena);
+                recordBucketSequential(bucket, primaryCmd, frameAllocator);
             }
         }
 
@@ -260,10 +273,10 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Only inserts semaphores between queue families that have actual resource dependencies
      * (determined by the compiled graph's bucket ordering and cross-queue resource edges).
      *
-     * @param submitArena arena for submit struct allocation
+     * @param submitAllocator scratch allocator for submit struct allocation
      * @param frameFence fence to signal when the last submission completes, or NULL
      */
-    public void submit(Arena submitArena, MemorySegment frameFence) {
+    public void submit(SegmentAllocator submitAllocator, MemorySegment frameFence) {
         List<QueueSubmission> orderedSubmissions = new ArrayList<>(submissions.values());
 
         // Only insert semaphores between queues that have cross-queue dependencies.
@@ -295,7 +308,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
 
             MemorySegment fence = (i == orderedSubmissions.size() - 1) ? frameFence : MemorySegment.NULL;
-            sub.submit(fence, submitArena);
+            sub.submit(fence, submitAllocator);
         }
     }
 
@@ -319,17 +332,22 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Records into a single externally-provided command buffer (legacy compatibility path).
      */
     public Map<String, Long> executeInto(CompiledGraph compiled, VkCommandBuffer commandBuffer,
-                                         Arena frameArena, int frameIndex, long frameGeneration,
+                                         SegmentAllocator frameAllocator, int frameIndex, long frameGeneration,
                                          FrameStats previousStats) {
         int nodeCount = compiled.activeNodes().size();
         if (cpuTimes == null || cpuTimes.size() < nodeCount) {
             cpuTimes = HashMap.newHashMap(nodeCount);
-        } else {
+            lastCpuTimesGraph = null;
+        } else if (compiled != lastCpuTimesGraph) {
+            // Different active node set than last call -- stale keys may remain, must clear.
             cpuTimes.clear();
         }
+        // else: same CompiledGraph as last call -- same key set, safe to overwrite entries
+        // in place below without clearing (avoids a HashMap$Node allocation per key per frame).
+        lastCpuTimesGraph = compiled;
 
         ctx.commandBuffer = commandBuffer;
-        ctx.frameArena = frameArena;
+        ctx.frameArena = frameAllocator;
         ctx.frameIndex = frameIndex;
         ctx.frameGeneration = frameGeneration;
         ctx.previousStats = previousStats;
@@ -351,9 +369,9 @@ public class RenderGraphExecutor implements AutoCloseable {
                 RenderNode node = nodes.get(n);
 
                 barrierBatch.clear();
-                emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
+                emitBarriersForNode(node, barrierBatch, queueFamily, frameAllocator);
                 if (!barrierBatch.hasNoSameQueueBarriers()) {
-                    executeBarrierBatch(commandBuffer, barrierBatch, frameArena);
+                    executeBarrierBatch(commandBuffer, barrierBatch, frameAllocator);
                 }
                 if (barrierBatch.hasOwnershipTransfers()) {
                     for (int i = 0; i < barrierBatch.transferCount(); i++) {
@@ -371,7 +389,7 @@ public class RenderGraphExecutor implements AutoCloseable {
                 }
 
                 if (debugLabelsEnabled) {
-                    DebugLabels.beginForNode(commandBuffer.handle(), node.name(), node.type(), frameArena);
+                    DebugLabels.beginForNode(commandBuffer.handle(), node.name(), node.type(), frameAllocator);
                 }
 
                 long startNanos = System.nanoTime();
@@ -426,10 +444,10 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
 
         // Record readback copies (after all nodes, before final-layout barriers)
-        emitReadbackCopies(commandBuffer, frameArena, frameGeneration);
+        emitReadbackCopies(commandBuffer, frameAllocator, frameGeneration);
 
         // Emit final-layout transitions for imported resources
-        emitFinalLayoutBarriers(commandBuffer, frameArena);
+        emitFinalLayoutBarriers(commandBuffer, frameAllocator);
 
         return cpuTimes;
     }
@@ -461,7 +479,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
     }
 
-    private void recordBucketSequential(ExecutionBucket bucket, VkCommandBuffer primaryCmd, Arena frameArena) {
+    private void recordBucketSequential(ExecutionBucket bucket, VkCommandBuffer primaryCmd, SegmentAllocator frameAllocator) {
         int queueFamily = bucket.queue().queueFamilyIndex();
         List<RenderNode> nodes = bucket.nodes();
 
@@ -469,10 +487,10 @@ public class RenderGraphExecutor implements AutoCloseable {
             RenderNode node = nodes.get(n);
 
             barrierBatch.clear();
-            emitBarriersForNode(node, barrierBatch, queueFamily, frameArena);
+            emitBarriersForNode(node, barrierBatch, queueFamily, frameAllocator);
 
             if (!barrierBatch.hasNoSameQueueBarriers()) {
-                executeBarrierBatch(primaryCmd, barrierBatch, frameArena);
+                executeBarrierBatch(primaryCmd, barrierBatch, frameAllocator);
             }
 
             if (barrierBatch.hasOwnershipTransfers()) {
@@ -485,7 +503,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
 
             if (debugLabelsEnabled) {
-                DebugLabels.beginForNode(primaryCmd.handle(), node.name(), node.type(), frameArena);
+                DebugLabels.beginForNode(primaryCmd.handle(), node.name(), node.type(), frameAllocator);
             }
 
             ctx.commandBuffer = primaryCmd;
@@ -519,7 +537,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
     }
 
-    private void recordBucketParallel(ExecutionBucket bucket, VkCommandBuffer primaryCmd, Arena frameArena) {
+    private void recordBucketParallel(ExecutionBucket bucket, VkCommandBuffer primaryCmd, SegmentAllocator frameAllocator) {
         int queueFamily = bucket.queue().queueFamilyIndex();
         List<RenderNode> nodes = bucket.nodes();
         int nodeCount = nodes.size();
@@ -528,7 +546,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         BarrierBatch[] nodeBatches = new BarrierBatch[nodeCount];
         for (int i = 0; i < nodeCount; i++) {
             BarrierBatch nodeBatch = new BarrierBatch();
-            emitBarriersForNode(nodes.get(i), nodeBatch, queueFamily, frameArena);
+            emitBarriersForNode(nodes.get(i), nodeBatch, queueFamily, frameAllocator);
             nodeBatches[i] = nodeBatch;
         }
 
@@ -536,7 +554,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         for (int i = 0; i < nodeCount; i++) {
             BarrierBatch nodeBatch = nodeBatches[i];
             if (!nodeBatch.hasNoSameQueueBarriers()) {
-                executeBarrierBatch(primaryCmd, nodeBatch, frameArena);
+                executeBarrierBatch(primaryCmd, nodeBatch, frameAllocator);
             }
             if (nodeBatch.hasOwnershipTransfers()) {
                 routeOwnershipTransfers(nodeBatch, queueFamily, primaryCmd);
@@ -549,7 +567,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         for (VkCommandBuffer sec : secondaries) {
             VkCommandBuffer.begin(sec)
                 .flags(VkCommandBufferUsageFlagBits.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.value())
-                .execute(frameArena);
+                .execute(frameAllocator);
         }
 
         // Record nodes in parallel on secondary command buffers
@@ -561,9 +579,11 @@ public class RenderGraphExecutor implements AutoCloseable {
             final VkCommandBuffer secondary = secondaries[idx];
 
             futures[i] = recordingThreadPool.submit(() -> {
+                // Each worker thread gets its own scratch allocator (thread-local BumpAllocator
+                // under the hood via SegmentAllocator dispatch at the node's call sites).
                 MutableExecutionContext threadCtx = new MutableExecutionContext();
                 threadCtx.commandBuffer = secondary;
-                threadCtx.frameArena = frameArena;
+                threadCtx.frameArena = io.github.yetyman.vulkan.util.BumpAllocator.get();
                 threadCtx.frameIndex = ctx.frameIndex;
                 threadCtx.frameGeneration = ctx.frameGeneration;
                 threadCtx.queue = bucket.queue();
@@ -593,7 +613,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         // begin/end timestamps bracketing each one. This gives accurate per-node GPU timing
         // even for parallel-recorded secondaries.
         if (timestampsEnabled && timestampPool != null) {
-            MemorySegment singleHandle = frameArena.allocate(ValueLayout.ADDRESS, 1);
+            MemorySegment singleHandle = frameAllocator.allocate(ValueLayout.ADDRESS, 1);
             for (int i = 0; i < nodeCount; i++) {
                 timestampPool.writeBeginTimestamp(primaryCmd.handle(), nodes.get(i).name(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value());
@@ -604,7 +624,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             }
         } else {
             // No timestamps: execute all secondaries in one call for efficiency
-            executeSecondaries(primaryCmd, secondaries, frameArena);
+            executeSecondaries(primaryCmd, secondaries, frameAllocator);
         }
 
         // Update resource state (sequential -- state is shared)
@@ -680,19 +700,19 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
     }
 
-    private void emitDeferredAcquires(int queueFamily, VkCommandBuffer cmd, Arena arena) {
+    private void emitDeferredAcquires(int queueFamily, VkCommandBuffer cmd, SegmentAllocator allocator) {
         BarrierBatch deferred = deferredAcquires.get(queueFamily);
         if (deferred == null || deferred.count() == 0) return;
-        executeBarrierBatch(cmd, deferred, arena);
+        executeBarrierBatch(cmd, deferred, allocator);
         deferred.clear();
     }
 
-    private void emitBarriersForNode(RenderNode node, BarrierBatch batch, int consumerQueueFamily, Arena arena) {
+    private void emitBarriersForNode(RenderNode node, BarrierBatch batch, int consumerQueueFamily, SegmentAllocator allocator) {
         if (barrierStrategy == null) return;
 
         List<ResourceEdge> reads = node.reads();
         for (int i = 0, size = reads.size(); i < size; i++) {
-            barrierStrategy.emit(reads.get(i).resource(), reads.get(i), consumerQueueFamily, batch, arena);
+            barrierStrategy.emit(reads.get(i).resource(), reads.get(i), consumerQueueFamily, batch, allocator);
         }
 
         List<ResourceEdge> writes = node.writes();
@@ -700,7 +720,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             ResourceEdge writeEdge = writes.get(i);
             GraphResource resource = writeEdge.resource();
             if (resource.lastAccessMask() != 0 || resource.lastStageMask() != 0) {
-                barrierStrategy.emit(resource, writeEdge, consumerQueueFamily, batch, arena);
+                barrierStrategy.emit(resource, writeEdge, consumerQueueFamily, batch, allocator);
             }
         }
 
@@ -713,14 +733,14 @@ public class RenderGraphExecutor implements AutoCloseable {
                     GraphResource readSlot = tr.previousReadSlot();
                     if (readSlot.lastAccessMask() != 0 || readSlot.lastStageMask() != 0) {
                         ResourceEdge syntheticRead = ResourceEdge.read(readSlot, te.accessMask(), te.stageMask());
-                        barrierStrategy.emit(readSlot, syntheticRead, consumerQueueFamily, batch, arena);
+                        barrierStrategy.emit(readSlot, syntheticRead, consumerQueueFamily, batch, allocator);
                     }
                 } else if (te.isWriteCurrent()) {
                     // The write slot may have been read by a previous frame
                     GraphResource writeSlot = tr.currentWriteSlot();
                     if (writeSlot.lastAccessMask() != 0 || writeSlot.lastStageMask() != 0) {
                         ResourceEdge syntheticWrite = ResourceEdge.write(writeSlot, te.accessMask(), te.stageMask());
-                        barrierStrategy.emit(writeSlot, syntheticWrite, consumerQueueFamily, batch, arena);
+                        barrierStrategy.emit(writeSlot, syntheticWrite, consumerQueueFamily, batch, allocator);
                     }
                 }
             }
@@ -732,7 +752,7 @@ public class RenderGraphExecutor implements AutoCloseable {
             if (bindlessRes.lastAccessMask() != 0 || bindlessRes.lastStageMask() != 0) {
                 CONSERVATIVE.emit(bindlessRes,
                     ResourceEdge.read(bindlessRes, BINDLESS_SHADER_READ, BINDLESS_ALL_COMMANDS),
-                    consumerQueueFamily, batch, arena);
+                    consumerQueueFamily, batch, allocator);
             }
         }
 
@@ -744,12 +764,12 @@ public class RenderGraphExecutor implements AutoCloseable {
             // Resource is available if it has been written this frame (lastAccessMask != 0)
             if (res.lastAccessMask() != 0 || res.lastStageMask() != 0) {
                 ResourceEdge syntheticRead = ResourceEdge.read(res, opt.accessMask(), opt.stageMask());
-                barrierStrategy.emit(res, syntheticRead, consumerQueueFamily, batch, arena);
+                barrierStrategy.emit(res, syntheticRead, consumerQueueFamily, batch, allocator);
             }
         }
     }
 
-    private void emitReadbackCopies(VkCommandBuffer cmd, Arena arena, long submissionIndex) {
+    private void emitReadbackCopies(VkCommandBuffer cmd, SegmentAllocator allocator, long submissionIndex) {
         if (readbacks.isEmpty()) return;
         for (ReadbackHandle rb : readbacks) {
             if (!rb.shouldExecute(submissionIndex)) continue;
@@ -761,7 +781,7 @@ public class RenderGraphExecutor implements AutoCloseable {
                 .buffer(rb.source().handle())
                 .srcAccess(rb.source().lastAccessMask())
                 .dstAccess(0x00000800) // VK_ACCESS_TRANSFER_READ_BIT
-                .build(arena)
+                .build(allocator)
                 .execute(cmd.handle(), rb.source().lastStageMask(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TRANSFER_BIT.value());
 
@@ -774,7 +794,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         }
     }
 
-    private void emitFinalLayoutBarriers(VkCommandBuffer cmd, Arena arena) {
+    private void emitFinalLayoutBarriers(VkCommandBuffer cmd, SegmentAllocator allocator) {
         if (importedResources.isEmpty()) return;
         for (var imported : importedResources) {
             int currentLayout = imported.currentLayout();
@@ -789,7 +809,7 @@ public class RenderGraphExecutor implements AutoCloseable {
                 .srcAccess(imported.lastAccessMask())
                 .dstAccess(0)
                 .transition(currentLayout, finalLayout)
-                .build(arena)
+                .build(allocator)
                 .execute(cmd.handle(), imported.lastStageMask(),
                     VkPipelineStageFlagBits.VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.value());
 
@@ -801,14 +821,14 @@ public class RenderGraphExecutor implements AutoCloseable {
      * Executes all barriers in the batch via a single coalesced vkCmdPipelineBarrier call.
      * Barriers of the same type are packed into contiguous arrays with combined stage masks.
      */
-    private void executeBarrierBatch(VkCommandBuffer cmd, BarrierBatch batch, Arena arena) {
+    private void executeBarrierBatch(VkCommandBuffer cmd, BarrierBatch batch, SegmentAllocator allocator) {
         if (cmd == null || batch.count() == 0) return;
-        batch.executeBatched(cmd.handle(), arena);
+        batch.executeBatched(cmd.handle(), allocator);
     }
 
-    private void executeSecondaries(VkCommandBuffer primary, VkCommandBuffer[] secondaries, Arena arena) {
+    private void executeSecondaries(VkCommandBuffer primary, VkCommandBuffer[] secondaries, SegmentAllocator allocator) {
         if (secondaries.length == 0) return;
-        MemorySegment handles = arena.allocate(ValueLayout.ADDRESS, secondaries.length);
+        MemorySegment handles = allocator.allocate(ValueLayout.ADDRESS, secondaries.length);
         for (int i = 0; i < secondaries.length; i++) {
             handles.setAtIndex(ValueLayout.ADDRESS, i, secondaries[i].handle());
         }
@@ -865,7 +885,7 @@ public class RenderGraphExecutor implements AutoCloseable {
      */
     private static final class MutableExecutionContext implements ExecutionContext {
         VkCommandBuffer commandBuffer;
-        Arena frameArena;
+        SegmentAllocator frameArena;
         int frameIndex;
         long frameGeneration;
         QueueAssignment queue;
@@ -877,7 +897,7 @@ public class RenderGraphExecutor implements AutoCloseable {
         Map<String, MemorySegment[]> pingPongSlots; // resourceName -> [slot0, slot1]
 
         @Override public VkCommandBuffer commandBuffer() { return commandBuffer; }
-        @Override public Arena frameArena() { return frameArena; }
+        @Override public SegmentAllocator frameArena() { return frameArena; }
         @Override public int frameIndex() { return frameIndex; }
         @Override public long frameGeneration() { return frameGeneration; }
         @Override public QueueAssignment queue() { return queue; }

@@ -8,7 +8,7 @@ import io.github.yetyman.vulkan.graph.edges.ResourceEdge;
 import io.github.yetyman.vulkan.graph.resources.GraphImageResource;
 import io.github.yetyman.vulkan.graph.resources.GraphResource;
 
-import java.lang.foreign.Arena;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Conservative barrier strategy for bindless resources and unknown access patterns.
@@ -30,7 +30,7 @@ public class ConservativeBarrierStrategy implements BarrierStrategy {
 
     @Override
     public void emit(GraphResource resource, ResourceEdge consumer, int consumerQueueFamily,
-                     BarrierBatch batch, Arena arena) {
+                     BarrierBatch batch, SegmentAllocator allocator) {
         if (resource instanceof GraphImageResource imageRes) {
             int newLayout = consumer.imageLayout() >= 0 ? consumer.imageLayout() : imageRes.currentLayout();
             VkImageBarrier barrier = VkImageBarrier.builder()
@@ -38,7 +38,7 @@ public class ConservativeBarrierStrategy implements BarrierStrategy {
                 .srcAccess(ALL_ACCESS)
                 .dstAccess(ALL_ACCESS)
                 .transition(imageRes.currentLayout(), newLayout)
-                .build(arena);
+                .build(allocator);
             batch.add(barrier, ALL_COMMANDS, ALL_COMMANDS);
             imageRes.updateLayout(newLayout);
         } else {
@@ -46,7 +46,7 @@ public class ConservativeBarrierStrategy implements BarrierStrategy {
                 .buffer(resource.handle())
                 .srcAccess(ALL_ACCESS)
                 .dstAccess(ALL_ACCESS)
-                .build(arena);
+                .build(allocator);
             batch.add(barrier, ALL_COMMANDS, ALL_COMMANDS);
         }
     }

@@ -5,7 +5,7 @@ import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkSetState;
 import io.github.yetyman.vulkan.command.VkRenderPassCmd;
 import io.github.yetyman.vulkan.enums.*;
-import io.github.yetyman.vulkan.highlevel.DrawCommand;
+import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.highlevel.GraphicsFrame;
 
 import java.lang.foreign.*;
@@ -87,7 +87,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
 
     @Override
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
-        VkCommandBuffer.begin(commandBuffer).execute(frameArena());
+        VkCommandBuffer.begin(commandBuffer).execute(frameAllocator);
 
         beforeRenderPass(commandBuffer, frameAllocator);
 
@@ -118,7 +118,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
             VkCommandBuffer.beginRenderPass(commandBuffer, renderPass.handle(), framebuffers[imageIndex].handle())
                     .renderArea(0, 0, width, height)
                     .clearColor(0.0f, 0.0f, 0.0f, 1.0f)
-                    .execute(frameArena());
+                    .execute(frameAllocator);
         }
 
         VkBind.bindPipeline(commandBuffer, VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
@@ -128,7 +128,7 @@ public abstract class SimpleGraphicsFrame extends GraphicsFrame {
 
         onDraw(commandBuffer, frameAllocator);
 
-        DrawCommand.direct(vertexCount(), instanceCount()).execute(commandBuffer.handle());
+        VkDraw.draw(commandBuffer.handle(), vertexCount(), instanceCount());
 
         if (useDynamicRendering) {
             VkRendering.end(device, commandBuffer.handle());

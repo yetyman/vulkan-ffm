@@ -59,6 +59,15 @@ public abstract class GraphicsFrame implements AutoCloseable {
      *  When false (default), Arena.ofConfined() — much cheaper FFM session validation. */
     private boolean sharedFrameArenas = false;
 
+    // Cached submit/present structs — built lazily on first drawFrame() call (after all
+    // addTimelineWait() calls have completed) and patched per frame instead of rebuilt.
+    // Allocated from a dedicated confined arena created on the render thread (not the
+    // constructor's arena field, which is owned by whichever thread constructed this
+    // GraphicsFrame and is typically NOT the render thread that drives drawFrame()).
+    private Arena syncStructArena;
+    private VkSubmit.Builder.Cached[] cachedSubmits;
+    private VkPresent.Builder.Cached cachedPresent;
+
     protected GraphicsFrame(Arena arena, VkDevice device, VkQueue queue,
                             MemorySegment surface, int width, int height, int maxFramesInFlight) {
         this(arena, device, queue, surface, width, height, maxFramesInFlight,
@@ -276,6 +285,9 @@ public abstract class GraphicsFrame implements AutoCloseable {
             }
             return;
         }
+        if (cachedSubmits == null) {
+            buildCachedSubmitAndPresent();
+        }
         BumpAllocator ba = BumpAllocator.get();
         ba.push();
         try {
@@ -314,24 +326,24 @@ public abstract class GraphicsFrame implements AutoCloseable {
             recordCommandBuffer(commandBuffers[currentFrame], imgIdx, ba);
             if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.RECORD_END);
 
-            VkSubmit.Builder submitBuilder = VkSubmit.builder()
-                    .waitSemaphore(imageAvailableSemaphores[imgIdx].handle(),
-                            VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value())
-                    .commandBuffer(commandBuffers[currentFrame])
-                    .signalSemaphore(renderFinishedSemaphores[imgIdx].handle());
-            for (TimelineWait w : timelineWaits) {
+            VkSubmit.Builder.Cached submitCached = cachedSubmits[currentFrame];
+            submitCached.patchWaitSemaphore(0, imageAvailableSemaphores[imgIdx].handle());
+            submitCached.patchSignalSemaphore(0, renderFinishedSemaphores[imgIdx].handle());
+            for (int i = 0; i < timelineWaits.size(); i++) {
+                TimelineWait w = timelineWaits.get(i);
                 long val = w.semaphore().completedGeneration();
-                if (val > 0) submitBuilder.waitTimelineSemaphore(w.semaphore(), val, w.stageMask());
+                // wait index 0 is the image-available binary semaphore; timeline waits follow
+                submitCached.patchWaitTimelineValue(i + 1, Math.max(val, 0));
             }
-            submitBuilder.submit(queue, inFlightFences[currentFrame].handle(), ba);
+            submitCached.submit(queue.handle(), inFlightFences[currentFrame].handle());
             if (metrics != null) metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.SUBMIT_END);
 
             imageLastFrame[imgIdx] = currentFrame;
 
-            VkPresent.builder()
-                    .waitSemaphore(renderFinishedSemaphores[imgIdx].handle())
-                    .swapchain(swapchain.handle(), imgIdx)
-                    .present(queue.handle(), ba);
+            cachedPresent.patchWaitSemaphore(0, renderFinishedSemaphores[imgIdx].handle());
+            cachedPresent.patchSwapchain(0, swapchain.handle());
+            cachedPresent.patchImageIndex(0, imgIdx);
+            cachedPresent.present(queue.handle());
             if (metrics != null) {
                 metrics.stamp(io.github.yetyman.vulkan.loop.FrameMetrics.Stage.PRESENT_END);
                 metrics.endFrame();
@@ -341,6 +353,37 @@ public abstract class GraphicsFrame implements AutoCloseable {
         }
 
         currentFrame = (currentFrame + 1) % maxFramesInFlight;
+    }
+
+    /**
+     * Builds the per-frame-slot cached VkSubmitInfo structs and the shared cached
+     * VkPresentInfoKHR struct. Called once, lazily, on the first {@link #drawFrame()} call —
+     * by this point all {@link #addTimelineWait} calls have completed (they must be made
+     * before the render loop starts), so the submit struct's shape (wait/signal/timeline
+     * slot counts) is final.
+     *
+     * Timeline wait slots are always present in the cached struct even if a timeline
+     * semaphore's counter is still 0 -- waiting for counter >= 0 is a no-op wait, identical
+     * in behavior to omitting the wait, so no conditional slot count is needed.
+     */
+    private void buildCachedSubmitAndPresent() {
+        syncStructArena = Arena.ofConfined();
+        cachedSubmits = new VkSubmit.Builder.Cached[maxFramesInFlight];
+        int colorAttachmentOutput = VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value();
+        for (int i = 0; i < maxFramesInFlight; i++) {
+            VkSubmit.Builder b = VkSubmit.builder()
+                    .waitSemaphore(MemorySegment.NULL, colorAttachmentOutput)
+                    .commandBuffer(commandBuffers[i])
+                    .signalSemaphore(MemorySegment.NULL);
+            for (TimelineWait w : timelineWaits) {
+                b.waitTimelineSemaphore(w.semaphore(), 0, w.stageMask());
+            }
+            cachedSubmits[i] = b.buildAndCache(syncStructArena);
+        }
+        cachedPresent = VkPresent.builder()
+                .waitSemaphore(MemorySegment.NULL)
+                .swapchain(MemorySegment.NULL, 0)
+                .buildAndCache(syncStructArena);
     }
 
     public final void resize(int newWidth, int newHeight) {
@@ -404,6 +447,9 @@ public abstract class GraphicsFrame implements AutoCloseable {
                     try { a.close(); } catch (Throwable ignored) { /* may be confined to another thread */ }
                 }
             }
+        }
+        if (syncStructArena != null) {
+            try { syncStructArena.close(); } catch (Throwable ignored) { /* may be confined to another thread */ }
         }
         commandPool.close();
         if (framebuffers != null) {

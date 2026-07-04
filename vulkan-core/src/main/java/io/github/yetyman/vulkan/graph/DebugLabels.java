@@ -4,8 +4,8 @@ import io.github.yetyman.vulkan.enums.VkStructureType;
 import io.github.yetyman.vulkan.generated.VkDebugUtilsLabelEXT;
 import io.github.yetyman.vulkan.generated.VulkanFFM;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Utility for inserting debug labels around render graph node execution.
@@ -30,11 +30,11 @@ final class DebugLabels {
      * @param arena arena for struct allocation
      */
     static void begin(MemorySegment commandBuffer, String name,
-                      float r, float g, float b, float a, Arena arena) {
-        MemorySegment label = VkDebugUtilsLabelEXT.allocate(arena);
+                      float r, float g, float b, float a, SegmentAllocator allocator) {
+        MemorySegment label = VkDebugUtilsLabelEXT.allocate(allocator);
         VkDebugUtilsLabelEXT.sType(label, VkStructureType.VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT.value());
         VkDebugUtilsLabelEXT.pNext(label, MemorySegment.NULL);
-        VkDebugUtilsLabelEXT.pLabelName(label, arena.allocateFrom(name));
+        VkDebugUtilsLabelEXT.pLabelName(label, allocator.allocateFrom(name));
         MemorySegment color = VkDebugUtilsLabelEXT.color(label);
         color.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 0, r);
         color.setAtIndex(java.lang.foreign.ValueLayout.JAVA_FLOAT, 1, g);
@@ -47,7 +47,7 @@ final class DebugLabels {
      * Begins a debug label with a color derived from the node type.
      */
     static void beginForNode(MemorySegment commandBuffer, String nodeName,
-                             io.github.yetyman.vulkan.graph.nodes.NodeType nodeType, Arena arena) {
+                             io.github.yetyman.vulkan.graph.nodes.NodeType nodeType, SegmentAllocator allocator) {
         float r, g, b;
         switch (nodeType) {
             case GRAPHICS -> { r = 0.2f; g = 0.6f; b = 1.0f; }  // blue
@@ -57,7 +57,7 @@ final class DebugLabels {
             case PRESENT  -> { r = 0.8f; g = 0.2f; b = 1.0f; }  // purple
             default       -> { r = 0.7f; g = 0.7f; b = 0.7f; }  // gray
         }
-        begin(commandBuffer, nodeName, r, g, b, 1.0f, arena);
+        begin(commandBuffer, nodeName, r, g, b, 1.0f, allocator);
     }
 
     /**

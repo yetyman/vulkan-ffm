@@ -3,8 +3,8 @@ package io.github.yetyman.vulkan.graph.barriers;
 import io.github.yetyman.vulkan.VkBarrier;
 import io.github.yetyman.vulkan.command.VkBarrierCmd;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * Accumulates barriers for a single transition point between passes.
@@ -19,7 +19,7 @@ import java.lang.foreign.MemorySegment;
  *
  * Uses fixed-capacity arrays to avoid per-frame ArrayList allocations.
  *
- * Batched execution: {@link #executeBatched(MemorySegment, Arena)} coalesces all barriers
+ * Batched execution: {@link #executeBatched(MemorySegment, SegmentAllocator)} coalesces all barriers
  * into a single vkCmdPipelineBarrier call with combined stage masks and contiguous barrier
  * arrays. This is significantly faster than emitting one vkCmdPipelineBarrier per barrier.
  */
@@ -132,9 +132,9 @@ public class BarrierBatch {
      * with the union of all src/dst stage masks.
      *
      * @param commandBuffer the command buffer handle
-     * @param arena arena for temporary array allocation (frame arena)
+     * @param allocator scratch allocator for temporary array allocation (frame-scoped)
      */
-    public void executeBatched(MemorySegment commandBuffer, Arena arena) {
+    public void executeBatched(MemorySegment commandBuffer, SegmentAllocator allocator) {
         if (count == 0) return;
 
         // Count barriers by type
@@ -153,13 +153,13 @@ public class BarrierBatch {
         long memBarrierSize = io.github.yetyman.vulkan.generated.VkMemoryBarrier.layout().byteSize();
 
         MemorySegment memBarriers = memoryCount > 0
-            ? arena.allocate(io.github.yetyman.vulkan.generated.VkMemoryBarrier.layout(), memoryCount)
+            ? allocator.allocate(io.github.yetyman.vulkan.generated.VkMemoryBarrier.layout(), memoryCount)
             : MemorySegment.NULL;
         MemorySegment bufBarriers = bufferCount > 0
-            ? arena.allocate(io.github.yetyman.vulkan.generated.VkBufferMemoryBarrier.layout(), bufferCount)
+            ? allocator.allocate(io.github.yetyman.vulkan.generated.VkBufferMemoryBarrier.layout(), bufferCount)
             : MemorySegment.NULL;
         MemorySegment imgBarriers = imageCount > 0
-            ? arena.allocate(io.github.yetyman.vulkan.generated.VkImageMemoryBarrier.layout(), imageCount)
+            ? allocator.allocate(io.github.yetyman.vulkan.generated.VkImageMemoryBarrier.layout(), imageCount)
             : MemorySegment.NULL;
 
         int memIdx = 0, bufIdx = 0, imgIdx = 0;
