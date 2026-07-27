@@ -6,7 +6,8 @@ import io.github.yetyman.vulkan.foundation.ui.UIFrameContext;
 import io.github.yetyman.vulkan.foundation.ui.UILayer;
 import io.github.yetyman.vulkan.foundation.ui.input.InputEventType;
 import io.github.yetyman.vulkan.foundation.ui.input.InputPhase;
-import io.github.yetyman.vulkan.foundation.ui.input.UIInputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.types.MouseInputData;
 
 import java.lang.foreign.Arena;
 import java.util.function.Consumer;
@@ -123,10 +124,11 @@ public class Scene3DOverlayLayer implements UILayer {
     }
 
     @Override
-    public boolean handleInput(UIInputEvent event) {
+    public boolean handleInput(InputEvent event) {
         if (event.phase() == InputPhase.CAPTURE && event.type() == InputEventType.MOUSE_MOVE
                 && pickSphereCenter != null) {
-            float[] hit = raySphereHit(event.mouseX(), event.mouseY());
+            MouseInputData mouse = event.data(MouseInputData.class);
+            float[] hit = raySphereHit(mouse.mouseX, mouse.mouseY);
             lastHoveredWorldPos = hit;
             if (hit != null) {
                 event.propagation().put(HOVERED_WORLD_POS_KEY, hit);

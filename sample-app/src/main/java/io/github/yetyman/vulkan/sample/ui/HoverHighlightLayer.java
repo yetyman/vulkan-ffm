@@ -6,7 +6,8 @@ import io.github.yetyman.vulkan.foundation.ui.UIFrameContext;
 import io.github.yetyman.vulkan.foundation.ui.UILayer;
 import io.github.yetyman.vulkan.foundation.ui.input.InputEventType;
 import io.github.yetyman.vulkan.foundation.ui.input.InputPhase;
-import io.github.yetyman.vulkan.foundation.ui.input.UIInputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.types.MouseInputData;
 
 import java.lang.foreign.Arena;
 
@@ -67,10 +68,11 @@ public class HoverHighlightLayer implements UILayer {
     }
 
     @Override
-    public boolean handleInput(UIInputEvent event) {
+    public boolean handleInput(InputEvent event) {
         if (event.type() == InputEventType.MOUSE_MOVE) {
-            mouseX = event.mouseX();
-            mouseY = event.mouseY();
+            MouseInputData mouse = event.data(MouseInputData.class);
+            mouseX = mouse.mouseX;
+            mouseY = mouse.mouseY;
         }
 
         if (event.phase() == InputPhase.CAPTURE) {

@@ -22,9 +22,10 @@ public class UIInputDispatcher {
      * Dispatches an input event through capture then bubble phases across the given layers.
      * The layers list is expected to already be sorted ascending by UILayer.order().
      */
-    public void dispatch(UIInputEvent event, List<UILayer> layers) {
+    public void dispatch(InputEvent event, List<UILayer> layers) {
         // --- Capture phase: highest order first (index layers.size()-1 down to 0) ---
         event.setPhase(InputPhase.CAPTURE);
+        event.propagation().markCaptureStart();
         for (int i = layers.size() - 1; i >= 0; i--) {
             UILayer layer = layers.get(i);
             if (!layer.acceptsInput()) continue;
@@ -37,11 +38,14 @@ public class UIInputDispatcher {
 
         // --- Bubble phase: lowest order first (index 0 up to layers.size()-1) ---
         event.setPhase(InputPhase.BUBBLE);
+        event.propagation().markBubbleStart();
         for (int i = 0; i < layers.size(); i++) {
             UILayer layer = layers.get(i);
             if (!layer.acceptsInput()) continue;
             boolean consumed = layer.handleInput(event);
             if (consumed || event.propagation().isStopped()) break;
         }
+
+        event.propagation().markFinished();
     }
 }

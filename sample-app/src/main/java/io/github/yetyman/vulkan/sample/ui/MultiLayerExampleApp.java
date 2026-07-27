@@ -6,7 +6,10 @@ import io.github.yetyman.vulkan.foundation.ui.UIComposite;
 import io.github.yetyman.vulkan.foundation.ui.UIContext;
 import io.github.yetyman.vulkan.foundation.ui.assets.AssetRegistry;
 import io.github.yetyman.vulkan.foundation.ui.assets.FontRegistry;
-import io.github.yetyman.vulkan.foundation.ui.input.UIInputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.types.KeyInputData;
+import io.github.yetyman.vulkan.foundation.ui.input.types.MouseInputData;
+import io.github.yetyman.vulkan.foundation.ui.input.types.ScrollInputData;
 import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.DepthMode;
 import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.Scene3DOverlayLayer;
 import io.github.yetyman.vulkan.foundation.ui.layers.text.GPUDrivenTextLayer;
@@ -193,25 +196,26 @@ public class MultiLayerExampleApp extends VulkanApplication {
             float dy = (float) (y - lastMousePos[1]);
             lastMousePos[0] = x;
             lastMousePos[1] = y;
-            composite.dispatchInput(UIInputEvent.mouseMove((float) x, (float) y, dx, dy));
+            composite.dispatchInput(MouseInputData.move((float) x, (float) y, dx, dy));
         }, callbackArena);
 
         GLFWCallbacks.setMouseButtonCallback(window(), (w, button, action, mods) -> {
             boolean pressed = action != 0; // GLFW_RELEASE = 0, GLFW_PRESS = 1, GLFW_REPEAT = 2
-            composite.dispatchInput(UIInputEvent.mouseButton(
-                button, (float) lastMousePos[0], (float) lastMousePos[1], pressed));
+            composite.dispatchInput(pressed
+                ? MouseInputData.buttonPress(button, (float) lastMousePos[0], (float) lastMousePos[1])
+                : MouseInputData.buttonRelease(button, (float) lastMousePos[0], (float) lastMousePos[1]));
         }, callbackArena);
 
         GLFWCallbacks.setScrollCallback(window(), (w, dx, dy) ->
-            composite.dispatchInput(UIInputEvent.scroll(
+            composite.dispatchInput(ScrollInputData.scroll(
                 (float) lastMousePos[0], (float) lastMousePos[1], (float) dx, (float) dy)),
             callbackArena);
 
         GLFWCallbacks.setKeyCallback(window(), (w, key, scancode, action, mods) -> {
-            UIInputEvent event = switch (action) {
-                case 1 -> UIInputEvent.keyPress(key, scancode, mods);   // GLFW_PRESS
-                case 2 -> UIInputEvent.keyRepeat(key, scancode, mods);  // GLFW_REPEAT
-                default -> UIInputEvent.keyRelease(key, scancode, mods); // GLFW_RELEASE
+            InputEvent event = switch (action) {
+                case 1 -> KeyInputData.press(key, scancode, mods);   // GLFW_PRESS
+                case 2 -> KeyInputData.repeat(key, scancode, mods);  // GLFW_REPEAT
+                default -> KeyInputData.release(key, scancode, mods); // GLFW_RELEASE
             };
             composite.dispatchInput(event);
         }, callbackArena);

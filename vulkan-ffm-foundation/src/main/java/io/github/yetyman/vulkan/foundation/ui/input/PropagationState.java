@@ -3,6 +3,9 @@ package io.github.yetyman.vulkan.foundation.ui.input;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.github.yetyman.vulkan.foundation.ui.input.InputPhase.CAPTURE;
+import static io.github.yetyman.vulkan.foundation.ui.input.InputPhase.PENDING;
+
 /**
  * Tracks propagation state across capture and bubble phases.
  * Carries a context dictionary that layers annotate during capture
@@ -16,10 +19,21 @@ import java.util.Map;
  * Between phases (capture -> bubble), the stopped flag resets but handled and context persist.
  */
 public class PropagationState {
+    private InputPhase phase;
     private boolean stopped = false;
     private boolean stoppedImmediate = false;
     private boolean handled = false;
     private final Map<String, Object> context = new HashMap<>();
+
+    private final long createNanos;
+    private long captureNanos;
+    private long bubbleNanos;
+    private long completeNanos;
+
+    public PropagationState(){
+        this.phase = PENDING;
+        this.createNanos = System.nanoTime();
+    }
 
     /** Prevents further layers from seeing this event in the current phase. */
     public void stop() { stopped = true; }
@@ -55,5 +69,29 @@ public class PropagationState {
     void resetForBubble() {
         stopped = false;
         stoppedImmediate = false;
+    }
+
+    public void markCaptureStart(){
+        this.phase = CAPTURE;
+        this.captureNanos = System.nanoTime();
+    }
+    public void markBubbleStart(){
+        this.phase = InputPhase.BUBBLE;
+        this.bubbleNanos = System.nanoTime();
+    }
+    public void markFinished(){
+        this.phase = InputPhase.COMPLETE;
+        this.completeNanos = System.nanoTime();
+    }
+    public long createNanos() { return createNanos; }
+    public long captureNanos() { return captureNanos; }
+    public long bubbleNanos() { return bubbleNanos; }
+    public long completeNanos() { return completeNanos; }
+    public InputPhase phase() { return phase; }
+
+    public void setPhase(InputPhase inputPhase) {
+        if(this.phase == PENDING && inputPhase == CAPTURE)
+            markCaptureStart();
+        
     }
 }

@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.foundation.ui;
 
 import io.github.yetyman.vulkan.VkCommandBuffer;
-import io.github.yetyman.vulkan.foundation.ui.input.UIInputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
 import java.lang.foreign.Arena;
 
 /**
@@ -81,7 +81,7 @@ public interface UILayer extends AutoCloseable {
      *
      * @return true if this layer consumed the event (stops propagation in current phase)
      */
-    boolean handleInput(UIInputEvent event);
+    boolean handleInput(InputEvent event);
 
     /** @return whether this layer participates in input at all. False skips dispatch entirely. */
     default boolean acceptsInput() { return true; }

@@ -2,7 +2,7 @@ package io.github.yetyman.vulkan.foundation.ui;
 
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.foundation.ui.input.UIInputDispatcher;
-import io.github.yetyman.vulkan.foundation.ui.input.UIInputEvent;
+import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
 
 import java.lang.foreign.Arena;
 import java.util.ArrayList;
@@ -59,7 +59,7 @@ public class UIComposite implements AutoCloseable {
     }
 
     /** Dispatches an input event through capture/bubble phases across all layers. */
-    public void dispatchInput(UIInputEvent event) {
+    public void dispatchInput(InputEvent event) {
         inputDispatcher.dispatch(event, layers);
     }
 
