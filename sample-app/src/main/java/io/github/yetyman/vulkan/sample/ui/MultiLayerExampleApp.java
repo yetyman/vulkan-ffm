@@ -158,7 +158,7 @@ public class MultiLayerExampleApp extends VulkanApplication {
         loop.start();
 
         while (!windowSystem().shouldClose(window())) {
-            windowSystem().pollEvents();
+            windowSystem().waitEventsTimeout(0.004); // 250 Hz floor, instant wake on input
 
             double t = (System.nanoTime() - startNanos) / 1_000_000_000.0;
             float radius = 6.0f;
@@ -170,13 +170,6 @@ public class MultiLayerExampleApp extends VulkanApplication {
                 new float[]{0, 1, 0});
             float[] proj = perspective((float) Math.toRadians(60), (float) WIDTH / HEIGHT, 0.1f, 100f);
             overlay.setCamera(view, proj);
-
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
         }
         loop.stop();
     }

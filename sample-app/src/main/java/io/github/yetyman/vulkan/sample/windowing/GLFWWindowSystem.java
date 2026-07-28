@@ -66,6 +66,11 @@ public class GLFWWindowSystem implements WindowSystem {
     }
 
     @Override
+    public void waitEventsTimeout(double timeoutSeconds) {
+        GLFW.glfwWaitEventsTimeout(timeoutSeconds);
+    }
+
+    @Override
     public void setResizeCallback(MemorySegment window, ResizeCallback callback, Arena arena) {
         GLFWCallbacks.setFramebufferSizeCallback(window, callback::onResize, arena);
     }

@@ -27,6 +27,14 @@ public interface WindowSystem {
 
     void pollEvents();
 
+    /**
+     * Waits for events with a timeout. Blocks until an event arrives or the timeout
+     * (in seconds) expires, whichever comes first. On input arrival, wakes instantly.
+     * Prefer this over pollEvents() + sleep for power-efficient event loops with
+     * continuous animation (use the timeout as the animation floor rate).
+     */
+    void waitEventsTimeout(double timeoutSeconds);
+
     void setResizeCallback(MemorySegment window, ResizeCallback callback, Arena arena);
 
     // Window properties

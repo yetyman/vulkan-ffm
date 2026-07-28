@@ -39,6 +39,10 @@ public class GLFW {
     public static void glfwPollEvents() {
         GLFWFFM.glfwPollEvents();
     }
+
+    public static void glfwWaitEventsTimeout(double timeout) {
+        GLFWFFM.glfwWaitEventsTimeout(timeout);
+    }
     
     public static String[] glfwGetRequiredInstanceExtensions(Arena arena) {
         MemorySegment countSeg = arena.allocate(ValueLayout.JAVA_INT);
