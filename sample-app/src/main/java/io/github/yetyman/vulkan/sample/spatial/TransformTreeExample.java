@@ -9,7 +9,7 @@ import io.github.yetyman.vulkan.foundation.ecs.*;
  * - Parent/child transform composition (world = parent.world * local)
  * - Dirty flag optimization (only recomputes when needed)
  * - Reparenting automatically re-resolves parent transforms via NEAREST_ANCESTOR DI
- * - How ComponentTreeTraversalView can be used to iterate all transforms for bulk GPU upload
+ * - How TraversalView can be used to iterate all transforms for bulk GPU upload
  */
 public class TransformTreeExample {
 
@@ -79,7 +79,7 @@ public class TransformTreeExample {
             System.out.println();
             System.out.println("=== All transforms via traversal view ===");
 
-            ComponentTreeTraversalView<TransformComponent> transformView =
+            TraversalView<TransformComponent> transformView =
                     tree.getOrCreateComponentTraversal(TransformComponent.class, TraversalOrder.DEPTH_FIRST_PRE_ORDER);
 
             System.out.println("Total transforms in tree: " + transformView.liveCount());

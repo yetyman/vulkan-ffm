@@ -1,5 +1,7 @@
 package io.github.yetyman.vulkan.foundation.ecs;
 
+import io.github.yetyman.vulkan.util.Logger;
+
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -17,12 +19,14 @@ public class Node implements AutoCloseable {
     private final Tree tree;
     private Node parent;
     private List<Node> children = List.of(); // zero-alloc until first child add
+    private List<Node> childrenView; // cached unmodifiable view, invalidated on mutation
     private final LinkedHashMap<Class<?>, Component> components = new LinkedHashMap<>();
     private LifecycleState state = LifecycleState.UNCONSTRUCTED;
 
-    // Claim tracking: maps (claimed component instance) -> (requester type -> claim style)
-    // Used by the DI resolution engine to enforce claim style rules.
-    private static final Map<Component, Map<Class<?>, ClaimStyle>> claimRegistry = new IdentityHashMap<>();
+    // Event handler registration: typed handlers per EventType, plus receive-all handlers.
+    // Lazily initialized to avoid allocation for nodes that never register handlers.
+    private Map<EventType<?>, List<EventHandler<?>>> typedHandlers;
+    private List<EventHandler<Event>> receiveAllHandlers;
 
     /**
      * Package-private constructor. Use Tree.root() or parent.createChild() to obtain nodes.
@@ -43,7 +47,11 @@ public class Node implements AutoCloseable {
 
     /** @return unmodifiable view of this node's children. */
     public List<Node> children() {
-        return children == List.<Node>of() ? children : Collections.unmodifiableList(children);
+        if (children == List.<Node>of()) return children; // empty singleton, no alloc
+        if (childrenView == null) {
+            childrenView = Collections.unmodifiableList(children);
+        }
+        return childrenView;
     }
 
     /** @return current lifecycle state. */
@@ -69,6 +77,7 @@ public class Node implements AutoCloseable {
     public Node createChild() {
         Node child = new Node(tree, this);
         addChildInternal(child);
+        tree.notifyNodeAdded(child);
         return child;
     }
 
@@ -81,6 +90,7 @@ public class Node implements AutoCloseable {
     public Node createChild(int index) {
         Node child = new Node(tree, this);
         addChildInternal(child, index);
+        tree.notifyNodeAdded(child);
         return child;
     }
 
@@ -89,6 +99,7 @@ public class Node implements AutoCloseable {
             children = new ArrayList<>();
         }
         children.add(child);
+        childrenView = null; // invalidate cached view
     }
 
     private void addChildInternal(Node child, int index) {
@@ -96,13 +107,21 @@ public class Node implements AutoCloseable {
             children = new ArrayList<>();
         }
         children.add(index, child);
+        childrenView = null;
     }
 
     private void removeChildInternal(Node child) {
-        children.remove(child);
+        // Use identity-based removal for correctness with Node instances
+        for (int i = 0, size = children.size(); i < size; i++) {
+            if (children.get(i) == child) {
+                children.remove(i);
+                break;
+            }
+        }
         if (children.isEmpty()) {
             children = List.of();
         }
+        childrenView = null;
     }
 
     // --- Component management ---
@@ -183,7 +202,7 @@ public class Node implements AutoCloseable {
         }
 
         // Clear claims held by/on this component
-        claimRegistry.remove(removed);
+        tree.claimRegistry().remove(removed);
     }
 
     /**
@@ -279,7 +298,70 @@ public class Node implements AutoCloseable {
     /** Detaches this node from its parent (shorthand for setParent(null)). */
     public void detach() { setParent(null); }
 
+    // --- Event handler registration ---
+
+    /**
+     * Registers a typed event handler for a specific event type on this node.
+     * The handler will only be invoked when events of the matching type pass through.
+     *
+     * @param type the event type to listen for
+     * @param handler the handler to invoke
+     * @param <E> the event class
+     */
+    @SuppressWarnings("unchecked")
+    public <E extends Event> void addEventHandler(EventType<E> type, EventHandler<E> handler) {
+        if (typedHandlers == null) {
+            typedHandlers = new HashMap<>();
+        }
+        typedHandlers.computeIfAbsent(type, k -> new ArrayList<>()).add(handler);
+    }
+
+    /**
+     * Removes a typed event handler.
+     *
+     * @param type the event type
+     * @param handler the handler to remove
+     * @param <E> the event class
+     */
+    public <E extends Event> void removeEventHandler(EventType<E> type, EventHandler<E> handler) {
+        if (typedHandlers == null) return;
+        List<EventHandler<?>> handlers = typedHandlers.get(type);
+        if (handlers != null) {
+            handlers.remove(handler);
+            if (handlers.isEmpty()) {
+                typedHandlers.remove(type);
+            }
+        }
+    }
+
+    /**
+     * Registers a receive-all handler that is invoked for every event type passing through.
+     * Useful for logging, debugging, or components that need to observe all traffic.
+     *
+     * @param handler the handler to invoke for all events
+     */
+    public void addReceiveAllHandler(EventHandler<Event> handler) {
+        if (receiveAllHandlers == null) {
+            receiveAllHandlers = new ArrayList<>();
+        }
+        receiveAllHandlers.add(handler);
+    }
+
+    /**
+     * Removes a receive-all handler.
+     *
+     * @param handler the handler to remove
+     */
+    public void removeReceiveAllHandler(EventHandler<Event> handler) {
+        if (receiveAllHandlers == null) return;
+        receiveAllHandlers.remove(handler);
+    }
+
     // --- Event dispatch ---
+
+    // Thread-local scratch buffer for event dispatch path. Avoids per-fire allocation.
+    // Grows as needed, never shrinks. Single-threaded assumption means this is safe.
+    private static Node[] dispatchScratch = new Node[16];
 
     /**
      * Fires an event through this node using capture/bubble dispatch.
@@ -287,40 +369,52 @@ public class Node implements AutoCloseable {
      * Capture: root -> this node (ancestors get first look)
      * Bubble: this node -> root (target and ancestors react)
      *
+     * Only handlers registered for the event's specific type (or receive-all) are invoked.
+     * Zero per-fire allocation: uses a static scratch buffer (safe under single-thread assumption).
+     *
      * @param event the event to dispatch
      */
     public void fireEvent(Event event) {
-        // Build path from root to this node
-        List<Node> path = pathFromRoot();
+        // Count depth and ensure scratch buffer is large enough
+        int depth = depth();
+        int pathLen = depth + 1;
+        if (dispatchScratch.length < pathLen) {
+            dispatchScratch = new Node[pathLen];
+        }
+
+        // Fill path: walk up from this node
+        Node current = this;
+        for (int i = depth; i >= 0; i--) {
+            dispatchScratch[i] = current;
+            current = current.parent;
+        }
 
         // CAPTURE phase: root to target
         event.setPhase(Event.Phase.CAPTURE);
-        for (Node node : path) {
+        for (int i = 0; i < pathLen; i++) {
             if (event.isStopped()) break;
-            node.dispatchToComponents(event);
+            dispatchScratch[i].dispatchToHandlers(event);
         }
 
-        // Transition to BUBBLE phase - reset stopped flag (follows existing precedent)
+        // Transition to BUBBLE phase
         event.resetForBubble();
         event.setPhase(Event.Phase.BUBBLE);
 
         // BUBBLE phase: target to root
-        for (int i = path.size() - 1; i >= 0; i--) {
+        for (int i = pathLen - 1; i >= 0; i--) {
             if (event.isStopped()) break;
-            path.get(i).dispatchToComponents(event);
+            dispatchScratch[i].dispatchToHandlers(event);
         }
     }
 
     /**
-     * Creates and fires an event using an EventType factory.
+     * Fires a typed event through this node.
      *
-     * @param type the event type / factory
-     * @param data construction arguments for the event
+     * @param event the typed event to dispatch
      * @param <E> the concrete event type
-     * @return the created and dispatched event
+     * @return the dispatched event
      */
-    public <E extends Event> E fireEvent(EventType<E> type, Object... data) {
-        E event = type.create(data);
+    public <E extends Event> E fireTypedEvent(E event) {
         fireEvent(event);
         return event;
     }
@@ -476,13 +570,14 @@ public class Node implements AutoCloseable {
 
     private void closePass() {
         // Children first (bottom-up)
-        // Copy list to avoid ConcurrentModificationException during close
-        List<Node> childrenCopy = new ArrayList<>(children);
-        for (Node child : childrenCopy) {
+        for (int i = children.size() - 1; i >= 0; i--) {
+            Node child = children.get(i);
             child.closePass();
             child.state = LifecycleState.CLOSED;
+            tree.notifyNodeRemoved(child);
         }
         children = List.of();
+        childrenView = null;
 
         // Then this node's components
         for (Component c : components.values()) {
@@ -492,7 +587,7 @@ public class Node implements AutoCloseable {
 
         // Clear claims
         for (Component c : components.values()) {
-            claimRegistry.remove(c);
+            tree.claimRegistry().remove(c);
         }
         components.clear();
     }
@@ -535,56 +630,75 @@ public class Node implements AutoCloseable {
         }
 
         // Apply claim rules
-        tryClaim(found, requester.getClass(), dependency.claim());
+        tryClaim(found, requester.getClass(), dependency.claim(), tree);
         return found;
     }
 
     /**
      * Attempts to record a claim on a component instance.
      * Throws if the claim conflicts with existing claims.
+     * Claims are scoped to the owning Tree (not global static state).
      */
     static void tryClaim(Component target, Class<?> requesterType, ClaimStyle style) {
+        tryClaim(target, requesterType, style, null);
+    }
+
+    /**
+     * Attempts to record a claim using the tree-scoped registry.
+     */
+    static void tryClaim(Component target, Class<?> requesterType, ClaimStyle style, Tree tree) {
+        Map<Component, Map<Class<?>, ClaimStyle>> registry = (tree != null) ? tree.claimRegistry() : getGlobalClaimRegistry();
+
         if (style == ClaimStyle.PERMISSIVE) {
-            // Permissive never conflicts with anything
-            Map<Class<?>, ClaimStyle> claims = claimRegistry.computeIfAbsent(target, k -> new HashMap<>());
+            Map<Class<?>, ClaimStyle> claims = registry.computeIfAbsent(target, k -> new HashMap<>());
             claims.put(requesterType, style);
             return;
         }
 
-        Map<Class<?>, ClaimStyle> claims = claimRegistry.computeIfAbsent(target, k -> new HashMap<>());
+        Map<Class<?>, ClaimStyle> claims = registry.computeIfAbsent(target, k -> new HashMap<>());
 
         if (style == ClaimStyle.SELF_EXCLUSIVE) {
-            // Fail if any prior claim exists with the SAME requester type
             if (claims.containsKey(requesterType)) {
                 ClaimStyle existing = claims.get(requesterType);
                 if (existing != ClaimStyle.PERMISSIVE) {
-                    throw new IllegalStateException(
-                            "SELF_EXCLUSIVE claim violation: " + requesterType.getSimpleName() +
-                                    " already claims " + target.getClass().getSimpleName());
+                    String msg = "SELF_EXCLUSIVE claim violation: " + requesterType.getSimpleName() +
+                            " already claims " + target.getClass().getSimpleName();
+                    Logger.warn(msg);
+                    throw new IllegalStateException(msg);
                 }
             }
             claims.put(requesterType, style);
         } else if (style == ClaimStyle.EXCLUSIVE) {
-            // Fail if ANY prior non-permissive claim exists
             for (Map.Entry<Class<?>, ClaimStyle> entry : claims.entrySet()) {
                 if (entry.getValue() != ClaimStyle.PERMISSIVE) {
-                    throw new IllegalStateException(
-                            "EXCLUSIVE claim violation: " + target.getClass().getSimpleName() +
-                                    " already claimed by " + entry.getKey().getSimpleName());
+                    String msg = "EXCLUSIVE claim violation: " + target.getClass().getSimpleName() +
+                            " already claimed by " + entry.getKey().getSimpleName() +
+                            " with style " + entry.getValue();
+                    Logger.warn(msg);
+                    throw new IllegalStateException(msg);
                 }
             }
             if (!claims.isEmpty()) {
-                // Check if any claim exists at all (exclusive blocks everything)
                 for (ClaimStyle existingStyle : claims.values()) {
                     if (existingStyle == ClaimStyle.EXCLUSIVE) {
-                        throw new IllegalStateException(
-                                "EXCLUSIVE claim violation: " + target.getClass().getSimpleName() +
-                                        " already exclusively claimed");
+                        String msg = "EXCLUSIVE claim violation: " + target.getClass().getSimpleName() +
+                                " already exclusively claimed";
+                        Logger.warn(msg);
+                        throw new IllegalStateException(msg);
                     }
                 }
             }
             claims.put(requesterType, style);
         }
+    }
+
+    // Fallback for tests that call tryClaim without a tree context
+    private static Map<Component, Map<Class<?>, ClaimStyle>> globalClaimRegistry;
+    private static Map<Component, Map<Class<?>, ClaimStyle>> getGlobalClaimRegistry() {
+        if (globalClaimRegistry == null) {
+            globalClaimRegistry = new IdentityHashMap<>();
+        }
+        return globalClaimRegistry;
     }
 
     /**
@@ -680,10 +794,29 @@ public class Node implements AutoCloseable {
 
     // --- Internal helpers ---
 
-    private void dispatchToComponents(Event event) {
-        for (Component c : components.values()) {
-            if (event.isStopped()) break;
-            c.handleEvent(event);
+    /**
+     * Dispatches an event to this node's registered handlers (typed + receive-all).
+     * Package-private - used by TreeInputDispatcher for tree-wide traversal dispatch.
+     */
+    @SuppressWarnings("unchecked")
+    void dispatchToHandlers(Event event) {
+        // Dispatch to typed handlers for this event's type
+        if (typedHandlers != null) {
+            List<EventHandler<?>> handlers = typedHandlers.get(event.eventType());
+            if (handlers != null) {
+                for (EventHandler<?> handler : handlers) {
+                    if (event.isStopped()) return;
+                    ((EventHandler<Event>) handler).handle(event);
+                }
+            }
+        }
+
+        // Dispatch to receive-all handlers
+        if (receiveAllHandlers != null) {
+            for (EventHandler<Event> handler : receiveAllHandlers) {
+                if (event.isStopped()) return;
+                handler.handle(event);
+            }
         }
     }
 

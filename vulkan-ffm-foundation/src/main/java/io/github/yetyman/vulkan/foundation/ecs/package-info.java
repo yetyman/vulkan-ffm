@@ -29,14 +29,14 @@
  *
  * <h2>Bulk Render Integration</h2>
  * <ul>
- *   <li>{@link io.github.yetyman.vulkan.foundation.ecs.ComponentTreeTraversalView} - per-type traversal list</li>
+ *   <li>{@link io.github.yetyman.vulkan.foundation.ecs.TraversalView} - per-type traversal list</li>
  *   <li>{@link io.github.yetyman.vulkan.foundation.ecs.TraversalOrder} - traversal ordering</li>
  * </ul>
  *
  * <h2>Three-level model</h2>
  * <ol>
  *   <li>Level 1: The tree (Node parent/child structure)</li>
- *   <li>Level 2: Per-component-type traversal lists (ComponentTreeTraversalView)</li>
+ *   <li>Level 2: Per-component-type traversal lists (TraversalView)</li>
  *   <li>Level 3: Dense backing arrays (caller-owned, updated via applyPatches())</li>
  * </ol>
  *

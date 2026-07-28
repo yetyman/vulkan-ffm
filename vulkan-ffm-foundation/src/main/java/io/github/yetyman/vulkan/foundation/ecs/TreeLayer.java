@@ -9,21 +9,15 @@ import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
 import java.lang.foreign.Arena;
 
 /**
- * A UILayer implementation that bridges the ECS node tree into the existing
- * multilayer rendering pipeline.
+ * A UILayer that uses a Tree for internal organization.
  *
- * This is the integration point between the UIComposite layer system and the ECS tree.
- * It owns a Tree and provides the update/render/input lifecycle bridging.
+ * This is a convenience base class. It owns a Tree and runs its lifecycle alongside
+ * the layer lifecycle. How (or whether) the subclass uses traversal views, dispatches
+ * events through the tree, or renders from it is entirely up to the subclass.
  *
- * Responsibilities:
- * - Holds a Tree instance and manages its lifecycle
- * - Bridges UIInputEvents into the tree's event system
- * - Provides update() calls for tree components to do per-frame processing
- * - Provides render() for tree components that record draw commands
- *
- * Hit-testing and spatial input dispatch are NOT handled here - that's the responsibility
- * of specific components within the tree (e.g., a future hit-test system component).
- * This layer bridges at the level of "this tree is a participant in the layer stack."
+ * Trees are organizational — not event handlers. A subclass that wants capture/bubble
+ * can create a CaptureBubbleTraversal from a view. A subclass that just uses the tree
+ * for render data doesn't need to handle input through it at all.
  */
 public abstract class TreeLayer implements UILayer {
 
@@ -71,7 +65,7 @@ public abstract class TreeLayer implements UILayer {
 
     @Override
     public boolean handleInput(InputEvent event) {
-        return onInput(event);
+        return false; // Subclass decides if/how to handle input
     }
 
     @Override
@@ -90,48 +84,23 @@ public abstract class TreeLayer implements UILayer {
     /** @return the UI context. */
     protected UIContext context() { return ctx; }
 
-    // --- Extension points for subclasses ---
+    // --- Extension points ---
 
     /**
      * Called during initialize() to populate the tree with initial nodes and components.
      * The tree is not yet initialized (initialize() has not been called on it).
-     *
-     * @param tree the tree to populate
      */
     protected abstract void buildTree(Tree tree);
 
-    /**
-     * Called after the tree has been built and initialized.
-     * Register tree components, traversal views, etc. here.
-     */
+    /** Called after the tree has been built and initialized. */
     protected void onInitialized(UIContext ctx) {}
 
-    /**
-     * Called once per frame for update logic.
-     * Tree components should do their per-frame processing here.
-     */
+    /** Called once per frame for update logic. */
     protected void onUpdate(UIFrameContext frame) {}
 
-    /**
-     * Called once per frame to record render commands.
-     * Tree components that render should use their traversal views here.
-     */
+    /** Called once per frame to record render commands. */
     protected void onRender(VkCommandBuffer cmd, Arena frameArena) {}
 
-    /**
-     * Called on surface resize.
-     */
+    /** Called on surface resize. */
     protected void onResize(int width, int height) {}
-
-    /**
-     * Called when an input event reaches this layer.
-     *
-     * Default implementation does nothing. Subclasses that want to bridge input
-     * into the tree's event system should override this, perform hit-testing
-     * (if spatial), select a target node, and call node.fireEvent() with an
-     * appropriate ECS event.
-     *
-     * @return true if the event was consumed
-     */
-    protected boolean onInput(InputEvent event) { return false; }
 }

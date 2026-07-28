@@ -1,7 +1,7 @@
 package io.github.yetyman.vulkan.foundation.ecs;
 
 /**
- * Traversal ordering strategy for ComponentTreeTraversalView.
+ * Traversal ordering strategy for TraversalView.
  *
  * Determines the order in which nodes appear in the per-component-type traversal list.
  */

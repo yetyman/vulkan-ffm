@@ -87,14 +87,4 @@ public interface Component {
      * declarations can depend on its own instance configuration.
      */
     default List<Dependency<?>> requires() { return List.of(); }
-
-    // --- Event handling ---
-
-    /**
-     * Called during event dispatch (capture and bubble phases) when an event passes
-     * through this component's node.
-     *
-     * @param event the event being dispatched
-     */
-    default void handleEvent(Event event) {}
 }
