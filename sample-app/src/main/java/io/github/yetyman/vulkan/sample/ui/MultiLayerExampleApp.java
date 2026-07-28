@@ -8,7 +8,7 @@ import io.github.yetyman.vulkan.foundation.ui.assets.AssetRegistry;
 import io.github.yetyman.vulkan.foundation.ui.assets.FontRegistry;
 import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
 import io.github.yetyman.vulkan.foundation.ui.input.types.KeyInputData;
-import io.github.yetyman.vulkan.foundation.ui.input.types.MouseInputData;
+import io.github.yetyman.vulkan.foundation.ui.input.types.PointerInputData;
 import io.github.yetyman.vulkan.foundation.ui.input.types.ScrollInputData;
 import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.DepthMode;
 import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.Scene3DOverlayLayer;
@@ -189,14 +189,14 @@ public class MultiLayerExampleApp extends VulkanApplication {
             float dy = (float) (y - lastMousePos[1]);
             lastMousePos[0] = x;
             lastMousePos[1] = y;
-            composite.dispatchInput(MouseInputData.move((float) x, (float) y, dx, dy));
+            composite.dispatchInput(PointerInputData.mouseMove((float) x, (float) y, dx, dy));
         }, callbackArena);
 
         GLFWCallbacks.setMouseButtonCallback(window(), (w, button, action, mods) -> {
             boolean pressed = action != 0; // GLFW_RELEASE = 0, GLFW_PRESS = 1, GLFW_REPEAT = 2
             composite.dispatchInput(pressed
-                ? MouseInputData.buttonPress(button, (float) lastMousePos[0], (float) lastMousePos[1])
-                : MouseInputData.buttonRelease(button, (float) lastMousePos[0], (float) lastMousePos[1]));
+                ? PointerInputData.mousePress(button, (float) lastMousePos[0], (float) lastMousePos[1])
+                : PointerInputData.mouseRelease(button, (float) lastMousePos[0], (float) lastMousePos[1]));
         }, callbackArena);
 
         GLFWCallbacks.setScrollCallback(window(), (w, dx, dy) ->

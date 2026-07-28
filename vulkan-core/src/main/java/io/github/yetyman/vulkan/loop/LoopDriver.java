@@ -96,11 +96,39 @@ public interface LoopDriver {
     }
 
     /**
+     * Yields loop control to a platform-driven frame source (Android Choreographer,
+     * iOS CADisplayLink, web requestAnimationFrame). The platform calls the work
+     * runnable at its own cadence — typically display vsync rate.
+     *
+     * The source is responsible for stopping when running returns false.
+     * This driver may block (if the source is synchronous) or return after
+     * registering the callback (if the source is async/callback-based).
+     */
+    static LoopDriver platformDriven(PlatformFrameSource source) {
+        return (work, running) -> source.start(work, running);
+    }
+
+    /**
      * Source of vsync signals, typically provided by a windowing system.
      */
     @FunctionalInterface
     interface VsyncSource {
         void waitForVsync();
+    }
+
+    /**
+     * Abstraction over platform-specific frame timing sources.
+     * Implementations drive the work callback at the platform's display refresh rate.
+     * The source must stop calling work when running returns false.
+     */
+    @FunctionalInterface
+    interface PlatformFrameSource {
+        /**
+         * Starts frame delivery. Calls work once per platform vsync until running returns false.
+         * This method may block (desktop simulation) or return immediately and call work
+         * asynchronously (true mobile integration via Choreographer/CADisplayLink).
+         */
+        void start(Runnable work, BooleanSupplier running);
     }
 
     /**

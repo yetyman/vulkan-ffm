@@ -7,7 +7,7 @@ import io.github.yetyman.vulkan.foundation.ui.UILayer;
 import io.github.yetyman.vulkan.foundation.ui.input.InputEventType;
 import io.github.yetyman.vulkan.foundation.ui.input.InputPhase;
 import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
-import io.github.yetyman.vulkan.foundation.ui.input.types.MouseInputData;
+import io.github.yetyman.vulkan.foundation.ui.input.types.PointerInputData;
 
 import java.lang.foreign.Arena;
 
@@ -69,10 +69,10 @@ public class HoverHighlightLayer implements UILayer {
 
     @Override
     public boolean handleInput(InputEvent event) {
-        if (event.type() == InputEventType.MOUSE_MOVE) {
-            MouseInputData mouse = event.data(MouseInputData.class);
-            mouseX = mouse.mouseX;
-            mouseY = mouse.mouseY;
+        if (event.type() == InputEventType.POINTER_MOVE) {
+            PointerInputData pointer = event.data(PointerInputData.class);
+            mouseX = pointer.x;
+            mouseY = pointer.y;
         }
 
         if (event.phase() == InputPhase.CAPTURE) {
@@ -93,7 +93,7 @@ public class HoverHighlightLayer implements UILayer {
                 + " (captured at " + event.propagation().get("captureTimestampNanos", Long.class) + ")");
         }
 
-        if (event.type() == InputEventType.MOUSE_BUTTON_PRESS) {
+        if (event.type() == InputEventType.POINTER_DOWN) {
             highlighted = !highlighted;
             System.out.println("[HoverHighlightLayer] Click consumed - highlighted=" + highlighted
                 + " - stopping propagation, no lower layer will see this click");

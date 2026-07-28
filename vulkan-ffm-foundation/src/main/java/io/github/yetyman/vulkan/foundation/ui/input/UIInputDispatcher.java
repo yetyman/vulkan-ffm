@@ -4,7 +4,7 @@ import io.github.yetyman.vulkan.foundation.ui.UILayer;
 import java.util.List;
 
 /**
- * Orchestrates capture/bubble input dispatch across layers.
+ * Default capture/bubble dual-pass dispatch strategy.
  *
  * Capture phase: highest order (frontmost) to lowest (backmost).
  *   - Layers annotate context, can stop propagation.
@@ -16,13 +16,19 @@ import java.util.List;
  *
  * Between phases: propagation stopped flag resets, context persists.
  */
-public class UIInputDispatcher {
+public class UIInputDispatcher implements InputDispatchStrategy {
 
-    /**
-     * Dispatches an input event through capture then bubble phases across the given layers.
-     * The layers list is expected to already be sorted ascending by UILayer.order().
-     */
-    public void dispatch(InputEvent event, List<UILayer> layers) {
+    private LayerProvider layerProvider;
+
+    @Override
+    public void bind(LayerProvider layerProvider) {
+        this.layerProvider = layerProvider;
+    }
+
+    @Override
+    public void dispatch(InputEvent event) {
+        List<UILayer> layers = layerProvider.inputLayers();
+
         // --- Capture phase: highest order first (index layers.size()-1 down to 0) ---
         event.setPhase(InputPhase.CAPTURE);
         event.propagation().markCaptureStart();
