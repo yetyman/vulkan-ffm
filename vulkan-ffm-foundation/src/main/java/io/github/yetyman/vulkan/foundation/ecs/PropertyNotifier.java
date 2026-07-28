@@ -52,10 +52,50 @@ public final class PropertyNotifier<E extends Enum<E>> {
     // Lazily allocated: null until the first observer registers for that property.
     private final List<Runnable>[] listeners;
 
+    // Bulk observer path: one direct call instead of per-instance lambdas.
+    // Set by tree-scoped renderers for optimized notification.
+    private BulkPropertyObserver bulkObserver;
+    private Component bulkSource; // the component instance owning this notifier
+    private int bulkSlotIndex = -1;
+
     @SuppressWarnings("unchecked")
     public PropertyNotifier(Class<E> enumType) {
         E[] constants = enumType.getEnumConstants();
         this.listeners = new List[constants.length];
+    }
+
+    /**
+     * Registers a bulk observer with a slot index. When fire() is called, the bulk
+     * observer receives (source, propertyOrdinal, slotIndex) directly — one method call,
+     * no lambda, no list iteration.
+     *
+     * Typically called by a tree-scoped renderer when it assigns this component a slot
+     * in its backing array.
+     *
+     * @param observer the bulk observer (typically the tree-scoped renderer)
+     * @param source the component instance that owns this notifier
+     * @param slotIndex the array slot assigned to this component
+     */
+    public void setBulkObserver(BulkPropertyObserver observer, Component source, int slotIndex) {
+        this.bulkObserver = observer;
+        this.bulkSource = source;
+        this.bulkSlotIndex = slotIndex;
+    }
+
+    /**
+     * Updates the slot index for the bulk observer (e.g., after a swap-remove compaction).
+     */
+    public void updateBulkSlotIndex(int newSlotIndex) {
+        this.bulkSlotIndex = newSlotIndex;
+    }
+
+    /**
+     * Clears the bulk observer registration.
+     */
+    public void clearBulkObserver() {
+        this.bulkObserver = null;
+        this.bulkSource = null;
+        this.bulkSlotIndex = -1;
     }
 
     /**
@@ -88,13 +128,22 @@ public final class PropertyNotifier<E extends Enum<E>> {
 
     /**
      * Fires notification for a property change.
-     * Invokes all registered listeners for this property.
-     * Zero allocation — no event objects, just direct Runnable calls.
+     * If a bulk observer is registered, calls it directly with (source, ordinal, slotIndex).
+     * Then invokes any per-property listeners.
+     * Zero allocation — no event objects, just direct calls.
      *
      * @param property the property that changed
      */
     public void fire(E property) {
-        List<Runnable> list = listeners[property.ordinal()];
+        int ordinal = property.ordinal();
+
+        // Bulk observer path: one direct call with slot index
+        if (bulkObserver != null) {
+            bulkObserver.onPropertyChanged(bulkSource, ordinal, bulkSlotIndex);
+        }
+
+        // Per-property listener path
+        List<Runnable> list = listeners[ordinal];
         if (list != null) {
             for (int i = 0, size = list.size(); i < size; i++) {
                 list.get(i).run();

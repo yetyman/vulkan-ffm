@@ -13,6 +13,7 @@
         <module>helpers-core</module>
         <module>vulkan-core</module>
         <module>vulkan-ffm-foundation</module>
+        <module>vulkan-ffm-ui-2d</module>
         <module>sample-app</module>
     </modules>
 
