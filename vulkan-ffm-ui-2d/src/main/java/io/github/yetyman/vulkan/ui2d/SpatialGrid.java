@@ -109,8 +109,13 @@ public class SpatialGrid implements TreeComponent, BulkPropertyObserver {
 
     @Override
     public void onPropertyChanged(Component source, int propertyOrdinal, int slotIndex) {
-        // A rectangle's position or size changed — mark positions dirty
-        // The slot index tells us exactly which element moved
+        // Update cached position/size from the source rect
+        if (slotIndex >= 0 && slotIndex < elemCount && source instanceof RectangleComponent rect) {
+            elemX[slotIndex] = rect.x();
+            elemY[slotIndex] = rect.y();
+            elemW[slotIndex] = rect.width();
+            elemH[slotIndex] = rect.height();
+        }
         positionDirty = true;
     }
 

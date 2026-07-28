@@ -52,11 +52,12 @@ public final class PropertyNotifier<E extends Enum<E>> {
     // Lazily allocated: null until the first observer registers for that property.
     private final List<Runnable>[] listeners;
 
-    // Bulk observer path: one direct call instead of per-instance lambdas.
-    // Set by tree-scoped renderers for optimized notification.
-    private BulkPropertyObserver bulkObserver;
-    private Component bulkSource; // the component instance owning this notifier
-    private int bulkSlotIndex = -1;
+    // Bulk observer path: direct calls instead of per-instance lambdas.
+    // Supports multiple bulk observers (e.g., renderer + spatial grid).
+    private BulkPropertyObserver[] bulkObservers;
+    private Component[] bulkSources;
+    private int[] bulkSlotIndices;
+    private int bulkObserverCount = 0;
 
     @SuppressWarnings("unchecked")
     public PropertyNotifier(Class<E> enumType) {
@@ -65,37 +66,94 @@ public final class PropertyNotifier<E extends Enum<E>> {
     }
 
     /**
-     * Registers a bulk observer with a slot index. When fire() is called, the bulk
-     * observer receives (source, propertyOrdinal, slotIndex) directly — one method call,
-     * no lambda, no list iteration.
+     * Registers a bulk observer with a slot index. Multiple bulk observers can be
+     * registered on the same notifier (e.g., renderer and spatial grid).
      *
-     * Typically called by a tree-scoped renderer when it assigns this component a slot
-     * in its backing array.
-     *
-     * @param observer the bulk observer (typically the tree-scoped renderer)
+     * @param observer the bulk observer
      * @param source the component instance that owns this notifier
-     * @param slotIndex the array slot assigned to this component
+     * @param slotIndex the array slot assigned to this component by the registering system
      */
     public void setBulkObserver(BulkPropertyObserver observer, Component source, int slotIndex) {
-        this.bulkObserver = observer;
-        this.bulkSource = source;
-        this.bulkSlotIndex = slotIndex;
+        if (bulkObservers == null) {
+            bulkObservers = new BulkPropertyObserver[2];
+            bulkSources = new Component[2];
+            bulkSlotIndices = new int[2];
+        } else if (bulkObserverCount >= bulkObservers.length) {
+            int newCap = bulkObservers.length * 2;
+            BulkPropertyObserver[] newObs = new BulkPropertyObserver[newCap];
+            Component[] newSrc = new Component[newCap];
+            int[] newSlots = new int[newCap];
+            System.arraycopy(bulkObservers, 0, newObs, 0, bulkObserverCount);
+            System.arraycopy(bulkSources, 0, newSrc, 0, bulkObserverCount);
+            System.arraycopy(bulkSlotIndices, 0, newSlots, 0, bulkObserverCount);
+            bulkObservers = newObs;
+            bulkSources = newSrc;
+            bulkSlotIndices = newSlots;
+        }
+        bulkObservers[bulkObserverCount] = observer;
+        bulkSources[bulkObserverCount] = source;
+        bulkSlotIndices[bulkObserverCount] = slotIndex;
+        bulkObserverCount++;
     }
 
     /**
-     * Updates the slot index for the bulk observer (e.g., after a swap-remove compaction).
+     * Updates the slot index for a specific bulk observer.
+     */
+    public void updateBulkSlotIndex(BulkPropertyObserver observer, int newSlotIndex) {
+        for (int i = 0; i < bulkObserverCount; i++) {
+            if (bulkObservers[i] == observer) {
+                bulkSlotIndices[i] = newSlotIndex;
+                return;
+            }
+        }
+    }
+
+    /**
+     * Updates the slot index for the first registered bulk observer (backward compat).
      */
     public void updateBulkSlotIndex(int newSlotIndex) {
-        this.bulkSlotIndex = newSlotIndex;
+        if (bulkObserverCount > 0) {
+            bulkSlotIndices[0] = newSlotIndex;
+        }
     }
 
     /**
-     * Clears the bulk observer registration.
+     * Removes a specific bulk observer.
+     */
+    public void removeBulkObserver(BulkPropertyObserver observer) {
+        for (int i = 0; i < bulkObserverCount; i++) {
+            if (bulkObservers[i] == observer) {
+                // Shift down
+                int remaining = bulkObserverCount - i - 1;
+                if (remaining > 0) {
+                    System.arraycopy(bulkObservers, i + 1, bulkObservers, i, remaining);
+                    System.arraycopy(bulkSources, i + 1, bulkSources, i, remaining);
+                    System.arraycopy(bulkSlotIndices, i + 1, bulkSlotIndices, i, remaining);
+                }
+                bulkObserverCount--;
+                bulkObservers[bulkObserverCount] = null;
+                bulkSources[bulkObserverCount] = null;
+                return;
+            }
+        }
+    }
+
+    /**
+     * Clears all bulk observer registrations.
      */
     public void clearBulkObserver() {
-        this.bulkObserver = null;
-        this.bulkSource = null;
-        this.bulkSlotIndex = -1;
+        if (bulkObservers != null) {
+            for (int i = 0; i < bulkObserverCount; i++) {
+                bulkObservers[i] = null;
+                bulkSources[i] = null;
+            }
+        }
+        bulkObserverCount = 0;
+    }
+
+    /** @return true if any bulk observer is registered. */
+    public boolean hasBulkObserver() {
+        return bulkObserverCount > 0;
     }
 
     /**
@@ -137,9 +195,9 @@ public final class PropertyNotifier<E extends Enum<E>> {
     public void fire(E property) {
         int ordinal = property.ordinal();
 
-        // Bulk observer path: one direct call with slot index
-        if (bulkObserver != null) {
-            bulkObserver.onPropertyChanged(bulkSource, ordinal, bulkSlotIndex);
+        // Bulk observer path: call all registered bulk observers
+        for (int i = 0; i < bulkObserverCount; i++) {
+            bulkObservers[i].onPropertyChanged(bulkSources[i], ordinal, bulkSlotIndices[i]);
         }
 
         // Per-property listener path
