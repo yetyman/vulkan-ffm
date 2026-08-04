@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.buffers.typed;
 
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.BufferWritable;
+import io.github.yetyman.vulkan.buffers.GpuLayout;
 import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
@@ -17,6 +18,10 @@ import java.util.List;
  * Override {@link #releaseInstance} to return instances to a pool on eviction or close.
  * When constructed with {@code mirrored=true}, written objects are retained and reads are zero-cost.
  * When not mirrored, reads perform a GPU readback — slow, avoid in hot paths.
+ *
+ * Optionally accepts a {@link GpuLayout} to override the default serialization format.
+ * When a layout is provided, it is used for all write/read operations instead of
+ * {@link BufferWritable#writeTo}/{@link BufferWritable#readFrom}.
  */
 public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoCloseable {
 
@@ -25,13 +30,27 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     private final int count;
     private final ArrayList<T> mirror;
     private final ThreadLocal<ByteBuffer> scratchPool;
+    private final GpuLayout<T> layout;
 
     public TypedVkBuffer(IBuffer buffer, int byteSize, int count, boolean mirrored) {
+        this(buffer, byteSize, count, mirrored, null);
+    }
+
+    /**
+     * Creates a typed buffer view with an explicit GPU layout for serialization.
+     * The layout's {@link GpuLayout#byteSize()} is used as the stride.
+     */
+    public TypedVkBuffer(IBuffer buffer, GpuLayout<T> layout, int count, boolean mirrored) {
+        this(buffer, layout.byteSize(), count, mirrored, layout);
+    }
+
+    private TypedVkBuffer(IBuffer buffer, int byteSize, int count, boolean mirrored, GpuLayout<T> layout) {
         if ((long) byteSize * count > buffer.size())
             throw new IllegalArgumentException("Buffer too small: need " + ((long) byteSize * count) + ", have " + buffer.size());
         this.buffer = buffer;
         this.stride = byteSize;
         this.count = count;
+        this.layout = layout;
         if (mirrored) {
             this.mirror = new ArrayList<>(count);
             for (int i = 0; i < count; i++) mirror.add(null);
@@ -64,6 +83,26 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         return buffer;
     }
 
+    public GpuLayout<T> layout() {
+        return layout;
+    }
+
+    private void writeValue(T value, ByteBuffer buf) {
+        if (layout != null) {
+            layout.writeTo(value, buf);
+        } else {
+            value.writeTo(buf);
+        }
+    }
+
+    private void readValue(T value, ByteBuffer buf) {
+        if (layout != null) {
+            layout.readFrom(value, buf);
+        } else {
+            value.readFrom(buf);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Single-element write
     // -------------------------------------------------------------------------
@@ -78,7 +117,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
     public TransferCompletion writeAsync(int index, T value, VkQueue queue) {
         checkIndex(index);
         ByteBuffer scratch = getScratchBuffer(stride);
-        value.writeTo(scratch);
+        writeValue(value, scratch);
         scratch.flip();
         if (mirror != null) {
             T old = mirror.set(index, value);
@@ -98,7 +137,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         checkIndex(startIndex + values.size() - 1);
         ByteBuffer scratch = getScratchBuffer(stride * values.size());
         for (int i = 0; i < values.size(); i++) {
-            values.get(i).writeTo(scratch);
+            writeValue(values.get(i), scratch);
             if (mirror != null) {
                 T old = mirror.set(startIndex + i, values.get(i));
                 if (old != null && old != values.get(i)) releaseInstance(old);
@@ -123,7 +162,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
                 "Prefer mirrored=true for frequent reads.");
         T instance = getInstance();
-        instance.readFrom(buffer.read((long) index * stride, stride));
+        readValue(instance, buffer.read((long) index * stride, stride));
         return instance;
     }
 
@@ -135,7 +174,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         if (mirror != null) return mirror.get(index);
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
                 "Prefer mirrored=true for frequent reads.");
-        target.readFrom(buffer.read((long) index * stride, stride));
+        readValue(target, buffer.read((long) index * stride, stride));
         return target;
     }
 
@@ -159,7 +198,7 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
                 "Prefer mirrored=true for frequent reads.");
         ByteBuffer raw = buffer.read((long) startIndex * stride, (long) stride * length);
         for (int i = 0; i < length; i++) {
-            targets.get(i).readFrom(raw.slice(i * stride, stride));
+            readValue(targets.get(i), raw.slice(i * stride, stride));
         }
     }
 
