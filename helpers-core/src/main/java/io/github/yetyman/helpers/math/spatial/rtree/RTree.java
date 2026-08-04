@@ -149,6 +149,18 @@ public class RTree<T> implements SpatialStructure<T> {
 
     public void writeTo(ByteBuffer buf, GpuLayout<RTree<T>> layout) { layout.writeTo(this, buf); }
 
+    @Override
+    public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        visitRNode(root, 0, visitor);
+    }
+
+    private void visitRNode(RNode node, int depth, io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        visitor.visit(node.bounds(), depth, node.isLeaf, node.size());
+        if (!node.isLeaf) {
+            for (RNode child : node.children) visitRNode(child, depth + 1, visitor);
+        }
+    }
+
     // --- SpatialQuery ---
 
     @Override public List<T> query(AABB range) { List<T> out = new ArrayList<>(); query(range, out); return out; }

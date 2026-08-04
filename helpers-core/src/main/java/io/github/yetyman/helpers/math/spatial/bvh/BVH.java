@@ -148,6 +148,20 @@ public class BVH<T> implements SpatialStructure<T> {
     // Package-private for layout access
     BvhNode[] nodes() { return nodes; }
 
+    @Override
+    public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        if (nodes.length > 0) visitBvhNode(0, 0, visitor);
+    }
+
+    private void visitBvhNode(int nodeIdx, int depth, io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        BvhNode node = nodes[nodeIdx];
+        visitor.visit(node.bounds, depth, node.isLeaf(), node.isLeaf() ? node.primCount : 2);
+        if (!node.isLeaf()) {
+            visitBvhNode(node.leftChild, depth + 1, visitor);
+            visitBvhNode(node.rightChild, depth + 1, visitor);
+        }
+    }
+
     // --- SpatialQuery ---
 
     @Override

@@ -33,6 +33,8 @@ public class SpatialOverlayHelper<T> {
     private AABB queryAABB;
     private Sphere querySphere;
     private boolean showWorldBounds = true;
+    private boolean showStructureVis = true;
+    private Consumer<OverlayDrawList> structureVisCallback;
 
     public SpatialOverlayHelper(SpatialStructure<T> structure, Function<T, AABB> boundsProvider) {
         this.structure = structure;
@@ -48,6 +50,15 @@ public class SpatialOverlayHelper<T> {
     public void setQueryAABB(AABB aabb) { this.queryAABB = aabb; this.querySphere = null; }
     public void setQuerySphere(Sphere sphere) { this.querySphere = sphere; this.queryAABB = null; }
     public void setShowWorldBounds(boolean show) { this.showWorldBounds = show; }
+    public void setShowStructureVisualization(boolean show) { this.showStructureVis = show; }
+
+    /**
+     * Sets an optional callback that draws structure-specific visualization (tree nodes, grid cells, etc.)
+     * Called during render if showStructureVis is true.
+     */
+    public void setStructureVisCallback(Consumer<OverlayDrawList> callback) {
+        this.structureVisCallback = callback;
+    }
 
     /**
      * Returns a frame callback suitable for Scene3DOverlayLayer.setFrameCallback().
@@ -83,6 +94,11 @@ public class SpatialOverlayHelper<T> {
         }
         if (querySphere != null) {
             drawList.addWireSphere(toArr(querySphere.center), querySphere.radius, COLOR_QUERY_SPHERE, 16, DepthMode.ALWAYS_ON_TOP);
+        }
+
+        // Structure-specific visualization
+        if (showStructureVis && structureVisCallback != null) {
+            structureVisCallback.accept(drawList);
         }
     }
 

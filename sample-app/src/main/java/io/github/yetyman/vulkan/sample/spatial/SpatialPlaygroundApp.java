@@ -6,12 +6,11 @@ import io.github.yetyman.helpers.math.geometry.AABB;
 import io.github.yetyman.helpers.math.geometry.Sphere;
 import io.github.yetyman.helpers.math.spatial.SpatialStructure;
 import io.github.yetyman.helpers.math.spatial.bvh.BVH;
+import io.github.yetyman.helpers.math.spatial.grid.HierarchicalGrid;
 import io.github.yetyman.helpers.math.spatial.grid.SparseGrid;
 import io.github.yetyman.helpers.math.spatial.kdtree.KDTree;
 import io.github.yetyman.helpers.math.spatial.octree.LinkedOctree;
 import io.github.yetyman.helpers.math.spatial.octree.OctreeConfig;
-import io.github.yetyman.helpers.math.spatial.quadtree.LinkedQuadtree;
-import io.github.yetyman.helpers.math.spatial.quadtree.QuadtreeConfig;
 import io.github.yetyman.helpers.math.spatial.rtree.RTree;
 import io.github.yetyman.vulkan.VkCommandPool;
 import io.github.yetyman.vulkan.assets.FontRegistry;
@@ -61,7 +60,7 @@ public class SpatialPlaygroundApp extends VulkanApplication {
     private static final int OBJECT_COUNT = 200;
     private static final float WORLD_SIZE = 50f;
 
-    private enum StructureType { OCTREE, QUADTREE, BVH, RTREE, KDTREE, SPARSE_GRID }
+    private enum StructureType { OCTREE, BVH, RTREE, KDTREE, SPARSE_GRID, HIERARCHICAL_GRID }
     private enum QueryType { AABB, SPHERE }
 
     private StructureType currentStructure = StructureType.OCTREE;
@@ -74,6 +73,7 @@ public class SpatialPlaygroundApp extends VulkanApplication {
     // Query state
     private final Vec3 queryCenter = new Vec3(0, 0, 0);
     private float querySize = 10f;
+    private boolean showStructureVis = true;
 
     // Graphics
     private GraphicsLoop loop;
@@ -139,7 +139,7 @@ public class SpatialPlaygroundApp extends VulkanApplication {
             batch.drawText(FONT_ID, "Query: " + currentQuery + " (size=" + String.format("%.0f", querySize) + ")", 20, 85, 18, 0.8f, 0.9f, 1f, 1f);
             batch.drawText(FONT_ID, "Objects: " + structure.size(), 20, 110, 18, 0.7f, 0.8f, 0.7f, 1f);
             batch.drawText(FONT_ID, "", 20, 140, 16, 0.6f, 0.6f, 0.6f, 1f);
-            batch.drawText(FONT_ID, "Space=structure  Q=query  R=randomize", 20, 160, 14, 0.5f, 0.5f, 0.5f, 1f);
+            batch.drawText(FONT_ID, "Space=structure  Q=query  R=randomize  V=vis", 20, 160, 14, 0.5f, 0.5f, 0.5f, 1f);
             batch.drawText(FONT_ID, "+/-=size  Arrows=move  PgUp/Dn=Y  Drag=orbit  Scroll=zoom", 20, 180, 14, 0.5f, 0.5f, 0.5f, 1f);
         });
 
@@ -154,6 +154,7 @@ public class SpatialPlaygroundApp extends VulkanApplication {
         inputLayer.onQ(this::cycleQuery);
         inputLayer.onPlus(() -> { querySize += 2f; Logger.info("Query size: " + querySize); });
         inputLayer.onMinus(() -> { querySize = Math.max(1f, querySize - 2f); Logger.info("Query size: " + querySize); });
+        inputLayer.onV(() -> { showStructureVis = !showStructureVis; Logger.info("Structure vis: " + showStructureVis); });
         inputLayer.onArrowLeft(() -> queryCenter.x -= 3f);
         inputLayer.onArrowRight(() -> queryCenter.x += 3f);
         inputLayer.onArrowUp(() -> queryCenter.z -= 3f);
@@ -256,11 +257,49 @@ public class SpatialPlaygroundApp extends VulkanApplication {
     private void randomizeObjects() {
         objectBounds.clear();
         Random rng = new Random();
-        for (int i = 0; i < OBJECT_COUNT; i++) {
+
+        // Cluster 1: dense small objects near origin
+        for (int i = 0; i < 60; i++) {
+            float x = (rng.nextFloat() - 0.5f) * 20f;
+            float y = (rng.nextFloat() - 0.5f) * 20f;
+            float z = (rng.nextFloat() - 0.5f) * 20f;
+            float size = 0.3f + rng.nextFloat() * 0.8f;
+            objectBounds.add(new AABB(new Vec3(x, y, z), new Vec3(x + size, y + size, z + size)));
+        }
+
+        // Cluster 2: medium objects offset in +X
+        for (int i = 0; i < 40; i++) {
+            float x = 25f + (rng.nextFloat() - 0.5f) * 15f;
+            float y = (rng.nextFloat() - 0.5f) * 10f;
+            float z = (rng.nextFloat() - 0.5f) * 15f;
+            float size = 1f + rng.nextFloat() * 2f;
+            objectBounds.add(new AABB(new Vec3(x, y, z), new Vec3(x + size, y + size, z + size)));
+        }
+
+        // Cluster 3: scattered large objects
+        for (int i = 0; i < 30; i++) {
             float x = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 2;
             float y = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 2;
             float z = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 2;
-            float size = 0.5f + rng.nextFloat() * 2f;
+            float size = 2f + rng.nextFloat() * 5f;
+            objectBounds.add(new AABB(new Vec3(x, y, z), new Vec3(x + size, y + size, z + size)));
+        }
+
+        // Cluster 4: vertical column
+        for (int i = 0; i < 30; i++) {
+            float x = -30f + rng.nextFloat() * 3f;
+            float y = -WORLD_SIZE + i * (WORLD_SIZE * 2f / 30f);
+            float z = -30f + rng.nextFloat() * 3f;
+            float size = 0.5f + rng.nextFloat() * 1.5f;
+            objectBounds.add(new AABB(new Vec3(x, y, z), new Vec3(x + size, y + size, z + size)));
+        }
+
+        // Sparse outliers
+        for (int i = 0; i < 40; i++) {
+            float x = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 1.8f;
+            float y = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 1.8f;
+            float z = (rng.nextFloat() - 0.5f) * WORLD_SIZE * 1.8f;
+            float size = 0.5f + rng.nextFloat() * 3f;
             objectBounds.add(new AABB(new Vec3(x, y, z), new Vec3(x + size, y + size, z + size)));
         }
     }
@@ -273,8 +312,67 @@ public class SpatialPlaygroundApp extends VulkanApplication {
             newStructure.insert(i, snapshot.get(i));
         }
         structure = newStructure;
-        if (overlayHelper != null) overlayHelper.setStructure(structure, i -> snapshot.get(i));
+        if (overlayHelper != null) {
+            overlayHelper.setStructure(structure, i -> snapshot.get(i));
+            setupStructureVisualization();
+        }
     }
+
+    private void setupStructureVisualization() {
+        SpatialStructure<Integer> capturedStructure = structure;
+        StructureType capturedType = currentStructure;
+
+        overlayHelper.setStructureVisCallback(drawList -> {
+            // For tree structures: use depth. For flat/grid structures: use size.
+            boolean useDepth = capturedType == StructureType.OCTREE
+                    || capturedType == StructureType.BVH
+                    || capturedType == StructureType.RTREE
+                    || capturedType == StructureType.KDTREE;
+
+            if (useDepth) {
+                // Find max depth
+                int[] maxDepth = {0};
+                capturedStructure.visitNodes((bounds, depth, isLeaf, itemCount) -> {
+                    if (depth > maxDepth[0]) maxDepth[0] = depth;
+                });
+                int md = Math.max(1, maxDepth[0]);
+
+                capturedStructure.visitNodes((bounds, depth, isLeaf, itemCount) -> {
+                    float t = (float) depth / md; // 0=root, 1=deepest leaf
+                    // Quadratic curve so smallest nodes really pop
+                    float brightness = 0.1f + t * t * 0.85f;
+                    float alpha = 0.05f + t * t * 0.9f;
+                    float[] nodeColor = new float[]{brightness * 0.55f, brightness * 0.8f, brightness * 0.55f, alpha};
+                    drawList.addWireBox(toArr(bounds.min), toArr(bounds.max), nodeColor, io.github.yetyman.vulkan.layers.scene3d.DepthMode.DEPTH_TESTED);
+                });
+            } else {
+                // Size-based for grids
+                float[] minExtent = {Float.MAX_VALUE};
+                float[] maxExtent = {0f};
+                capturedStructure.visitNodes((bounds, depth, isLeaf, itemCount) -> {
+                    float extent = Math.max(bounds.max.x - bounds.min.x,
+                            Math.max(bounds.max.y - bounds.min.y, bounds.max.z - bounds.min.z));
+                    if (extent < minExtent[0]) minExtent[0] = extent;
+                    if (extent > maxExtent[0]) maxExtent[0] = extent;
+                });
+                float range = maxExtent[0] - minExtent[0];
+                if (range < 0.001f) range = 1f;
+                float finalRange = range;
+
+                capturedStructure.visitNodes((bounds, depth, isLeaf, itemCount) -> {
+                    float extent = Math.max(bounds.max.x - bounds.min.x,
+                            Math.max(bounds.max.y - bounds.min.y, bounds.max.z - bounds.min.z));
+                    float t = 1f - (extent - minExtent[0]) / finalRange; // 0=largest, 1=smallest
+                    float brightness = 0.1f + t * t * 0.85f;
+                    float alpha = 0.05f + t * t * 0.9f;
+                    float[] nodeColor = new float[]{brightness * 0.55f, brightness * 0.8f, brightness * 0.55f, alpha};
+                    drawList.addWireBox(toArr(bounds.min), toArr(bounds.max), nodeColor, io.github.yetyman.vulkan.layers.scene3d.DepthMode.DEPTH_TESTED);
+                });
+            }
+        });
+    }
+
+    private static float[] toArr(Vec3 v) { return new float[]{v.x, v.y, v.z}; }
 
     private SpatialStructure<Integer> createStructure(StructureType type) {
         return switch (type) {
@@ -282,18 +380,17 @@ public class SpatialPlaygroundApp extends VulkanApplication {
                     .worldBounds(new AABB(new Vec3(-WORLD_SIZE, -WORLD_SIZE, -WORLD_SIZE),
                             new Vec3(WORLD_SIZE, WORLD_SIZE, WORLD_SIZE)))
                     .maxDepth(6).splitThreshold(8).build());
-            case QUADTREE -> new LinkedQuadtree<>(QuadtreeConfig.builder()
-                    .worldBounds(new AABB(new Vec3(-WORLD_SIZE, -WORLD_SIZE, -WORLD_SIZE),
-                            new Vec3(WORLD_SIZE, WORLD_SIZE, WORLD_SIZE)))
-                    .maxDepth(6).splitThreshold(8).build());
             case BVH -> new BVH<>();
             case RTREE -> new RTree<>();
             case KDTREE -> new KDTree<>();
             case SPARSE_GRID -> new SparseGrid<>(5f);
+            case HIERARCHICAL_GRID -> new HierarchicalGrid<>(2f, 5);
         };
     }
 
     private void updateQuery() {
+        overlayHelper.setShowStructureVisualization(showStructureVis);
+
         AABB queryAABB = new AABB(
                 new Vec3(queryCenter.x - querySize, queryCenter.y - querySize, queryCenter.z - querySize),
                 new Vec3(queryCenter.x + querySize, queryCenter.y + querySize, queryCenter.z + querySize));

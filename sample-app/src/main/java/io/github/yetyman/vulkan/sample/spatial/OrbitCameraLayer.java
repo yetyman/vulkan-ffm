@@ -27,7 +27,7 @@ public class OrbitCameraLayer implements UILayer {
 
     private final OrbitCamera camera;
     private boolean leftDown, rightDown;
-    private Runnable onSpace, onR, onQ, onPlus, onMinus;
+    private Runnable onSpace, onR, onQ, onPlus, onMinus, onV;
     private Runnable onLeft, onRight, onUp, onDown;
     private Runnable onPageUp, onPageDown;
 
@@ -40,6 +40,7 @@ public class OrbitCameraLayer implements UILayer {
     public void onQ(Runnable r) { this.onQ = r; }
     public void onPlus(Runnable r) { this.onPlus = r; }
     public void onMinus(Runnable r) { this.onMinus = r; }
+    public void onV(Runnable r) { this.onV = r; }
     public void onArrowLeft(Runnable r) { this.onLeft = r; }
     public void onArrowRight(Runnable r) { this.onRight = r; }
     public void onArrowUp(Runnable r) { this.onUp = r; }
@@ -101,6 +102,7 @@ public class OrbitCameraLayer implements UILayer {
                 if (key == 81 && onQ != null) { onQ.run(); return true; } // Q
                 if (key == 61 && onPlus != null) { onPlus.run(); return true; } // =+
                 if (key == 45 && onMinus != null) { onMinus.run(); return true; } // -
+                if (key == 86 && onV != null) { onV.run(); return true; } // V
                 if (key == 263 && onLeft != null) { onLeft.run(); return true; } // LEFT
                 if (key == 262 && onRight != null) { onRight.run(); return true; } // RIGHT
                 if (key == 265 && onUp != null) { onUp.run(); return true; } // UP

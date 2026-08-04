@@ -49,6 +49,19 @@ public class KDTree<T> implements SpatialStructure<T> {
     @Override public AABB worldBounds() { if (root == null) return new AABB(new Vec3(), new Vec3()); return root.bounds; }
     @Override public DirtyTracker dirtyTracker() { return dirtyTracker; }
 
+    @Override
+    public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        if (root != null) visitKDNode(root, 0, visitor);
+    }
+
+    private void visitKDNode(KDNode node, int depth, io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        visitor.visit(node.bounds, depth, node.isLeaf(), node.isLeaf() ? (node.end - node.start) : 2);
+        if (!node.isLeaf()) {
+            if (node.left != null) visitKDNode(node.left, depth + 1, visitor);
+            if (node.right != null) visitKDNode(node.right, depth + 1, visitor);
+        }
+    }
+
     // BufferWritable
     @Override public int byteSize() { return items.size() * 24; }
     @Override public void writeTo(ByteBuffer buf) { for (AABB b : bounds) { buf.putFloat(b.min.x); buf.putFloat(b.min.y); buf.putFloat(b.min.z); buf.putFloat(b.max.x); buf.putFloat(b.max.y); buf.putFloat(b.max.z); } }

@@ -174,6 +174,19 @@ public class LinkedOctree<T> implements SpatialStructure<T> {
     OctreeNode root() { return root; }
     int nodeCount() { return nodeCount; }
 
+    @Override
+    public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        visitNodeRecursive(root, visitor);
+    }
+
+    private void visitNodeRecursive(OctreeNode node, io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        boolean isLeaf = node.children == null;
+        visitor.visit(node.bounds, node.depth, isLeaf, node.<T>typedItems().size());
+        if (node.children != null) {
+            for (OctreeNode child : node.children) visitNodeRecursive(child, visitor);
+        }
+    }
+
     private static class DfsAabbLayout implements GpuLayout<LinkedOctree<?>> {
         @Override public int byteSize() { return -1; } // variable size, use structure.byteSize()
         @Override public void writeTo(LinkedOctree<?> tree, java.nio.ByteBuffer buf) {

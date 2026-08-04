@@ -116,6 +116,28 @@ public class SparseGrid<T> implements SpatialStructure<T> {
     @Override
     public DirtyTracker dirtyTracker() { return dirtyTracker; }
 
+    @Override
+    public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
+        java.util.Set<Long> visited = new java.util.HashSet<>();
+        for (Entry<T> entry : itemMap.values()) {
+            for (long key : entry.cellKeys) {
+                if (visited.add(key)) {
+                    int cx = decodeCoord(key, 0), cy = decodeCoord(key, 21), cz = decodeCoord(key, 42);
+                    float minX = cx * cellSize, minY = cy * cellSize, minZ = cz * cellSize;
+                    List<Entry<T>> cell = cells.get(key);
+                    int count = cell != null ? cell.size() : 0;
+                    visitor.visit(new AABB(new Vec3(minX, minY, minZ), new Vec3(minX + cellSize, minY + cellSize, minZ + cellSize)),
+                            0, true, count);
+                }
+            }
+        }
+    }
+
+    private static int decodeCoord(long key, int shift) {
+        int v = (int)((key >> shift) & 0x1FFFFF);
+        return (v & 0x100000) != 0 ? v | 0xFFE00000 : v;
+    }
+
     // --- BufferWritable ---
 
     public static final GpuLayout<SparseGrid<?>> DEFAULT_LAYOUT = new GpuLayout<>() {

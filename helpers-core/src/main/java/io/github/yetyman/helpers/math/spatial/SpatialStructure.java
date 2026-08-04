@@ -53,4 +53,10 @@ public interface SpatialStructure<T> extends SpatialQuery<T>, BufferWritable {
 
     /** Returns the dirty tracker for this structure. */
     DirtyTracker dirtyTracker();
+
+    /**
+     * Visits all internal nodes of the structure for visualization/debugging.
+     * Default implementation is a no-op (structures that support it override this).
+     */
+    default void visitNodes(NodeVisitor visitor) {}
 }
