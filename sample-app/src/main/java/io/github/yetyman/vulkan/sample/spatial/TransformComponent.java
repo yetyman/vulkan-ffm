@@ -1,16 +1,16 @@
 package io.github.yetyman.vulkan.sample.spatial;
 
-import io.github.yetyman.vulkan.foundation.ecs.*;
+import io.github.yetyman.vulkan.nodetree.*;
 
 import java.util.List;
 
 /**
  * Experimental transform component demonstrating hierarchical transform propagation
- * through the ECS node tree.
+ * through the node tree.
  *
  * This is a SAMPLE/EXPERIMENTAL implementation - the spatial subsystem is expected to be
  * replaced as the project matures. It lives in sample-app deliberately to avoid coupling
- * the foundation module to any particular spatial representation.
+ * the node trees module to any particular spatial representation.
  *
  * Pattern demonstrated:
  * - Each node with a TransformComponent has a local transform (position, rotation, scale)

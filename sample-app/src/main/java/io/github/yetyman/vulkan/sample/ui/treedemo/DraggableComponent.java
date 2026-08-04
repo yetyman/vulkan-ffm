@@ -1,6 +1,8 @@
 package io.github.yetyman.vulkan.sample.ui.treedemo;
 
-import io.github.yetyman.vulkan.foundation.ecs.*;
+import io.github.yetyman.vulkan.nodetree.Component;
+import io.github.yetyman.vulkan.nodetree.Dependency;
+import io.github.yetyman.vulkan.nodetree.Node;
 import io.github.yetyman.vulkan.ui2d.GestureEvent;
 import io.github.yetyman.vulkan.ui2d.GestureRecognizer;
 import io.github.yetyman.vulkan.ui2d.PointerEvent;

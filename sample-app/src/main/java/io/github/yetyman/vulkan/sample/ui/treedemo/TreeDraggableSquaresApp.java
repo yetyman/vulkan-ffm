@@ -19,14 +19,14 @@ import java.lang.foreign.MemorySegment;
 /**
  * Tree-based draggable squares demo.
  *
- * Same visuals as the original DraggableSquaresApp but using the full ECS tree:
+ * Same visuals as the original DraggableSquaresApp but using the full node tree:
  * - Hierarchical nested rectangles (parent panels with child buttons)
  * - GestureRecognizer for press/drag detection via events
  * - SpatialGrid for O(1) hit-testing
  * - NineSliceRenderer for bulk rendering
  * - DraggableComponent per node handles highlight/drag via event handlers
  *
- * Demonstrates the complete ECS pipeline from input to render.
+ * Demonstrates the complete node treepipeline from input to render.
  */
 public class TreeDraggableSquaresApp extends VulkanApplication {
 
@@ -48,7 +48,7 @@ public class TreeDraggableSquaresApp extends VulkanApplication {
     protected void initialize() {
         VulkanCapabilities.initialize(vulkanContext().physicalDevice());
 
-        // Create the ECS tree demo
+        // Create the node tree demo
         demoFrame = new TreeDemoFrame(800, 600);
 
         // Create the Vulkan graphics frame (handles GPU resources and rendering)

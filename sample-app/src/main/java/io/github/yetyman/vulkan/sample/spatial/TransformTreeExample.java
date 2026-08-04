@@ -1,9 +1,12 @@
 package io.github.yetyman.vulkan.sample.spatial;
 
-import io.github.yetyman.vulkan.foundation.ecs.*;
+import io.github.yetyman.vulkan.nodetree.Node;
+import io.github.yetyman.vulkan.nodetree.TraversalOrder;
+import io.github.yetyman.vulkan.nodetree.TraversalView;
+import io.github.yetyman.vulkan.nodetree.Tree;
 
 /**
- * Demonstrates hierarchical transform propagation through the ECS node tree.
+ * Demonstrates hierarchical transform propagation through the node tree.
  *
  * This example shows:
  * - Parent/child transform composition (world = parent.world * local)

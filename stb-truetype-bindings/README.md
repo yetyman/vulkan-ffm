@@ -3,7 +3,7 @@
 Auto-generated FFM bindings for [stb_truetype.h](https://github.com/nothings/stb/blob/master/stb_truetype.h)
 (nothings/stb) - a small, single-header TrueType/OpenType glyph rasterizer.
 
-Used by `vulkan-ffm-foundation`'s `FontRegistry` to fill in glyph metrics and
+Used by `vulkan-ffm-node-trees`'s `FontRegistry` to fill in glyph metrics and
 rasterize glyph bitmaps into its CPU-side atlas allocator before uploading to
 a GPU-resident font atlas image.
 

@@ -1,10 +1,10 @@
 package io.github.yetyman.vulkan.sample.ui;
 
-import io.github.yetyman.vulkan.foundation.ui.UIComposite;
-import io.github.yetyman.vulkan.foundation.ui.UIContext;
-import io.github.yetyman.vulkan.foundation.ui.assets.AssetRegistry;
-import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.DepthMode;
-import io.github.yetyman.vulkan.foundation.ui.layers.scene3d.Scene3DOverlayLayer;
+import io.github.yetyman.vulkan.ui.UIComposite;
+import io.github.yetyman.vulkan.ui.UIContext;
+import io.github.yetyman.vulkan.ui.assets.AssetRegistry;
+import io.github.yetyman.vulkan.layers.scene3d.DepthMode;
+import io.github.yetyman.vulkan.layers.scene3d.Scene3DOverlayLayer;
 import io.github.yetyman.vulkan.highlevel.GraphicsLoop;
 import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;

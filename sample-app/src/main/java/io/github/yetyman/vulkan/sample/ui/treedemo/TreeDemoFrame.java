@@ -1,12 +1,13 @@
 package io.github.yetyman.vulkan.sample.ui.treedemo;
 
-import io.github.yetyman.vulkan.foundation.ecs.*;
+import io.github.yetyman.vulkan.nodetree.Node;
+import io.github.yetyman.vulkan.nodetree.Tree;
 import io.github.yetyman.vulkan.ui2d.*;
 
 import java.util.Random;
 
 /**
- * Builds and manages the ECS tree for the draggable squares demo.
+ * Builds and manages the node tree for the draggable squares demo.
  *
  * Scene structure:
  * - Root node (no visual)

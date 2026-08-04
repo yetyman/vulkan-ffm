@@ -12,8 +12,9 @@
     <modules>
         <module>helpers-core</module>
         <module>vulkan-core</module>
-        <module>vulkan-ffm-foundation</module>
-        <module>vulkan-ffm-ui-2d</module>
+        <module>vulkan-ffm-graph</module>
+        <module>vulkan-ffm-node-trees</module>
+        <module>vulkan-ffm-sample-ui-layers</module>
         <module>sample-app</module>
     </modules>
 
@@ -28,7 +29,8 @@
                 <module>stb-truetype-bindings</module>
                 <module>helpers-core</module>
                 <module>vulkan-core</module>
-                <module>vulkan-ffm-foundation</module>
+                <module>vulkan-ffm-graph</module>
+                <module>vulkan-ffm-node-trees</module>
                 <module>sample-app</module>
             </modules>
         </profile>

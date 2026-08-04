@@ -1,18 +1,18 @@
 package io.github.yetyman.vulkan.sample.ui;
 
 import io.github.yetyman.vulkan.VkCommandBuffer;
-import io.github.yetyman.vulkan.foundation.ui.UIContext;
-import io.github.yetyman.vulkan.foundation.ui.UIFrameContext;
-import io.github.yetyman.vulkan.foundation.ui.UILayer;
-import io.github.yetyman.vulkan.foundation.ui.input.InputEventType;
-import io.github.yetyman.vulkan.foundation.ui.input.InputPhase;
-import io.github.yetyman.vulkan.foundation.ui.input.InputEvent;
-import io.github.yetyman.vulkan.foundation.ui.input.types.PointerInputData;
+import io.github.yetyman.vulkan.ui.UIContext;
+import io.github.yetyman.vulkan.ui.UIFrameContext;
+import io.github.yetyman.vulkan.ui.UILayer;
+import io.github.yetyman.vulkan.ui.input.InputEventType;
+import io.github.yetyman.vulkan.ui.input.InputPhase;
+import io.github.yetyman.vulkan.ui.input.InputEvent;
+import io.github.yetyman.vulkan.ui.input.types.PointerInputData;
 
 import java.lang.foreign.Arena;
 
 /**
- * Example-specific layer (lives in sample-app, not vulkan-ffm-foundation) whose only purpose is
+ * Example-specific layer (lives in sample-app, not vulkan-ffm-node-trees) whose only purpose is
  * to make UIComposite's capture/bubble input dispatch directly observable: it owns no GPU
  * resources and renders nothing itself. Placed at the top of the layer stack (highest order)
  * so it is first to see events during CAPTURE and last during BUBBLE.

@@ -1,11 +1,11 @@
 package io.github.yetyman.vulkan.sample.ui;
 
 import io.github.yetyman.vulkan.VkCommandPool;
-import io.github.yetyman.vulkan.foundation.ui.UIComposite;
-import io.github.yetyman.vulkan.foundation.ui.UIContext;
-import io.github.yetyman.vulkan.foundation.ui.assets.AssetRegistry;
-import io.github.yetyman.vulkan.foundation.ui.assets.FontRegistry;
-import io.github.yetyman.vulkan.foundation.ui.layers.text.GPUDrivenTextLayer;
+import io.github.yetyman.vulkan.ui.UIComposite;
+import io.github.yetyman.vulkan.ui.UIContext;
+import io.github.yetyman.vulkan.ui.assets.AssetRegistry;
+import io.github.yetyman.vulkan.assets.FontRegistry;
+import io.github.yetyman.vulkan.layers.text.GPUDrivenTextLayer;
 import io.github.yetyman.vulkan.highlevel.GraphicsLoop;
 import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;

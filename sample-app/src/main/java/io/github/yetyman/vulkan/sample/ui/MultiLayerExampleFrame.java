@@ -12,8 +12,8 @@ import io.github.yetyman.vulkan.enums.VkAttachmentLoadOp;
 import io.github.yetyman.vulkan.enums.VkAttachmentStoreOp;
 import io.github.yetyman.vulkan.enums.VkImageLayout;
 import io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits;
-import io.github.yetyman.vulkan.foundation.ui.UIComposite;
-import io.github.yetyman.vulkan.foundation.ui.UIFrameContext;
+import io.github.yetyman.vulkan.ui.UIComposite;
+import io.github.yetyman.vulkan.ui.UIFrameContext;
 import io.github.yetyman.vulkan.highlevel.GraphicsFrame;
 
 import java.lang.foreign.MemorySegment;
