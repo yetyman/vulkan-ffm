@@ -68,17 +68,31 @@ Read-only query interface shared by all structures.
 
 ```java
 public interface SpatialQuery<T> {
+    // List-returning queries
     List<T> query(AABB range);
     List<T> query(Sphere range);
     List<T> query(Ray ray, float maxDistance);
     List<T> queryFrustum(Frustum frustum);
-    boolean contains(Vec3 point);
-    T nearest(Vec3 point);
 
-    // Allocation-free variants (write results into caller-provided list)
+    // Stream-returning queries
+    Stream<T> queryStream(AABB range);
+    Stream<T> queryStream(Sphere range);
+    Stream<T> queryStream(Ray ray, float maxDistance);
+    Stream<T> queryFrustumStream(Frustum frustum);
+
+    // Allocation-free variants (append to caller-provided list)
     int query(AABB range, List<T> out);
     int query(Sphere range, List<T> out);
     int queryFrustum(Frustum frustum, List<T> out);
+
+    // Point queries
+    boolean contains(Vec3 point);
+    T nearest(Vec3 point);
+
+    // Count queries (no materialization)
+    int count(AABB range);
+    int count(Sphere range);
+    int countFrustum(Frustum frustum);
 }
 ```
 
@@ -89,12 +103,15 @@ Mutable structure interface. Extends SpatialQuery.
 ```java
 public interface SpatialStructure<T> extends SpatialQuery<T> {
     void insert(T item, AABB bounds);
+    void insertAll(Iterable<T> items, Function<T, AABB> boundsProvider);
+    void insertAll(Map<T, AABB> itemBounds);
     void remove(T item);
     void update(T item, AABB newBounds);
     void rebuild();
     void clear();
     int size();
     AABB worldBounds();
+    DirtyTracker dirtyTracker();
 }
 ```
 
@@ -330,7 +347,9 @@ Per cell (variable):
 
 ## API Surface for External Sync
 
-The key methods that enable frame graph integration, buffer management, or any external upload system:
+These methods enable frame graph integration, buffer management, or any external upload system
+without prescribing a specific integration pattern. The spatial structure exposes its state honestly;
+policy (freeze, reindex, generation tracking) belongs on a sync layer, not on the structure itself.
 
 ### On all structures:
 
