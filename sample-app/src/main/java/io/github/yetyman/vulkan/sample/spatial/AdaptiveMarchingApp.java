@@ -75,8 +75,8 @@ public class AdaptiveMarchingApp extends VulkanApplication {
         Scene3DOverlayLayer overlay = new Scene3DOverlayLayer();
         GPUDrivenTextLayer text = new GPUDrivenTextLayer(FONT_ID);
         OrbitCameraLayer input = new OrbitCameraLayer(camera);
-        input.onPlus(() -> { surfaceRadius += 0.1f; rebuildMesh(); });
-        input.onMinus(() -> { surfaceRadius = Math.max(0.1f, surfaceRadius - 0.1f); rebuildMesh(); });
+        input.onPlus(() -> { surfaceRadius += surfaceRadius < 0.5f ? 0.02f : 0.1f; rebuildMesh(); });
+        input.onMinus(() -> { float step = surfaceRadius < 0.1f ? 0.005f : surfaceRadius < 0.5f ? 0.02f : 0.1f; surfaceRadius = Math.max(0.005f, surfaceRadius - step); rebuildMesh(); });
         input.onR(() -> { generatePoints(presetIndex); rebuildMesh(); });
         input.onArrowUp(() -> { pointWeight += 0.2f; rebuildMesh(); });
         input.onArrowDown(() -> { pointWeight = Math.max(0.2f, pointWeight - 0.2f); rebuildMesh(); });
@@ -108,7 +108,7 @@ public class AdaptiveMarchingApp extends VulkanApplication {
             b.drawText(FONT_ID, "Adaptive Marching Cubes", 20, 30, 22, 1f,1f,1f,1f);
             b.drawText(FONT_ID, "Points: "+points.size()+"  Surface R: "+String.format("%.2f",surfaceRadius)+"  Weight: "+String.format("%.1f",pointWeight), 20, 58, 16, 0.7f,0.8f,0.7f,1f);
             b.drawText(FONT_ID, "Verts: "+(currentMesh!=null?currentMesh.vertexCount():0)+"  Tris: "+(currentMesh!=null?currentMesh.indexCount()/3:0)+"  Build: "+lastRebuildMs+"ms", 20, 80, 16, 0.7f,0.8f,0.7f,1f);
-            b.drawText(FONT_ID, "1-4=preset R=random +/-=radius Up/Dn=weight Drag=orbit Scroll=zoom", 20, 110, 14, 0.5f,0.5f,0.5f,1f);
+            b.drawText(FONT_ID, "1-5=preset R=random +/-=radius Up/Dn=weight Drag=orbit Scroll=zoom", 20, 110, 14, 0.5f,0.5f,0.5f,1f);
         });
 
         UIComposite comp = UIComposite.builder().context(uiCtx).layer(overlay).layer(text).layer(input).build();
@@ -165,6 +165,25 @@ public class AdaptiveMarchingApp extends VulkanApplication {
                 for (int i = 0; i < 60; i++) points.add(new Vec3(-4+i*0.13f, (rng.nextFloat()-0.5f)*0.3f, (rng.nextFloat()-0.5f)*0.3f));
                 for (int i = 0; i < 100; i++) { float a = rng.nextFloat()*6.28f; float r = rng.nextFloat()*1.5f; points.add(new Vec3(r*(float)Math.cos(a), 2+rng.nextFloat()*1.5f, r*(float)Math.sin(a))); }
             }
+            case 4 -> {
+                // Progressive density falloff along a long path
+                // Dense at start, progressively sparser toward the end
+                float length = 12f;
+                int totalPoints = 400;
+                for (int i = 0; i < totalPoints; i++) {
+                    float t = (float) i / totalPoints; // 0=start(dense), 1=end(sparse)
+                    // Density falls off: spacing increases with t^2
+                    float along = t * t * length;
+                    // Perpendicular scatter increases slightly with distance
+                    float scatter = 0.1f + t * 0.4f;
+                    float x = along;
+                    float y = (rng.nextFloat() - 0.5f) * scatter;
+                    float z = (rng.nextFloat() - 0.5f) * scatter;
+                    // Gentle curve
+                    y += (float) Math.sin(along * 0.5f) * 0.5f;
+                    points.add(new Vec3(x - length * 0.3f, y, z));
+                }
+            }
         }
         presetIndex = preset;
     }
@@ -174,7 +193,7 @@ public class AdaptiveMarchingApp extends VulkanApplication {
         GLFWCallbacks.setCursorPosCallback(window(), (w,x,y)->{float dx=(float)(x-mp[0]),dy=(float)(y-mp[1]);mp[0]=x;mp[1]=y;comp.dispatchInput(PointerInputData.mouseMove((float)x,(float)y,dx,dy));}, a);
         GLFWCallbacks.setMouseButtonCallback(window(), (w,b,act,m)->comp.dispatchInput(act!=0?PointerInputData.mousePress(b,(float)mp[0],(float)mp[1]):PointerInputData.mouseRelease(b,(float)mp[0],(float)mp[1])), a);
         GLFWCallbacks.setScrollCallback(window(), (w,dx,dy)->comp.dispatchInput(ScrollInputData.scroll((float)mp[0],(float)mp[1],(float)dx,(float)dy)), a);
-        GLFWCallbacks.setKeyCallback(window(), (w,key,sc,act,mod)->{if(act==1){switch(key){case 49->{generatePoints(0);rebuildMesh();}case 50->{generatePoints(1);rebuildMesh();}case 51->{generatePoints(2);rebuildMesh();}case 52->{generatePoints(3);rebuildMesh();}}} comp.dispatchInput(act==1?KeyInputData.press(key,sc,mod):act==2?KeyInputData.repeat(key,sc,mod):KeyInputData.release(key,sc,mod));}, a);
+        GLFWCallbacks.setKeyCallback(window(), (w,key,sc,act,mod)->{if(act==1){switch(key){case 49->{generatePoints(0);rebuildMesh();}case 50->{generatePoints(1);rebuildMesh();}case 51->{generatePoints(2);rebuildMesh();}case 52->{generatePoints(3);rebuildMesh();}case 53->{generatePoints(4);rebuildMesh();}}} comp.dispatchInput(act==1?KeyInputData.press(key,sc,mod):act==2?KeyInputData.repeat(key,sc,mod):KeyInputData.release(key,sc,mod));}, a);
     }
 
     @Override protected void onWindowResize(int w, int h) { if(loop!=null) loop.signalResize(w,h); }
