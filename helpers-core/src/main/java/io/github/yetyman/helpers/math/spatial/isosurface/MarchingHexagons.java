@@ -2,94 +2,82 @@ package io.github.yetyman.helpers.math.spatial.isosurface;
 
 import io.github.yetyman.helpers.math.Vec2;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
- * Marching Hexagons — contour extraction on a flat-top hexagonal grid.
- * Each hexagon has 6 vertices and a center sample, producing up to 6 edge crossings.
- * The 7 sample points per hex (center + 6 corners) give 2^7 = 128 configurations,
- * but since we share corners between hexes, the practical approach samples at hex centers
- * and interpolates edges between adjacent hex centers.
+ * Marching Hexagons — contour extraction on a flat-top hexagonal grid using axial coordinates.
+ * Avoids offset-coordinate neighbor asymmetry bugs by using axial (q,r) coordinates
+ * with the standard 6 direction vectors.
  */
 public class MarchingHexagons {
 
     private MarchingHexagons() {}
 
-    /**
-     * Extracts contour lines from a 2D scalar field sampled on a flat-top hex grid.
-     *
-     * @param field the 2D scalar field
-     * @param min minimum corner of the sampling area
-     * @param max maximum corner of the sampling area
-     * @param gridRadius number of hex rings from center (total hexes ~ 3*r*(r+1)+1)
-     * @param hexSize size of each hexagon (center to corner distance)
-     * @param isoLevel the contour threshold
-     * @return contour output with line segments
-     */
+    // Axial hex directions (always symmetric: direction i and direction (i+3)%6 are opposites)
+    private static final int[][] AXIAL_DIRS = {{1,0},{0,1},{-1,1},{-1,0},{0,-1},{1,-1}};
+
     public static ContourOutput extract(ScalarField2D field, Vec2 min, Vec2 max,
                                         int gridRadius, float hexSize, float isoLevel) {
         ContourOutput contour = new ContourOutput();
+
         Vec2 center = new Vec2((min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f);
 
-        // Flat-top hex layout constants
-        float horizSpacing = hexSize * 1.5f;
-        float vertSpacing = hexSize * (float) Math.sqrt(3.0);
+        // Flat-top axial to pixel conversion
+        // x = hexSize * (3/2 * q)
+        // y = hexSize * (sqrt(3)/2 * q + sqrt(3) * r)
+        float sqrt3 = (float) Math.sqrt(3.0);
 
-        // Sample field at hex grid centers
-        // Using offset coordinates for simplicity: even columns aligned, odd columns offset by half
-        int cols = (int) Math.ceil((max.x - min.x) / horizSpacing) + 1;
-        int rows = (int) Math.ceil((max.y - min.y) / vertSpacing) + 1;
+        // Determine radius needed to cover sampling area
+        float maxDist = Math.max(max.x - min.x, max.y - min.y) * 0.5f;
+        int radius = (int) Math.ceil(maxDist / (hexSize * 1.5f)) + 2;
 
-        float[][] samples = new float[cols][rows];
-        float[][] posX = new float[cols][rows];
-        float[][] posY = new float[cols][rows];
+        // Sample field at all hex centers using axial coordinates
+        Map<Long, float[]> cells = new HashMap<>(); // key(q,r) -> {x, y, value}
 
-        for (int col = 0; col < cols; col++) {
-            for (int row = 0; row < rows; row++) {
-                float x = min.x + col * horizSpacing;
-                float y = min.y + row * vertSpacing + ((col % 2 == 1) ? vertSpacing * 0.5f : 0f);
-                posX[col][row] = x;
-                posY[col][row] = y;
-                samples[col][row] = field.sample(x, y);
+        for (int q = -radius; q <= radius; q++) {
+            for (int r = -radius; r <= radius; r++) {
+                if (Math.abs(q + r) > radius) continue; // stay within hex-shaped region
+                float x = center.x + hexSize * (1.5f * q);
+                float y = center.y + hexSize * (sqrt3 * 0.5f * q + sqrt3 * r);
+                float value = field.sample(x, y);
+                cells.put(key(q, r), new float[]{x, y, value});
             }
         }
 
-        // For each hex, check edges to its 3 forward neighbors (avoid duplicate edges)
-        // Forward neighbors for flat-top: right, upper-right, lower-right
-        for (int col = 0; col < cols; col++) {
-            for (int row = 0; row < rows; row++) {
-                float v0 = samples[col][row];
-                float x0 = posX[col][row], y0 = posY[col][row];
+        // For each cell, find crossings and pair them by direction order
+        for (var entry : cells.entrySet()) {
+            long k = entry.getKey();
+            float[] cell = entry.getValue();
+            int q = (int)(k >> 32), r = (int)(k & 0xFFFFFFFFL);
 
-                // Neighbor: same column, row+1 (above)
-                if (row + 1 < rows) {
-                    float v1 = samples[col][row + 1];
-                    if (crosses(v0, v1, isoLevel)) {
-                        float t = interp(v0, v1, isoLevel);
-                        addEdgeCrossing(contour, x0, y0, posX[col][row + 1], posY[col][row + 1], t);
-                    }
+            List<int[]> crossingDirs = new ArrayList<>();
+
+            for (int dir = 0; dir < 6; dir++) {
+                int nq = q + AXIAL_DIRS[dir][0], nr = r + AXIAL_DIRS[dir][1];
+                float[] neighbor = cells.get(key(nq, nr));
+                if (neighbor == null) continue;
+
+                float v0 = cell[2], v1 = neighbor[2];
+                if ((v0 < isoLevel) != (v1 < isoLevel)) {
+                    float t = (isoLevel - v0) / (v1 - v0);
+                    float cx = cell[0] + t * (neighbor[0] - cell[0]);
+                    float cy = cell[1] + t * (neighbor[1] - cell[1]);
+                    int vi = contour.addVertex(cx, cy);
+                    crossingDirs.add(new int[]{dir, vi});
                 }
+            }
 
-                // Neighbor: col+1, same or offset row (upper-right)
-                if (col + 1 < cols) {
-                    int nRow = (col % 2 == 0) ? row : row + 1;
-                    if (nRow >= 0 && nRow < rows) {
-                        float v1 = samples[col + 1][nRow];
-                        if (crosses(v0, v1, isoLevel)) {
-                            float t = interp(v0, v1, isoLevel);
-                            addEdgeCrossing(contour, x0, y0, posX[col + 1][nRow], posY[col + 1][nRow], t);
-                        }
-                    }
+            // Connect crossings within this cell
+            if (crossingDirs.size() >= 2) {
+                crossingDirs.sort((a, b) -> Integer.compare(a[0], b[0]));
+                for (int i = 0; i < crossingDirs.size() - 1; i++) {
+                    contour.addSegment(crossingDirs.get(i)[1], crossingDirs.get(i + 1)[1]);
                 }
-
-                // Neighbor: col+1, lower-right
-                if (col + 1 < cols) {
-                    int nRow = (col % 2 == 0) ? row - 1 : row;
-                    if (nRow >= 0 && nRow < rows) {
-                        float v1 = samples[col + 1][nRow];
-                        if (crosses(v0, v1, isoLevel)) {
-                            float t = interp(v0, v1, isoLevel);
-                            addEdgeCrossing(contour, x0, y0, posX[col + 1][nRow], posY[col + 1][nRow], t);
-                        }
-                    }
+                if (crossingDirs.size() > 2) {
+                    contour.addSegment(crossingDirs.get(crossingDirs.size() - 1)[1], crossingDirs.get(0)[1]);
                 }
             }
         }
@@ -97,33 +85,7 @@ public class MarchingHexagons {
         return contour;
     }
 
-    private static boolean crosses(float v0, float v1, float iso) {
-        return (v0 < iso) != (v1 < iso);
-    }
-
-    private static float interp(float v0, float v1, float iso) {
-        if (Math.abs(v1 - v0) < 1e-6f) return 0.5f;
-        return (iso - v0) / (v1 - v0);
-    }
-
-    private static void addEdgeCrossing(ContourOutput contour, float x0, float y0, float x1, float y1, float t) {
-        float cx = x0 + t * (x1 - x0);
-        float cy = y0 + t * (y1 - y0);
-        // Each edge crossing becomes a point; we connect crossings that share a hex cell
-        // For simplicity, output each crossing as a degenerate segment (point)
-        // A full implementation would track which crossings belong to the same hex
-        // and connect them to form proper contour segments.
-        // Here we output the interpolated crossing point as a segment endpoint pair
-        // between the two hex centers (approximation suitable for visualization).
-        int a = contour.addVertex(cx, cy);
-        // Find perpendicular direction for segment visualization
-        float dx = x1 - x0, dy = y1 - y0;
-        float len = (float) Math.sqrt(dx * dx + dy * dy);
-        if (len > 1e-6f) {
-            float nx = -dy / len * len * 0.3f;
-            float ny = dx / len * len * 0.3f;
-            int b = contour.addVertex(cx + nx, cy + ny);
-            contour.addSegment(a, b);
-        }
+    private static long key(int q, int r) {
+        return ((long) q << 32) | (r & 0xFFFFFFFFL);
     }
 }
