@@ -36,12 +36,19 @@ import java.util.Random;
 /**
  * Adaptive Marching Cubes Demo — point cloud to mesh via density-based octree subdivision.
  * Dense clusters get fine resolution, sparse areas get coarse resolution.
+ * Uses inverse-cube field with density-weighted points.
+ *
+ * NOTE: The slider interactions (radius, spread, connectivity) have non-obvious
+ * interdependencies and may not behave monotonically in all combinations.
+ * This is an exploration/research demo, not a production-ready tool.
  *
  * Controls:
- *   1-4: point cloud preset
+ *   1-5: point cloud preset
  *   R: randomize
- *   +/-: kernel radius
- *   T: iso threshold
+ *   +/-: surface radius (threshold — higher = tighter to points)
+ *   Up/Down: spread multiplier (weight scaling)
+ *   Left/Right: split threshold (octree resolution)
+ *   PgUp/PgDn: connectivity (weight multiplier for merging)
  *   Drag: orbit, Scroll: zoom
  */
 public class AdaptiveMarchingApp extends VulkanApplication {
@@ -53,10 +60,11 @@ public class AdaptiveMarchingApp extends VulkanApplication {
     private final OrbitCamera camera = new OrbitCamera();
     private GraphicsLoop loop;
     private List<Vec3> points = new ArrayList<>();
-    private List<Float> weights = new ArrayList<>();
     private MeshOutput currentMesh;
     private float surfaceRadius = 1.0f;
-    private float pointWeight = 1.0f;
+    private float spreadMultiplier = 0.5f;
+    private float connectivity = 1.0f; // multiplies both spread and radius together
+    private int splitThreshold = 4;
     private int presetIndex = 0;
     private long lastRebuildMs = 0;
 
@@ -78,8 +86,12 @@ public class AdaptiveMarchingApp extends VulkanApplication {
         input.onPlus(() -> { surfaceRadius += surfaceRadius < 0.5f ? 0.02f : 0.1f; rebuildMesh(); });
         input.onMinus(() -> { float step = surfaceRadius < 0.1f ? 0.005f : surfaceRadius < 0.5f ? 0.02f : 0.1f; surfaceRadius = Math.max(0.005f, surfaceRadius - step); rebuildMesh(); });
         input.onR(() -> { generatePoints(presetIndex); rebuildMesh(); });
-        input.onArrowUp(() -> { pointWeight += 0.2f; rebuildMesh(); });
-        input.onArrowDown(() -> { pointWeight = Math.max(0.2f, pointWeight - 0.2f); rebuildMesh(); });
+        input.onArrowUp(() -> { spreadMultiplier += 0.1f; rebuildMesh(); });
+        input.onArrowDown(() -> { spreadMultiplier = Math.max(0f, spreadMultiplier - 0.1f); rebuildMesh(); });
+        input.onArrowLeft(() -> { splitThreshold = Math.max(2, splitThreshold - 2); rebuildMesh(); });
+        input.onArrowRight(() -> { splitThreshold += 2; rebuildMesh(); });
+        input.onPageUp(() -> { connectivity += 0.2f; rebuildMesh(); });
+        input.onPageDown(() -> { connectivity = Math.max(0.2f, connectivity - 0.2f); rebuildMesh(); });
 
         generatePoints(0);
         rebuildMesh();
@@ -106,9 +118,9 @@ public class AdaptiveMarchingApp extends VulkanApplication {
         });
         text.setFrameCallback(b -> {
             b.drawText(FONT_ID, "Adaptive Marching Cubes", 20, 30, 22, 1f,1f,1f,1f);
-            b.drawText(FONT_ID, "Points: "+points.size()+"  Surface R: "+String.format("%.2f",surfaceRadius)+"  Weight: "+String.format("%.1f",pointWeight), 20, 58, 16, 0.7f,0.8f,0.7f,1f);
+            b.drawText(FONT_ID, "Points: "+points.size()+"  R: "+String.format("%.3f",surfaceRadius)+"  Spread: "+String.format("%.1f",spreadMultiplier)+"  Connect: "+String.format("%.1f",connectivity)+"  Split: "+splitThreshold, 20, 58, 16, 0.7f,0.8f,0.7f,1f);
             b.drawText(FONT_ID, "Verts: "+(currentMesh!=null?currentMesh.vertexCount():0)+"  Tris: "+(currentMesh!=null?currentMesh.indexCount()/3:0)+"  Build: "+lastRebuildMs+"ms", 20, 80, 16, 0.7f,0.8f,0.7f,1f);
-            b.drawText(FONT_ID, "1-5=preset R=random +/-=radius Up/Dn=weight Drag=orbit Scroll=zoom", 20, 110, 14, 0.5f,0.5f,0.5f,1f);
+            b.drawText(FONT_ID, "1-5=preset R=random +/-=radius Up/Dn=spread L/R=split PgUp/Dn=connect", 20, 110, 14, 0.5f,0.5f,0.5f,1f);
         });
 
         UIComposite comp = UIComposite.builder().context(uiCtx).layer(overlay).layer(text).layer(input).build();
@@ -123,9 +135,10 @@ public class AdaptiveMarchingApp extends VulkanApplication {
 
     private void rebuildMesh() {
         long t0 = System.currentTimeMillis();
-        AdaptiveMarchingCubes amc = new AdaptiveMarchingCubes(surfaceRadius, 4, 5);
+        AdaptiveMarchingCubes amc = new AdaptiveMarchingCubes(surfaceRadius, splitThreshold, 20);
+        amc.setConnectivity(connectivity);
         List<Vec3> snapshot = new ArrayList<>(points);
-        MeshOutput newMesh = amc.extract(snapshot, pointWeight);
+        MeshOutput newMesh = amc.extract(snapshot, spreadMultiplier);
         currentMesh = newMesh;
         lastRebuildMs = System.currentTimeMillis() - t0;
         Logger.info("Rebuilt: " + currentMesh.vertexCount() + " verts, " + currentMesh.indexCount()/3 + " tris in " + lastRebuildMs + "ms");

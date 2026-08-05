@@ -174,6 +174,93 @@ public class LinkedOctree<T> implements SpatialStructure<T> {
     OctreeNode root() { return root; }
     int nodeCount() { return nodeCount; }
 
+    /**
+     * Enforces 2:1 balance — no two adjacent leaf cells can differ by more than 1 level of depth.
+     * Subdivides shallow cells adjacent to deep cells until the constraint is satisfied.
+     * Call after all insertions and before marching/serialization.
+     */
+    public void balance() {
+        boolean changed = true;
+        while (changed) {
+            changed = balancePass(root);
+        }
+        dirtyTracker.markFullRebuild();
+    }
+
+    private boolean balancePass(OctreeNode node) {
+        if (node.children == null) return false; // leaf — nothing to balance internally
+
+        boolean changed = false;
+        for (OctreeNode child : node.children) {
+            if (child.children != null) {
+                // Recurse into subdivided children
+                if (balancePass(child)) changed = true;
+            }
+        }
+
+        // For each leaf child, check if any of its face-adjacent neighbors (within this parent)
+        // are subdivided more than 1 level deeper. If so, subdivide this leaf.
+        for (int i = 0; i < 8; i++) {
+            OctreeNode child = node.children[i];
+            if (child.children != null) continue; // already subdivided
+
+            // Check face-adjacent siblings (share a face in the parent's octants)
+            int[][] adjacentOctants = getAdjacentOctants(i);
+            for (int[] adj : adjacentOctants) {
+                int sibIdx = adj[0];
+                if (sibIdx < 0 || sibIdx >= 8) continue;
+                OctreeNode sibling = node.children[sibIdx];
+                if (sibling.children != null && hasSubdividedChildren(sibling)) {
+                    // Sibling is 2+ levels deeper — force subdivide this child
+                    forceSubdivide(child);
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        return changed;
+    }
+
+    private boolean hasSubdividedChildren(OctreeNode node) {
+        if (node.children == null) return false;
+        for (OctreeNode child : node.children) {
+            if (child.children != null) return true;
+        }
+        return false;
+    }
+
+    private void forceSubdivide(OctreeNode node) {
+        if (node.children != null) return;
+        node.children = new OctreeNode[8];
+        AABB b = node.bounds;
+        Vec3 mid = b.center();
+        for (int i = 0; i < 8; i++) {
+            AABB childBounds = computeChildBounds(b, mid, i);
+            node.children[i] = new OctreeNode(childBounds, node.depth + 1, nodeCount++);
+        }
+        // Move items to appropriate children
+        List<ItemEntry<T>> items = new ArrayList<>(node.<T>typedItems());
+        node.<T>typedItems().clear();
+        for (ItemEntry<T> entry : items) {
+            entry.node = null;
+            insertIntoNode(node, entry);
+        }
+    }
+
+    /**
+     * Returns which octant indices are face-adjacent to the given octant.
+     * Each octant has 3 face-adjacent siblings (sharing X, Y, or Z face).
+     */
+    private static int[][] getAdjacentOctants(int octant) {
+        // Octant bits: X=bit0, Y=bit1, Z=bit2
+        // Face-adjacent = flip one bit
+        return new int[][]{
+                {octant ^ 1}, // flip X
+                {octant ^ 2}, // flip Y
+                {octant ^ 4}  // flip Z
+        };
+    }
+
     @Override
     public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
         visitNodeRecursive(root, visitor);
