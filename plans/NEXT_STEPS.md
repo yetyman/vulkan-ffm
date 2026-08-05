@@ -89,51 +89,14 @@ Wanted, not yet built:
 
 ## Math Package
 
-`vulkan-core/src/main/java/io/github/yetyman/vulkan/math/`
+`helpers-core/src/main/java/io/github/yetyman/vulkan/math/`
 
-GPU-upload-oriented math types. focused on types needed for transforms, camera matrices, and shader uploads.
-
-### Quaternion
-Represents a pure rotation (no translation). Unit quaternion = 3x3 rotation matrix equivalent.
-```java
-Quaternion.fromAxisAngle(float ax, float ay, float az, float angle)
-Quaternion.fromEuler(float x, float y, float z)
-Quaternion.identity()
-q.multiply(Quaternion other)       // compose rotations
-q.slerp(Quaternion other, float t) // shortest-path interpolation
-q.normalize()
-q.conjugate()                      // inverse for unit quaternions
-q.toMatrix4f()                     // for GPU upload
-q.rotate(float x, float y, float z) // apply rotation to a vector
-```
-
-### DualQuaternion
-Encodes rotation + translation as q_real + e·q_dual. Blending multiple dual quaternions produces correct rigid transforms (no candy-wrapper artifact). Non-uniform scale cannot be encoded — handle scale separately.
-```java
-DualQuaternion.fromRotationTranslation(Quaternion r, float tx, float ty, float tz)
-DualQuaternion.identity()
-dq.blend(DualQuaternion other, float weight) // for skinning accumulation
-dq.normalize()
-dq.toMatrix4f()                              // for GPU upload
-dq.extractTranslation()                      // float[3]
-dq.extractRotation()                         // Quaternion
-```
-
-### Matrix4f
-Standard 4x4 float matrix. Column-major to match GLSL/Vulkan convention.
-```java
-Matrix4f.identity()
-Matrix4f.perspective(float fovY, float aspect, float near, float far)
-Matrix4f.lookAt(float[] eye, float[] center, float[] up)
-m.multiply(Matrix4f other)
-m.toMemorySegment(Arena arena)  // direct GPU upload
-```
+Advancement
+-a flyweight/cursor view type that reads/writes fields directly from a `TypedVkBuffer`-backed mapped region at a stride offset, without materializing a Java object per element (needed for iterating large counts, e.g. 10k transforms, without 10k allocations). Design not yet started.
 
 ---
 
 ## Spatial Structures (own module, future)
-
-Not yet. Likely deserves its own Maven module. Planned contents:
 
 - **Uniform spatial grid** — 2D and 3D variants. Fixed cell size, each cell holds list of occupant indices. O(1) average hit test. Used for broad-phase collision and cursor hit testing at scale.
 - **GPU-resident BVH** — LBVH build via Morton code sort (compute shader), bottom-up refit (compute shader). Stored in storage buffer. Traversable from any shader stage via ray query or manual traversal. Separate from Vulkan AS — this is a custom structure for non-ray spatial queries.
