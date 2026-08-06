@@ -27,6 +27,17 @@ import static io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits.VK_PIPELINE
  * {@link VkDevice.Builder#enableTimelineSemaphore()}. {@code VulkanContext} does this for every
  * device it creates.
  *
+ * <h2>Command buffer reuse</h2>
+ * Each generation needs its own command buffer, since a prior generation's buffer may still be
+ * in flight on the GPU when the next one opens. Rather than allocating a fresh command buffer per
+ * generation and never freeing it -- which grows the command pool without bound over a long-running
+ * loop -- this class cycles through a small fixed-size ring of {@link #RING_SIZE} command buffers,
+ * allocated once. Opening generation G reuses slot {@code G % RING_SIZE}, after waiting for whichever
+ * earlier generation last held that slot to finish on the GPU (a slot cannot be more than
+ * {@code RING_SIZE} generations behind, so at most one earlier generation can still be using it).
+ * This bounds memory deterministically regardless of flush count and applies identically to every
+ * batch, independent of what work it carries.
+ *
  * <h2>Thread ownership</h2>
  * A batch belongs to exactly one thread -- the one that first requested it from
  * {@link TransferBatchManager} -- because it records into a single command buffer that no other
@@ -37,10 +48,25 @@ import static io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits.VK_PIPELINE
 class TransferBatch {
     static final long AUTO_FLUSH_THRESHOLD = 64L * 1024 * 1024;
 
+    /**
+     * Command buffers held per batch. Bounds worst-case in-flight generations: a slot is only
+     * reused once the generation that last held it has completed on the GPU, so a caller flushing
+     * faster than the GPU retires work stalls opening the next generation rather than growing the
+     * pool. Sized generously enough that ordinary usage never observes that stall.
+     */
+    private static final int RING_SIZE = 4;
+
     private final VkDevice device;
     private final VkQueue queue;
     private final VkCommandPool commandPool;
     private final long ownerThreadId;
+    private final Arena ringArena;
+
+    private final VkCommandBuffer[] commandBuffers = new VkCommandBuffer[RING_SIZE];
+    /** The generation each ring slot last recorded, or -1 if never used. Used to await reuse. */
+    private final long[] slotGeneration = new long[RING_SIZE];
+    /** The completion for the generation each ring slot last recorded, retained until reused. */
+    private final BatchTransferCompletion[] slotCompletion = new BatchTransferCompletion[RING_SIZE];
 
     private final Arena timelineArena;
     private final VkTimelineSemaphore timeline;
@@ -68,24 +94,57 @@ class TransferBatch {
         this.commandPool = commandPool;
         this.ownerThreadId = Thread.currentThread().threadId();
         this.timelineArena = Arena.ofShared();
+        this.ringArena = Arena.ofShared();
+        if (!device.supportsTimelineSemaphore()) {
+            timelineArena.close();
+            ringArena.close();
+            throw new IllegalStateException(
+                    "TransferBatch requires timeline semaphore support, but this VkDevice was not built with "
+                    + "enableTimelineSemaphore(). Semaphore creation can succeed on some drivers even without the "
+                    + "feature enabled, which is why this is checked directly rather than discovered on first wait. "
+                    + "Build the device through VulkanContext, which enables this automatically, or call "
+                    + "VkDevice.Builder.enableTimelineSemaphore() directly.");
+        }
         try {
             this.timeline = VkTimelineSemaphore.create(device, 0, timelineArena);
         } catch (Exception e) {
             timelineArena.close();
+            ringArena.close();
             throw new IllegalStateException(
                     "TransferBatch requires timeline semaphore support; build the VkDevice with enableTimelineSemaphore()", e);
         }
+        VkCommandBuffer[] allocated = VkCommandBufferAlloc.builder()
+                .device(device).commandPool(commandPool.handle()).primary().count(RING_SIZE).allocate(ringArena);
+        System.arraycopy(allocated, 0, commandBuffers, 0, RING_SIZE);
+        java.util.Arrays.fill(slotGeneration, -1L);
         open();
     }
 
     private void open() {
+        long generation = ++lastAssignedValue;
+        int slot = (int) (generation % RING_SIZE);
+
+        // A slot is only reused once the generation that last held it has actually completed on
+        // the GPU. This is the one point where the ring can stall: if the caller is flushing
+        // faster than the GPU retires work, opening the next generation waits here rather than
+        // growing the pool. That is a deliberate, bounded tradeoff, not a bug.
+        BatchTransferCompletion previousOccupant = slotCompletion[slot];
+        if (previousOccupant != null) {
+            previousOccupant.await();
+            previousOccupant.release();
+        }
+
+        commandBuffer = commandBuffers[slot];
+        VkCommandBuffer.reset(commandBuffer).check();
+
         batchArena = Arena.ofShared();
         ownedObjects = new ArrayList<>();
-        VkCommandBuffer[] cmds = VkCommandBufferAlloc.builder()
-                .device(device).commandPool(commandPool.handle()).primary().count(1).allocate(batchArena);
-        commandBuffer = cmds[0];
         VkCommandBuffer.begin(commandBuffer).oneTimeSubmit().execute(batchArena);
-        currentCompletion = new BatchTransferCompletion(timeline, ++lastAssignedValue, batchArena, ownedObjects);
+        currentCompletion = new BatchTransferCompletion(timeline, generation, batchArena, ownedObjects);
+        currentCompletion.retain(); // held by the ring slot until the slot is reused
+        slotGeneration[slot] = generation;
+        slotCompletion[slot] = currentCompletion;
+
         liveCompletions.removeIf(BatchTransferCompletion::isReleased);
         liveCompletions.add(currentCompletion);
         stagedBytes = 0;
@@ -144,10 +203,17 @@ class TransferBatch {
         try (GpuCompletion tc = flushUnchecked()) {
             tc.await();
         }
+        // Release the retain each ring slot is still holding on whatever generation it last
+        // recorded, then force-close every generation regardless of ref count -- teardown means
+        // no one is coming back to close their own view.
+        for (int slot = 0; slot < RING_SIZE; slot++) {
+            if (slotCompletion[slot] != null) slotCompletion[slot].release();
+        }
         for (BatchTransferCompletion c : liveCompletions) c.forceClose();
         liveCompletions.clear();
         timeline.close();
         timelineArena.close();
+        ringArena.close();
     }
 
     VkQueue queue() {

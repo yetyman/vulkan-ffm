@@ -60,6 +60,16 @@ private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
         }
     }
 
+    /**
+     * @return true if this device successfully loaded the timeline semaphore device functions
+     * ({@code vkGetSemaphoreCounterValue} and {@code vkWaitSemaphores}). Semaphore creation itself
+     * can succeed on some drivers even without the feature enabled, so this is the reliable
+     * capability check rather than a create-and-see.
+     */
+    public boolean supportsTimelineSemaphore() {
+        return vkGetSemaphoreCounterValue != null && vkWaitSemaphores != null;
+    }
+
     public VkResult waitSemaphores(MemorySegment waitInfo, long timeout) {
         if (vkWaitSemaphores == null)
             throw new UnsupportedOperationException("vkWaitSemaphores not available — enable timeline semaphore feature on device creation");

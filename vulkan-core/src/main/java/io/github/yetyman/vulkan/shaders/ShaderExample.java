@@ -127,6 +127,7 @@ public class ShaderExample {
                     .instance(instance)
                     .physicalDevice(physicalDevice)
                     .queueFamily(queueFamily)
+                    .enableTimelineSemaphore()
                     .build(arena);
             VkQueue queue = device.getQueue(queueFamily, arena);
 
