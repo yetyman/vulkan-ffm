@@ -10,7 +10,7 @@ Implemented, build green, `helpers-core` and `vulkan-ffm-mesh` test suites passi
 | 2. Delete `BufferWritable`, add `HasGpuLayout` | done |
 | 3. `IBuffer.acquireWrite` / `acquireRead` scopes | done |
 | 4. Extract `GpuCompletion` interface | done |
-| 5. Fix the `TransferBatch` fence-reuse race | NOT DONE - deferred pending a design discussion about whether it is fixable without baking in a bias |
+| 5. Fix the `TransferBatch` fence-reuse race | done - replaced the shared fence with a monotonic timeline semaphore, so the race is unrepresentable rather than guarded |
 | 6. Bulk and strided primitive paths on the typed buffers | done |
 | 7. Deletions (`BufferWritable`, `VulkanMesh`, `GLTFLoader`) | done |
 

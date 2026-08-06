@@ -347,12 +347,16 @@ public class VulkanContext implements AutoCloseable {
         }
 
         private static boolean isVulkan13(VkPhysicalDevice physicalDevice, Arena arena) {
+            return atLeastVulkan(physicalDevice, arena, 1, 3);
+        }
+
+        private static boolean atLeastVulkan(VkPhysicalDevice physicalDevice, Arena arena, int wantMajor, int wantMinor) {
             MemorySegment props = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.allocate(arena);
             io.github.yetyman.vulkan.generated.VulkanFFM.vkGetPhysicalDeviceProperties(physicalDevice.handle(), props);
             int apiVersion = io.github.yetyman.vulkan.generated.VkPhysicalDeviceProperties.apiVersion(props);
             int major = (apiVersion >> 22) & 0x7F;
             int minor = (apiVersion >> 12) & 0x3FF;
-            return major > 1 || (major == 1 && minor >= 3);
+            return major > wantMajor || (major == wantMajor && minor >= wantMinor);
         }
 
         /**
@@ -415,6 +419,19 @@ public class VulkanContext implements AutoCloseable {
                     deviceBuilder.enableDynamicRendering();
                 }
 
+                // Timeline semaphores are a hard requirement of this library, not an optional
+                // feature: TransferBatch tracks completion by timeline value because a reused
+                // VkFence cannot be handed to multiple outstanding completions safely. Fail here
+                // with an explanation rather than at first buffer write with a create-semaphore error.
+                boolean supportsTimeline = availableExts.contains("VK_KHR_timeline_semaphore")
+                        || atLeastVulkan(physicalDevice, arena, 1, 2);
+                if (!supportsTimeline) {
+                    throw new IllegalStateException(
+                            "This device supports neither Vulkan 1.2 nor VK_KHR_timeline_semaphore. "
+                            + "Timeline semaphores are required: the transfer batching system uses them to track "
+                            + "completion, because a single reused VkFence cannot serve multiple outstanding "
+                            + "completions without undefined behaviour.");
+                }
                 deviceBuilder.enableTimelineSemaphore();
 
                 VkDevice device = deviceBuilder.build(arena);

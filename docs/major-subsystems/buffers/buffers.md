@@ -19,13 +19,13 @@ composition machinery.
 
 ```
 io.github.yetyman.vulkan.buffers/
-    IBuffer.java                    - generic contract: handle/size/usage/write/read/copy/close
+    IBuffer.java                    - generic contract: handle/size/usage/write/read/copy/scopes/close
     ManagedBuffer.java               - primary IBuffer impl: composes AllocationStrategy + TransferStrategy
     AllocationStrategy.java          - interface: where memory lives, how it is mapped
     DirectAllocationStrategy.java    - one dedicated VkBuffer + VkDeviceMemory, fixed memory property flags
     ReBarAllocationStrategy.java     - DEVICE_LOCAL | HOST_VISIBLE | HOST_COHERENT, always persistently mapped
     SparseAllocationStrategy.java    - SPARSE_BINDING VkBuffer, owns a SparsePageAllocator
-    TransferStrategy.java            - interface: how data moves CPU <-> GPU
+    TransferStrategy.java            - interface: how data moves CPU <-> GPU, incl. acquireWrite/acquireRead
     MappedTransferStrategy.java      - direct memcpy into persistent map, flush/invalidate on non-coherent
     DirectTransferStrategy.java      - direct memcpy into ReBAR memory, always coherent
     StagingTransferStrategy.java     - staging buffer + vkCmdCopyBuffer; persistent or transient staging
@@ -41,13 +41,22 @@ io.github.yetyman.vulkan.buffers/
     SuballocatorBuffer.java           - fixed-slot slab allocator over one backing IBuffer
     MirroredBuffer.java               - CPU-mirror decorator over any IBuffer
     SparsePageAllocator.java          - page bind/unbind/map/unmap lifecycle for sparse buffers
-    TransferBatch.java, TransferBatchManager.java, TransferCompletion.java, BatchTransferCompletion.java
+    GpuLayout.java                    - offset-explicit serialization strategy for a type
+    HasGpuLayout.java                 - implemented by types declaring a canonical GpuLayout
+    BufferWriteScope.java, DefaultBufferWriteScope.java
+    BufferReadScope.java,  DefaultBufferReadScope.java
+                                       - borrowed native memory for one buffer range; see Write and Read Scopes
+    GpuCompletion.java                - scheduler-agnostic handle to asynchronous GPU work
+    TransferCompletion.java           - GpuCompletion backed by a TransferBatch generation
+    TimelineCompletion.java           - GpuCompletion backed by a timeline semaphore target value
+    CompletedGpuCompletion.java       - shared no-op completion for work needing no submission
+    TransferBatch.java, TransferBatchManager.java, BatchTransferCompletion.java
                                        - per-thread per-queue command batching and completion tracking
 
 io.github.yetyman.vulkan.buffers.typed/
-    TypedVkBuffer.java                - typed array view over any IBuffer, BufferWritable-serialized
+    TypedVkBuffer.java                - typed array view over any IBuffer, serialized by a required GpuLayout
     FloatVkBuffer, IntVkBuffer, LongVkBuffer, ShortVkBuffer, DoubleVkBuffer
-                                       - primitive typed views, no serialization overhead
+                                       - primitive typed views: bulk, strided, and MemorySegment paths
 ```
 
 ## Core Composition
@@ -181,29 +190,138 @@ The upgrade is guarded on `cpuWrite != NEVER` because `DEVICE_LOCAL` is also the
 for buffers the caller says the CPU never writes — allocating CPU-writable ReBAR memory for those
 would be pure waste on hardware where the ReBAR-visible VRAM pool is limited.
 
+## Write and Read Scopes
+
+`IBuffer.acquireWrite(offset, size, queue)` hands back a `BufferWriteScope` over the memory the
+buffer's strategy considers closest to final, so a producer of bytes writes exactly once and never
+owns an intermediate buffer of its own:
+
+| Strategy | What the scope hands back | What `close()` does |
+|----------|---------------------------|---------------------|
+| `MAPPED` (coherent) | the mapped device memory | nothing |
+| `MAPPED_CACHED` | the mapped device memory | flushes the non-coherent range |
+| `REBAR` | the mapped device memory, which is VRAM | nothing |
+| `DEVICE_LOCAL` / `STAGING` | mapped staging memory | records the `vkCmdCopyBuffer` |
+| `SPARSE`, single page | the mapped page directly | flushes if non-coherent, unmaps |
+| `SPARSE`, multi-page | a temporary gather segment | scatters into the separately-mapped pages |
+| `MirroredBuffer` | the mirror's own mapped memory | issues the GPU copy from that same memory |
+
+The point is that which memory is "closest to final" is the buffer's business, not the producer's.
+This is what makes a bulk write one intrinsified `MemorySegment.copy` rather than an allocation plus
+two or three copies, and on ReBAR hardware it means the caller's write lands directly in VRAM with no
+GPU command at all.
+
+`acquireRead` is the counterpart: zero-copy for mapped and ReBAR, and a pipeline-stalling readback
+into temporary host memory for device-local buffers.
+
+The sparse multi-page case exists because sparse pages are mapped independently and therefore have no
+contiguous host address range. The single-page fast path is the common one for page-aligned streaming.
+
 ## Typed Views
 
-`TypedVkBuffer<T extends BufferWritable>` and the primitive views (`FloatVkBuffer`, `IntVkBuffer`,
-etc.) wrap any `IBuffer` and are agnostic to its underlying strategy. `TypedVkBuffer` supports an
-optional CPU mirror (retained Java objects, zero-cost reads) independent of whether the underlying
-`IBuffer` is itself a `MirroredBuffer` — these are two different mirroring concerns: `TypedVkBuffer`'s
-mirror retains typed Java objects for zero-(de)serialization reads, `MirroredBuffer`'s mirror retains
-raw bytes for zero-GPU-cost reads at the `IBuffer` level.
+`TypedVkBuffer<T>` and the primitive views (`FloatVkBuffer`, `IntVkBuffer`, etc.) wrap any `IBuffer`
+and are agnostic to its underlying strategy. All of them write through `acquireWrite`.
+
+`TypedVkBuffer` requires a `GpuLayout<T>` rather than deriving serialization from the element type.
+There is no single correct serialization for a type — packed, padded, and quantized variants are all
+legitimate — so requiring the caller to name one keeps them equal citizens. `GpuLayout` is
+offset-explicit and `MemorySegment`-based rather than cursor-based, which is what allows a large
+buffer to be filled in parallel across threads and a single element deep in an array to be patched
+with one call.
+
+`TypedVkBuffer` supports an optional CPU mirror (retained Java objects, zero-deserialization reads)
+independent of whether the underlying `IBuffer` is itself a `MirroredBuffer` — these are two
+different mirroring concerns: `TypedVkBuffer`'s mirror retains typed Java objects, `MirroredBuffer`'s
+retains raw bytes for zero-GPU-cost reads at the `IBuffer` level.
+
+The primitive views additionally expose `writeRange` (a sub-range of a source array), `writeStrided`
+(N contiguous components per element, advancing an arbitrary destination stride — the primitive for
+interleaving a planar attribute stream into a packed vertex buffer), and `MemorySegment` source
+overloads so a memory-mapped file can feed them with no Java array involved.
+
 
 ## Transfer Batching
 
 Writes and copies are recorded into a per-thread, per-queue `TransferBatch` (managed by
 `TransferBatchManager`), which accumulates copy commands into one command buffer and auto-flushes at
-a 64MB threshold. `TransferCompletion` is the caller-facing handle for a batched operation — `await()`,
-`isComplete()`, `onComplete(callback)` (spawns a virtual thread), `toFuture()`. Synchronous
+a 64MB threshold. `GpuCompletion` is the caller-facing handle for a batched operation — `await()`,
+`isComplete()`, `onComplete(callback)` (spawns a virtual thread), `toFuture()`, `flush()`. Synchronous
 `IBuffer.write`/`copyTo` call `writeAsync`/`copyToAsync` then immediately flush and await.
 
-**Known issue:** fence reuse inside `TransferBatch`/`BatchTransferCompletion` is not synchronized
-against concurrent `vkWaitForFences`/`vkQueueSubmit` calls on the same `VkFence` from multiple
-threads (e.g. a virtual thread spawned by `onComplete` racing the calling thread's next flush).
-Validation layers report `UNASSIGNED-Threading-MultipleThreads-*` intermittently under this pattern.
-Pre-existing, not introduced by the strategy-composition refactor. Not yet fixed — needs a lock or
-per-completion fence in `BatchTransferCompletion`.
+Batching is the primary synchronization-reduction mechanism in the system: sync cost and
+`vkQueueSubmit` cost are per submission, not per copy, and a submission is a kernel transition that
+dominates the choice of sync primitive.
+
+### Completion is a timeline value, not a fence
+
+Each `TransferBatch` owns one monotonic `VkTimelineSemaphore`. Generation N signals value N; a
+completion handed out for generation N waits for that value. No fence is involved and
+`vkQueueSubmit` is passed `VK_NULL_HANDLE`.
+
+This replaced a design where one `VkFence` was created per batch and reused for every generation,
+which was unsound rather than merely noisy:
+
+- A fence must be reset before reuse, and both `vkResetFences` and the fence parameter of
+  `vkQueueSubmit` require external synchronization of that fence. Resetting a fence while a wait on
+  it is pending is undefined.
+- A completion view for generation N held a reference to the shared fence. Once generation N+1 reset
+  and resubmitted it, N's view was waiting on N+1's signal, `isComplete()` returned false for work
+  that had finished, and if N+1 was never submitted, `await()` blocked forever.
+
+A timeline value has none of these problems because there is nothing to reset:
+
+| Property | Consequence |
+|----------|-------------|
+| Counter is monotonic | Generation N's target stays meaningful no matter how many generations follow |
+| No reset operation | No mutation of shared state, so no external synchronization requirement |
+| `vkWaitSemaphores` is internally synchronized | Any number of threads may wait on different values concurrently, which is what `onComplete` does |
+| Completion is a comparison | `counterValue() >= target` cannot give a false negative after reuse |
+| One object per batch | Unlimited generations, no pool, no per-submission allocation |
+| One fewer API call per flush | `vkResetFences` disappears entirely |
+
+The race is therefore removed by construction rather than guarded by a lock, and the result is
+marginally faster than the original.
+
+Timeline semaphores are consequently a hard requirement of this library, not an optional feature.
+`VulkanContext.Builder` verifies Vulkan 1.2 or `VK_KHR_timeline_semaphore` and fails with an
+explanatory error rather than letting semaphore creation fail at first write.
+
+### Thread ownership
+
+A batch belongs to exactly one thread — the one that first requested it — because it records into a
+single command buffer that no other thread may touch. `record`, `flush`, `waitUntil`, and `signalOn`
+assert this and throw an explanatory `IllegalStateException` otherwise. `destroy` deliberately does
+not, since it runs during device teardown after `vkDeviceWaitIdle`.
+
+`TransferCompletion` holds its owning `TransferBatch` directly. It previously looked the batch up
+from the thread-local registry inside `flush()`, which meant that flushing from any thread other
+than the recording thread silently found no batch and did nothing, leaving `await()` to block on
+work that had never been submitted. `onComplete` now flushes on the calling thread before spawning
+its waiter, for the same reason.
+
+`await()` flushes first when the generation has not been submitted, so `writeAsync(...).await()` is
+correct without an explicit `flush()` call.
+
+### Reducing waits further
+
+Timeline semaphores remove the race and the reset; they do not remove the stall, since
+`vkWaitSemaphores` still blocks its caller. Eliminating stalls is a separate concern and is mostly a
+matter of knowing who the consumer is:
+
+- When the consumer is the GPU, no CPU wait is needed at all. On one queue, submission order plus a
+  pipeline barrier is sufficient and needs no sync object; across queues, the consuming submission
+  waits on the transfer's timeline value.
+- Mapped and ReBAR writes record no GPU work and return an already-complete token, so there is
+  nothing to wait on in the first place.
+- Staging reclamation is better handled by a retire list keyed on timeline value, read once per
+  frame, than by a wait per transfer.
+
+**Known issue:** `TransferBatch.open()` allocates a fresh command buffer from the pool for every
+generation and never returns it, so a long-running loop accumulates command buffers in the pool
+proportional to its flush count. Pre-existing, unrelated to the completion rework, and not yet
+fixed; the fix is either resetting the pool once a generation's completion has been released, or
+recycling a small ring of command buffers per batch.
+
 
 ## Design Principles
 
@@ -222,3 +340,12 @@ per-completion fence in `BatchTransferCompletion`.
   `IBuffer` and are not meant to become a general-purpose API surface
 - The automatic strategy selector may make hardware-aware substitutions (ReBAR upgrade); explicit
   `BufferFactory.create` calls with a literal `MemoryStrategy` never do
+- Producers of bytes do not own intermediate memory. `acquireWrite` inverts that ownership so the
+  strategy decides where a write lands, which is what keeps the copy count at one
+- Serialization is always a `GpuLayout`, never a method on the type being serialized, and layouts are
+  offset-explicit so bulk fills can be parallelized
+- Synchronization primitives are chosen so that unsafe states are unrepresentable rather than guarded.
+  Completion is a monotonic timeline value precisely because a value needs no reset, and a reset is
+  the only thing that made the previous fence-based design racy
+- Consumers depend on the `GpuCompletion` concept, not on whoever submitted the work, so an external
+  scheduler can supply its own implementation
