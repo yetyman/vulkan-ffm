@@ -145,29 +145,25 @@ public class LinkedOctree<T> implements SpatialStructure<T> {
     @Override
     public DirtyTracker dirtyTracker() { return dirtyTracker; }
 
-    // --- BufferWritable ---
+    // --- GPU layout ---
 
     /** Default layout: DFS-ordered flat node AABBs (24 bytes per node). */
     public static final GpuLayout<LinkedOctree<?>> DEFAULT_LAYOUT = new DfsAabbLayout();
 
-    @Override
-    public int byteSize() {
+    /** @return total serialized size in the default layout, which depends on node count. */
+    public int gpuByteSize() {
         return nodeCount * 24;
     }
 
+    /** Writes this tree into {@code dst} at {@code offset} using the default layout. */
     @SuppressWarnings("unchecked")
-    @Override
-    public void writeTo(java.nio.ByteBuffer buf) {
-        ((GpuLayout<LinkedOctree<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, buf);
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset) {
+        ((GpuLayout<LinkedOctree<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, dst, offset);
     }
 
-    @Override
-    public void readFrom(java.nio.ByteBuffer buf) {
-        throw new UnsupportedOperationException("Octree does not support readFrom -- rebuild from items instead.");
-    }
-
-    public void writeTo(java.nio.ByteBuffer buf, GpuLayout<LinkedOctree<T>> layout) {
-        layout.writeTo(this, buf);
+    /** Writes this tree into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset, GpuLayout<LinkedOctree<T>> layout) {
+        layout.writeTo(this, dst, offset);
     }
 
     // Package-private for layout access
@@ -275,19 +271,26 @@ public class LinkedOctree<T> implements SpatialStructure<T> {
     }
 
     private static class DfsAabbLayout implements GpuLayout<LinkedOctree<?>> {
-        @Override public int byteSize() { return -1; } // variable size, use structure.byteSize()
-        @Override public void writeTo(LinkedOctree<?> tree, java.nio.ByteBuffer buf) {
-            writeDfs(tree.root(), buf);
+        /** Variable size: depends on node count. Use {@link LinkedOctree#gpuByteSize()} for the total. */
+        @Override public int byteSize() { return -1; }
+        @Override public void writeTo(LinkedOctree<?> tree, java.lang.foreign.MemorySegment dst, long offset) {
+            writeDfs(tree.root(), dst, offset);
         }
-        @Override public void readFrom(LinkedOctree<?> tree, java.nio.ByteBuffer buf) {
-            throw new UnsupportedOperationException();
+        @Override public void readFrom(LinkedOctree<?> tree, java.lang.foreign.MemorySegment src, long offset) {
+            throw new UnsupportedOperationException("Octree cannot be deserialized -- rebuild from items instead.");
         }
-        private void writeDfs(OctreeNode node, java.nio.ByteBuffer buf) {
-            buf.putFloat(node.bounds.min.x); buf.putFloat(node.bounds.min.y); buf.putFloat(node.bounds.min.z);
-            buf.putFloat(node.bounds.max.x); buf.putFloat(node.bounds.max.y); buf.putFloat(node.bounds.max.z);
+        private long writeDfs(OctreeNode node, java.lang.foreign.MemorySegment dst, long o) {
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o, node.bounds.min.x);
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o + 4, node.bounds.min.y);
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o + 8, node.bounds.min.z);
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o + 12, node.bounds.max.x);
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o + 16, node.bounds.max.y);
+            dst.set(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, o + 20, node.bounds.max.z);
+            o += 24;
             if (node.children != null) {
-                for (OctreeNode child : node.children) writeDfs(child, buf);
+                for (OctreeNode child : node.children) o = writeDfs(child, dst, o);
             }
+            return o;
         }
     }
 

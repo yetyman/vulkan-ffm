@@ -4,7 +4,7 @@ Status: planning only. Nothing in this directory is implemented yet. These docum
 down intent and non-goals before any code is written, specifically to prevent the scope explosion
 that mesh systems are prone to.
 
-Target module: `vulkan-ffm-meshes`
+Target module: `vulkan-ffm-mesh`
 Depends on: `vulkan-core`, `helpers-core`
 Must not depend on: `vulkan-ffm-graph`, `vulkan-ffm-node-trees`, `vulkan-ffm-sample-ui-layers`, `sample-app`
 
@@ -21,13 +21,13 @@ vocabulary, and keep one thin aggregate type that nothing else depends on.
 
 | # | Axis | Question it answers | Owner |
 |---|------|---------------------|-------|
-| 1 | Attribute semantics and element formats | What data exists, how is one element encoded | `vulkan-ffm-meshes` Layer 0 |
-| 2 | Layout | Interleaved vs planar, quantized vs padded, stride/offset mapping | `vulkan-ffm-meshes` Layer 0 |
+| 1 | Attribute semantics and element formats | What data exists, how is one element encoded | `vulkan-ffm-mesh` Layer 0 |
+| 2 | Layout | Interleaved vs planar, quantized vs padded, stride/offset mapping | `vulkan-ffm-mesh` Layer 0 |
 | 3 | Residency | Where the bytes are right now | `vulkan-core` buffers (already solved) |
-| 4 | Topology and partitioning | Triangles, strips, patches, meshlets, points, tetrahedra; submeshes, clusters, chunks | `vulkan-ffm-meshes` Layer 2 |
-| 5 | Work description | How a partition becomes draw, dispatch, or BLAS-build arguments | `vulkan-ffm-meshes` Layer 4 |
-| 6 | Selection | LOD and culling granularity, and where the decision is made | `vulkan-ffm-meshes` Layer 5 (deferred) |
-| 7 | Provenance and lifecycle | File, procedural, GPU-generated; versioning, eviction | `vulkan-ffm-meshes` Layers 1 and 3 |
+| 4 | Topology and partitioning | Triangles, strips, patches, meshlets, points, tetrahedra; submeshes, clusters, chunks | `vulkan-ffm-mesh` Layer 2 |
+| 5 | Work description | How a partition becomes draw, dispatch, or BLAS-build arguments | `vulkan-ffm-mesh` Layer 4 |
+| 6 | Selection | LOD and culling granularity, and where the decision is made | `vulkan-ffm-mesh` Layer 5 (deferred) |
+| 7 | Provenance and lifecycle | File, procedural, GPU-generated; versioning, eviction | `vulkan-ffm-mesh` Layers 1 and 3 |
 
 Axis 3 is already fully solved by the buffer strategy system in `vulkan-core`. The mesh module
 references `IBuffer` ranges and never re-solves residency. That removes roughly a third of the usual
@@ -170,7 +170,7 @@ layer imports a layer above it, and `Mesh` is imported by no layer at all.
 
 ### Explicit non-goals
 
-Things deliberately excluded from `vulkan-ffm-meshes`:
+Things deliberately excluded from `vulkan-ffm-mesh`:
 
 - `Drawable` or anything that draws itself. Its job splits into `GeometryBinding` (data) and
   app-side command recording (behavior).

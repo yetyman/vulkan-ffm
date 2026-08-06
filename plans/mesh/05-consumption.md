@@ -225,7 +225,7 @@ The thin convenience aggregate. Its class Javadoc must be blunt about its role.
  * Convenience aggregate over a geometry's source, allocation, partitions, and binding.
  *
  * This type is deliberately thin and carries no behavior of its own. Nothing in
- * vulkan-ffm-meshes depends on it, and every operation available through it is available
+ * vulkan-ffm-mesh depends on it, and every operation available through it is available
  * directly on the underlying types. It exists so that simple cases read simply, and so
  * that sample code has one obvious noun.
  *

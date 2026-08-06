@@ -1,33 +1,55 @@
 package io.github.yetyman.helpers.math;
 
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Mutable unit quaternion for rotations.
  * Convention: identity = (0, 0, 0, 1).
  */
-public class Quaternion implements BufferWritable {
+public class Quaternion implements HasGpuLayout<Quaternion> {
 
     // --- GPU Layouts ---
 
     /** Default layout: x, y, z, w (16 bytes). */
     public static final GpuLayout<Quaternion> XYZW = new GpuLayout<>() {
         @Override public int byteSize() { return 16; }
-        @Override public void writeTo(Quaternion q, ByteBuffer buf) { buf.putFloat(q.x); buf.putFloat(q.y); buf.putFloat(q.z); buf.putFloat(q.w); }
-        @Override public void readFrom(Quaternion q, ByteBuffer buf) { q.x = buf.getFloat(); q.y = buf.getFloat(); q.z = buf.getFloat(); q.w = buf.getFloat(); }
+        @Override public void writeTo(Quaternion q, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, q.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, q.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, q.z);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, q.w);
+        }
+        @Override public void readFrom(Quaternion q, MemorySegment src, long o) {
+            q.x = src.get(JAVA_FLOAT_UNALIGNED, o);
+            q.y = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            q.z = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            q.w = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+        }
     };
 
-    /** Default layout used by BufferWritable methods. */
+    /** Canonical layout for this type. */
     public static final GpuLayout<Quaternion> DEFAULT_LAYOUT = XYZW;
 
     /** W-first layout: w, x, y, z (16 bytes). Some engines/formats use this convention. */
     public static final GpuLayout<Quaternion> WXYZ = new GpuLayout<>() {
         @Override public int byteSize() { return 16; }
-        @Override public void writeTo(Quaternion q, ByteBuffer buf) { buf.putFloat(q.w); buf.putFloat(q.x); buf.putFloat(q.y); buf.putFloat(q.z); }
-        @Override public void readFrom(Quaternion q, ByteBuffer buf) { q.w = buf.getFloat(); q.x = buf.getFloat(); q.y = buf.getFloat(); q.z = buf.getFloat(); }
+        @Override public void writeTo(Quaternion q, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, q.w);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, q.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, q.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, q.z);
+        }
+        @Override public void readFrom(Quaternion q, MemorySegment src, long o) {
+            q.w = src.get(JAVA_FLOAT_UNALIGNED, o);
+            q.x = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            q.y = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            q.z = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+        }
     };
 
     private static BuildStrategy<Quaternion> buildStrategy = BuildStrategy.allocating(Quaternion::new);
@@ -400,20 +422,22 @@ public class Quaternion implements BufferWritable {
         return "Quaternion(" + x + ", " + y + ", " + z + ", " + w + ")";
     }
 
-    // --- BufferWritable ---
+    // --- HasGpuLayout ---
 
     @Override
-    public int byteSize() { return XYZW.byteSize(); }
+    public GpuLayout<Quaternion> defaultLayout() { return DEFAULT_LAYOUT; }
 
-    @Override
-    public void writeTo(ByteBuffer buf) { XYZW.writeTo(this, buf); }
+    /** Writes this quaternion into {@code dst} at {@code offset} using the default layout. */
+    public void writeTo(MemorySegment dst, long offset) { DEFAULT_LAYOUT.writeTo(this, dst, offset); }
 
-    @Override
-    public void readFrom(ByteBuffer buf) { XYZW.readFrom(this, buf); }
+    /** Reads this quaternion from {@code src} at {@code offset} using the default layout. */
+    public void readFrom(MemorySegment src, long offset) { DEFAULT_LAYOUT.readFrom(this, src, offset); }
 
-    public void writeTo(ByteBuffer buf, GpuLayout<Quaternion> layout) { layout.writeTo(this, buf); }
+    /** Writes this quaternion into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<Quaternion> layout) { layout.writeTo(this, dst, offset); }
 
-    public void readFrom(ByteBuffer buf, GpuLayout<Quaternion> layout) { layout.readFrom(this, buf); }
+    /** Reads this quaternion from {@code src} at {@code offset} using an alternative layout. */
+    public void readFrom(MemorySegment src, long offset, GpuLayout<Quaternion> layout) { layout.readFrom(this, src, offset); }
 
     // --- BuildStrategy ---
 

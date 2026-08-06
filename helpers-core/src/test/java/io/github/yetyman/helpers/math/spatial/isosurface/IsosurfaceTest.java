@@ -59,13 +59,45 @@ class IsosurfaceTest {
 
     @Test void meshOutputByteSize() {
         MeshOutput mesh = MarchingCubes.extract(SPHERE, new Vec3(-2,-2,-2), new Vec3(2,2,2), 5, 5, 5, 0f);
-        assertEquals(mesh.vertexCount() * 12 + mesh.indexCount() * 4, mesh.byteSize());
+        assertEquals(mesh.vertexCount() * 12 + mesh.indexCount() * 4, mesh.gpuByteSize());
+        assertEquals(mesh.vertexCount() * 12, mesh.vertexByteSize());
+        assertEquals(mesh.indexCount() * 4, mesh.indexByteSize());
     }
 
     @Test void meshOutputWriteTo() {
         MeshOutput mesh = MarchingCubes.extract(SPHERE, new Vec3(-2,-2,-2), new Vec3(2,2,2), 5, 5, 5, 0f);
-        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(mesh.byteSize());
-        mesh.writeTo(buf);
-        assertEquals(mesh.byteSize(), buf.position());
+        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+            java.lang.foreign.MemorySegment dst = arena.allocate(mesh.gpuByteSize());
+            mesh.writeTo(dst, 0);
+            // First vertex position round-trips into the head of the segment.
+            Vec3 first = mesh.vertices().get(0);
+            assertEquals(first.x, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 0));
+            assertEquals(first.y, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 4));
+            assertEquals(first.z, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 8));
+            // Indices follow the vertex block.
+            assertEquals(mesh.indices().get(0).intValue(),
+                    dst.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, mesh.vertexByteSize()));
+        }
+    }
+
+    @Test void meshOutputWriteIndicesWithBase() {
+        MeshOutput mesh = MarchingCubes.extract(SPHERE, new Vec3(-2,-2,-2), new Vec3(2,2,2), 5, 5, 5, 0f);
+        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+            java.lang.foreign.MemorySegment dst = arena.allocate(mesh.indexByteSize());
+            mesh.writeIndices(dst, 0, 1000);
+            assertEquals(mesh.indices().get(0) + 1000,
+                    dst.get(java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED, 0));
+        }
+    }
+
+    @Test void meshOutputWriteVerticesStrided() {
+        MeshOutput mesh = MarchingCubes.extract(SPHERE, new Vec3(-2,-2,-2), new Vec3(2,2,2), 5, 5, 5, 0f);
+        long stride = 32; // position plus 20 bytes of other interleaved attributes
+        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+            java.lang.foreign.MemorySegment dst = arena.allocate(stride * mesh.vertexCount());
+            mesh.writeVertices(dst, 0, stride);
+            Vec3 second = mesh.vertices().get(1);
+            assertEquals(second.x, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, stride));
+        }
     }
 }

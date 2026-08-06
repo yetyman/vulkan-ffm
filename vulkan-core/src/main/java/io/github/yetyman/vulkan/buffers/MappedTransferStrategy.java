@@ -22,15 +22,39 @@ public final class MappedTransferStrategy implements TransferStrategy {
     }
 
     @Override
-    public TransferCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
-        if (offset + data.remaining() > ctx.size) {
+    public GpuCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
+        int length = data.remaining();
+        try (BufferWriteScope scope = acquireWrite(ctx, offset, length, queue)) {
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, scope.segment(), 0, length);
+            scope.close();
+            return scope.completion();
+        }
+    }
+
+    @Override
+    public BufferWriteScope acquireWrite(TransferContext ctx, long offset, long size, VkQueue queue) {
+        if (offset + size > ctx.size) {
             throw new IllegalArgumentException("Write exceeds buffer size");
         }
-        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, ctx.mappedMemory, offset, data.remaining());
-        if (!coherent) {
-            flushRange(ctx, offset, data.remaining());
+        MemorySegment target = ctx.mappedMemory.asSlice(offset, size);
+        if (coherent) {
+            return BufferWriteScope.of(target, offset, size, null);
         }
-        return TransferCompletion.completed();
+        return BufferWriteScope.of(target, offset, size, () -> {
+            flushRange(ctx, offset, size);
+            return GpuCompletion.completed();
+        });
+    }
+
+    @Override
+    public BufferReadScope acquireRead(TransferContext ctx, long offset, long size, VkQueue queue) {
+        if (offset + size > ctx.size) {
+            throw new IllegalArgumentException("Read exceeds buffer size");
+        }
+        if (!coherent) {
+            invalidateRange(ctx, offset, size);
+        }
+        return BufferReadScope.of(ctx.mappedMemory.asSlice(offset, size), offset, size, null);
     }
 
     @Override

@@ -3,11 +3,44 @@ package io.github.yetyman.helpers.math.geometry;
 import io.github.yetyman.helpers.math.BuildStrategy;
 import io.github.yetyman.helpers.math.Mat4;
 import io.github.yetyman.helpers.math.Vec3;
+import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
+
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Axis-aligned bounding box defined by min and max corners.
  */
-public class AABB {
+public class AABB implements HasGpuLayout<AABB> {
+
+    /** Default layout: min(x,y,z) then max(x,y,z) (24 bytes). */
+    public static final GpuLayout<AABB> MIN_MAX = new GpuLayout<>() {
+        @Override public int byteSize() { return 24; }
+        @Override public void writeTo(AABB b, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, b.min.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, b.min.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, b.min.z);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, b.max.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, b.max.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, b.max.z);
+        }
+        @Override public void readFrom(AABB b, MemorySegment src, long o) {
+            b.min.x = src.get(JAVA_FLOAT_UNALIGNED, o);
+            b.min.y = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            b.min.z = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            b.max.x = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+            b.max.y = src.get(JAVA_FLOAT_UNALIGNED, o + 16);
+            b.max.z = src.get(JAVA_FLOAT_UNALIGNED, o + 20);
+        }
+    };
+
+    /** Canonical layout for this type. */
+    public static final GpuLayout<AABB> DEFAULT_LAYOUT = MIN_MAX;
+
+    @Override
+    public GpuLayout<AABB> defaultLayout() { return DEFAULT_LAYOUT; }
 
     private static BuildStrategy<AABB> buildStrategy = BuildStrategy.allocating(AABB::new);
 

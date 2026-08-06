@@ -178,10 +178,10 @@ worse than requiring the source to know.
 
 | Source | Module | Notes |
 |--------|--------|-------|
-| `SegmentGeometrySource` | `vulkan-ffm-meshes` | Wraps a set of `MemorySegment`s plus a `MeshLayout`. The primitive everything else adapts to. |
-| Procedural primitives (box, sphere, plane, grid, torus) | `vulkan-ffm-meshes` | Small, universally useful, no dependencies. Needed for samples and tests. |
+| `SegmentGeometrySource` | `vulkan-ffm-mesh` | Wraps a set of `MemorySegment`s plus a `MeshLayout`. The primitive everything else adapts to. |
+| Procedural primitives (box, sphere, plane, grid, torus) | `vulkan-ffm-mesh` | Small, universally useful, no dependencies. Needed for samples and tests. |
 | Isosurface output | `helpers-core` adapter | See below. |
-| glTF, OBJ, PLY, USD, FBX, Draco | separate bindings modules | Never in `vulkan-ffm-meshes`. See `08-integration-boundaries.md`. |
+| glTF, OBJ, PLY, USD, FBX, Draco | separate bindings modules | Never in `vulkan-ffm-mesh`. See `08-integration-boundaries.md`. |
 | Compute-generated | app-side | Produces `DeviceAttributeStream`s over buffers a compute pass wrote. |
 
 ### `MeshOutput` in helpers-core

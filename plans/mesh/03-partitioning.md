@@ -196,7 +196,7 @@ public interface PartitioningStrategy {
 }
 ```
 
-Shipped in `vulkan-ffm-meshes`:
+Shipped in `vulkan-ffm-mesh`:
 
 - `NativePartitioning` - use whatever the source declared (glTF primitives, OBJ groups). The default.
 - `SinglePartition` - the whole mesh as one partition.
@@ -205,7 +205,7 @@ Shipped in `vulkan-ffm-meshes`:
 Not shipped here:
 
 - Meshlet building. The interface lives here; optimized implementations go to
-  `vulkan-ffm-meshes-processing`. A naive reference implementation in this module is acceptable and
+  `vulkan-ffm-mesh-processing`. A naive reference implementation in this module is acceptable and
   probably valuable for tests, clearly marked as a reference rather than a production path.
 - Simplification-driven cluster hierarchies. Same split.
 

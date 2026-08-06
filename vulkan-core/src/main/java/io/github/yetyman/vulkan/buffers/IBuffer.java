@@ -19,7 +19,24 @@ public interface IBuffer extends AutoCloseable {
 
     void write(ByteBuffer data, long offset, VkQueue queue);
 
-    TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue);
+    GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue);
+
+    /**
+     * Acquires writable memory for {@code [offset, offset + size)} that is as close to final as
+     * this buffer's strategy allows, so a producer writes exactly once with no intermediate buffer
+     * of its own. See {@link BufferWriteScope}.
+     *
+     * <p>This is the preferred write path for bulk data: primitive arrays, transcoded geometry,
+     * memory-mapped file contents. {@link #write} and {@link #writeAsync} are conveniences for
+     * callers that already hold a {@link ByteBuffer}.
+     */
+    BufferWriteScope acquireWrite(long offset, long size, VkQueue queue);
+
+    /**
+     * Acquires readable memory for {@code [offset, offset + size)}. Zero-copy for mapped and ReBAR
+     * buffers; a pipeline-stalling readback for device-local ones.
+     */
+    BufferReadScope acquireRead(long offset, long size, VkQueue queue);
 
     /**
      * Reads data from buffer synchronously.
@@ -32,7 +49,7 @@ public interface IBuffer extends AutoCloseable {
 
     void copyTo(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue);
 
-    TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue);
+    GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue);
 
     // Vulkan binding (usage-specific)
     MemorySegment handle();

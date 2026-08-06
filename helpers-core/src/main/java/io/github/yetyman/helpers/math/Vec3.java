@@ -1,32 +1,51 @@
 package io.github.yetyman.helpers.math;
 
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Mutable 3-component float vector.
  */
-public class Vec3 implements BufferWritable {
+public class Vec3 implements HasGpuLayout<Vec3> {
 
     // --- GPU Layouts ---
 
     /** Default layout: x, y, z (12 bytes packed). */
     public static final GpuLayout<Vec3> XYZ = new GpuLayout<>() {
         @Override public int byteSize() { return 12; }
-        @Override public void writeTo(Vec3 v, ByteBuffer buf) { buf.putFloat(v.x); buf.putFloat(v.y); buf.putFloat(v.z); }
-        @Override public void readFrom(Vec3 v, ByteBuffer buf) { v.x = buf.getFloat(); v.y = buf.getFloat(); v.z = buf.getFloat(); }
+        @Override public void writeTo(Vec3 v, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, v.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, v.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, v.z);
+        }
+        @Override public void readFrom(Vec3 v, MemorySegment src, long o) {
+            v.x = src.get(JAVA_FLOAT_UNALIGNED, o);
+            v.y = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            v.z = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+        }
     };
 
-    /** Default layout used by BufferWritable methods. */
+    /** Canonical layout for this type. */
     public static final GpuLayout<Vec3> DEFAULT_LAYOUT = XYZ;
 
     /** std140-aligned layout: x, y, z, pad (16 bytes). */
     public static final GpuLayout<Vec3> STD140 = new GpuLayout<>() {
         @Override public int byteSize() { return 16; }
-        @Override public void writeTo(Vec3 v, ByteBuffer buf) { buf.putFloat(v.x); buf.putFloat(v.y); buf.putFloat(v.z); buf.putFloat(0f); }
-        @Override public void readFrom(Vec3 v, ByteBuffer buf) { v.x = buf.getFloat(); v.y = buf.getFloat(); v.z = buf.getFloat(); buf.getFloat(); }
+        @Override public void writeTo(Vec3 v, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, v.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, v.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, v.z);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, 0f);
+        }
+        @Override public void readFrom(Vec3 v, MemorySegment src, long o) {
+            v.x = src.get(JAVA_FLOAT_UNALIGNED, o);
+            v.y = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            v.z = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+        }
     };
 
     private static BuildStrategy<Vec3> buildStrategy = BuildStrategy.allocating(Vec3::new);
@@ -441,20 +460,22 @@ public class Vec3 implements BufferWritable {
         return "Vec3(" + x + ", " + y + ", " + z + ")";
     }
 
-    // --- BufferWritable ---
+    // --- HasGpuLayout ---
 
     @Override
-    public int byteSize() { return XYZ.byteSize(); }
+    public GpuLayout<Vec3> defaultLayout() { return DEFAULT_LAYOUT; }
 
-    @Override
-    public void writeTo(ByteBuffer buf) { XYZ.writeTo(this, buf); }
+    /** Writes this vector into {@code dst} at {@code offset} using the default layout. */
+    public void writeTo(MemorySegment dst, long offset) { DEFAULT_LAYOUT.writeTo(this, dst, offset); }
 
-    @Override
-    public void readFrom(ByteBuffer buf) { XYZ.readFrom(this, buf); }
+    /** Reads this vector from {@code src} at {@code offset} using the default layout. */
+    public void readFrom(MemorySegment src, long offset) { DEFAULT_LAYOUT.readFrom(this, src, offset); }
 
-    public void writeTo(ByteBuffer buf, GpuLayout<Vec3> layout) { layout.writeTo(this, buf); }
+    /** Writes this vector into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<Vec3> layout) { layout.writeTo(this, dst, offset); }
 
-    public void readFrom(ByteBuffer buf, GpuLayout<Vec3> layout) { layout.readFrom(this, buf); }
+    /** Reads this vector from {@code src} at {@code offset} using an alternative layout. */
+    public void readFrom(MemorySegment src, long offset, GpuLayout<Vec3> layout) { layout.readFrom(this, src, offset); }
 
     // --- BuildStrategy ---
 

@@ -53,19 +53,35 @@ public final class StagingTransferStrategy implements TransferStrategy {
     }
 
     @Override
-    public TransferCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
+        int length = data.remaining();
+        BufferWriteScope scope = acquireWrite(ctx, offset, length, queue);
+        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, scope.segment(), 0, length);
+        scope.close();
+        return scope.completion();
+    }
+
+    @Override
+    public BufferWriteScope acquireWrite(TransferContext ctx, long offset, long size, VkQueue queue) {
+        if (offset + size > ctx.size) {
+            throw new IllegalArgumentException("Write exceeds buffer size");
+        }
         TransferBatch batch = TransferBatchManager.getOrCreate(ctx.device, queue);
         if (persistent) {
             ensurePersistentStaging(ctx);
-            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, persistentMapped, offset, data.remaining());
-            return batch.record(persistentStagingBuffer.handle(), ctx.vkBuffer.handle(), offset, offset, data.remaining());
-        } else {
-            Arena stagingArena = Arena.ofShared();
-            VkBuffer tempStaging = VkBuffer.builder().device(ctx.device).size(data.remaining()).transferSrc().hostVisible().build(stagingArena);
-            MemorySegment tempMapped = tempStaging.map(stagingArena);
-            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, tempMapped, 0, data.remaining());
-            return batch.record(tempStaging.handle(), ctx.vkBuffer.handle(), 0, offset, data.remaining(), tempStaging, stagingArena);
+            // The caller writes into the persistent staging map at the same offset it will occupy
+            // in the destination, so the recorded copy is offset-to-offset.
+            MemorySegment target = persistentMapped.asSlice(offset, size);
+            return BufferWriteScope.of(target, offset, size,
+                    () -> batch.record(persistentStagingBuffer.handle(), ctx.vkBuffer.handle(), offset, offset, size));
         }
+        // Transient staging: exactly size bytes, owned by the batch until the copy completes.
+        Arena stagingArena = Arena.ofShared();
+        VkBuffer tempStaging = VkBuffer.builder()
+                .device(ctx.device).size(size).transferSrc().hostVisible().build(stagingArena);
+        MemorySegment tempMapped = tempStaging.map(stagingArena);
+        return BufferWriteScope.of(tempMapped.asSlice(0, size), offset, size,
+                () -> batch.record(tempStaging.handle(), ctx.vkBuffer.handle(), 0, offset, size, tempStaging, stagingArena));
     }
 
     @Override

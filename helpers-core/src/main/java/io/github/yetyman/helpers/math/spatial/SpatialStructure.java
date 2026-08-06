@@ -1,19 +1,22 @@
 package io.github.yetyman.helpers.math.spatial;
 
 import io.github.yetyman.helpers.math.geometry.AABB;
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 
 import java.util.Map;
 import java.util.function.Function;
 
 /**
  * Mutable spatial structure interface. Extends {@link SpatialQuery} with insert/remove/update operations.
- * Also implements {@link BufferWritable} — structures can serialize themselves in their default layout
- * directly into a buffer. Use {@code GpuLayout<StructureType>} for alternative layouts.
+ *
+ * <p>This interface deliberately says nothing about GPU serialization. A structure has no single
+ * canonical byte layout: DFS, BFS, and Morton orderings, quantized bounds, and payload-carrying
+ * variants are all legitimate and are chosen by the consumer, not the structure. Concrete
+ * implementations therefore expose their own {@code DEFAULT_LAYOUT} static plus
+ * {@code writeTo(MemorySegment, long, GpuLayout)} overloads, rather than serializing themselves.
  *
  * @param <T> the type of items stored in the spatial structure
  */
-public interface SpatialStructure<T> extends SpatialQuery<T>, BufferWritable {
+public interface SpatialStructure<T> extends SpatialQuery<T> {
 
     /** Inserts an item with the given bounds into the structure. */
     void insert(T item, AABB bounds);

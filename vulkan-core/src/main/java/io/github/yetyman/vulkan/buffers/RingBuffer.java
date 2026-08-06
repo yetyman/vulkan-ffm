@@ -27,7 +27,7 @@ public class RingBuffer implements IBuffer {
     /**
      * Tracks in-flight async completions per slot. Awaited before writing to a slot.
      */
-    private final AtomicReferenceArray<TransferCompletion> inFlight;
+    private final AtomicReferenceArray<GpuCompletion> inFlight;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     /**
@@ -142,28 +142,54 @@ public class RingBuffer implements IBuffer {
 
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
-        TransferCompletion tc = writeAsync(data, offset, queue);
+        GpuCompletion tc = writeAsync(data, offset, queue);
         TransferBatchManager.flush(queue.device(), queue);
         tc.await();
         tc.close();
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         int frame = currentFrame;
         awaitSlot(frame);
         IBuffer buf = singleOffset ? buffers[0] : buffers[frame];
         long actualOffset = singleOffset ? frame * alignedFrameSize + offset : offset;
-        TransferCompletion tc = buf.writeAsync(data, actualOffset, queue);
+        GpuCompletion tc = buf.writeAsync(data, actualOffset, queue);
         inFlight.set(frame, tc);
         return tc;
+    }
+
+    /**
+     * Acquires a write scope in the current frame's slot, awaiting that slot's previous in-flight
+     * transfer first. The returned completion is tracked as the slot's in-flight work on commit.
+     */
+    @Override
+    public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        int frame = currentFrame;
+        awaitSlot(frame);
+        IBuffer buf = singleOffset ? buffers[0] : buffers[frame];
+        long actualOffset = singleOffset ? frame * alignedFrameSize + offset : offset;
+        BufferWriteScope inner = buf.acquireWrite(actualOffset, size, queue);
+        return BufferWriteScope.of(inner.segment(), offset, size, () -> {
+            inner.close();
+            GpuCompletion tc = inner.completion();
+            inFlight.set(frame, tc);
+            return tc;
+        });
+    }
+
+    @Override
+    public BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        IBuffer buf = singleOffset ? buffers[0] : buffers[currentFrame];
+        long actualOffset = singleOffset ? currentFrame * alignedFrameSize + offset : offset;
+        return buf.acquireRead(actualOffset, size, queue);
     }
 
     /**
      * Awaits and clears any in-flight completion for the given slot before reuse.
      */
     private void awaitSlot(int slot) {
-        TransferCompletion prev = inFlight.getAndSet(slot, null);
+        GpuCompletion prev = inFlight.getAndSet(slot, null);
         if (prev != null) {
             prev.await();
             prev.close();
@@ -190,7 +216,7 @@ public class RingBuffer implements IBuffer {
     }
 
     @Override
-    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         IBuffer buf = singleOffset ? buffers[0] : buffers[currentFrame];
         long actualOffset = singleOffset ? currentFrame * alignedFrameSize + srcOffset : srcOffset;
         return buf.copyToAsync(dst, actualOffset, dstOffset, length, queue);

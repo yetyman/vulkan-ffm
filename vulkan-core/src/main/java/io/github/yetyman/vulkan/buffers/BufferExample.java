@@ -148,13 +148,13 @@ public class BufferExample {
                 check("MAPPED offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
                 // async write (await)
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
                     tc.await();
                 }
                 check("MAPPED writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
                 // async write (toFuture)
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
                     tc.toFuture().join();
                 }
                 check("MAPPED writeAsync+toFuture", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -181,8 +181,8 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("MAPPED_CACHED offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("MAPPED_CACHED writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
@@ -204,22 +204,22 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("DEVICE_LOCAL offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("DEVICE_LOCAL writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.toFuture().join();
                 }
                 check("DEVICE_LOCAL writeAsync+toFuture", buf.read(0, SIZE).getInt(0), MAGIC2);
 
                 CountDownLatch latch = new CountDownLatch(1);
-                TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
+                GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
                 tc.onComplete(latch::countDown);
-                tc.flush(device, queue);
+                tc.flush();
                 latch.await(5, TimeUnit.SECONDS);
                 check("DEVICE_LOCAL writeAsync+onComplete", buf.read(0, SIZE).getInt(0), MAGIC);
             }
@@ -235,14 +235,14 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("STAGING offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("STAGING writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.toFuture().join();
                 }
                 check("STAGING writeAsync+toFuture", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -263,15 +263,15 @@ public class BufferExample {
                 check("GPU COPY sync offset", dst.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
                 src.write(data.rewind(), 0, queue);
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("GPU COPY async+await", dst.read(0, SIZE).getInt(0), MAGIC);
 
                 src.write(data2.rewind(), 0, queue);
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = src.copyToAsync(dst, 0, 0, SIZE, queue)) {
+                    tc.flush();
                     tc.toFuture().join();
                 }
                 check("GPU COPY async+toFuture", dst.read(0, SIZE).getInt(0), MAGIC2);
@@ -288,14 +288,14 @@ public class BufferExample {
                 buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                 check("MIRRORED offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("MIRRORED writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.toFuture().join();
                 }
                 check("MIRRORED writeAsync+toFuture (mirror)", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -315,9 +315,9 @@ public class BufferExample {
 
                 // async write on each frame, advance, verify in-flight guard awaits before reuse
                 for (int frame = 0; frame < 3; frame++) {
-                    TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
+                    GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue);
                     // intentionally do NOT await — nextFrame's awaitSlot should handle it
-                    tc.flush(device, queue);
+                    tc.flush();
                     buf.nextFrame();
                     // now write to the same slot again (wraps after 3); awaitSlot must have resolved tc
                 }
@@ -333,8 +333,8 @@ public class BufferExample {
                 buf.write(data.rewind(), 0, queue);
                 check("RING_BUFFER(DEVICE_LOCAL)[0] sync write/read", buf.read(0, SIZE).getInt(0), MAGIC);
                 buf.nextFrame();
-                try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("RING_BUFFER(DEVICE_LOCAL)[1] writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -344,8 +344,8 @@ public class BufferExample {
                 check("RING_BUFFER(DEVICE_LOCAL) copyTo sync", copyDst.read(0, SIZE).getInt(0), MAGIC2);
 
                 buf.write(data.rewind(), 0, queue);
-                try (TransferCompletion tc = buf.copyToAsync(copyDst, 0, 0, SIZE, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = buf.copyToAsync(copyDst, 0, 0, SIZE, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("RING_BUFFER(DEVICE_LOCAL) copyToAsync", copyDst.read(0, SIZE).getInt(0), MAGIC);
@@ -367,8 +367,8 @@ public class BufferExample {
                     check("SUBALLOCATOR sub1 vkBuffer() not null", sub1.vkBuffer() != null, true);
                     check("SUBALLOCATOR sub1/sub2 share backing vkBuffer", sub1.vkBuffer() == sub2.vkBuffer(), true);
 
-                    try (TransferCompletion tc = sub1.writeAsync(intBuf(MAGIC2), queue)) {
-                        tc.flush(device, queue);
+                    try (GpuCompletion tc = sub1.writeAsync(intBuf(MAGIC2), queue)) {
+                        tc.flush();
                         tc.await();
                     }
                     check("SUBALLOCATOR sub1 writeAsync+await", sub1.read().getInt(0), MAGIC2);
@@ -395,8 +395,8 @@ public class BufferExample {
                 try (SuballocatorBuffer.Suballocation sub = buf.allocate()) {
                     sub.write(intBuf(MAGIC), queue);
                     check("SUBALLOCATOR(DEVICE_LOCAL) write/read", sub.read().getInt(0), MAGIC);
-                    try (TransferCompletion tc = sub.writeAsync(intBuf(MAGIC2), queue)) {
-                        tc.flush(device, queue);
+                    try (GpuCompletion tc = sub.writeAsync(intBuf(MAGIC2), queue)) {
+                        tc.flush();
                         tc.await();
                     }
                     check("SUBALLOCATOR(DEVICE_LOCAL) writeAsync+await", sub.read().getInt(0), MAGIC2);
@@ -422,8 +422,8 @@ public class BufferExample {
                     check("SPARSE(DEVICE_LOCAL) first page unaffected", buf.read(0, 4).getInt(0), MAGIC);
 
                     // async write
-                    try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
-                        tc.flush(device, queue);
+                    try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                        tc.flush();
                         tc.await();
                     }
                     check("SPARSE(DEVICE_LOCAL) writeAsync+await", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -459,7 +459,7 @@ public class BufferExample {
                     check("SPARSE(MAPPED) second-page write/read", buf.read(buf.pageSize(), 4).getInt(0), MAGIC2);
 
                     // writeAsync on host-visible returns completed() immediately
-                    try (TransferCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
+                    try (GpuCompletion tc = buf.writeAsync(data2.rewind(), 0, queue)) {
                         check("SPARSE(MAPPED) writeAsync isComplete immediately", tc.isComplete() ? 1 : 0, 1);
                         tc.await();
                     }
@@ -483,7 +483,7 @@ public class BufferExample {
             long typedBufSize = (long) elemStride * elemCount;
             try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
                     BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue),
-                    elemStride, elemCount, true) {
+                    Vec4.LAYOUT, elemCount, true) {
                 @Override
                 protected Vec4 getInstance() {
                     return new Vec4();
@@ -495,7 +495,7 @@ public class BufferExample {
                 buf.write(0, a, queue);
                 check("TYPED mirrored write/read[0].x", Float.floatToRawIntBits(buf.read(0).x), Float.floatToRawIntBits(1f));
 
-                try (TransferCompletion tc = buf.writeAsync(1, b, queue)) {
+                try (GpuCompletion tc = buf.writeAsync(1, b, queue)) {
                     tc.await();
                 }
                 check("TYPED mirrored writeAsync[1].x", Float.floatToRawIntBits(buf.read(1).x), Float.floatToRawIntBits(5f));
@@ -515,7 +515,7 @@ public class BufferExample {
             section("TYPED_VK_BUFFER (non-mirrored, GPU readback)");
             try (TypedVkBuffer<Vec4> buf = new TypedVkBuffer<>(
                     BufferFactory.create(MemoryStrategy.MAPPED, null, typedBufSize, BufferUsage.UNIFORM, device, queue),
-                    elemStride, elemCount, false) {
+                    Vec4.LAYOUT, elemCount, false) {
                 @Override
                 protected Vec4 getInstance() {
                     return new Vec4();
@@ -536,7 +536,7 @@ public class BufferExample {
             section("TYPED_VK_BUFFER GPU copy");
             try (TypedVkBuffer<Vec4> src = new TypedVkBuffer<>(
                     BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue),
-                    elemStride, elemCount, true) {
+                    Vec4.LAYOUT, elemCount, true) {
                 @Override
                 protected Vec4 getInstance() {
                     return new Vec4();
@@ -544,7 +544,7 @@ public class BufferExample {
             };
                  TypedVkBuffer<Vec4> dst = new TypedVkBuffer<>(
                          BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, typedBufSize, BufferUsage.STORAGE, device, queue),
-                         elemStride, elemCount, false) {
+                         Vec4.LAYOUT, elemCount, false) {
                      @Override
                      protected Vec4 getInstance() {
                          return new Vec4();
@@ -554,8 +554,8 @@ public class BufferExample {
                 src.copyTo(dst, 0, 0, 1, queue);
                 check("TYPED GPU copy[0].x", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
 
-                try (TransferCompletion tc = src.copyToAsync(dst, 0, 0, elemCount, queue)) {
-                    tc.flush(device, queue);
+                try (GpuCompletion tc = src.copyToAsync(dst, 0, 0, elemCount, queue)) {
+                    tc.flush();
                     tc.await();
                 }
                 check("TYPED GPU copyAsync full", Float.floatToRawIntBits(dst.read(0, new Vec4()).x), Float.floatToRawIntBits(42f));
@@ -601,7 +601,7 @@ public class BufferExample {
                     buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                     check("REBAR offset write/read", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                    try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                    try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
                         check("REBAR writeAsync isComplete immediately", tc.isComplete() ? 1 : 0, 1);
                         tc.await();
                     }
@@ -622,8 +622,8 @@ public class BufferExample {
                     buf.write(intBuf(MAGIC2), SIZE / 2, queue);
                     check("MIRRORED(REBAR) offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
-                    try (TransferCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
-                        tc.flush(device, queue);
+                    try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
+                        tc.flush();
                         tc.await();
                     }
                     check("MIRRORED(REBAR) writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
@@ -642,8 +642,8 @@ public class BufferExample {
                     buf.inner().write(data2.rewind(), 0, queue);
                     check("MIRRORED(DEVICE_LOCAL) mirror stale after external write", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                    try (TransferCompletion tc = buf.refreshFromGpu(0, SIZE, queue)) {
-                        tc.flush(device, queue);
+                    try (GpuCompletion tc = buf.refreshFromGpu(0, SIZE, queue)) {
+                        tc.flush();
                         tc.await();
                     }
                     check("MIRRORED(DEVICE_LOCAL) mirror fresh after refreshFromGpu", buf.read(0, SIZE).getInt(0), MAGIC2);
@@ -658,9 +658,26 @@ public class BufferExample {
         }
     }
 
-    // Simple 4-float struct used as a BufferWritable in TypedVkBuffer examples
-    static class Vec4 implements BufferWritable {
+    // Simple 4-float struct used with an explicit GpuLayout in TypedVkBuffer examples
+    static class Vec4 {
         static final int BYTE_SIZE = 16;
+
+        static final GpuLayout<Vec4> LAYOUT = new GpuLayout<>() {
+            @Override public int byteSize() { return BYTE_SIZE; }
+            @Override public void writeTo(Vec4 v, MemorySegment dst, long o) {
+                dst.set(ValueLayout.JAVA_FLOAT_UNALIGNED, o, v.x);
+                dst.set(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 4, v.y);
+                dst.set(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 8, v.z);
+                dst.set(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 12, v.w);
+            }
+            @Override public void readFrom(Vec4 v, MemorySegment src, long o) {
+                v.x = src.get(ValueLayout.JAVA_FLOAT_UNALIGNED, o);
+                v.y = src.get(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 4);
+                v.z = src.get(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 8);
+                v.w = src.get(ValueLayout.JAVA_FLOAT_UNALIGNED, o + 12);
+            }
+        };
+
         float x, y, z, w;
 
         Vec4() {
@@ -671,24 +688,6 @@ public class BufferExample {
             this.y = y;
             this.z = z;
             this.w = w;
-        }
-
-        @Override
-        public int byteSize() {
-            return BYTE_SIZE;
-        }
-
-        @Override
-        public void writeTo(ByteBuffer buf) {
-            buf.putFloat(x).putFloat(y).putFloat(z).putFloat(w);
-        }
-
-        @Override
-        public void readFrom(ByteBuffer buf) {
-            x = buf.getFloat();
-            y = buf.getFloat();
-            z = buf.getFloat();
-            w = buf.getFloat();
         }
     }
 

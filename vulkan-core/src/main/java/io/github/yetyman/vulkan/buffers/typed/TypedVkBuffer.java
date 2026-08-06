@@ -1,63 +1,60 @@
 package io.github.yetyman.vulkan.buffers.typed;
 
 import io.github.yetyman.vulkan.VkQueue;
-import io.github.yetyman.vulkan.buffers.BufferWritable;
+import io.github.yetyman.vulkan.buffers.BufferReadScope;
+import io.github.yetyman.vulkan.buffers.BufferWriteScope;
+import io.github.yetyman.vulkan.buffers.GpuCompletion;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
 import io.github.yetyman.vulkan.buffers.IBuffer;
-import io.github.yetyman.vulkan.buffers.TransferCompletion;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
- * Typed array view over any {@link IBuffer}.
- * Elements are fixed-stride, serialized via {@link BufferWritable}.
- * Subclass and implement {@link #getInstance} to control T allocation (pooled or fresh).
- * Override {@link #releaseInstance} to return instances to a pool on eviction or close.
- * When constructed with {@code mirrored=true}, written objects are retained and reads are zero-cost.
- * When not mirrored, reads perform a GPU readback — slow, avoid in hot paths.
+ * Typed array view over any {@link IBuffer}, with a fixed stride taken from a {@link GpuLayout}.
  *
- * Optionally accepts a {@link GpuLayout} to override the default serialization format.
- * When a layout is provided, it is used for all write/read operations instead of
- * {@link BufferWritable#writeTo}/{@link BufferWritable#readFrom}.
+ * <p>The layout is mandatory rather than derived from the element type: there is no single correct
+ * serialization for a type, and requiring the caller to name one keeps packed, padded, and
+ * quantized variants equal citizens.
+ *
+ * <p>Subclass and implement {@link #getInstance} to control T allocation (pooled or fresh).
+ * Override {@link #releaseInstance} to return instances to a pool on eviction or close.
+ * When constructed with {@code mirrored=true}, written objects are retained and reads are
+ * zero-cost. When not mirrored, reads perform a GPU readback -- slow, avoid in hot paths.
+ *
+ * <p>All writes go through {@link IBuffer#acquireWrite}, so element data is serialized exactly once
+ * directly into whatever memory the underlying strategy considers closest to final.
  */
-public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoCloseable {
+public abstract class TypedVkBuffer<T> implements AutoCloseable {
 
     private final IBuffer buffer;
+    private final GpuLayout<T> layout;
     private final int stride;
     private final int count;
     private final ArrayList<T> mirror;
-    private final ThreadLocal<ByteBuffer> scratchPool;
-    private final GpuLayout<T> layout;
-
-    public TypedVkBuffer(IBuffer buffer, int byteSize, int count, boolean mirrored) {
-        this(buffer, byteSize, count, mirrored, null);
-    }
 
     /**
-     * Creates a typed buffer view with an explicit GPU layout for serialization.
-     * The layout's {@link GpuLayout#byteSize()} is used as the stride.
+     * @param layout   serialization format; its {@link GpuLayout#byteSize()} is the element stride
+     * @param count    element capacity of this view
+     * @param mirrored whether to retain written objects for zero-cost reads
      */
     public TypedVkBuffer(IBuffer buffer, GpuLayout<T> layout, int count, boolean mirrored) {
-        this(buffer, layout.byteSize(), count, mirrored, layout);
-    }
-
-    private TypedVkBuffer(IBuffer buffer, int byteSize, int count, boolean mirrored, GpuLayout<T> layout) {
+        if (layout == null) throw new IllegalArgumentException("layout required");
+        int byteSize = layout.byteSize();
+        if (byteSize <= 0) throw new IllegalArgumentException("layout must have a fixed positive byteSize");
         if ((long) byteSize * count > buffer.size())
             throw new IllegalArgumentException("Buffer too small: need " + ((long) byteSize * count) + ", have " + buffer.size());
         this.buffer = buffer;
+        this.layout = layout;
         this.stride = byteSize;
         this.count = count;
-        this.layout = layout;
         if (mirrored) {
             this.mirror = new ArrayList<>(count);
             for (int i = 0; i < count; i++) mirror.add(null);
         } else {
             this.mirror = null;
         }
-        scratchPool = ThreadLocal.withInitial(() -> ByteBuffer.allocate(Math.max(stride, 1024)));
     }
 
     /**
@@ -87,83 +84,69 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         return layout;
     }
 
-    private void writeValue(T value, ByteBuffer buf) {
-        if (layout != null) {
-            layout.writeTo(value, buf);
-        } else {
-            value.writeTo(buf);
-        }
-    }
-
-    private void readValue(T value, ByteBuffer buf) {
-        if (layout != null) {
-            layout.readFrom(value, buf);
-        } else {
-            value.readFrom(buf);
-        }
-    }
-
     // -------------------------------------------------------------------------
-    // Single-element write
+    // Write
     // -------------------------------------------------------------------------
 
     public void write(int index, T value, VkQueue queue) {
-        TransferCompletion tc = writeAsync(index, value, queue);
-        tc.flush(queue.device(), queue);
+        GpuCompletion tc = writeAsync(index, value, queue);
+        tc.flush();
         tc.await();
         tc.close();
     }
 
-    public TransferCompletion writeAsync(int index, T value, VkQueue queue) {
+    public GpuCompletion writeAsync(int index, T value, VkQueue queue) {
         checkIndex(index);
-        ByteBuffer scratch = getScratchBuffer(stride);
-        writeValue(value, scratch);
-        scratch.flip();
+        BufferWriteScope scope = buffer.acquireWrite((long) index * stride, stride, queue);
+        layout.writeTo(value, scope.segment(), 0);
+        scope.close();
         if (mirror != null) {
             T old = mirror.set(index, value);
             if (old != null && old != value) releaseInstance(old);
         }
-        return buffer.writeAsync(scratch, (long) index * stride, queue);
+        return scope.completion();
     }
 
     public void write(List<T> values, int startIndex, VkQueue queue) {
-        TransferCompletion tc = writeAsync(values, startIndex, queue);
+        GpuCompletion tc = writeAsync(values, startIndex, queue);
+        tc.flush();
         tc.await();
         tc.close();
     }
 
-    public TransferCompletion writeAsync(List<T> values, int startIndex, VkQueue queue) {
+    /**
+     * Writes {@code values.size()} consecutive elements in a single acquired region, so the whole
+     * run is serialized once and committed once.
+     */
+    public GpuCompletion writeAsync(List<T> values, int startIndex, VkQueue queue) {
         checkIndex(startIndex);
         checkIndex(startIndex + values.size() - 1);
-        ByteBuffer scratch = getScratchBuffer(stride * values.size());
+        BufferWriteScope scope = buffer.acquireWrite((long) startIndex * stride, (long) stride * values.size(), queue);
         for (int i = 0; i < values.size(); i++) {
-            writeValue(values.get(i), scratch);
+            T value = values.get(i);
+            layout.writeTo(value, scope.segment(), (long) i * stride);
             if (mirror != null) {
-                T old = mirror.set(startIndex + i, values.get(i));
-                if (old != null && old != values.get(i)) releaseInstance(old);
+                T old = mirror.set(startIndex + i, value);
+                if (old != null && old != value) releaseInstance(old);
             }
         }
-        scratch.flip();
-        return buffer.writeAsync(scratch, (long) startIndex * stride, queue);
+        scope.close();
+        return scope.completion();
     }
 
     // -------------------------------------------------------------------------
-    // Single-element read
+    // Read
     // -------------------------------------------------------------------------
 
     /**
      * Returns the element at {@code index}.
-     * If mirrored, returns the retained object. Otherwise performs a GPU readback into a new instance
-     * from {@link #getInstance} — slow, avoid in hot paths.
+     * If mirrored, returns the retained object. Otherwise performs a GPU readback into a new
+     * instance from {@link #getInstance} -- slow, avoid in hot paths.
      */
     public T read(int index) {
         checkIndex(index);
         if (mirror != null) return mirror.get(index);
-        System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
-                "Prefer mirrored=true for frequent reads.");
-        T instance = getInstance();
-        readValue(instance, buffer.read((long) index * stride, stride));
-        return instance;
+        return read(index, getInstance());
     }
 
     /**
@@ -174,18 +157,15 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         if (mirror != null) return mirror.get(index);
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
                 "Prefer mirrored=true for frequent reads.");
-        readValue(target, buffer.read((long) index * stride, stride));
+        try (BufferReadScope scope = buffer.acquireRead((long) index * stride, stride, null)) {
+            layout.readFrom(target, scope.segment(), 0);
+        }
         return target;
     }
 
-    // -------------------------------------------------------------------------
-    // Bulk read
-    // -------------------------------------------------------------------------
-
     /**
-     * Bulk read into a caller-supplied list. Single GPU readback for the full range when not mirrored.
-     * Elements are read into existing list entries via {@link BufferWritable#readFrom} — list must have at least {@code length} elements.
-     * Prefer this over repeated single reads when not mirrored.
+     * Bulk read into a caller-supplied list. One acquired region for the full range when not
+     * mirrored. The list must have at least {@code length} elements.
      */
     public void read(int startIndex, int length, List<T> targets) {
         checkIndex(startIndex);
@@ -196,16 +176,17 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
         }
         System.err.println("WARNING: TypedVkBuffer.read() without mirror performs a GPU readback. " +
                 "Prefer mirrored=true for frequent reads.");
-        ByteBuffer raw = buffer.read((long) startIndex * stride, (long) stride * length);
-        for (int i = 0; i < length; i++) {
-            readValue(targets.get(i), raw.slice(i * stride, stride));
+        try (BufferReadScope scope = buffer.acquireRead((long) startIndex * stride, (long) stride * length, null)) {
+            for (int i = 0; i < length; i++) {
+                layout.readFrom(targets.get(i), scope.segment(), (long) i * stride);
+            }
         }
     }
 
     /**
      * Bulk read returning a {@link List}.
-     * If mirrored, returns an unmodifiable sublist view of the mirror — zero allocation, zero GPU cost.
-     * If not mirrored, performs a single GPU readback into a new list of instances from {@link #getInstance}.
+     * If mirrored, returns an unmodifiable sublist view of the mirror -- zero allocation, zero GPU
+     * cost. If not mirrored, performs one readback into new instances from {@link #getInstance}.
      */
     public List<T> read(int startIndex, int length) {
         checkIndex(startIndex);
@@ -226,19 +207,9 @@ public abstract class TypedVkBuffer<T extends BufferWritable> implements AutoClo
                 (long) elementCount * stride, queue);
     }
 
-    public TransferCompletion copyToAsync(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
+    public GpuCompletion copyToAsync(TypedVkBuffer<T> dst, int srcIndex, int dstIndex, int elementCount, VkQueue queue) {
         return buffer.copyToAsync(dst.buffer, (long) srcIndex * stride, (long) dstIndex * stride,
                 (long) elementCount * stride, queue);
-    }
-
-    private ByteBuffer getScratchBuffer(int requiredSize) {
-        ByteBuffer buffer = scratchPool.get();
-        if (buffer.capacity() < requiredSize) {
-            buffer = ByteBuffer.allocate(Math.max(requiredSize, buffer.capacity() * 2));
-            scratchPool.set(buffer);
-        }
-        buffer.clear();
-        return buffer;
     }
 
     @Override

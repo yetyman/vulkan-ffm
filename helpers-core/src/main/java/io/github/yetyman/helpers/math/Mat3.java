@@ -1,63 +1,104 @@
 package io.github.yetyman.helpers.math;
 
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Mutable 3x3 matrix in column-major order.
  * Field naming: mColumnRow (e.g. m00 = column 0, row 0; m10 = column 1, row 0).
  */
-public class Mat3 implements BufferWritable {
+public class Mat3 implements HasGpuLayout<Mat3> {
 
     // --- GPU Layouts ---
 
     /** Default layout: column-major, packed (36 bytes). */
     public static final GpuLayout<Mat3> COLUMN_MAJOR = new GpuLayout<>() {
         @Override public int byteSize() { return 36; }
-        @Override public void writeTo(Mat3 m, ByteBuffer buf) {
-            buf.putFloat(m.m00); buf.putFloat(m.m01); buf.putFloat(m.m02);
-            buf.putFloat(m.m10); buf.putFloat(m.m11); buf.putFloat(m.m12);
-            buf.putFloat(m.m20); buf.putFloat(m.m21); buf.putFloat(m.m22);
+        @Override public void writeTo(Mat3 m, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, m.m00);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, m.m01);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, m.m02);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, m.m10);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, m.m11);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, m.m12);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 24, m.m20);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 28, m.m21);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 32, m.m22);
         }
-        @Override public void readFrom(Mat3 m, ByteBuffer buf) {
-            m.m00 = buf.getFloat(); m.m01 = buf.getFloat(); m.m02 = buf.getFloat();
-            m.m10 = buf.getFloat(); m.m11 = buf.getFloat(); m.m12 = buf.getFloat();
-            m.m20 = buf.getFloat(); m.m21 = buf.getFloat(); m.m22 = buf.getFloat();
+        @Override public void readFrom(Mat3 m, MemorySegment src, long o) {
+            m.m00 = src.get(JAVA_FLOAT_UNALIGNED, o);
+            m.m01 = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            m.m02 = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            m.m10 = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+            m.m11 = src.get(JAVA_FLOAT_UNALIGNED, o + 16);
+            m.m12 = src.get(JAVA_FLOAT_UNALIGNED, o + 20);
+            m.m20 = src.get(JAVA_FLOAT_UNALIGNED, o + 24);
+            m.m21 = src.get(JAVA_FLOAT_UNALIGNED, o + 28);
+            m.m22 = src.get(JAVA_FLOAT_UNALIGNED, o + 32);
         }
     };
 
-    /** Default layout used by BufferWritable methods. */
+    /** Canonical layout for this type. */
     public static final GpuLayout<Mat3> DEFAULT_LAYOUT = COLUMN_MAJOR;
 
     /** std140-aligned layout: each column padded to 16 bytes (48 bytes total). */
     public static final GpuLayout<Mat3> STD140 = new GpuLayout<>() {
         @Override public int byteSize() { return 48; }
-        @Override public void writeTo(Mat3 m, ByteBuffer buf) {
-            buf.putFloat(m.m00); buf.putFloat(m.m01); buf.putFloat(m.m02); buf.putFloat(0f);
-            buf.putFloat(m.m10); buf.putFloat(m.m11); buf.putFloat(m.m12); buf.putFloat(0f);
-            buf.putFloat(m.m20); buf.putFloat(m.m21); buf.putFloat(m.m22); buf.putFloat(0f);
+        @Override public void writeTo(Mat3 m, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, m.m00);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, m.m01);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, m.m02);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, 0f);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, m.m10);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, m.m11);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 24, m.m12);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 28, 0f);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 32, m.m20);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 36, m.m21);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 40, m.m22);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 44, 0f);
         }
-        @Override public void readFrom(Mat3 m, ByteBuffer buf) {
-            m.m00 = buf.getFloat(); m.m01 = buf.getFloat(); m.m02 = buf.getFloat(); buf.getFloat();
-            m.m10 = buf.getFloat(); m.m11 = buf.getFloat(); m.m12 = buf.getFloat(); buf.getFloat();
-            m.m20 = buf.getFloat(); m.m21 = buf.getFloat(); m.m22 = buf.getFloat(); buf.getFloat();
+        @Override public void readFrom(Mat3 m, MemorySegment src, long o) {
+            m.m00 = src.get(JAVA_FLOAT_UNALIGNED, o);
+            m.m01 = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            m.m02 = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            m.m10 = src.get(JAVA_FLOAT_UNALIGNED, o + 16);
+            m.m11 = src.get(JAVA_FLOAT_UNALIGNED, o + 20);
+            m.m12 = src.get(JAVA_FLOAT_UNALIGNED, o + 24);
+            m.m20 = src.get(JAVA_FLOAT_UNALIGNED, o + 32);
+            m.m21 = src.get(JAVA_FLOAT_UNALIGNED, o + 36);
+            m.m22 = src.get(JAVA_FLOAT_UNALIGNED, o + 40);
         }
     };
 
     /** Row-major layout (36 bytes). */
     public static final GpuLayout<Mat3> ROW_MAJOR = new GpuLayout<>() {
         @Override public int byteSize() { return 36; }
-        @Override public void writeTo(Mat3 m, ByteBuffer buf) {
-            buf.putFloat(m.m00); buf.putFloat(m.m10); buf.putFloat(m.m20);
-            buf.putFloat(m.m01); buf.putFloat(m.m11); buf.putFloat(m.m21);
-            buf.putFloat(m.m02); buf.putFloat(m.m12); buf.putFloat(m.m22);
+        @Override public void writeTo(Mat3 m, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, m.m00);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, m.m10);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, m.m20);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, m.m01);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, m.m11);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, m.m21);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 24, m.m02);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 28, m.m12);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 32, m.m22);
         }
-        @Override public void readFrom(Mat3 m, ByteBuffer buf) {
-            m.m00 = buf.getFloat(); m.m10 = buf.getFloat(); m.m20 = buf.getFloat();
-            m.m01 = buf.getFloat(); m.m11 = buf.getFloat(); m.m21 = buf.getFloat();
-            m.m02 = buf.getFloat(); m.m12 = buf.getFloat(); m.m22 = buf.getFloat();
+        @Override public void readFrom(Mat3 m, MemorySegment src, long o) {
+            m.m00 = src.get(JAVA_FLOAT_UNALIGNED, o);
+            m.m10 = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            m.m20 = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            m.m01 = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+            m.m11 = src.get(JAVA_FLOAT_UNALIGNED, o + 16);
+            m.m21 = src.get(JAVA_FLOAT_UNALIGNED, o + 20);
+            m.m02 = src.get(JAVA_FLOAT_UNALIGNED, o + 24);
+            m.m12 = src.get(JAVA_FLOAT_UNALIGNED, o + 28);
+            m.m22 = src.get(JAVA_FLOAT_UNALIGNED, o + 32);
         }
     };
 
@@ -351,20 +392,22 @@ public class Mat3 implements BufferWritable {
              + "]";
     }
 
-    // --- BufferWritable ---
+    // --- HasGpuLayout ---
 
     @Override
-    public int byteSize() { return COLUMN_MAJOR.byteSize(); }
+    public GpuLayout<Mat3> defaultLayout() { return DEFAULT_LAYOUT; }
 
-    @Override
-    public void writeTo(ByteBuffer buf) { COLUMN_MAJOR.writeTo(this, buf); }
+    /** Writes this matrix into {@code dst} at {@code offset} using the default layout. */
+    public void writeTo(MemorySegment dst, long offset) { DEFAULT_LAYOUT.writeTo(this, dst, offset); }
 
-    @Override
-    public void readFrom(ByteBuffer buf) { COLUMN_MAJOR.readFrom(this, buf); }
+    /** Reads this matrix from {@code src} at {@code offset} using the default layout. */
+    public void readFrom(MemorySegment src, long offset) { DEFAULT_LAYOUT.readFrom(this, src, offset); }
 
-    public void writeTo(ByteBuffer buf, GpuLayout<Mat3> layout) { layout.writeTo(this, buf); }
+    /** Writes this matrix into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<Mat3> layout) { layout.writeTo(this, dst, offset); }
 
-    public void readFrom(ByteBuffer buf, GpuLayout<Mat3> layout) { layout.readFrom(this, buf); }
+    /** Reads this matrix from {@code src} at {@code offset} using an alternative layout. */
+    public void readFrom(MemorySegment src, long offset, GpuLayout<Mat3> layout) { layout.readFrom(this, src, offset); }
 
     // --- BuildStrategy ---
 

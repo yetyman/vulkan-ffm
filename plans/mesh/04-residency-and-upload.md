@@ -163,7 +163,7 @@ public interface UploadExecutor {
 
 Two implementations, one of which does not live here:
 
-- `TransferBatchExecutor` - ships in `vulkan-ffm-meshes`. Acquires an `IBuffer` write scope per op,
+- `TransferBatchExecutor` - ships in `vulkan-ffm-mesh`. Acquires an `IBuffer` write scope per op,
   runs transcodes directly into the scope's segment, closes the scope, returns the batch's
   `GpuCompletion`. This is the standalone path and needs no graph.
 - A graph-recording executor - lives app-side initially, promoted to an adapter module only after the

@@ -6,7 +6,7 @@ import io.github.yetyman.vulkan.buffers.BufferUsage;
 import io.github.yetyman.vulkan.buffers.IBuffer;
 import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
-import io.github.yetyman.vulkan.buffers.TransferCompletion;
+import io.github.yetyman.vulkan.buffers.GpuCompletion;
 import io.github.yetyman.vulkan.enums.*;
 import io.github.yetyman.vulkan.commands.TransientCommandBuffer;
 
@@ -211,17 +211,17 @@ public class ShaderExample {
 
                     CountDownLatch latch = new CountDownLatch(3);
 
-                    TransferCompletion tc0 = buf0.writeAsync(identityMat4(), 0, queue);
-                    TransferCompletion tc1 = buf1.writeAsync(identityMat4(), 0, queue);
-                    TransferCompletion tc2 = buf2.writeAsync(identityMat4(), 0, queue);
+                    GpuCompletion tc0 = buf0.writeAsync(identityMat4(), 0, queue);
+                    GpuCompletion tc1 = buf1.writeAsync(identityMat4(), 0, queue);
+                    GpuCompletion tc2 = buf2.writeAsync(identityMat4(), 0, queue);
 
                     check("slot0 not dirty immediately after writeAsync", !slot0.isDirty());
                     check("slot1 not dirty immediately after writeAsync", !slot1.isDirty());
                     check("slot2 not dirty immediately after writeAsync", !slot2.isDirty());
 
-                    tc0.flush(device, queue);
-                    tc1.flush(device, queue);
-                    tc2.flush(device, queue);
+                    tc0.flush();
+                    tc1.flush();
+                    tc2.flush();
 
                     tc0.onComplete(() -> {
                         slot0.set(buf0);

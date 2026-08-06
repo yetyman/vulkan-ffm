@@ -62,10 +62,19 @@ public class KDTree<T> implements SpatialStructure<T> {
         }
     }
 
-    // BufferWritable
-    @Override public int byteSize() { return items.size() * 24; }
-    @Override public void writeTo(ByteBuffer buf) { for (AABB b : bounds) { buf.putFloat(b.min.x); buf.putFloat(b.min.y); buf.putFloat(b.min.z); buf.putFloat(b.max.x); buf.putFloat(b.max.y); buf.putFloat(b.max.z); } }
-    @Override public void readFrom(ByteBuffer buf) { throw new UnsupportedOperationException(); }
+    // --- GPU layout ---
+
+    /** @return total serialized size in the default layout, which depends on item count. */
+    public int gpuByteSize() { return items.size() * 24; }
+
+    /** Writes all item bounds into {@code dst} at {@code offset} using {@link AABB#MIN_MAX}. */
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset) {
+        long o = offset;
+        for (AABB b : bounds) {
+            AABB.MIN_MAX.writeTo(b, dst, o);
+            o += 24;
+        }
+    }
 
     // Queries
     @Override public List<T> query(AABB range) { List<T> out = new ArrayList<>(); query(range, out); return out; }

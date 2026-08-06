@@ -138,24 +138,37 @@ public class SparseGrid<T> implements SpatialStructure<T> {
         return (v & 0x100000) != 0 ? v | 0xFFE00000 : v;
     }
 
-    // --- BufferWritable ---
+    // --- GPU layout ---
 
+    /** Default layout: flat list of item bounds (24 bytes per item). */
     public static final GpuLayout<SparseGrid<?>> DEFAULT_LAYOUT = new GpuLayout<>() {
+        /** Variable size: depends on item count. Use {@link SparseGrid#gpuByteSize()} for the total. */
         @Override public int byteSize() { return -1; }
-        @Override public void writeTo(SparseGrid<?> grid, ByteBuffer buf) {
+        @Override public void writeTo(SparseGrid<?> grid, java.lang.foreign.MemorySegment dst, long offset) {
+            long o = offset;
             for (var entry : grid.itemMap.values()) {
-                buf.putFloat(entry.bounds.min.x); buf.putFloat(entry.bounds.min.y); buf.putFloat(entry.bounds.min.z);
-                buf.putFloat(entry.bounds.max.x); buf.putFloat(entry.bounds.max.y); buf.putFloat(entry.bounds.max.z);
+                AABB.MIN_MAX.writeTo(entry.bounds, dst, o);
+                o += 24;
             }
         }
-        @Override public void readFrom(SparseGrid<?> grid, ByteBuffer buf) { throw new UnsupportedOperationException(); }
+        @Override public void readFrom(SparseGrid<?> grid, java.lang.foreign.MemorySegment src, long offset) {
+            throw new UnsupportedOperationException("SparseGrid cannot be deserialized -- rebuild from items instead.");
+        }
     };
 
-    @Override public int byteSize() { return itemMap.size() * 24; }
+    /** @return total serialized size in the default layout, which depends on item count. */
+    public int gpuByteSize() { return itemMap.size() * 24; }
 
+    /** Writes this grid into {@code dst} at {@code offset} using the default layout. */
     @SuppressWarnings("unchecked")
-    @Override public void writeTo(ByteBuffer buf) { ((GpuLayout<SparseGrid<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, buf); }
-    @Override public void readFrom(ByteBuffer buf) { throw new UnsupportedOperationException(); }
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset) {
+        ((GpuLayout<SparseGrid<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, dst, offset);
+    }
+
+    /** Writes this grid into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset, GpuLayout<SparseGrid<T>> layout) {
+        layout.writeTo(this, dst, offset);
+    }
 
     // --- SpatialQuery ---
 

@@ -99,15 +99,25 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
 
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
-        TransferCompletion tc = writeAsync(data, offset, queue);
+        GpuCompletion tc = writeAsync(data, offset, queue);
         TransferBatchManager.flush(device, queue);
         tc.await();
         tc.close();
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         return transfer.writeAsync(context, data, offset, queue);
+    }
+
+    @Override
+    public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        return transfer.acquireWrite(context, offset, size, queue);
+    }
+
+    @Override
+    public BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        return transfer.acquireRead(context, offset, size, queue);
     }
 
     @Override
@@ -122,14 +132,14 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
 
     @Override
     public void copyTo(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
-        TransferCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue);
+        GpuCompletion tc = copyToAsync(dst, srcOffset, dstOffset, length, queue);
         TransferBatchManager.flush(device, queue);
         tc.await();
         tc.close();
     }
 
     @Override
-    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
         return batch.record(handle(), dst.handle(), srcOffset, dstOffset, length);
     }
@@ -144,7 +154,7 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
      *
      * @param srcHandle source VkBuffer handle — must be host-visible and TRANSFER_SRC capable
      */
-    public TransferCompletion copyFromExternal(MemorySegment srcHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyFromExternal(MemorySegment srcHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
         return batch.record(srcHandle, handle(), srcOffset, dstOffset, length);
     }
@@ -159,7 +169,7 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
      *
      * @param dstHandle destination VkBuffer handle — must be host-visible and TRANSFER_DST capable
      */
-    public TransferCompletion copyToExternal(MemorySegment dstHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToExternal(MemorySegment dstHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
         return batch.record(handle(), dstHandle, srcOffset, dstOffset, length);
     }

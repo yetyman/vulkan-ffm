@@ -1,9 +1,11 @@
 package io.github.yetyman.helpers.math;
 
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Dual quaternion encoding rotation + translation as q_real + epsilon * q_dual.
@@ -13,24 +15,36 @@ import java.nio.ByteBuffer;
  * Convention: real part is the rotation, dual part encodes translation.
  * Identity = real(0,0,0,1) + dual(0,0,0,0).
  */
-public class DualQuaternion implements BufferWritable {
+public class DualQuaternion implements HasGpuLayout<DualQuaternion> {
 
     // --- GPU Layouts ---
 
     /** Default layout: real(x,y,z,w) then dual(x,y,z,w) (32 bytes). */
     public static final GpuLayout<DualQuaternion> REAL_DUAL = new GpuLayout<>() {
         @Override public int byteSize() { return 32; }
-        @Override public void writeTo(DualQuaternion dq, ByteBuffer buf) {
-            buf.putFloat(dq.rx); buf.putFloat(dq.ry); buf.putFloat(dq.rz); buf.putFloat(dq.rw);
-            buf.putFloat(dq.dx); buf.putFloat(dq.dy); buf.putFloat(dq.dz); buf.putFloat(dq.dw);
+        @Override public void writeTo(DualQuaternion dq, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, dq.rx);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, dq.ry);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, dq.rz);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, dq.rw);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, dq.dx);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, dq.dy);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 24, dq.dz);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 28, dq.dw);
         }
-        @Override public void readFrom(DualQuaternion dq, ByteBuffer buf) {
-            dq.rx = buf.getFloat(); dq.ry = buf.getFloat(); dq.rz = buf.getFloat(); dq.rw = buf.getFloat();
-            dq.dx = buf.getFloat(); dq.dy = buf.getFloat(); dq.dz = buf.getFloat(); dq.dw = buf.getFloat();
+        @Override public void readFrom(DualQuaternion dq, MemorySegment src, long o) {
+            dq.rx = src.get(JAVA_FLOAT_UNALIGNED, o);
+            dq.ry = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+            dq.rz = src.get(JAVA_FLOAT_UNALIGNED, o + 8);
+            dq.rw = src.get(JAVA_FLOAT_UNALIGNED, o + 12);
+            dq.dx = src.get(JAVA_FLOAT_UNALIGNED, o + 16);
+            dq.dy = src.get(JAVA_FLOAT_UNALIGNED, o + 20);
+            dq.dz = src.get(JAVA_FLOAT_UNALIGNED, o + 24);
+            dq.dw = src.get(JAVA_FLOAT_UNALIGNED, o + 28);
         }
     };
 
-    /** Default layout used by BufferWritable methods. */
+    /** Canonical layout for this type. */
     public static final GpuLayout<DualQuaternion> DEFAULT_LAYOUT = REAL_DUAL;
 
     private static BuildStrategy<DualQuaternion> buildStrategy = BuildStrategy.allocating(DualQuaternion::new);
@@ -383,20 +397,22 @@ public class DualQuaternion implements BufferWritable {
              + "), dual=(" + dx + ", " + dy + ", " + dz + ", " + dw + "))";
     }
 
-    // --- BufferWritable ---
+    // --- HasGpuLayout ---
 
     @Override
-    public int byteSize() { return REAL_DUAL.byteSize(); }
+    public GpuLayout<DualQuaternion> defaultLayout() { return DEFAULT_LAYOUT; }
 
-    @Override
-    public void writeTo(ByteBuffer buf) { REAL_DUAL.writeTo(this, buf); }
+    /** Writes this dual quaternion into {@code dst} at {@code offset} using the default layout. */
+    public void writeTo(MemorySegment dst, long offset) { DEFAULT_LAYOUT.writeTo(this, dst, offset); }
 
-    @Override
-    public void readFrom(ByteBuffer buf) { REAL_DUAL.readFrom(this, buf); }
+    /** Reads this dual quaternion from {@code src} at {@code offset} using the default layout. */
+    public void readFrom(MemorySegment src, long offset) { DEFAULT_LAYOUT.readFrom(this, src, offset); }
 
-    public void writeTo(ByteBuffer buf, GpuLayout<DualQuaternion> layout) { layout.writeTo(this, buf); }
+    /** Writes this dual quaternion into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<DualQuaternion> layout) { layout.writeTo(this, dst, offset); }
 
-    public void readFrom(ByteBuffer buf, GpuLayout<DualQuaternion> layout) { layout.readFrom(this, buf); }
+    /** Reads this dual quaternion from {@code src} at {@code offset} using an alternative layout. */
+    public void readFrom(MemorySegment src, long offset, GpuLayout<DualQuaternion> layout) { layout.readFrom(this, src, offset); }
 
     // --- BuildStrategy ---
 

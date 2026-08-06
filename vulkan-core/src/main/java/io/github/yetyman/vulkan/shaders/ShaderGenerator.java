@@ -94,12 +94,18 @@ public class ShaderGenerator {
         sb.append("import io.github.yetyman.vulkan.shaders.UniformBufferSlot;\n");
         sb.append("import io.github.yetyman.vulkan.VkDevice;\n");
         sb.append("import io.github.yetyman.vulkan.VkCommandBuffer;\n");
-        sb.append("import io.github.yetyman.vulkan.buffers.BufferWritable;\n");
+        sb.append("import io.github.yetyman.vulkan.buffers.GpuLayout;\n");
+        sb.append("import io.github.yetyman.vulkan.buffers.HasGpuLayout;\n");
         sb.append("import io.github.yetyman.vulkan.buffers.IBuffer;\n");
         sb.append("import io.github.yetyman.vulkan.shaders.DescriptorGroup;\n");
         sb.append("import java.lang.foreign.Arena;\n");
+        sb.append("import java.lang.foreign.MemorySegment;\n");
         sb.append("import java.nio.ByteBuffer;\n");
         sb.append("import java.util.Map;\n");
+        sb.append("\n");
+        sb.append("import static java.lang.foreign.ValueLayout.JAVA_DOUBLE_UNALIGNED;\n");
+        sb.append("import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;\n");
+        sb.append("import static java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED;\n");
         sb.append("\n");
 
         sb.append("/** Generated shader wrapper for ").append(resourcePath).append(" */\n");
@@ -398,77 +404,106 @@ public class ShaderGenerator {
     private static void emitRecord(StringBuilder sb, String recordName, List<ShaderLoader.StructMemberInfo> members,
                                    String kind, boolean runtimeArray) {
         sb.append("    /** Mirrors ").append(kind).append(" '").append(recordName).append("'. */\n");
-        sb.append("    public static class ").append(recordName).append(" implements BufferWritable {\n");
+        sb.append("    public static class ").append(recordName).append(" implements HasGpuLayout<").append(recordName).append("> {\n");
         for (ShaderLoader.StructMemberInfo m : members) {
             String glslComment = glslTypeName(m);
             sb.append("        public ").append(inferJavaType(m)).append(" ").append(m.name()).append(";");
             if (glslComment != null) sb.append(" // ").append(glslComment);
             sb.append("\n");
         }
+        sb.append("\n");
+
+        sb.append("        /** Canonical layout: members packed in declaration order. */\n");
+        sb.append("        public static final GpuLayout<").append(recordName).append("> LAYOUT = new GpuLayout<>() {\n");
         if (runtimeArray) {
-            ShaderLoader.StructMemberInfo arrayMember = members.get(0);
-            int elemSize = arrayMember.size();
-            sb.append("        @Override public int byteSize() { return ").append(arrayMember.name())
-                    .append(".length * ").append(elemSize).append("; }\n");
+            sb.append("            /** Variable size: depends on array length. */\n");
+            sb.append("            @Override public int byteSize() { return -1; }\n");
         } else {
-            sb.append("        @Override public int byteSize() { return ").append(totalSize(members)).append("; }\n");
+            sb.append("            @Override public int byteSize() { return ").append(totalSize(members)).append("; }\n");
         }
-        sb.append("        @Override public void writeTo(ByteBuffer buf) {\n");
+        sb.append("            @Override public void writeTo(").append(recordName).append(" v, MemorySegment dst, long o) {\n");
+        long writeOffset = 0;
         for (ShaderLoader.StructMemberInfo m : members) {
-            emitWriteField(sb, m, "            ");
+            emitWriteField(sb, m, "                ", writeOffset);
+            writeOffset += m.size();
         }
-        sb.append("        }\n");
-        sb.append("        @Override public void readFrom(ByteBuffer buf) {\n");
+        sb.append("            }\n");
+        sb.append("            @Override public void readFrom(").append(recordName).append(" v, MemorySegment src, long o) {\n");
+        long readOffset = 0;
         for (ShaderLoader.StructMemberInfo m : members) {
-            emitReadField(sb, m, "            ");
+            emitReadField(sb, m, "                ", readOffset);
+            readOffset += m.size();
         }
-        sb.append("        }\n");
+        sb.append("            }\n");
+        sb.append("        };\n\n");
+
+        sb.append("        @Override public GpuLayout<").append(recordName).append("> defaultLayout() { return LAYOUT; }\n\n");
+        sb.append("        /** Writes this value into {@code dst} at {@code offset} using the canonical layout. */\n");
+        sb.append("        public void writeTo(MemorySegment dst, long offset) { LAYOUT.writeTo(this, dst, offset); }\n\n");
+        sb.append("        /** Reads this value from {@code src} at {@code offset} using the canonical layout. */\n");
+        sb.append("        public void readFrom(MemorySegment src, long offset) { LAYOUT.readFrom(this, src, offset); }\n");
         sb.append("    }\n\n");
     }
 
-    private static void emitWriteField(StringBuilder sb, ShaderLoader.StructMemberInfo m, String indent) {
-        String field = m.name();
+    private static void emitWriteField(StringBuilder sb, ShaderLoader.StructMemberInfo m, String indent, long offset) {
+        String field = "v." + m.name();
         String type = inferJavaType(m);
+        String at = offset == 0 ? "o" : "o + " + offset;
         if (type.equals("float[]") || type.equals("int[]") || type.equals("double[]")) {
-            String putMethod = type.equals("int[]") ? "putInt" : type.equals("double[]") ? "putDouble" : "putFloat";
-            sb.append(indent).append("for (var v : ").append(field).append(") buf.").append(putMethod).append("(v);\n");
+            String layout = type.equals("int[]") ? "JAVA_INT_UNALIGNED"
+                    : type.equals("double[]") ? "JAVA_DOUBLE_UNALIGNED" : "JAVA_FLOAT_UNALIGNED";
+            int elem = type.equals("double[]") ? 8 : 4;
+            sb.append(indent).append("for (int i = 0; i < ").append(field).append(".length; i++) dst.set(")
+                    .append(layout).append(", ").append(at).append(" + (long) i * ").append(elem)
+                    .append(", ").append(field).append("[i]);\n");
         } else if (type.equals("float")) {
-            sb.append(indent).append("buf.putFloat(").append(field).append(");\n");
+            sb.append(indent).append("dst.set(JAVA_FLOAT_UNALIGNED, ").append(at).append(", ").append(field).append(");\n");
         } else if (type.equals("int")) {
-            sb.append(indent).append("buf.putInt(").append(field).append(");\n");
+            sb.append(indent).append("dst.set(JAVA_INT_UNALIGNED, ").append(at).append(", ").append(field).append(");\n");
         } else if (type.equals("double")) {
-            sb.append(indent).append("buf.putDouble(").append(field).append(");\n");
+            sb.append(indent).append("dst.set(JAVA_DOUBLE_UNALIGNED, ").append(at).append(", ").append(field).append(");\n");
         } else if (type.equals("boolean")) {
-            sb.append(indent).append("buf.putInt(").append(field).append(" ? 1 : 0);\n");
+            sb.append(indent).append("dst.set(JAVA_INT_UNALIGNED, ").append(at).append(", ").append(field).append(" ? 1 : 0);\n");
         } else if (type.endsWith("[]")) {
-            sb.append(indent).append("for (var e : ").append(field).append(") e.writeTo(buf);\n");
+            sb.append(indent).append("{ long eo = ").append(at).append("; for (var e : ").append(field)
+                    .append(") { e.writeTo(dst, eo); eo += e.defaultLayout().byteSize(); } }\n");
         } else {
-            sb.append(indent).append(field).append(".writeTo(buf);\n");
+            sb.append(indent).append(field).append(".writeTo(dst, ").append(at).append(");\n");
         }
     }
 
-    private static void emitReadField(StringBuilder sb, ShaderLoader.StructMemberInfo m, String indent) {
-        String field = m.name();
+    private static void emitReadField(StringBuilder sb, ShaderLoader.StructMemberInfo m, String indent, long offset) {
+        String field = "v." + m.name();
         String type = inferJavaType(m);
+        String at = offset == 0 ? "o" : "o + " + offset;
         if (type.equals("float[]") || type.equals("int[]") || type.equals("double[]")) {
-            int count = m.size() / (type.equals("double[]") ? 8 : 4);
-            String getMethod = type.equals("int[]") ? "getInt" : type.equals("double[]") ? "getDouble" : "getFloat";
-            sb.append(indent).append(field).append(" = new ").append(type, 0, type.length() - 2).append("[").append(count).append("];\n");
-            sb.append(indent).append("for (int i = 0; i < ").append(count).append("; i++) ").append(field).append("[i] = buf.").append(getMethod).append("();\n");
+            int elem = type.equals("double[]") ? 8 : 4;
+            int count = m.size() / elem;
+            String layout = type.equals("int[]") ? "JAVA_INT_UNALIGNED"
+                    : type.equals("double[]") ? "JAVA_DOUBLE_UNALIGNED" : "JAVA_FLOAT_UNALIGNED";
+            sb.append(indent).append(field).append(" = new ").append(type, 0, type.length() - 2)
+                    .append("[").append(count).append("];\n");
+            sb.append(indent).append("for (int i = 0; i < ").append(count).append("; i++) ").append(field)
+                    .append("[i] = src.get(").append(layout).append(", ").append(at)
+                    .append(" + (long) i * ").append(elem).append(");\n");
         } else if (type.equals("float")) {
-            sb.append(indent).append(field).append(" = buf.getFloat();\n");
+            sb.append(indent).append(field).append(" = src.get(JAVA_FLOAT_UNALIGNED, ").append(at).append(");\n");
         } else if (type.equals("int")) {
-            sb.append(indent).append(field).append(" = buf.getInt();\n");
+            sb.append(indent).append(field).append(" = src.get(JAVA_INT_UNALIGNED, ").append(at).append(");\n");
         } else if (type.equals("double")) {
-            sb.append(indent).append(field).append(" = buf.getDouble();\n");
+            sb.append(indent).append(field).append(" = src.get(JAVA_DOUBLE_UNALIGNED, ").append(at).append(");\n");
         } else if (type.equals("boolean")) {
-            sb.append(indent).append(field).append(" = buf.getInt() != 0;\n");
+            sb.append(indent).append(field).append(" = src.get(JAVA_INT_UNALIGNED, ").append(at).append(") != 0;\n");
         } else if (type.endsWith("[]")) {
             String elemType = type.substring(0, type.length() - 2);
-            sb.append(indent).append("for (int i = 0; i < ").append(field).append(".length; i++) { ").append(field).append("[i] = new ").append(elemType).append("(); ").append(field).append("[i].readFrom(buf); }\n");
+            sb.append(indent).append("{ long eo = ").append(at).append("; for (int i = 0; i < ").append(field)
+                    .append(".length; i++) { ").append(field).append("[i] = new ").append(elemType).append("(); ")
+                    .append(field).append("[i].readFrom(src, eo); eo += ").append(field)
+                    .append("[i].defaultLayout().byteSize(); } }\n");
         } else {
-            sb.append(indent).append("if (").append(field).append(" == null) ").append(field).append(" = new ").append(type).append("();\n");
-            sb.append(indent).append(field).append(".readFrom(buf);\n");
+            sb.append(indent).append("if (").append(field).append(" == null) ").append(field)
+                    .append(" = new ").append(type).append("();\n");
+            sb.append(indent).append(field).append(".readFrom(src, ").append(at).append(");\n");
         }
     }
 

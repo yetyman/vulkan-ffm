@@ -125,9 +125,15 @@ class RTreeTest {
     void writeTo() {
         tree.insert("a", new AABB(new Vec3(0, 0, 0), new Vec3(1, 1, 1)));
         tree.insert("b", new AABB(new Vec3(5, 5, 5), new Vec3(6, 6, 6)));
-        ByteBuffer buf = ByteBuffer.allocate(tree.byteSize());
-        tree.writeTo(buf);
-        assertTrue(buf.position() > 0);
+        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+            int size = tree.gpuByteSize();
+            assertTrue(size > 0);
+            java.lang.foreign.MemorySegment dst = arena.allocate(size);
+            tree.writeTo(dst, 0);
+            // Root node bounds enclose both inserted items.
+            assertEquals(0f, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 0));
+            assertEquals(6f, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 12));
+        }
     }
 
     @Test

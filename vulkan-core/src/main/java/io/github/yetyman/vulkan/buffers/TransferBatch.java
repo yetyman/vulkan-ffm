@@ -58,7 +58,7 @@ class TransferBatch {
         pendingCount = 0;
     }
 
-    TransferCompletion record(MemorySegment srcHandle, MemorySegment dstHandle,
+    GpuCompletion record(MemorySegment srcHandle, MemorySegment dstHandle,
                               long srcOffset, long dstOffset, long size,
                               AutoCloseable... toOwn) {
         VkCopy.copyBuffer(commandBuffer.handle(), srcHandle, dstHandle, srcOffset, dstOffset, size);
@@ -67,20 +67,20 @@ class TransferBatch {
         stagedBytes += size;
         pendingCount++;
         currentCompletion.retain();
-        TransferCompletion view = new TransferCompletion(currentCompletion);
+        GpuCompletion view = new TransferCompletion(currentCompletion, device, queue);
 
         if (stagedBytes >= AUTO_FLUSH_THRESHOLD) flush();
         return view;
     }
 
-    TransferCompletion flush() {
+    GpuCompletion flush() {
         BatchTransferCompletion completing = currentCompletion;
 
         if (pendingCount == 0 && pendingSignals.isEmpty() && pendingWaits.isEmpty()) {
             completing.resolve();
             completing.retain();
             open();
-            return new TransferCompletion(completing);
+            return new TransferCompletion(completing, device, queue);
         }
 
         completing.resolve();
@@ -89,13 +89,13 @@ class TransferBatch {
         submitWithFence();
 
         completing.retain();
-        TransferCompletion view = new TransferCompletion(completing);
+        GpuCompletion view = new TransferCompletion(completing, device, queue);
         open();
         return view;
     }
 
     void destroy() {
-        try (TransferCompletion tc = flush()) {
+        try (GpuCompletion tc = flush()) {
             tc.await();
         }
         for (BatchTransferCompletion c : allCompletions) c.forceClose();

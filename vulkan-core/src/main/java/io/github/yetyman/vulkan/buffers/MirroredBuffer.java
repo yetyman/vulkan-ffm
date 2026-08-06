@@ -89,14 +89,14 @@ public class MirroredBuffer implements IBuffer {
 
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
-        TransferCompletion tc = writeAsync(data, offset, queue);
+        GpuCompletion tc = writeAsync(data, offset, queue);
         TransferBatchManager.flush(device, queue);
         tc.await();
         tc.close();
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         int length = data.remaining();
         mirrorWrite(data, offset);
 
@@ -121,13 +121,43 @@ public class MirroredBuffer implements IBuffer {
     }
 
     /**
+     * Hands back the mirror's own mapped memory. The caller's write therefore lands in the mirror
+     * (making it immediately CPU-readable) and, on commit, the GPU copy is issued directly from
+     * that same memory with no second CPU copy.
+     */
+    @Override
+    public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        if (offset + size > inner.size()) {
+            throw new IllegalArgumentException("Write exceeds buffer size");
+        }
+        MemorySegment target = mirrorMapped.asSlice(offset, size);
+        if (inner instanceof ManagedBuffer managed) {
+            return BufferWriteScope.of(target, offset, size,
+                    () -> managed.copyFromExternal(mirrorBuffer.handle(), offset, offset, size, queue));
+        }
+        // No raw-handle copy entry point on the wrapped buffer: push the mirror's bytes through
+        // the normal write path, which costs one extra CPU copy.
+        return BufferWriteScope.of(target, offset, size,
+                () -> inner.writeAsync(target.asByteBuffer(), offset, queue));
+    }
+
+    /**
+     * Zero-cost: returns the mirror's memory directly. Reflects GPU-side writes only after
+     * {@link #refreshFromGpu}.
+     */
+    @Override
+    public BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        return BufferReadScope.of(mirrorMapped.asSlice(offset, size), offset, size, null);
+    }
+
+    /**
      * Pulls the wrapped buffer's current GPU-side contents back into the mirror.
      * Call this after GPU-side writes (e.g. a compute pass writing this buffer) complete,
      * before relying on {@link #read} or {@link #mirror} to reflect that data.
      * There is no automatic detection of GPU writes — callers must call this explicitly
      * and only after the producing GPU work has completed (e.g. after awaiting a fence/semaphore).
      */
-    public TransferCompletion refreshFromGpu(long offset, long length, VkQueue queue) {
+    public GpuCompletion refreshFromGpu(long offset, long length, VkQueue queue) {
         if (inner instanceof ManagedBuffer managed) {
             return managed.copyToExternal(mirrorBuffer.handle(), offset, offset, length, queue);
         }
@@ -137,7 +167,7 @@ public class MirroredBuffer implements IBuffer {
         mirror.position((int) offset);
         mirror.put(fresh);
         mirror.rewind();
-        return TransferCompletion.completed();
+        return GpuCompletion.completed();
     }
 
     /**
@@ -167,7 +197,7 @@ public class MirroredBuffer implements IBuffer {
     }
 
     @Override
-    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         return inner.copyToAsync(dst, srcOffset, dstOffset, length, queue);
     }
 

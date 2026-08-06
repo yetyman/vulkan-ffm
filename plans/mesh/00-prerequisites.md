@@ -1,5 +1,56 @@
 # Prerequisites: vulkan-core changes
 
+## Status
+
+Implemented, build green, `helpers-core` and `vulkan-ffm-mesh` test suites passing:
+
+| Item | Status |
+|------|--------|
+| 1. `GpuLayout` offset-explicit and `MemorySegment`-based | done |
+| 2. Delete `BufferWritable`, add `HasGpuLayout` | done |
+| 3. `IBuffer.acquireWrite` / `acquireRead` scopes | done |
+| 4. Extract `GpuCompletion` interface | done |
+| 5. Fix the `TransferBatch` fence-reuse race | NOT DONE - deferred pending a design discussion about whether it is fixable without baking in a bias |
+| 6. Bulk and strided primitive paths on the typed buffers | done |
+| 7. Deletions (`BufferWritable`, `VulkanMesh`, `GLTFLoader`) | done |
+
+### Deltas from this plan, decided during implementation
+
+- `GpuCompletion.flush(VkDevice, VkQueue)` became a no-arg `flush()`. Passing a device and queue into
+  a completion was awkward and unimplementable for non-batched backings; `TransferCompletion` now
+  captures its own device and queue at construction, and the interface declares
+  `default void flush() {}` meaning "ensure submitted", a no-op for externally scheduled work.
+- `TransferCompletion` kept its name rather than becoming `BatchCompletion`. It is now documented as
+  the `TransferBatch`-backed implementation of `GpuCompletion`, and consumers are directed to type
+  against the interface.
+- `TimelineCompletion` was added as a second `GpuCompletion` implementation, backed by a
+  `VkTimelineSemaphore` target value. This is what an external scheduler returns, and its existence
+  is what proves the interface extraction was real rather than cosmetic.
+- `AABB` gained a `MIN_MAX` `GpuLayout` and implements `HasGpuLayout`. Four spatial structures were
+  each hand-writing the same six float writes; they now share it.
+- `SpatialStructure` no longer extends any serialization interface at all, rather than exposing
+  `defaultLayout()`. A structure has no single canonical layout, and the concrete implementations
+  already expose their own `DEFAULT_LAYOUT` statics, so putting one on the interface would have
+  re-created the problem in a new place.
+- Structures' `byteSize()` became `gpuByteSize()`, because the value is data-dependent (node count)
+  and was being confused with `GpuLayout.byteSize()`, which is a fixed per-element stride. The
+  variable-size layouts return -1 from `byteSize()` as before.
+- `MeshOutput` and `ContourOutput` were converted to offset-explicit `MemorySegment` writers with
+  separate vertex and index blocks, plus `writeVertices(dst, offset, stride)` for interleaving and
+  `writeIndices(dst, offset, vertexBaseOffset)` for pool-relative rewriting. They are not yet
+  `GeometrySource` implementations; that is Phase 2.
+- `TransferCompletion.await()` still throws when the batch has not been submitted. Fixing that
+  entangles with item 5, so it was left alone deliberately.
+- `SparseTransferStrategy.acquireWrite` needed a case the plan did not anticipate: sparse pages are
+  mapped independently, so a write spanning more than one page has no contiguous host destination.
+  Single-page writes hand back the mapped page directly; multi-page writes gather into a temporary
+  segment and scatter into pages on commit. The single-page fast path is the common one for
+  page-aligned streaming.
+
+---
+
+## Original plan
+
 All of these are `vulkan-core` (and small `helpers-core`) changes that the mesh module requires and
 that improve core independently of meshes. They should land before Layer 1 work begins, because each
 of them shapes an interface the mesh module will build directly on top of.

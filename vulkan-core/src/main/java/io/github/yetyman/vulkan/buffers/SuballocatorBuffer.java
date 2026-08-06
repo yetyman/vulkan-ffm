@@ -124,8 +124,18 @@ public class SuballocatorBuffer implements IBuffer {
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         return backingBuffer.writeAsync(data, offset, queue);
+    }
+
+    @Override
+    public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        return backingBuffer.acquireWrite(offset, size, queue);
+    }
+
+    @Override
+    public BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        return backingBuffer.acquireRead(offset, size, queue);
     }
 
     @Override
@@ -144,7 +154,7 @@ public class SuballocatorBuffer implements IBuffer {
     }
 
     @Override
-    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         return backingBuffer.copyToAsync(dst, srcOffset, dstOffset, length, queue);
     }
 
@@ -220,7 +230,7 @@ public class SuballocatorBuffer implements IBuffer {
         }
 
         @Override
-        public TransferCompletion writeAsync(ByteBuffer data, long ignored, VkQueue queue) {
+        public GpuCompletion writeAsync(ByteBuffer data, long ignored, VkQueue queue) {
             if (data.remaining() > size) throw new IllegalArgumentException("Data exceeds slot size");
             return SuballocatorBuffer.this.writeAsync(data, offset, queue);
         }
@@ -228,8 +238,24 @@ public class SuballocatorBuffer implements IBuffer {
         /**
          * Writes asynchronously to this slot. Offset parameter is ignored — slot offset is fixed.
          */
-        public TransferCompletion writeAsync(ByteBuffer data, VkQueue queue) {
+        public GpuCompletion writeAsync(ByteBuffer data, VkQueue queue) {
             return writeAsync(data, 0, queue);
+        }
+
+        /**
+         * Acquires a write scope within this slot. {@code slotOffset} is relative to the slot,
+         * not the backing buffer.
+         */
+        @Override
+        public BufferWriteScope acquireWrite(long slotOffset, long writeSize, VkQueue queue) {
+            if (slotOffset + writeSize > size) throw new IllegalArgumentException("Write exceeds slot size");
+            return SuballocatorBuffer.this.acquireWrite(offset + slotOffset, writeSize, queue);
+        }
+
+        @Override
+        public BufferReadScope acquireRead(long slotOffset, long readSize, VkQueue queue) {
+            if (slotOffset + readSize > size) throw new IllegalArgumentException("Read exceeds slot size");
+            return SuballocatorBuffer.this.acquireRead(offset + slotOffset, readSize, queue);
         }
 
         @Override
@@ -252,7 +278,7 @@ public class SuballocatorBuffer implements IBuffer {
         }
 
         @Override
-        public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+        public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
             return SuballocatorBuffer.this.copyToAsync(dst, offset + srcOffset, dstOffset, length, queue);
         }
 

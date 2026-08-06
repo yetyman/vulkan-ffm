@@ -4,7 +4,7 @@ import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkQueue;
 import io.github.yetyman.vulkan.buffers.BufferUsage;
 import io.github.yetyman.vulkan.buffers.IBuffer;
-import io.github.yetyman.vulkan.buffers.TransferCompletion;
+import io.github.yetyman.vulkan.buffers.GpuCompletion;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
@@ -43,8 +43,18 @@ class TransientManagedBufferAdapter implements IBuffer {
     }
 
     @Override
-    public TransferCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+    public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
         throw new UnsupportedOperationException("Transient graph buffers do not support CPU write");
+    }
+
+    @Override
+    public io.github.yetyman.vulkan.buffers.BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        throw new UnsupportedOperationException("Transient graph buffers do not support CPU write");
+    }
+
+    @Override
+    public io.github.yetyman.vulkan.buffers.BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        throw new UnsupportedOperationException("Transient graph buffers do not support CPU read");
     }
 
     @Override
@@ -61,7 +71,7 @@ class TransientManagedBufferAdapter implements IBuffer {
     }
 
     @Override
-    public TransferCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
+    public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         throw new UnsupportedOperationException("Use graph resource edges for transfers between transient buffers");
     }
 

@@ -90,10 +90,19 @@ public class DenseGrid<T> implements SpatialStructure<T> {
     @Override public AABB worldBounds() { return bounds; }
     @Override public DirtyTracker dirtyTracker() { return dirtyTracker; }
 
-    // --- BufferWritable ---
-    @Override public int byteSize() { return itemMap.size() * 24; }
-    @Override public void writeTo(ByteBuffer buf) { for (Entry<T> e : itemMap.values()) { buf.putFloat(e.bounds.min.x); buf.putFloat(e.bounds.min.y); buf.putFloat(e.bounds.min.z); buf.putFloat(e.bounds.max.x); buf.putFloat(e.bounds.max.y); buf.putFloat(e.bounds.max.z); } }
-    @Override public void readFrom(ByteBuffer buf) { throw new UnsupportedOperationException(); }
+    // --- GPU layout ---
+
+    /** @return total serialized size in the default layout, which depends on item count. */
+    public int gpuByteSize() { return itemMap.size() * 24; }
+
+    /** Writes all item bounds into {@code dst} at {@code offset} using {@link AABB#MIN_MAX}. */
+    public void writeTo(java.lang.foreign.MemorySegment dst, long offset) {
+        long o = offset;
+        for (Entry<T> e : itemMap.values()) {
+            AABB.MIN_MAX.writeTo(e.bounds, dst, o);
+            o += 24;
+        }
+    }
 
     // --- SpatialQuery ---
     @Override public List<T> query(AABB range) { List<T> out = new ArrayList<>(); query(range, out); return out; }

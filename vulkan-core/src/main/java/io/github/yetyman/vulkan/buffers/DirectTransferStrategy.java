@@ -12,12 +12,30 @@ import java.nio.ByteBuffer;
 public final class DirectTransferStrategy implements TransferStrategy {
 
     @Override
-    public TransferCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
-        if (offset + data.remaining() > ctx.size) {
+    public GpuCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
+        int length = data.remaining();
+        try (BufferWriteScope scope = acquireWrite(ctx, offset, length, queue)) {
+            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, scope.segment(), 0, length);
+        }
+        return GpuCompletion.completed();
+    }
+
+    @Override
+    public BufferWriteScope acquireWrite(TransferContext ctx, long offset, long size, VkQueue queue) {
+        if (offset + size > ctx.size) {
             throw new IllegalArgumentException("Write exceeds buffer size");
         }
-        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, ctx.mappedMemory, offset, data.remaining());
-        return TransferCompletion.completed();
+        // ReBAR memory is always host coherent and device local: the caller's write lands in VRAM
+        // directly, so there is nothing to commit on close.
+        return BufferWriteScope.of(ctx.mappedMemory.asSlice(offset, size), offset, size, null);
+    }
+
+    @Override
+    public BufferReadScope acquireRead(TransferContext ctx, long offset, long size, VkQueue queue) {
+        if (offset + size > ctx.size) {
+            throw new IllegalArgumentException("Read exceeds buffer size");
+        }
+        return BufferReadScope.of(ctx.mappedMemory.asSlice(offset, size), offset, size, null);
     }
 
     @Override

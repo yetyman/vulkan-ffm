@@ -1,6 +1,6 @@
 # Integration boundaries
 
-How `vulkan-ffm-meshes` reaches every capability the frame graph and node trees offer, while depending
+How `vulkan-ffm-mesh` reaches every capability the frame graph and node trees offer, while depending
 on neither.
 
 ---
@@ -15,21 +15,21 @@ vulkan-bindings, glfw-bindings, shaderc-bindings, spirv-reflect-bindings, stb-tr
         |    \                            ^
         |     \___________________        |
         v                        v        |
- vulkan-ffm-graph        vulkan-ffm-meshes (depends on both vulkan-core and helpers-core)
+ vulkan-ffm-graph        vulkan-ffm-mesh (depends on both vulkan-core and helpers-core)
  vulkan-ffm-node-trees            |
         \                         |
          \                        v
-          \             vulkan-ffm-meshes-processing  (sibling, later)
+          \             vulkan-ffm-mesh-processing  (sibling, later)
            \                      |
             \_____________________|_______ sample-app, vulkan-ffm-sample-ui-layers
 ```
 
 Rules:
 
-- `vulkan-ffm-meshes` must not import `io.github.yetyman.vulkan.graph.*` or
+- `vulkan-ffm-mesh` must not import `io.github.yetyman.vulkan.graph.*` or
   `io.github.yetyman.vulkan.nodetree.*` or `io.github.yetyman.vulkan.ui.*`.
 - Nothing in a library module imports `sample-app`.
-- `helpers-core` already depends on `vulkan-core` (for `GpuLayout`), so `vulkan-ffm-meshes` depending
+- `helpers-core` already depends on `vulkan-core` (for `GpuLayout`), so `vulkan-ffm-mesh` depending
   on both is consistent with the existing graph.
 
 ---
@@ -92,7 +92,7 @@ Translates `UploadOp`s into `TransferNode`s, uses the access and stage masks for
 class for assignment, returns a timeline-semaphore-backed `GpuCompletion`.
 
 Placement decision: this starts in `sample-app`. It is promoted to an adapter module
-(`vulkan-ffm-meshes-graph`) only after the same code has been written three times. Creating the adapter
+(`vulkan-ffm-mesh-graph`) only after the same code has been written three times. Creating the adapter
 module preemptively would be a guess at what the adapter needs to look like, made before any evidence.
 
 Because both executors consume the same `UploadPlan`, the mesh module never learns which is in use.
@@ -118,7 +118,7 @@ that a traversal can reference.
 ## Sample UI layer integration
 
 `vulkan-ffm-sample-ui-layers` is the intended home for the first mesh-consuming sample layers, since it
-already depends on `vulkan-core` and would depend on `vulkan-ffm-meshes`.
+already depends on `vulkan-core` and would depend on `vulkan-ffm-mesh`.
 
 Expected sample layers, in roadmap order:
 
@@ -136,11 +136,11 @@ pipeline variant handling, and are explicitly not a thing the mesh module should
 
 ## Sibling modules
 
-### `vulkan-ffm-meshes-processing`
+### `vulkan-ffm-mesh-processing`
 
 For CPU-side geometry processing that is large, specialized, or dependency-heavy.
 
-Stays in `vulkan-ffm-meshes`:
+Stays in `vulkan-ffm-mesh`:
 
 - Normal generation, tangent generation, vertex welding, bounds computation. Small, universally useful,
   no dependencies, and needed by nearly every source.
@@ -156,7 +156,7 @@ Goes to the sibling:
 ### Format modules
 
 Each file format becomes its own bindings module (if it wraps a native library) plus a thin
-`GeometrySource` adapter. Never inside `vulkan-ffm-meshes`, because a format reader in the core mesh
+`GeometrySource` adapter. Never inside `vulkan-ffm-mesh`, because a format reader in the core mesh
 module drags its native dependency onto everyone.
 
 Candidates: glTF, OBJ, PLY, USD, FBX, Draco, Alembic.

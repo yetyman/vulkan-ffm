@@ -32,21 +32,59 @@ public final class SparseTransferStrategy implements TransferStrategy {
     }
 
     @Override
-    public TransferCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
-        SparsePageAllocator pages = ctx.sparsePages;
-        pages.ensurePagesCommitted(offset, data.remaining());
+    public GpuCompletion writeAsync(TransferContext ctx, ByteBuffer data, long offset, VkQueue queue) {
+        int length = data.remaining();
+        BufferWriteScope scope = acquireWrite(ctx, offset, length, queue);
+        MemorySegment.copy(MemorySegment.ofBuffer(data), 0, scope.segment(), 0, length);
+        scope.close();
+        return scope.completion();
+    }
 
-        if (pages.isHostVisible) {
-            writeHostVisible(ctx, pages, data, offset);
-            return TransferCompletion.completed();
-        } else {
+    @Override
+    public BufferWriteScope acquireWrite(TransferContext ctx, long offset, long size, VkQueue queue) {
+        SparsePageAllocator pages = ctx.sparsePages;
+        pages.ensurePagesCommitted(offset, size);
+
+        if (!pages.isHostVisible) {
+            // Device-local backing: stage exactly size bytes and copy on commit.
             Arena stagingArena = Arena.ofShared();
-            VkBuffer tempHost = VkBuffer.builder().device(ctx.device).size(data.remaining()).transferSrc().hostVisible().build(stagingArena);
+            VkBuffer tempHost = VkBuffer.builder()
+                    .device(ctx.device).size(size).transferSrc().hostVisible().build(stagingArena);
             MemorySegment mapped = tempHost.map(stagingArena);
-            MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mapped, 0, data.remaining());
             TransferBatch batch = TransferBatchManager.getOrCreate(ctx.device, queue);
-            return batch.record(tempHost.handle(), ctx.vkBuffer.handle(), 0, offset, data.remaining(), tempHost, stagingArena);
+            return BufferWriteScope.of(mapped.asSlice(0, size), offset, size,
+                    () -> batch.record(tempHost.handle(), ctx.vkBuffer.handle(), 0, offset, size, tempHost, stagingArena));
         }
+
+        long startPage = offset / pages.pageSize;
+        long endPage = (offset + size - 1) / pages.pageSize;
+        if (startPage == endPage) {
+            // Entirely within one page: hand back that page's mapped memory directly, no copy.
+            MemorySegment mapped = pages.mapPage(startPage);
+            long inPageOffset = offset - startPage * pages.pageSize;
+            return BufferWriteScope.of(mapped.asSlice(inPageOffset, size), offset, size, () -> {
+                if (!pages.isHostCoherent) {
+                    MemorySegment pageMemory = pages.pageMemoryAt(startPage * pages.pageSize);
+                    MemorySegment range = VkMappedMemoryRange.allocate(ctx.arena, pageMemory, inPageOffset, size);
+                    vkFlushMappedMemoryRanges(ctx.device.handle(), 1, range);
+                }
+                pages.unmapPage(startPage);
+                return GpuCompletion.completed();
+            });
+        }
+
+        // Spans multiple pages, which are separately mapped and therefore not contiguous in the
+        // host address space. Gather into one temporary segment, scatter into pages on commit.
+        Arena scratchArena = Arena.ofShared();
+        MemorySegment scratch = scratchArena.allocate(size);
+        return BufferWriteScope.of(scratch, offset, size, () -> {
+            try {
+                writeHostVisibleSegment(ctx, pages, scratch, offset, size);
+            } finally {
+                scratchArena.close();
+            }
+            return GpuCompletion.completed();
+        });
     }
 
     @Override
@@ -104,21 +142,21 @@ public final class SparseTransferStrategy implements TransferStrategy {
         }
     }
 
-    private void writeHostVisible(TransferContext ctx, SparsePageAllocator pages, ByteBuffer data, long offset) {
+    private void writeHostVisibleSegment(TransferContext ctx, SparsePageAllocator pages,
+                                         MemorySegment src, long offset, long length) {
         long startPage = offset / pages.pageSize;
-        long endPage = (offset + data.remaining() - 1) / pages.pageSize;
-        int dataPos = data.position();
+        long endPage = (offset + length - 1) / pages.pageSize;
 
         for (long pageIndex = startPage; pageIndex <= endPage; pageIndex++) {
             MemorySegment mapped = pages.mapPage(pageIndex);
             long pageStart = pageIndex * pages.pageSize;
             long writeStart = Math.max(offset, pageStart);
-            long writeEnd = Math.min(offset + data.remaining(), pageStart + pages.pageSize);
+            long writeEnd = Math.min(offset + length, pageStart + pages.pageSize);
             long writeLen = writeEnd - writeStart;
             long inPageOffset = writeStart - pageStart;
-            int dataOffset = (int) (writeStart - offset) + dataPos;
+            long srcOffset = writeStart - offset;
 
-            MemorySegment.copy(MemorySegment.ofBuffer(data.slice(dataOffset, (int) writeLen)), 0, mapped, inPageOffset, writeLen);
+            MemorySegment.copy(src, srcOffset, mapped, inPageOffset, writeLen);
 
             if (!pages.isHostCoherent) {
                 MemorySegment pageMemory = pages.pageMemoryAt(pageStart);

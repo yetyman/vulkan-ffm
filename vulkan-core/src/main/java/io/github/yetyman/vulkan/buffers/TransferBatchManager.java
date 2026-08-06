@@ -42,19 +42,19 @@ public class TransferBatchManager {
     /**
      * Flushes the current batch for this thread+queue, submitting all pending transfers.
      *
-     * @return a TransferCompletion for the submitted batch (caller must close it).
+     * @return a GpuCompletion for the submitted batch (caller must close it).
      */
-    public static TransferCompletion flush(VkDevice device, VkQueue queue) {
+    public static GpuCompletion flush(VkDevice device, VkQueue queue) {
         long deviceKey = device.handle().address();
         long threadKey = Thread.currentThread().threadId();
         long queueKey = queue.handle().address();
         ConcurrentHashMap<Long, ConcurrentHashMap<Long, TransferBatch>> byThread =
                 REGISTRY.get(deviceKey);
-        if (byThread == null) return TransferCompletion.completed();
+        if (byThread == null) return GpuCompletion.completed();
         ConcurrentHashMap<Long, TransferBatch> byQueue = byThread.get(threadKey);
-        if (byQueue == null) return TransferCompletion.completed();
+        if (byQueue == null) return GpuCompletion.completed();
         TransferBatch batch = byQueue.get(queueKey);
-        if (batch == null) return TransferCompletion.completed();
+        if (batch == null) return GpuCompletion.completed();
         return batch.flush();
     }
 

@@ -126,9 +126,15 @@ class BVHTest {
     void writeTo() {
         bvh.insert("a", new AABB(new Vec3(0, 0, 0), new Vec3(1, 1, 1)));
         bvh.insert("b", new AABB(new Vec3(5, 5, 5), new Vec3(6, 6, 6)));
-        ByteBuffer buf = ByteBuffer.allocate(bvh.byteSize());
-        bvh.writeTo(buf);
-        assertEquals(bvh.byteSize(), buf.position());
+        try (java.lang.foreign.Arena arena = java.lang.foreign.Arena.ofConfined()) {
+            int size = bvh.gpuByteSize();
+            assertTrue(size > 0);
+            java.lang.foreign.MemorySegment dst = arena.allocate(size);
+            bvh.writeTo(dst, 0);
+            // First node is the root, whose bounds enclose both inserted items.
+            assertEquals(0f, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 0));
+            assertEquals(6f, dst.get(java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED, 12));
+        }
     }
 
     @Test

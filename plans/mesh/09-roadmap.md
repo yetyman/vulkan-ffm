@@ -21,6 +21,9 @@ Status: complete with this commit.
 
 ## Phase 1: vulkan-core prerequisites
 
+Status: complete except the fence-reuse fix, which is deferred pending a design discussion. See the
+status table in `00-prerequisites.md` for what landed and how it differed from the plan.
+
 Deliverable: everything in `00-prerequisites.md`.
 
 - Extract `GpuCompletion` interface.
@@ -49,7 +52,13 @@ once a mesh module depends on the current shapes.
 
 ## Phase 2: Layer 0 and Layer 1, CPU only
 
-Deliverable: the `vulkan-ffm-meshes` module with `AttributeSemantic`, `AttributeFormat`, `MeshLayout`,
+Status: Layer 0 vocabulary landed. `AttributeSemantic`, `ComponentType`, `AttributeFormat`,
+`PrimitiveTopology`, `InputRate`, `IndexWidth`, `DeviceRange`, and `MeshLayout` (with builder,
+`planar`/`interleaved` factories, element addressing, `shaderDecodedSemantics`, and
+`toVertexFormat` derivation) exist in `vulkan-ffm-mesh` with 28 passing unit tests and no device
+required. `MeshLayout.transcodeOps` and all of Layer 1 are still outstanding.
+
+Deliverable: the `vulkan-ffm-mesh` module with `AttributeSemantic`, `AttributeFormat`, `MeshLayout`,
 `AttributeStream`, `IndexStream`, `GeometrySource`, `SegmentGeometrySource`, procedural primitives, and
 `MeshLayout.transcodeOps`. Convert `MeshOutput` in `helpers-core` to a `GeometrySource`.
 
@@ -135,8 +144,8 @@ Measure allocations per frame in the render path. Must be zero.
 ## Phase 6: Processing and formats
 
 Deliverable: normal and tangent generation, vertex welding, bounds computation in
-`vulkan-ffm-meshes`. Simplification and optimized meshlet building interfaces plus the
-`vulkan-ffm-meshes-processing` sibling. One format module, most likely glTF, as a bindings module plus
+`vulkan-ffm-mesh`. Simplification and optimized meshlet building interfaces plus the
+`vulkan-ffm-mesh-processing` sibling. One format module, most likely glTF, as a bindings module plus
 a `GeometrySource` adapter.
 
 Proves: that a real-world asset flows through the whole system, and that a format reader is genuinely

@@ -1,32 +1,46 @@
 package io.github.yetyman.helpers.math;
 
-import io.github.yetyman.vulkan.buffers.BufferWritable;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
+import io.github.yetyman.vulkan.buffers.HasGpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Mutable 2-component float vector.
  */
-public class Vec2 implements BufferWritable {
+public class Vec2 implements HasGpuLayout<Vec2> {
 
     // --- GPU Layouts ---
 
     /** Default layout: x, y (8 bytes). */
     public static final GpuLayout<Vec2> XY = new GpuLayout<>() {
         @Override public int byteSize() { return 8; }
-        @Override public void writeTo(Vec2 v, ByteBuffer buf) { buf.putFloat(v.x); buf.putFloat(v.y); }
-        @Override public void readFrom(Vec2 v, ByteBuffer buf) { v.x = buf.getFloat(); v.y = buf.getFloat(); }
+        @Override public void writeTo(Vec2 v, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, v.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, v.y);
+        }
+        @Override public void readFrom(Vec2 v, MemorySegment src, long o) {
+            v.x = src.get(JAVA_FLOAT_UNALIGNED, o);
+            v.y = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+        }
     };
 
-    /** Default layout used by BufferWritable methods. */
+    /** Canonical layout for this type. */
     public static final GpuLayout<Vec2> DEFAULT_LAYOUT = XY;
 
     /** Reversed layout: y, x (8 bytes). */
     public static final GpuLayout<Vec2> YX = new GpuLayout<>() {
         @Override public int byteSize() { return 8; }
-        @Override public void writeTo(Vec2 v, ByteBuffer buf) { buf.putFloat(v.y); buf.putFloat(v.x); }
-        @Override public void readFrom(Vec2 v, ByteBuffer buf) { v.y = buf.getFloat(); v.x = buf.getFloat(); }
+        @Override public void writeTo(Vec2 v, MemorySegment dst, long o) {
+            dst.set(JAVA_FLOAT_UNALIGNED, o, v.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, v.x);
+        }
+        @Override public void readFrom(Vec2 v, MemorySegment src, long o) {
+            v.y = src.get(JAVA_FLOAT_UNALIGNED, o);
+            v.x = src.get(JAVA_FLOAT_UNALIGNED, o + 4);
+        }
     };
 
     private static BuildStrategy<Vec2> buildStrategy = BuildStrategy.allocating(Vec2::new);
@@ -324,20 +338,22 @@ public class Vec2 implements BufferWritable {
         return "Vec2(" + x + ", " + y + ")";
     }
 
-    // --- BufferWritable ---
+    // --- HasGpuLayout ---
 
     @Override
-    public int byteSize() { return XY.byteSize(); }
+    public GpuLayout<Vec2> defaultLayout() { return DEFAULT_LAYOUT; }
 
-    @Override
-    public void writeTo(ByteBuffer buf) { XY.writeTo(this, buf); }
+    /** Writes this vector into {@code dst} at {@code offset} using the default layout. */
+    public void writeTo(MemorySegment dst, long offset) { DEFAULT_LAYOUT.writeTo(this, dst, offset); }
 
-    @Override
-    public void readFrom(ByteBuffer buf) { XY.readFrom(this, buf); }
+    /** Reads this vector from {@code src} at {@code offset} using the default layout. */
+    public void readFrom(MemorySegment src, long offset) { DEFAULT_LAYOUT.readFrom(this, src, offset); }
 
-    public void writeTo(ByteBuffer buf, GpuLayout<Vec2> layout) { layout.writeTo(this, buf); }
+    /** Writes this vector into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<Vec2> layout) { layout.writeTo(this, dst, offset); }
 
-    public void readFrom(ByteBuffer buf, GpuLayout<Vec2> layout) { layout.readFrom(this, buf); }
+    /** Reads this vector from {@code src} at {@code offset} using an alternative layout. */
+    public void readFrom(MemorySegment src, long offset, GpuLayout<Vec2> layout) { layout.readFrom(this, src, offset); }
 
     // --- BuildStrategy ---
 

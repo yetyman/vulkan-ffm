@@ -11,7 +11,7 @@ import io.github.yetyman.helpers.math.spatial.DirtyTracker;
 import io.github.yetyman.helpers.math.spatial.SpatialStructure;
 import io.github.yetyman.vulkan.buffers.GpuLayout;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+
+import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 
 /**
  * Balanced R-tree for spatial queries. All leaves at the same depth.
@@ -129,25 +131,24 @@ public class RTree<T> implements SpatialStructure<T> {
     @Override
     public DirtyTracker dirtyTracker() { return dirtyTracker; }
 
-    // --- BufferWritable ---
+    // --- GPU layout ---
 
+    /** Default layout: DFS-ordered flat node AABBs (24 bytes per node). */
     public static final GpuLayout<RTree<?>> DEFAULT_LAYOUT = new DfsLayout();
 
-    @Override
-    public int byteSize() { return nodeCount * 24; }
+    /** @return total serialized size in the default layout, which depends on node count. */
+    public int gpuByteSize() { return nodeCount * 24; }
 
+    /** Writes this tree into {@code dst} at {@code offset} using the default layout. */
     @SuppressWarnings("unchecked")
-    @Override
-    public void writeTo(ByteBuffer buf) {
-        ((GpuLayout<RTree<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, buf);
+    public void writeTo(MemorySegment dst, long offset) {
+        ((GpuLayout<RTree<T>>) (GpuLayout<?>) DEFAULT_LAYOUT).writeTo(this, dst, offset);
     }
 
-    @Override
-    public void readFrom(ByteBuffer buf) {
-        throw new UnsupportedOperationException("RTree does not support readFrom -- rebuild from items instead.");
+    /** Writes this tree into {@code dst} at {@code offset} using an alternative layout. */
+    public void writeTo(MemorySegment dst, long offset, GpuLayout<RTree<T>> layout) {
+        layout.writeTo(this, dst, offset);
     }
-
-    public void writeTo(ByteBuffer buf, GpuLayout<RTree<T>> layout) { layout.writeTo(this, buf); }
 
     @Override
     public void visitNodes(io.github.yetyman.helpers.math.spatial.NodeVisitor visitor) {
@@ -496,14 +497,25 @@ public class RTree<T> implements SpatialStructure<T> {
     // --- Layout ---
 
     private static class DfsLayout implements GpuLayout<RTree<?>> {
+        /** Variable size: depends on node count. Use {@link RTree#gpuByteSize()} for the total. */
         @Override public int byteSize() { return -1; }
-        @Override public void writeTo(RTree<?> tree, ByteBuffer buf) { writeDfs(tree.root, buf); }
-        @Override public void readFrom(RTree<?> tree, ByteBuffer buf) { throw new UnsupportedOperationException(); }
-        private void writeDfs(RNode node, ByteBuffer buf) {
+        @Override public void writeTo(RTree<?> tree, MemorySegment dst, long offset) { writeDfs(tree.root, dst, offset); }
+        @Override public void readFrom(RTree<?> tree, MemorySegment src, long offset) {
+            throw new UnsupportedOperationException("RTree cannot be deserialized -- rebuild from items instead.");
+        }
+        private long writeDfs(RNode node, MemorySegment dst, long o) {
             AABB b = node.bounds();
-            buf.putFloat(b.min.x); buf.putFloat(b.min.y); buf.putFloat(b.min.z);
-            buf.putFloat(b.max.x); buf.putFloat(b.max.y); buf.putFloat(b.max.z);
-            if (!node.isLeaf) { for (RNode c : node.children) writeDfs(c, buf); }
+            dst.set(JAVA_FLOAT_UNALIGNED, o, b.min.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 4, b.min.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 8, b.min.z);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 12, b.max.x);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 16, b.max.y);
+            dst.set(JAVA_FLOAT_UNALIGNED, o + 20, b.max.z);
+            o += 24;
+            if (!node.isLeaf) {
+                for (RNode c : node.children) o = writeDfs(c, dst, o);
+            }
+            return o;
         }
     }
 
