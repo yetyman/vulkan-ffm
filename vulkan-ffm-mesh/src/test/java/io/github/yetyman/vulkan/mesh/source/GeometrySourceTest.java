@@ -7,6 +7,7 @@ import io.github.yetyman.vulkan.mesh.AttributeSemantic;
 import io.github.yetyman.vulkan.mesh.IndexWidth;
 import io.github.yetyman.vulkan.mesh.MeshLayout;
 import io.github.yetyman.vulkan.mesh.PrimitiveTopology;
+import io.github.yetyman.vulkan.mesh.StridedCopy;
 import io.github.yetyman.vulkan.mesh.source.primitives.BoxSource;
 
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import java.lang.foreign.MemorySegment;
 import static java.lang.foreign.ValueLayout.JAVA_FLOAT_UNALIGNED;
 import static java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -193,6 +195,160 @@ class GeometrySourceTest {
             assertEquals(6f, box.bounds().max.z);
             assertEquals(24, box.elementCount());
         }
+    }
+
+    // --- MeshLayout.transcodeOps ---
+
+    @Test
+    void transcodeOpsProducesOneCopyPerSharedAttribute() {
+        MeshLayout src = MeshLayout.builder()
+                .stream(0)
+                .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        MeshLayout dst = MeshLayout.builder()
+                .stream(0).attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .stream(1).attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        var ops = dst.transcodeOps(src, 0, 10);
+        assertEquals(2, ops.size());
+        // Position: src stream 0, dst stream 0
+        assertEquals(AttributeSemantic.POSITION, ops.get(0).semantic());
+        assertEquals(0, ops.get(0).srcStreamId());
+        assertEquals(0, ops.get(0).dstStreamId());
+        assertTrue(ops.get(0).isPureCopy());
+        assertEquals(12, ops.get(0).elementByteSize());
+        // Normal: src stream 0, dst stream 1
+        assertEquals(AttributeSemantic.NORMAL, ops.get(1).semantic());
+        assertEquals(0, ops.get(1).srcStreamId());
+        assertEquals(1, ops.get(1).dstStreamId());
+        assertTrue(ops.get(1).isPureCopy());
+    }
+
+    @Test
+    void transcodeOpsSkipsMissingAttributes() {
+        MeshLayout src = MeshLayout.builder()
+                .stream(0).attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .build();
+
+        MeshLayout dst = MeshLayout.builder()
+                .stream(0)
+                .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        var ops = dst.transcodeOps(src, 0, 5);
+        // Only position is shared; normal is absent from source.
+        assertEquals(1, ops.size());
+        assertEquals(AttributeSemantic.POSITION, ops.get(0).semantic());
+    }
+
+    @Test
+    void transcodeOpsOffsetsReflectElementWindow() {
+        MeshLayout layout = MeshLayout.builder()
+                .stream(0).attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .build();
+
+        var ops = layout.transcodeOps(layout, 10, 5);
+        assertEquals(1, ops.size());
+        // Element 10 at stride 12 = offset 120
+        assertEquals(120, ops.get(0).srcOffset());
+        assertEquals(120, ops.get(0).dstOffset());
+    }
+
+    @Test
+    void isIdenticalToDetectsMatch() {
+        MeshLayout a = MeshLayout.builder()
+                .stream(0)
+                .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        MeshLayout b = MeshLayout.builder()
+                .stream(0)
+                .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        assertTrue(a.isIdenticalTo(b));
+        assertTrue(b.isIdenticalTo(a));
+    }
+
+    @Test
+    void isIdenticalToDetectsDifference() {
+        MeshLayout a = MeshLayout.builder()
+                .stream(0)
+                .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        MeshLayout b = MeshLayout.builder()
+                .stream(0).attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .stream(1).attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+                .build();
+
+        assertFalse(a.isIdenticalTo(b));
+    }
+
+    // --- MeshOutputSource ---
+
+    @Test
+    void meshOutputSourceExposesPositionAndIndices() {
+        io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput mo =
+                new io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput();
+        mo.addVertex(0, 0, 0);
+        mo.addVertex(1, 0, 0);
+        mo.addVertex(0, 1, 0);
+        mo.addTriangle(0, 1, 2);
+
+        MeshOutputSource src = new MeshOutputSource(mo);
+        assertEquals(3, src.elementCount());
+        assertEquals(PrimitiveTopology.TRIANGLE_LIST, src.topology());
+        assertTrue(src.available().contains(AttributeSemantic.POSITION));
+        assertTrue(src.indices().isPresent());
+        assertEquals(3, src.indices().get().indexCount());
+        assertTrue(src.nativeLayout().isEmpty());
+    }
+
+    @Test
+    void meshOutputSourceTranscodesPositions() {
+        io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput mo =
+                new io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput();
+        mo.addVertex(1, 2, 3);
+        mo.addVertex(4, 5, 6);
+
+        MeshOutputSource src = new MeshOutputSource(mo);
+        MeshLayout target = MeshLayout.builder()
+                .stream(0).attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+                .build();
+
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment dst = arena.allocate(12 * 2);
+            src.stream(AttributeSemantic.POSITION)
+                    .transcodeInto(target, dst, 0, 12, 0, 2);
+
+            assertEquals(1f, dst.get(JAVA_FLOAT_UNALIGNED, 0));
+            assertEquals(2f, dst.get(JAVA_FLOAT_UNALIGNED, 4));
+            assertEquals(3f, dst.get(JAVA_FLOAT_UNALIGNED, 8));
+            assertEquals(4f, dst.get(JAVA_FLOAT_UNALIGNED, 12));
+            assertEquals(5f, dst.get(JAVA_FLOAT_UNALIGNED, 16));
+            assertEquals(6f, dst.get(JAVA_FLOAT_UNALIGNED, 20));
+        }
+    }
+
+    @Test
+    void meshOutputSourceBoundsAreComputed() {
+        io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput mo =
+                new io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput();
+        mo.addVertex(-1, -2, -3);
+        mo.addVertex(4, 5, 6);
+        mo.addTriangle(0, 1, 0);
+
+        MeshOutputSource src = new MeshOutputSource(mo);
+        assertEquals(-1f, src.bounds().min.x);
+        assertEquals(6f, src.bounds().max.z);
     }
 
     @Test

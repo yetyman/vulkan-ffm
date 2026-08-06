@@ -234,6 +234,92 @@ public final class MeshLayout {
         return sb.append(']').toString();
     }
 
+    /**
+     * Derives the list of strided copy operations needed to transcode data from {@code srcLayout}
+     * into this layout for elements in the range {@code [firstElement, firstElement + elementCount)}.
+     *
+     * <p>Only attributes present in both layouts are included. Attributes present in this layout but
+     * absent from {@code srcLayout} are silently skipped (the caller must provide them from another
+     * source or leave them zero-initialized). Attributes present in {@code srcLayout} but absent
+     * here are also skipped (they are not needed in the target).
+     *
+     * <p>Each returned {@link StridedCopy} carries source and destination offsets already adjusted
+     * for the element window, so an executor can apply them directly to a pair of backing segments
+     * (one per stream) without further arithmetic.
+     *
+     * <p>When the returned list is empty and both layouts place the same attributes in the same
+     * streams with the same offsets and strides, the caller should detect that as the identity case
+     * and fall back to a flat per-stream {@link java.lang.foreign.MemorySegment#copy} rather than
+     * iterating an empty ops list.
+     *
+     * @param srcLayout    the layout data is currently in
+     * @param firstElement first element index (0-based) in the window
+     * @param elementCount number of elements in the window
+     * @return one {@link StridedCopy} per shared attribute, in placement order of this layout
+     */
+    public List<StridedCopy> transcodeOps(MeshLayout srcLayout, long firstElement, long elementCount) {
+        List<StridedCopy> ops = new ArrayList<>();
+        for (Placement dstP : placements.values()) {
+            Placement srcP = srcLayout.placements.get(dstP.semantic());
+            if (srcP == null) continue;
+
+            long srcOff = srcP.offset() + firstElement * srcLayout.strides[srcP.stream()];
+            long dstOff = dstP.offset() + firstElement * strides[dstP.stream()];
+            long srcStr = srcLayout.strides[srcP.stream()];
+            long dstStr = strides[dstP.stream()];
+
+            AttributeFormat srcFmt = srcP.format();
+            AttributeFormat dstFmt = dstP.format();
+
+            StridedCopy.FormatConverter converter = null;
+            int elemSize;
+
+            if (srcFmt.equals(dstFmt)) {
+                // Exact match: pure strided copy.
+                elemSize = srcFmt.byteSize();
+            } else if (srcFmt.byteSize() == dstFmt.byteSize()
+                    && srcFmt.componentType() == dstFmt.componentType()
+                    && srcFmt.componentCount() == dstFmt.componentCount()
+                    && srcFmt.normalized() == dstFmt.normalized()) {
+                // Same encoding under different names (aliases). Pure copy.
+                elemSize = srcFmt.byteSize();
+            } else {
+                // Formats differ: a converter is needed. The converter itself is not resolved here
+                // because converters are a registry concern, not a layout concern. The caller
+                // matches the converter from a converter registry or throws if one is unavailable.
+                elemSize = srcFmt.byteSize();
+                converter = null; // stub: caller must supply the converter externally
+            }
+
+            ops.add(new StridedCopy(dstP.semantic(), srcP.stream(), srcOff, srcStr,
+                    dstP.stream(), dstOff, dstStr, elemSize, converter));
+        }
+        return ops;
+    }
+
+    /**
+     * @return true if this layout and {@code other} place the same attributes in the same streams
+     * with the same offsets, strides, and formats -- meaning a transcode between them is a no-op
+     * per stream and a flat copy suffices.
+     */
+    public boolean isIdenticalTo(MeshLayout other) {
+        if (this == other) return true;
+        if (streamCount() != other.streamCount()) return false;
+        if (!placements.keySet().equals(other.placements.keySet())) return false;
+        for (int s = 0; s < strides.length; s++) {
+            if (strides[s] != other.strides[s]) return false;
+            if (rates[s] != other.rates[s]) return false;
+        }
+        for (var e : placements.entrySet()) {
+            Placement mine = e.getValue();
+            Placement theirs = other.placements.get(e.getKey());
+            if (mine.stream() != theirs.stream()) return false;
+            if (mine.offset() != theirs.offset()) return false;
+            if (!mine.format().equals(theirs.format())) return false;
+        }
+        return true;
+    }
+
     private void checkStream(int streamId) {
         if (streamId < 0 || streamId >= strides.length)
             throw new IndexOutOfBoundsException("stream " + streamId + " out of bounds for streamCount " + strides.length);
