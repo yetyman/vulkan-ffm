@@ -16,6 +16,7 @@
         <module>vulkan-ffm-node-trees</module>
         <module>vulkan-ffm-sample-ui-layers</module>
         <module>sample-app</module>
+        <module>vulkan-ffm-mesh</module>
     </modules>
 
     <profiles>
