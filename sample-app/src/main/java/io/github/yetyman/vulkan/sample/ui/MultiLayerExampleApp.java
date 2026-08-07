@@ -13,6 +13,10 @@ import io.github.yetyman.vulkan.ui.input.types.ScrollInputData;
 import io.github.yetyman.vulkan.layers.scene3d.DepthMode;
 import io.github.yetyman.vulkan.layers.scene3d.Scene3DOverlayLayer;
 import io.github.yetyman.vulkan.layers.text.GPUDrivenTextLayer;
+import io.github.yetyman.vulkan.layers.mesh.MeshDemoLayer;
+import io.github.yetyman.vulkan.mesh.source.MeshOutputSource;
+import io.github.yetyman.vulkan.mesh.source.primitives.BoxSource;
+import io.github.yetyman.vulkan.mesh.source.primitives.SphereSource;
 import io.github.yetyman.vulkan.highlevel.GraphicsLoop;
 import io.github.yetyman.vulkan.highlevel.VulkanApplication;
 import io.github.yetyman.vulkan.highlevel.VulkanCapabilities;
@@ -133,11 +137,24 @@ public class MultiLayerExampleApp extends VulkanApplication {
             batch.drawText(FONT_ID, hoverText, 20, 90, 18, 0.6f, 1.0f, 0.6f, 1.0f);
         });
 
+        // --- Mesh Demo Layer: renders a box, sphere, and isosurface mesh side by side ---
+        MeshDemoLayer meshLayer = new MeshDemoLayer();
+        meshLayer.addSource(new BoxSource(uiArena));
+        meshLayer.addSource(new SphereSource(uiArena, 0.6f, 16, 32));
+        io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput isoMesh =
+                io.github.yetyman.helpers.math.spatial.isosurface.MarchingCubes.extract(
+                        (x, y, z) -> x * x + y * y + z * z - 0.3f,
+                        new io.github.yetyman.helpers.math.Vec3(-.7f, -.7f, -.7f),
+                        new io.github.yetyman.helpers.math.Vec3(.7f, .7f, .7f),
+                        12, 12, 12, 1f);
+        meshLayer.addSource(new MeshOutputSource(isoMesh));
+
         composite = UIComposite.builder()
             .context(uiContext)
             .layer(overlay)
             .layer(textLayer)
             .layer(hoverLayer)
+            .layer(meshLayer)
             .build();
 
         wireInput(composite);

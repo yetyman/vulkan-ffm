@@ -123,9 +123,9 @@ public final class Mesh implements AutoCloseable {
             if (executor == null) executor = new TransferBatchExecutor();
 
             IndexWidth idxWidth = source.indices()
-                    .map(idx -> IndexWidth.narrowestFor(source.elementCount()))
+                    .map(idx -> idx.sourceWidth())
                     .orElse(null);
-            long indexCount = source.indices().map(IndexStream::indexCount).orElse(0L);
+            long indexCount = source.indices().map(io.github.yetyman.vulkan.mesh.source.IndexStream::indexCount).orElse(0L);
 
             GeometryAllocation allocation = allocator.allocate(layout, source.elementCount(),
                     idxWidth, indexCount);

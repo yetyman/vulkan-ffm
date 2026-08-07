@@ -38,13 +38,16 @@ public final class TransferBatchExecutor implements UploadExecutor {
                     dc.src().copyTo(dc.dst(), dc.srcOffset(), dc.dstOffset(), dc.size(), queue);
                 }
                 case UploadOp.Transcode tc -> {
-                    long totalBytes = tc.dstStride() * tc.elementCount();
-                    // The scope covers the full strided region starting at dstOffset.
-                    // The transcode writes at relative offsets within that region.
+                    // The scope must cover from dstOffset to the end of the last element's data.
+                    // For strided writes: (count - 1) * stride + attributeByteSize
+                    // But dstOffset is already the absolute offset within the buffer (including
+                    // the attribute's offset within the interleaved element), so the scope starts
+                    // there and spans the strided region.
+                    int attrSize = tc.targetLayout().formatOf(tc.semantic()).byteSize();
+                    long totalBytes = tc.elementCount() <= 0 ? 0
+                            : (tc.elementCount() - 1) * tc.dstStride() + attrSize;
                     long scopeOffset = tc.dstOffset();
                     try (BufferWriteScope scope = tc.dst().acquireWrite(scopeOffset, totalBytes, queue)) {
-                        // transcodeInto writes at dstOffset=0 relative to the scope's segment
-                        // since the scope already starts at the correct buffer position.
                         tc.source().transcodeInto(tc.targetLayout(), scope.segment(), 0,
                                 tc.dstStride(), tc.firstElement(), tc.elementCount());
                     }

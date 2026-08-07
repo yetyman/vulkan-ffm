@@ -63,7 +63,7 @@ public final class SlabAllocator implements GeometryAllocator {
         if (indexWidth != null && maxIndexCount > 0) {
             indexSlotSize = (long) indexWidth.byteSize() * maxIndexCount;
             long totalIndexSize = indexSlotSize * maxGeometries;
-            indexSlab = new SuballocatorBuffer(device, totalIndexSize, BufferUsage.STORAGE,
+            indexSlab = new SuballocatorBuffer(device, totalIndexSize, BufferUsage.INDEX,
                     indexSlotSize, strategy, transferQueue);
         } else {
             indexSlotSize = 0;

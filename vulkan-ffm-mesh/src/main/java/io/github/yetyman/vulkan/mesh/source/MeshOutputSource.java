@@ -33,6 +33,7 @@ public final class MeshOutputSource implements GeometrySource {
 
     private final MeshOutput output;
     private final AABB bounds;
+    private final float[] normals; // 3 floats per vertex, computed from face normals
 
     /**
      * @param output the isosurface extraction result to adapt
@@ -40,17 +41,19 @@ public final class MeshOutputSource implements GeometrySource {
     public MeshOutputSource(MeshOutput output) {
         this.output = output;
         this.bounds = computeBounds(output.vertices());
+        this.normals = computeSmoothNormals(output.vertices(), output.indices());
     }
 
     @Override
     public Set<AttributeSemantic> available() {
-        return Set.of(AttributeSemantic.POSITION);
+        return Set.of(AttributeSemantic.POSITION, AttributeSemantic.NORMAL);
     }
 
     @Override
     public AttributeStream stream(AttributeSemantic semantic) {
         if (semantic == AttributeSemantic.POSITION) return positionStream;
-        throw new IllegalArgumentException("MeshOutputSource only provides POSITION, not '" + semantic + "'");
+        if (semantic == AttributeSemantic.NORMAL) return normalStream;
+        throw new IllegalArgumentException("MeshOutputSource provides POSITION and NORMAL, not '" + semantic + "'");
     }
 
     @Override
@@ -110,6 +113,31 @@ public final class MeshOutputSource implements GeometrySource {
         }
     };
 
+    // --- Normal stream: smooth normals computed from face normals ---
+
+    private final AttributeStream normalStream = new AttributeStream() {
+        @Override public AttributeSemantic semantic() { return AttributeSemantic.NORMAL; }
+        @Override public AttributeFormat sourceFormat() { return AttributeFormat.F32x3; }
+        @Override public long elementCount() { return output.vertexCount(); }
+        @Override public Residency residency() { return Residency.HOST; }
+        @Override public boolean isHostReadable() { return true; }
+        @Override public Optional<DeviceRange> deviceRange() { return Optional.empty(); }
+
+        @Override
+        public void transcodeInto(MeshLayout targetLayout, MemorySegment dst, long dstOffset,
+                                  long dstStride, long firstElement, long elementCount) {
+            long pos = dstOffset;
+            int first = (int) firstElement;
+            int count = (int) elementCount;
+            for (int i = first; i < first + count; i++) {
+                dst.set(JAVA_FLOAT_UNALIGNED, pos, normals[i * 3]);
+                dst.set(JAVA_FLOAT_UNALIGNED, pos + 4, normals[i * 3 + 1]);
+                dst.set(JAVA_FLOAT_UNALIGNED, pos + 8, normals[i * 3 + 2]);
+                pos += dstStride;
+            }
+        }
+    };
+
     // --- Index stream: generates directly from List<Integer> into the destination ---
 
     private final IndexStream indexStream = new IndexStream() {
@@ -150,5 +178,45 @@ public final class MeshOutputSource implements GeometrySource {
             if (v.z < minZ) minZ = v.z; if (v.z > maxZ) maxZ = v.z;
         }
         return new AABB(new Vec3(minX, minY, minZ), new Vec3(maxX, maxY, maxZ));
+    }
+
+    /**
+     * Computes smooth per-vertex normals by accumulating face normals for each vertex then
+     * normalizing. This produces correct smooth-shaded normals for isosurface meshes where
+     * vertices are shared between triangles.
+     */
+    private static float[] computeSmoothNormals(List<Vec3> vertices, List<Integer> indices) {
+        float[] normals = new float[vertices.size() * 3];
+        // Accumulate face normals
+        for (int i = 0; i + 2 < indices.size(); i += 3) {
+            int i0 = indices.get(i);
+            int i1 = indices.get(i + 1);
+            int i2 = indices.get(i + 2);
+            Vec3 v0 = vertices.get(i0);
+            Vec3 v1 = vertices.get(i1);
+            Vec3 v2 = vertices.get(i2);
+            // edge vectors
+            float e1x = v1.x - v0.x, e1y = v1.y - v0.y, e1z = v1.z - v0.z;
+            float e2x = v2.x - v0.x, e2y = v2.y - v0.y, e2z = v2.z - v0.z;
+            // cross product (face normal, not normalized — area-weighted)
+            float nx = e1y * e2z - e1z * e2y;
+            float ny = e1z * e2x - e1x * e2z;
+            float nz = e1x * e2y - e1y * e2x;
+            // accumulate to each vertex of the face
+            normals[i0 * 3] += nx; normals[i0 * 3 + 1] += ny; normals[i0 * 3 + 2] += nz;
+            normals[i1 * 3] += nx; normals[i1 * 3 + 1] += ny; normals[i1 * 3 + 2] += nz;
+            normals[i2 * 3] += nx; normals[i2 * 3 + 1] += ny; normals[i2 * 3 + 2] += nz;
+        }
+        // Normalize
+        for (int i = 0; i < normals.length; i += 3) {
+            float x = normals[i], y = normals[i + 1], z = normals[i + 2];
+            float len = (float) Math.sqrt(x * x + y * y + z * z);
+            if (len > 1e-8f) {
+                normals[i] = x / len;
+                normals[i + 1] = y / len;
+                normals[i + 2] = z / len;
+            }
+        }
+        return normals;
     }
 }

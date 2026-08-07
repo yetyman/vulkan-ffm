@@ -60,7 +60,7 @@ public final class DedicatedAllocator implements GeometryAllocator {
         if (indexWidth != null && indexCount > 0) {
             long idxSize = (long) indexWidth.byteSize() * indexCount;
             IBuffer idxBuf = BufferFactory.create(strategy, null, idxSize,
-                    BufferUsage.STORAGE, device, transferQueue);
+                    BufferUsage.INDEX, device, transferQueue);
             idxRange = new DeviceRange(idxBuf, 0, idxSize, indexWidth.byteSize());
         }
 

@@ -104,7 +104,7 @@ public final class UploadPlanner {
         if (idxOpt.isPresent() && allocation.indexRange().isPresent()) {
             IndexStream idx = idxOpt.get();
             DeviceRange idxRange = allocation.indexRange().get();
-            IndexWidth targetWidth = IndexWidth.narrowestFor(source.elementCount());
+            IndexWidth targetWidth = idx.sourceWidth();
             long vertexBase = (allocator.indexBaseMode() == IndexBaseMode.REWRITE_ABSOLUTE)
                     ? allocation.vertexBase() : 0;
             ops.add(new UploadOp.TranscodeIndices(idx, targetWidth, vertexBase,

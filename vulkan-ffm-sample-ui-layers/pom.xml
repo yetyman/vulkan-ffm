@@ -40,6 +40,11 @@
             <artifactId>stb-truetype-bindings</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.yetyman</groupId>
+            <artifactId>vulkan-ffm-mesh</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
 </project>
