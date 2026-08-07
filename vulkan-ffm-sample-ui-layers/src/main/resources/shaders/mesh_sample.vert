@@ -13,6 +13,6 @@ layout (location = 1) out vec2 fragUV;
 
 void main() {
     gl_Position = pc.mvp * vec4(inPosition, 1.0);
-    fragNormal = (pc.mvp * vec4(inNormal,1.0) - pc.mvp * vec4(0.0,0.0,0.0, 1.0)).xyz;
+    fragNormal = normalize(pc.mvp * vec4(inNormal,1.0) - pc.mvp * vec4(0.0,0.0,0.0, 1.0)).xyz;
     fragUV = inUV;
 }

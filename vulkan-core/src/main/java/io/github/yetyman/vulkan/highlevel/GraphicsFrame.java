@@ -36,6 +36,11 @@ public abstract class GraphicsFrame implements AutoCloseable {
     protected VkCommandPool commandPool;
     protected VkCommandBuffer[] commandBuffers;
 
+    // Depth attachment for dynamic rendering (optional)
+    protected VkImage depthImage;
+    protected VkImageView depthImageView;
+    protected int depthFormat = VkFormat.VK_FORMAT_D32_SFLOAT.value();
+
     private VkSemaphore[] imageAvailableSemaphores;
     private VkSemaphore[] renderFinishedSemaphores;
     private VkSemaphore acquireSemaphorePool;
@@ -101,6 +106,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
         if (!useDynamicRendering) createRenderPass();
         initializeResources(queueFamilyIndex);
         if (!useDynamicRendering) createFramebuffers();
+        if (useDynamicRendering) createDepthAttachment();
         createCommandPool(queueFamilyIndex);
         createCommandBuffers();
         createSyncObjects();
@@ -126,6 +132,39 @@ public abstract class GraphicsFrame implements AutoCloseable {
                         .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_COLOR_BIT.value())
                         .build(tmp);
             }
+        }
+    }
+
+
+    private void createDepthAttachment() {
+        int depthFormat = VkFormat.VK_FORMAT_D32_SFLOAT.value();
+
+        try (Arena tmp = Arena.ofConfined()) {
+        depthImage = VkImage.builder()
+                .device(device)
+                .dimensions(width, height, 1)
+                .format(depthFormat)
+                .usage(VkImageUsageFlagBits.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.value())
+                .build(tmp);
+
+        depthImageView = VkImageView.builder()
+                .device(device)
+                .image(depthImage.handle())
+                .viewType(io.github.yetyman.vulkan.enums.VkImageViewType.VK_IMAGE_VIEW_TYPE_2D.value())
+                .format(depthFormat)
+                .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value())
+                .build(tmp);
+        }
+    }
+
+    private void destroyDepthAttachment() {
+        if (depthImageView != null) {
+            depthImageView.close();
+            depthImageView = null;
+        }
+        if (depthImage != null) {
+            depthImage.close();
+            depthImage = null;
         }
     }
 
@@ -396,6 +435,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
             framebuffer.close();
         if (swapchainImageViews != null) for (VkImageView imageView : swapchainImageViews) imageView.close();
         if (swapchain != null) swapchain.close();
+        if (depthImage != null) destroyDepthAttachment();
 
         width = newWidth;
         height = newHeight;
@@ -410,6 +450,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
         width = swapchain.width();
         height = swapchain.height();
         createImageViews();
+        createDepthAttachment();
         recreateImageAvailableSemaphores();
         onResize(newWidth, newHeight);
         if (!useDynamicRendering) createFramebuffers();

@@ -2,14 +2,23 @@ package io.github.yetyman.vulkan.layers.mesh;
 
 import io.github.yetyman.vulkan.VkCommandBuffer;
 import io.github.yetyman.vulkan.VkDevice;
+import io.github.yetyman.vulkan.VkImage;
+import io.github.yetyman.vulkan.VkImageView;
 import io.github.yetyman.vulkan.VkPipeline;
 import io.github.yetyman.vulkan.VkQueue;
+import io.github.yetyman.vulkan.VkRendering;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.command.VkDrawIndexed;
 import io.github.yetyman.vulkan.command.VkSetState;
+import io.github.yetyman.vulkan.enums.VkAttachmentLoadOp;
+import io.github.yetyman.vulkan.enums.VkAttachmentStoreOp;
 import io.github.yetyman.vulkan.enums.VkCompareOp;
+import io.github.yetyman.vulkan.enums.VkFormat;
+import io.github.yetyman.vulkan.enums.VkImageAspectFlagBits;
+import io.github.yetyman.vulkan.enums.VkImageLayout;
+import io.github.yetyman.vulkan.enums.VkImageUsageFlagBits;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 import io.github.yetyman.vulkan.highlevel.VkVertexFormat;
@@ -89,9 +98,15 @@ public class MeshDemoLayer implements UILayer {
     private int width;
     private int height;
 
+    // Depth attachment for dynamic rendering
+    private VkImage depthImage;
+    private VkImageView depthImageView;
+
     private final List<GeometrySource> pendingSources = new ArrayList<>();
     private final List<Mesh> meshes = new ArrayList<>();
     private boolean initialized = false;
+    private Mat4 view = initView();
+    private Mat4 proj = initProj();
 
     /**
      * Adds a geometry source to be rendered. If the layer is already initialized, the mesh is
@@ -139,9 +154,12 @@ public class MeshDemoLayer implements UILayer {
                 .fragmentShader(frag.getSpirV())
                 .dynamicViewport()
                 .dynamicScissor()
-//                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_GREATER_OR_EQUAL.value())
+                .depthTest(true)
+                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_LESS.value())
                 .cullMode(VK_CULL_MODE_BACK_BIT()) // VK_CULL_MODE_NONE - show all faces for arbitrary geometry
-                .dynamicRendering(0, io.github.yetyman.vulkan.enums.VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+                .dynamicRendering(
+                        io.github.yetyman.vulkan.enums.VkFormat.VK_FORMAT_D32_SFLOAT.value(),
+                        io.github.yetyman.vulkan.enums.VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
                 .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 64);
 
         var vertInput = pipelineBuilder.vertexInput();
@@ -184,6 +202,7 @@ public class MeshDemoLayer implements UILayer {
             Mesh mesh = meshes.get(i);
             float xOffset = startX + i * spacing;
 
+            //set projection
             Mat4 mvp = computeMVP(time, xOffset);
             MemorySegment pushData = frameArena.allocate(64);
             mvp.writeTo(pushData, 0);
@@ -217,6 +236,7 @@ public class MeshDemoLayer implements UILayer {
                 VkDraw.draw(cmd.handle(), draw.indexCount(), 1, draw.firstIndex(), 0);
             }
         }
+
     }
 
     @Override
@@ -253,6 +273,27 @@ public class MeshDemoLayer implements UILayer {
                 .build();
     }
 
+    private Mat4 initProj(){
+        Mat4 proj = new Mat4();
+
+        float aspect = (float) width / Math.max(height, 1);
+        float fov = (float) Math.toRadians(60);
+        float near = 0.1f, far = 100f;
+        float tanHalf = (float) Math.tan(fov / 2);
+        proj.m00 = 1f / (aspect * tanHalf);
+        proj.m11 = -1f / tanHalf;
+        proj.m22 = far / (near - far);
+        proj.m32 = (near * far) / (near - far);
+        proj.m23 = -1f;
+        proj.m33 = 0f;
+        return proj;
+    }
+    private Mat4 initView(){
+        Mat4 view = new Mat4();
+        view.m32 = -5.0f;
+
+        return view;
+    }
     private Mat4 computeMVP(float time, float xOffset) {
         float angle = time * 0.7f;
         float c = (float) Math.cos(angle);
@@ -269,21 +310,12 @@ public class MeshDemoLayer implements UILayer {
         tiltMat.m11 = ct; tiltMat.m21 = -st;
         tiltMat.m12 = st; tiltMat.m22 = ct;
 
-        Mat4 view = new Mat4();
-        view.m32 = -5.0f;
-
-        float aspect = (float) width / Math.max(height, 1);
-        float fov = (float) Math.toRadians(60);
-        float near = 0.1f, far = 100f;
-        float tanHalf = (float) Math.tan(fov / 2);
-        Mat4 proj = new Mat4();
-        proj.m00 = 1f / (aspect * tanHalf);
-        proj.m11 = -1f / tanHalf;
-        proj.m22 = far / (near - far);
-        proj.m32 = (near * far) / (near - far);
-        proj.m23 = -1f;
-        proj.m33 = 0f;
 
         return proj.mulNew(view).mul(tiltMat).mul(model);
+    }
+
+    public void setCamera(float[] view, float[] proj) {
+        this.view = new Mat4(view);
+        this.proj = new Mat4(proj);
     }
 }

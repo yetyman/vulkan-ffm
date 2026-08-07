@@ -67,6 +67,12 @@ public class MultiLayerExampleFrame extends GraphicsFrame {
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
                 VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_STORE.value(),
                 0.02f, 0.02f, 0.04f, 1.0f)
+            .depthAttachment(
+                depthImageView.handle(),
+                VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL.value(),
+                VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
+                VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
+                1.0f)
             .begin(commandBuffer.handle(), frameAllocator);
 
         VkSetState.setViewport(commandBuffer, 0, 0, 0, width, height, 0.0f, 1.0f);

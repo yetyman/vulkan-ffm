@@ -139,8 +139,8 @@ public class MultiLayerExampleApp extends VulkanApplication {
 
         // --- Mesh Demo Layer: renders a box, sphere, and isosurface mesh side by side ---
         MeshDemoLayer meshLayer = new MeshDemoLayer();
-        meshLayer.addSource(new BoxSource(uiArena));
         meshLayer.addSource(new SphereSource(uiArena, 0.6f, 16, 32));
+        meshLayer.addSource(new BoxSource(uiArena));
         io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput isoMesh =
                 io.github.yetyman.helpers.math.spatial.isosurface.MarchingCubes.extract(
                         (x, y, z) -> x * x + y * y + z * z - 0.3f,
@@ -187,6 +187,7 @@ public class MultiLayerExampleApp extends VulkanApplication {
                 new float[]{0, 1, 0});
             float[] proj = perspective((float) Math.toRadians(60), (float) WIDTH / HEIGHT, 0.1f, 100f);
             overlay.setCamera(view, proj);
+            meshLayer.setCamera(view, proj);
         }
         loop.stop();
     }
