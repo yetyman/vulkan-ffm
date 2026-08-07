@@ -18,18 +18,25 @@ public interface GeometryAllocator extends AutoCloseable {
     /**
      * Reserves space for one geometry.
      *
-     * @param layout       the layout the geometry will be uploaded in (determines stream count and strides)
-     * @param vertexCount  number of vertices
-     * @param indexWidth   width of each index, or null if not indexed
-     * @param indexCount   number of indices (0 if not indexed)
+     * <p>The counts are <em>capacities</em>, not live counts. Reserving headroom lets a mesh grow
+     * later with an upload instead of a reallocation; {@code Mesh} tracks how much of the capacity
+     * is currently live and derives draw ranges from that.
+     *
+     * @param layout         the layout the geometry will be uploaded in (determines streams and strides)
+     * @param vertexCapacity maximum number of vertices this allocation must hold
+     * @param indexWidth     width of each index, or null if not indexed
+     * @param indexCapacity  maximum number of indices this allocation must hold (0 if not indexed)
      * @return the allocation describing where streams and indices will live
      */
-    GeometryAllocation allocate(MeshLayout layout, long vertexCount,
-                                IndexWidth indexWidth, long indexCount);
+    GeometryAllocation allocate(MeshLayout layout, long vertexCapacity,
+                                IndexWidth indexWidth, long indexCapacity);
 
     /**
      * Releases a previously allocated region. The allocator may reuse the space immediately
      * (slab, pool) or defer reclamation until a future defragmentation pass.
+     *
+     * <p>Freeing an allocation that submitted-but-unfinished command buffers still reference is a
+     * use-after-free. Route frees through a {@link RetireQueue} when frames may still be in flight.
      */
     void free(GeometryAllocation allocation);
 

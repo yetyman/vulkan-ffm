@@ -9,6 +9,7 @@ import io.github.yetyman.vulkan.command.VkBind;
 import io.github.yetyman.vulkan.command.VkDraw;
 import io.github.yetyman.vulkan.command.VkDrawIndexed;
 import io.github.yetyman.vulkan.command.VkSetState;
+import io.github.yetyman.vulkan.enums.VkCompareOp;
 import io.github.yetyman.vulkan.enums.VkIndexType;
 import io.github.yetyman.vulkan.enums.VkShaderStageFlagBits;
 import io.github.yetyman.vulkan.highlevel.VkVertexFormat;
@@ -39,6 +40,7 @@ import java.util.Map;
 
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdBindPipeline;
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkCmdPushConstants;
+import static io.github.yetyman.vulkan.generated.VulkanFFM.VK_CULL_MODE_BACK_BIT;
 
 /**
  * A sample {@link UILayer} that renders any number of meshes from user-supplied
@@ -137,7 +139,8 @@ public class MeshDemoLayer implements UILayer {
                 .fragmentShader(frag.getSpirV())
                 .dynamicViewport()
                 .dynamicScissor()
-                .cullMode(0) // VK_CULL_MODE_NONE - show all faces for arbitrary geometry
+//                .depthCompareOp(VkCompareOp.VK_COMPARE_OP_GREATER_OR_EQUAL.value())
+                .cullMode(VK_CULL_MODE_BACK_BIT()) // VK_CULL_MODE_NONE - show all faces for arbitrary geometry
                 .dynamicRendering(0, io.github.yetyman.vulkan.enums.VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
                 .pushConstantRange(VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, 64);
 

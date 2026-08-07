@@ -144,8 +144,8 @@ public class MultiLayerExampleApp extends VulkanApplication {
         io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput isoMesh =
                 io.github.yetyman.helpers.math.spatial.isosurface.MarchingCubes.extract(
                         (x, y, z) -> x * x + y * y + z * z - 0.3f,
-                        new io.github.yetyman.helpers.math.Vec3(-.7f, -.7f, -.7f),
-                        new io.github.yetyman.helpers.math.Vec3(.7f, .7f, .7f),
+                        new io.github.yetyman.helpers.math.Vec3(-1.4f, -1.4f, -1.4f),
+                        new io.github.yetyman.helpers.math.Vec3(1.7f, 1.7f, 1.7f),
                         12, 12, 12, 1f);
         meshLayer.addSource(new MeshOutputSource(isoMesh));
 

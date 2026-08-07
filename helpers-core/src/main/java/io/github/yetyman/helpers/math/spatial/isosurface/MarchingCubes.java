@@ -147,7 +147,7 @@ public class MarchingCubes {
 
         int[] tris = triTable[cubeIndex];
         for (int i = 0; i < tris.length; i += 3) {
-            mesh.addTriangle(vertIndices[tris[i]], vertIndices[tris[i + 1]], vertIndices[tris[i + 2]]);
+            mesh.addTriangle(vertIndices[tris[i]], vertIndices[tris[i + 2]], vertIndices[tris[i + 1]]);//flipping indexes 2 and 1 for handedness
         }
     }
 

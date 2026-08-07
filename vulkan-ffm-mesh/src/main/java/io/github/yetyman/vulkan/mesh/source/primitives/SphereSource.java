@@ -71,9 +71,9 @@ public final class SphereSource implements GeometrySource {
                 float sinTheta = (float) Math.sin(theta);
                 float cosTheta = (float) Math.cos(theta);
 
-                float nx = sinPhi * cosTheta;
-                float ny = cosPhi;
-                float nz = sinPhi * sinTheta;
+                float nx = -sinPhi * cosTheta;
+                float ny = -cosPhi;
+                float nz = -sinPhi * sinTheta;
 
                 long o = (long) vi * stride;
                 verts.set(JAVA_FLOAT_UNALIGNED, o, nx * radius);
