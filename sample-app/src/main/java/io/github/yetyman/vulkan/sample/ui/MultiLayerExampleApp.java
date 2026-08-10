@@ -143,10 +143,10 @@ public class MultiLayerExampleApp extends VulkanApplication {
         meshLayer.addSource(new BoxSource(uiArena));
         io.github.yetyman.helpers.math.spatial.isosurface.MeshOutput isoMesh =
                 io.github.yetyman.helpers.math.spatial.isosurface.MarchingCubes.extract(
-                        (x, y, z) -> x * x + y * y + z * z - 0.3f,
-                        new io.github.yetyman.helpers.math.Vec3(-1.4f, -1.4f, -1.4f),
-                        new io.github.yetyman.helpers.math.Vec3(1.7f, 1.7f, 1.7f),
-                        12, 12, 12, 1f);
+                        (x, y, z) -> x * x + z* y * y + y*z * z + .8f,
+                        new io.github.yetyman.helpers.math.Vec3(-1.4f, -1.4f, -1.4f),//bounds of surface
+                        new io.github.yetyman.helpers.math.Vec3(1.7f, 1.7f, 1.7f),//bounds of surface
+                        12, 12, 12, 1f);//resolution
         meshLayer.addSource(new MeshOutputSource(isoMesh));
 
         composite = UIComposite.builder()
