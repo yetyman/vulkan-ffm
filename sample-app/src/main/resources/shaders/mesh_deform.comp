@@ -1,0 +1,39 @@
+#version 450
+
+layout (local_size_x = 64) in;
+
+layout (push_constant) uniform PushConstants {
+    float time;
+    uint vertexCount;
+} pc;
+
+// Position buffer: vec3 packed as 3 floats per vertex (stride = 12 bytes)
+layout (std430, set = 0, binding = 0) buffer Positions {
+    float positions[];
+};
+
+// Color buffer: vec3 packed as 3 floats per vertex (stride = 12 bytes)
+layout (std430, set = 0, binding = 1) buffer Colors {
+    float colors[];
+};
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= pc.vertexCount) return;
+
+    uint base = idx * 3;
+    float x = positions[base];
+    float y = positions[base + 1];
+    float z = positions[base + 2];
+
+    // Sine wave deformation based on original XZ position and time
+    float wave = sin(x * 4.0 + pc.time * 2.0) * 0.15
+               + sin(z * 3.0 + pc.time * 1.5) * 0.1;
+    positions[base + 1] = y + wave;
+
+    // Color based on displacement
+    float t = (wave + 0.25) / 0.5; // normalize to 0..1
+    colors[base]     = mix(0.2, 1.0, t);
+    colors[base + 1] = mix(0.5, 0.3, t);
+    colors[base + 2] = mix(1.0, 0.1, t);
+}

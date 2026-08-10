@@ -54,9 +54,9 @@ public final class Mesh implements AutoCloseable {
 
     private final GeometrySource source;
     private final MeshLayout layout;
-    private final GeometryAllocation allocation;
+    private GeometryAllocation allocation;
     private final GeometryAllocator allocator;   // null when the allocation is external
-    private final GeometryBinding binding;
+    private GeometryBinding binding;
     private final IndexWidth indexWidth;
     private final PrimitiveTopology topology;
 
@@ -64,8 +64,8 @@ public final class Mesh implements AutoCloseable {
     private AABB bounds;
     private long vertexCount;
     private long indexCount;
-    private final long vertexCapacity;
-    private final long indexCapacity;
+    private long vertexCapacity;
+    private long indexCapacity;
 
     private Mesh(Builder b, GeometryAllocation allocation, GeometryBinding binding,
                  PartitionSet partitions) {
@@ -212,6 +212,69 @@ public final class Mesh implements AutoCloseable {
      */
     public boolean fitsWithinCapacity(long vertexCount, long indexCount) {
         return vertexCount <= vertexCapacity && indexCount <= indexCapacity;
+    }
+
+    // -------------------------------------------------------------------------
+    // Lifecycle operations (delegated to MeshOps)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Reallocates this mesh to a larger capacity, preserving existing data via device-to-device
+     * copy, and retires the old allocation for deferred free.
+     *
+     * <p>Convenience delegation to {@link MeshOps#reallocate}. See that method for full semantics.
+     *
+     * @return completion for the copy; the old allocation is freed when it resolves
+     * @throws IllegalStateException if this mesh does not own its allocation
+     */
+    public GpuCompletion reallocate(long newVertexCapacity, long newIndexCapacity,
+                                    GeometryAllocator allocator, UploadExecutor executor,
+                                    VkQueue queue,
+                                    io.github.yetyman.vulkan.mesh.residency.RetireQueue retireQueue) {
+        return MeshOps.reallocate(this, newVertexCapacity, newIndexCapacity,
+                allocator, executor, queue, retireQueue);
+    }
+
+    /**
+     * Swaps this mesh's allocation and binding with those from a replacement, retiring the old
+     * allocation for deferred free.
+     *
+     * <p>Convenience delegation to {@link MeshOps#swap}. See that method for full semantics.
+     */
+    public void swap(Mesh replacement, GeometryAllocator allocator,
+                     io.github.yetyman.vulkan.mesh.residency.RetireQueue retireQueue,
+                     GpuCompletion notBefore) {
+        MeshOps.swap(this, replacement, allocator, retireQueue, notBefore);
+    }
+
+    // -------------------------------------------------------------------------
+    // Package-private mutation support for MeshOps
+    // -------------------------------------------------------------------------
+
+    /**
+     * Replaces allocation and capacity after a reallocation. Binding is rebuilt from the new
+     * allocation. Called by {@link MeshOps#reallocate}.
+     */
+    void replaceAllocation(GeometryAllocation newAlloc, long newVertexCapacity, long newIndexCapacity) {
+        this.allocation = newAlloc;
+        this.binding = new GeometryBinding(layout, newAlloc, indexWidth);
+        this.vertexCapacity = newVertexCapacity;
+        this.indexCapacity = newIndexCapacity;
+    }
+
+    /**
+     * Replaces all state from a replacement mesh (after a topology swap). The replacement should
+     * not be closed after this. Called by {@link MeshOps#swap}.
+     */
+    void replaceFrom(Mesh replacement) {
+        this.allocation = replacement.allocation;
+        this.binding = replacement.binding;
+        this.partitions = replacement.partitions;
+        this.bounds = replacement.bounds;
+        this.vertexCount = replacement.vertexCount;
+        this.indexCount = replacement.indexCount;
+        this.vertexCapacity = replacement.vertexCapacity;
+        this.indexCapacity = replacement.indexCapacity;
     }
 
     @Override

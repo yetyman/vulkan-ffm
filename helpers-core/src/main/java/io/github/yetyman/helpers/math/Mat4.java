@@ -297,6 +297,28 @@ public class Mat4 implements HasGpuLayout<Mat4> {
         return q.toMat4();
     }
 
+    public static Mat4 rotationY(float angle) {
+        Mat4 m = new Mat4();
+        float c = (float) Math.cos(angle);
+        float s = (float) Math.sin(angle);
+        m.m00 = c;  m.m02 = s;
+        m.m20 = -s; m.m22 = c;
+        m.m11 = 1f;
+        m.m33 = 1f;
+        return m;
+    }
+
+    public static Mat4 rotationX(float angle) {
+        Mat4 m = new Mat4();
+        float c = (float) Math.cos(angle);
+        float s = (float) Math.sin(angle);
+        m.m00 = 1f;
+        m.m11 = c;  m.m12 = s;
+        m.m21 = -s; m.m22 = c;
+        m.m33 = 1f;
+        return m;
+    }
+
     /**
      * Creates a combined translation-rotation-scale matrix.
      */
