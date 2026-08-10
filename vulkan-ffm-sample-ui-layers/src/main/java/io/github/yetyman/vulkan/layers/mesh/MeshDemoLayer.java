@@ -73,11 +73,20 @@ public class MeshDemoLayer implements UILayer {
 
     private static final int ORDER = 50;
 
-    /** The shared layout all sources are uploaded into. Position + Normal + UV, interleaved. */
+    // Stream assignments for the pipeline
+    private static final int POSITION_STREAM = 0;
+    private static final int NORMAL_STREAM = 1;
+    private static final int UV_STREAM = 2;
+
+    /** The shared layout: each attribute in its own stream since not all sources provide every
+     *  attribute (e.g. MeshOutputSource has no UV). Splitting per-attribute means a source that
+     *  provides fewer attributes never has to preserve someone else's data via read-modify-write. */
     public static final MeshLayout LAYOUT = MeshLayout.builder()
-            .stream(0)
+            .stream(POSITION_STREAM)
             .attribute(AttributeSemantic.POSITION, AttributeFormat.F32x3)
+            .stream(NORMAL_STREAM)
             .attribute(AttributeSemantic.NORMAL, AttributeFormat.F32x3)
+            .stream(UV_STREAM)
             .attribute(AttributeSemantic.TEXCOORD(0), AttributeFormat.F32x2)
             .build();
 
