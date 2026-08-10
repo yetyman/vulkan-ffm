@@ -10,6 +10,7 @@ import io.github.yetyman.vulkan.command.VkSetState;
 import io.github.yetyman.vulkan.enums.VkAccessFlagBits;
 import io.github.yetyman.vulkan.enums.VkAttachmentLoadOp;
 import io.github.yetyman.vulkan.enums.VkAttachmentStoreOp;
+import io.github.yetyman.vulkan.enums.VkImageAspectFlagBits;
 import io.github.yetyman.vulkan.enums.VkImageLayout;
 import io.github.yetyman.vulkan.enums.VkPipelineStageFlagBits;
 import io.github.yetyman.vulkan.ui.UIComposite;
@@ -58,6 +59,20 @@ public class MultiLayerExampleFrame extends GraphicsFrame {
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value(),
                 VkPipelineStageFlagBits.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.value());
 
+        // Transition depth image from UNDEFINED to DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+        VkImageBarrier.builder()
+            .image(depthImage.handle())
+            .srcAccess(0)
+            .dstAccess(VkAccessFlagBits.VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT.value())
+            .transition(
+                VkImageLayout.VK_IMAGE_LAYOUT_UNDEFINED.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value())
+            .aspectMask(VkImageAspectFlagBits.VK_IMAGE_ASPECT_DEPTH_BIT.value())
+            .build(frameAllocator)
+            .execute(commandBuffer.handle(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value(),
+                VkPipelineStageFlagBits.VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT.value());
+
         VkRendering.builder()
             .device(device)
             .renderArea(0, 0, width, height)
@@ -69,7 +84,7 @@ public class MultiLayerExampleFrame extends GraphicsFrame {
                 0.02f, 0.02f, 0.04f, 1.0f)
             .depthAttachment(
                 depthImageView.handle(),
-                VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL.value(),
+                VkImageLayout.VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL.value(),
                 VkAttachmentLoadOp.VK_ATTACHMENT_LOAD_OP_CLEAR.value(),
                 VkAttachmentStoreOp.VK_ATTACHMENT_STORE_OP_DONT_CARE.value(),
                 1.0f)

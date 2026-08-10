@@ -808,7 +808,7 @@ public class VkPipeline implements AutoCloseable {
 
                 // Depth/Stencil state
                 MemorySegment depthStencilState = MemorySegment.NULL;
-                if (depthTest || stencilTest) {
+                if (depthTest || stencilTest || dynamicDepthFormat != 0) {
                     depthStencilState = VkPipelineDepthStencilStateCreateInfo.allocate(arena);
                     VkPipelineDepthStencilStateCreateInfo.sType(depthStencilState, VkStructureType.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO.value());
                     VkPipelineDepthStencilStateCreateInfo.depthTestEnable(depthStencilState, depthTest ? 1 : 0);

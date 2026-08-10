@@ -97,13 +97,15 @@ public class OverlayRenderer implements AutoCloseable {
     }
 
     private VkPipeline buildPipeline(boolean lines, boolean depthTested) {
+        // All pipelines must declare depth format when rendered in a pass with a depth attachment
+        int depthFormat = VkFormat.VK_FORMAT_D32_SFLOAT.value();
         VkPipeline.Builder builder = VkPipeline.builder()
             .device(device)
             .vertexShader(vertShader)
             .fragmentShader(fragShader)
             .dynamicViewport()
             .dynamicScissor()
-            .dynamicRendering(0, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+            .dynamicRendering(depthFormat, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
             .vertexInput()
                 .binding(0, OverlayVertex.SIZE_BYTES, VkVertexInputRate.VK_VERTEX_INPUT_RATE_VERTEX.value())
                 .attribute(0, 0, VkFormat.VK_FORMAT_R32G32B32_SFLOAT.value(), 0)

@@ -102,7 +102,7 @@ public class TextRenderer implements AutoCloseable {
             .dynamicViewport()
             .dynamicScissor()
             .alphaBlend()
-            .dynamicRendering(0, VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
+            .dynamicRendering(VkFormat.VK_FORMAT_D32_SFLOAT.value(), VkFormat.VK_FORMAT_B8G8R8A8_SRGB.value())
             .descriptorSetLayouts(buildTemporaryLayoutForPipeline());
 
         pipeline = builder.build(ctx.applicationArena());
