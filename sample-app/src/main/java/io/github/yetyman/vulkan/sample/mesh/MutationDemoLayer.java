@@ -375,40 +375,31 @@ public class MutationDemoLayer implements UILayer {
     // =========================================================================
 
     private void initCategory2() {
-        strokeSource = new GrowingStrokeSource(100);
-        // Allocate with capacity: 100 segments * 6 verts each = 600 verts
+        strokeSource = new GrowingStrokeSource(500);
+        // Allocate with large capacity: 500 segments * 6 verts each = 3000 verts
         strokeMesh = Mesh.builder()
                 .source(strokeSource)
                 .layout(LAYOUT)
                 .allocator(dedicatedAllocator)
                 .executor(executor)
                 .queue(queue)
-                .vertexCapacity(600)
+                .vertexCapacity(3000)
                 .awaitUpload(true)
                 .build();
     }
 
     private void updateCategory2(float time) {
-        // Grow a spiral within capacity, then reset and start over
-        int maxSegments = 100;
-        float cycleTime = maxSegments / 5f; // time to fill one cycle
-        float localTime = time % (cycleTime + 2f); // +2s pause before reset
-
-        if (localTime < cycleTime) {
-            int targetSegments = Math.min((int) (localTime * 5), maxSegments);
-            while (strokeSource.segmentCount() < targetSegments) {
-                int i = strokeSource.segmentCount();
-                float angle = i * 0.3f;
-                float radius = 0.1f + i * 0.007f;
-                float x = (float) Math.cos(angle) * radius;
-                float z = (float) Math.sin(angle) * radius;
-                float y = i * 0.008f - 0.5f;
-                float t = i / (float) maxSegments;
-                strokeSource.addSpinePoint(x, y, z, t, 1.0f - t, 0.5f);
-            }
-        } else if (strokeSource.segmentCount() > 0) {
-            // Reset for next cycle
-            strokeSource.reset();
+        // Grow a spiral continuously - large capacity so it runs for a long time
+        int targetSegments = (int) (time * 5);
+        while (strokeSource.segmentCount() < targetSegments && strokeSource.segmentCount() < 500) {
+            int i = strokeSource.segmentCount();
+            float angle = i * 0.3f;
+            float radius = 0.1f + i * 0.007f;
+            float x = (float) Math.cos(angle) * radius;
+            float z = (float) Math.sin(angle) * radius;
+            float y = i * 0.008f - 0.5f;
+            float t = i / 500f;
+            strokeSource.addSpinePoint(x, y, z, t, 1.0f - t, 0.5f);
         }
 
         if (strokeSource.isDirty(AttributeSemantic.POSITION)) {
@@ -436,30 +427,22 @@ public class MutationDemoLayer implements UILayer {
     }
 
     private void updateCategory3(float time) {
-        // Category 3: grow a spiral, reallocate when capacity exceeded, then reset and repeat
-        int maxSegments = 50;
-        float cycleTime = maxSegments / 3f;
-        float localTime = time % (cycleTime + 2f); // +2s pause before reset
-
-        if (localTime < cycleTime) {
-            int targetSegments = Math.min((int) (localTime * 3), maxSegments);
-            while (growthSource.segmentCount() < targetSegments) {
-                int i = growthSource.segmentCount();
-                float angle = i * 0.2f;
-                float radius = 0.2f + i * 0.005f;
-                float x = (float) Math.cos(angle) * radius;
-                float z = (float) Math.sin(angle) * radius;
-                float y = (float) Math.sin(i * 0.1f) * 0.5f;
-                float t = (float) (Math.sin(i * 0.05f) * 0.5 + 0.5);
-                growthSource.addSpinePoint(x, y, z, 1.0f - t, t, 0.3f);
-            }
-        } else if (growthSource.segmentCount() > 0) {
-            growthSource.reset();
+        // Category 3: grow continuously, reallocate when capacity is exceeded
+        int targetSegments = (int) (time * 3);
+        while (growthSource.segmentCount() < targetSegments) {
+            int i = growthSource.segmentCount();
+            float angle = i * 0.2f;
+            float radius = 0.2f + i * 0.005f;
+            float x = (float) Math.cos(angle) * radius;
+            float z = (float) Math.sin(angle) * radius;
+            float y = (float) Math.sin(i * 0.1f) * 0.5f;
+            float t = (float) (Math.sin(i * 0.05f) * 0.5 + 0.5);
+            growthSource.addSpinePoint(x, y, z, 1.0f - t, t, 0.3f);
         }
 
         if (growthSource.isDirty(AttributeSemantic.POSITION)) {
             long neededVerts = growthSource.liveCount();
-            // Reallocate if needed (with MAPPED strategy, no staging leak)
+            // Reallocate if needed (MAPPED strategy = no staging leak)
             if (neededVerts > growthCapacity) {
                 long newCapacity = Math.max(growthCapacity * 2, neededVerts + 32);
                 GpuCompletion completion = growthMesh.reallocate(
