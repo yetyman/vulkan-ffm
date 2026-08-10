@@ -62,6 +62,14 @@ public class UIComposite implements AutoCloseable {
         }
     }
 
+    /** Direct pre-render path - records all layers' pre-render commands in order (lowest first).
+     * Must be called BEFORE the render pass begins. */
+    public void preRender(VkCommandBuffer cmd, Arena frameArena) {
+        for (UILayer layer : layers) {
+            layer.preRender(cmd, frameArena);
+        }
+    }
+
     /** Direct render path - records all layers' commands in order (lowest first). */
     public void render(VkCommandBuffer cmd, Arena frameArena) {
         for (UILayer layer : layers) {

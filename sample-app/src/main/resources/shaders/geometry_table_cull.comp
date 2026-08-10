@@ -1,0 +1,84 @@
+#version 450
+
+// Matches GeometryTable.RECORD_STRIDE (64 bytes) exactly:
+// offset 0:  uint  vertexBase
+// offset 4:  uint  indexBase
+// offset 8:  uint  indexCount
+// offset 12: uint  vertexCount
+// offset 16: vec3  boundsMin
+// offset 28: uint  flags
+// offset 32: vec3  boundsMax
+// offset 44: uint  _pad
+// offset 48: uint64 tag        (read as two uint32 here; unused by this shader)
+// offset 56: uint64 sortKey    (read as two uint32 here; unused by this shader)
+struct PartitionRecord {
+    uint vertexBase;
+    uint indexBase;
+    uint indexCount;
+    uint vertexCount;
+    vec3 boundsMin;
+    uint flags;
+    vec3 boundsMax;
+    uint _pad;
+    uint tagLo;
+    uint tagHi;
+    uint sortKeyLo;
+    uint sortKeyHi;
+};
+
+layout(std430, binding = 0) readonly buffer GeometryTableBuffer {
+    PartitionRecord records[];
+} table;
+
+// VkDrawIndexedIndirectCommand layout (20 bytes): indexCount, instanceCount, firstIndex,
+// vertexOffset (signed in the spec, written as uint here since offsets are non-negative in this
+// sample), firstInstance.
+struct DrawCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    uint vertexOffset;
+    uint firstInstance;
+};
+
+layout(std430, binding = 1) writeonly buffer DrawCommandsBuffer {
+    DrawCommand commands[];
+} draws;
+
+layout(std430, binding = 2) buffer DrawCountBuffer {
+    uint count;
+} drawCount;
+
+layout(push_constant) uniform PushConstants {
+    vec3 cameraPos;
+    float cullDistance;
+    uint partitionCount;
+} pc;
+
+const uint FLAG_RESIDENT = 1u;
+
+layout(local_size_x = 64) in;
+
+// NOTE: drawCount.count must be zeroed by the caller (a buffer fill/clear) before this shader
+// dispatches. barrier() only synchronizes invocations within one workgroup, not across all
+// workgroups in the dispatch, so resetting the counter from inside this shader (e.g. only in
+// invocation 0 of the whole dispatch) would race against every other workgroup's atomicAdd with
+// no ordering guarantee between them.
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= pc.partitionCount) return;
+
+    PartitionRecord rec = table.records[idx];
+    if ((rec.flags & FLAG_RESIDENT) == 0u) return;
+
+    vec3 center = (rec.boundsMin + rec.boundsMax) * 0.5;
+    float dist = length(center - pc.cameraPos);
+    if (dist > pc.cullDistance) return;
+
+    uint slot = atomicAdd(drawCount.count, 1u);
+    draws.commands[slot].indexCount = rec.indexCount;
+    draws.commands[slot].instanceCount = 1u;
+    draws.commands[slot].firstIndex = rec.indexBase;
+    draws.commands[slot].vertexOffset = rec.vertexBase;
+    draws.commands[slot].firstInstance = 0u;
+}

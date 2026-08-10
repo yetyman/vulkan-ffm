@@ -60,10 +60,20 @@ public interface UILayer extends AutoCloseable {
     }
 
     /**
+     * Records pre-render commands (compute dispatches, transfers, barriers) into the provided
+     * command buffer. Called once per frame after update() but BEFORE the render pass begins.
+     * Use this for work that cannot execute inside a dynamic rendering instance: vkCmdFillBuffer,
+     * vkCmdDispatch, non-framebuffer-space barriers, etc.
+     *
+     * Default is a no-op. Layers that only draw inside the render pass need not override this.
+     */
+    default void preRender(VkCommandBuffer cmd, Arena frameArena) {}
+
+    /**
      * Records draw commands into the provided command buffer.
      * Used in the direct rendering path (no render graph).
-     * Called once per frame after update(). The layer should set its own viewport/scissor
-     * and record all draw calls needed.
+     * Called once per frame after update(), inside an active render pass. The layer should set
+     * its own viewport/scissor and record all draw calls needed.
      *
      * Layers using exclusively the render graph path may leave this as a no-op.
      */

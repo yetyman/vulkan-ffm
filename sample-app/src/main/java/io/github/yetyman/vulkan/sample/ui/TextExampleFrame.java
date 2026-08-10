@@ -45,6 +45,13 @@ public class TextExampleFrame extends GraphicsFrame {
     protected void recordCommandBuffer(VkCommandBuffer commandBuffer, int imageIndex, SegmentAllocator frameAllocator) {
         VkCommandBuffer.begin(commandBuffer).execute(frameAllocator);
 
+        double deltaTime = 1.0 / 60.0;
+        UIFrameContext frameCtx = new UIFrameContext(frameArena(), deltaTime, frameNumber++, composite.context());
+        composite.update(frameCtx);
+
+        // Pre-render: compute dispatches, transfers, barriers that must happen outside the render pass
+        composite.preRender(commandBuffer, frameArena());
+
         VkImageBarrier.builder()
             .image(swapchainImageViews[imageIndex].image())
             .srcAccess(0)
@@ -71,9 +78,6 @@ public class TextExampleFrame extends GraphicsFrame {
         VkSetState.setViewport(commandBuffer, 0, 0, 0, width, height, 0.0f, 1.0f);
         VkSetState.setScissor(commandBuffer, 0, 0, 0, width, height);
 
-        double deltaTime = 1.0 / 60.0;
-        UIFrameContext frameCtx = new UIFrameContext(frameArena(), deltaTime, frameNumber++, composite.context());
-        composite.update(frameCtx);
         composite.render(commandBuffer, frameArena());
 
         VkRendering.end(device, commandBuffer.handle());
