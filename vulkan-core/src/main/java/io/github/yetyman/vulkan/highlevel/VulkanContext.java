@@ -366,10 +366,14 @@ public class VulkanContext implements AutoCloseable {
             Arena arena = Arena.ofConfined();
 
             try {
-                // Create instance
+                // Create instance - request at minimum Vulkan 1.2.
+                // Timeline semaphores (Vulkan 1.2 core) are a hard requirement of this library,
+                // and core 1.2 device-level commands like vkCmdDrawIndexedIndirectCount require the
+                // instance API version to be >= 1.2 for the loader to populate their dispatch entries.
                 VkInstance.Builder instanceBuilder = VkInstance.builder()
                         .applicationName(applicationName)
-                        .applicationVersion(applicationVersion);
+                        .applicationVersion(applicationVersion)
+                        .apiVersion(io.github.yetyman.vulkan.Vulkan.VK_API_VERSION_1_2);
 
                 if (instanceExtensions != null) {
                     instanceBuilder.extensions(instanceExtensions);
@@ -433,6 +437,10 @@ public class VulkanContext implements AutoCloseable {
                             + "completions without undefined behaviour.");
                 }
                 deviceBuilder.enableTimelineSemaphore();
+
+                // drawIndirectCount is core Vulkan 1.2; enable it so vkCmdDrawIndexedIndirectCount
+                // and vkCmdDrawIndirectCount are usable without validation errors.
+                deviceBuilder.enableDrawIndirectCount();
 
                 VkDevice device = deviceBuilder.build(arena);
                 VulkanCapabilities.initialize(physicalDevice);

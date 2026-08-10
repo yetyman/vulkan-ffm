@@ -235,6 +235,7 @@ private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
         private boolean sparseBinding = false;
         private boolean timelineSemaphore = false;
         private boolean dynamicRendering = false;
+        private boolean drawIndirectCount = false;
 
         private Builder() {
         }
@@ -338,6 +339,15 @@ private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
             return this;
         }
 
+        /**
+         * Enables the drawIndirectCount feature (Vulkan 1.2 core).
+         * Required for vkCmdDrawIndirectCount / vkCmdDrawIndexedIndirectCount.
+         */
+        public Builder enableDrawIndirectCount() {
+            this.drawIndirectCount = true;
+            return this;
+        }
+
         private void addExtensionIfAbsent(String ext) {
             for (String e : extensions) if (e.equals(ext)) return;
             String[] newExts = new String[extensions.length + 1];
@@ -413,12 +423,20 @@ private VkDevice(MemorySegment handle, VkPhysicalDevice physicalDevice) {
                 pNextHead = dynFeatures;
             }
 
-            if (timelineSemaphore) {
-                MemorySegment timelineFeatures = VkPhysicalDeviceTimelineSemaphoreFeatures.allocate(arena);
-                VkPhysicalDeviceTimelineSemaphoreFeatures.sType(timelineFeatures, VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES.value());
-                VkPhysicalDeviceTimelineSemaphoreFeatures.pNext(timelineFeatures, pNextHead);
-                VkPhysicalDeviceTimelineSemaphoreFeatures.timelineSemaphore(timelineFeatures, 1);
-                pNextHead = timelineFeatures;
+            if (drawIndirectCount || timelineSemaphore) {
+                // Timeline semaphore was promoted into Vulkan 1.2. If VkPhysicalDeviceVulkan12Features
+                // is in the pNext chain, a separate VkPhysicalDeviceTimelineSemaphoreFeatures struct
+                // is forbidden (VUID-VkDeviceCreateInfo-pNext-02830). Consolidate both into Vulkan12Features.
+                MemorySegment vk12Features = VkPhysicalDeviceVulkan12Features.allocate(arena);
+                VkPhysicalDeviceVulkan12Features.sType(vk12Features, VkStructureType.VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES.value());
+                VkPhysicalDeviceVulkan12Features.pNext(vk12Features, pNextHead);
+                if (drawIndirectCount) {
+                    VkPhysicalDeviceVulkan12Features.drawIndirectCount(vk12Features, 1);
+                }
+                if (timelineSemaphore) {
+                    VkPhysicalDeviceVulkan12Features.timelineSemaphore(vk12Features, 1);
+                }
+                pNextHead = vk12Features;
             }
 
             VkDeviceCreateInfo.pNext(createInfo, pNextHead);
