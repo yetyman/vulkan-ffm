@@ -497,6 +497,7 @@ public abstract class GraphicsFrame implements AutoCloseable {
             for (VkFramebuffer framebuffer : framebuffers) framebuffer.close();
         }
         if (renderPass != null) renderPass.close();
+        if (depthImage != null) destroyDepthAttachment();
         if (swapchainImageViews != null) for (VkImageView imageView : swapchainImageViews) imageView.close();
         if (swapchain != null) swapchain.close();
         cleanupResources();

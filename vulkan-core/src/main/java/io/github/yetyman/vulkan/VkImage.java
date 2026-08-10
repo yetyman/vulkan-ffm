@@ -42,6 +42,12 @@ public class VkImage implements AutoCloseable {
         this.lastAccessMask = 0;
         this.lastStageMask = VkPipelineStageFlagBits.VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT.value();
         this.owningQueueFamily = ~0; // VK_QUEUE_FAMILY_IGNORED
+        if (Boolean.getBoolean("vulkan.trackAllocations")) {
+            System.err.println("[TRACK] VkImage created: handle=0x" + Long.toHexString(handle.address())
+                    + " memory=0x" + (memory != null ? Long.toHexString(memory.address()) : "null")
+                    + " " + width + "x" + height
+                    + " @ " + Thread.currentThread().getStackTrace()[3]);
+        }
     }
 
     /**
@@ -121,6 +127,11 @@ public class VkImage implements AutoCloseable {
 
     @Override
     public void close() {
+        if (Boolean.getBoolean("vulkan.trackAllocations")) {
+            System.err.println("[TRACK] VkImage closing: handle=0x" + Long.toHexString(handle.address())
+                    + " memory=0x" + (memory != null ? Long.toHexString(memory.address()) : "null")
+                    + " @ " + Thread.currentThread().getStackTrace()[2]);
+        }
         if (memory != null && !memory.equals(MemorySegment.NULL)) {
             Vulkan.freeMemory(device.handle(), memory);
         }

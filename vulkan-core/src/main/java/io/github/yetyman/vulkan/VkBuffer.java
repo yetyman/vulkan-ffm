@@ -22,6 +22,12 @@ public class VkBuffer implements AutoCloseable {
         this.device = device;
         this.size = size;
         this.usage = usage;
+        if (Boolean.getBoolean("vulkan.trackAllocations")) {
+            System.err.println("[TRACK] VkBuffer created: handle=0x" + Long.toHexString(handle.address())
+                    + " memory=0x" + (memory != null ? Long.toHexString(memory.address()) : "null")
+                    + " size=" + size + " usage=0x" + Integer.toHexString(usage)
+                    + " @ " + Thread.currentThread().getStackTrace()[3]);
+        }
     }
 
     /**
@@ -88,6 +94,11 @@ public class VkBuffer implements AutoCloseable {
 
     @Override
     public void close() {
+        if (Boolean.getBoolean("vulkan.trackAllocations")) {
+            System.err.println("[TRACK] VkBuffer closing: handle=0x" + Long.toHexString(handle.address())
+                    + " memory=0x" + (memory != null ? Long.toHexString(memory.address()) : "null")
+                    + " @ " + Thread.currentThread().getStackTrace()[2]);
+        }
         if (memory != null && !memory.equals(MemorySegment.NULL)) {
             Vulkan.freeMemory(device.handle(), memory);
         }
