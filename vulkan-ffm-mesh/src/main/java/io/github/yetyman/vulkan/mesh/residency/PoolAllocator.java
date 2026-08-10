@@ -69,7 +69,7 @@ public final class PoolAllocator implements GeometryAllocator {
             indexByteSize = indexWidth.byteSize();
             long idxPoolSize = (long) indexByteSize * maxIndices;
             indexPool = BufferFactory.create(strategy, null, idxPoolSize,
-                    BufferUsage.STORAGE, device, transferQueue);
+                    BufferUsage.INDEX, device, transferQueue);
         } else {
             indexByteSize = 0;
             indexPool = null;
