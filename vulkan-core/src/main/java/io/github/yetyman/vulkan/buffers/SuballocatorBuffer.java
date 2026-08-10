@@ -38,6 +38,8 @@ public class SuballocatorBuffer implements IBuffer {
             case VERTEX -> 4L;
             case INDEX -> 4L;
             case TRANSFER -> 1L;
+            case INDIRECT -> 4L;
+            case STORAGE_INDIRECT -> device.physicalDevice().getMinStorageBufferOffsetAlignment();
             case MIXED -> Math.max(device.physicalDevice().getMinUniformBufferOffsetAlignment(),
                     device.physicalDevice().getMinStorageBufferOffsetAlignment());
         };
