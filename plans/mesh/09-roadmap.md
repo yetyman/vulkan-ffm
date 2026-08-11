@@ -8,6 +8,118 @@ interface while it is still cheap to change.
 
 ---
 
+## Progress checklist
+
+### Phase 0: Write the plan
+- [x] All plan documents written (00 through 09 + README)
+
+### Phase 1: vulkan-core prerequisites
+- [x] `GpuLayout` offset-explicit and `MemorySegment`-based
+- [x] Delete `BufferWritable`, add `HasGpuLayout`
+- [x] `IBuffer.acquireWrite` / `acquireRead` scopes
+- [x] Extract `GpuCompletion` interface
+- [x] Fix `TransferBatch` fence-reuse race (replaced with timeline semaphore)
+- [x] Bulk and strided primitive paths on typed buffers
+- [x] Deletions (`BufferWritable`, `VulkanMesh`, `GLTFLoader`)
+
+### Phase 2: Layer 0 and Layer 1, CPU only
+- [x] `AttributeSemantic` (interned identity tokens, indexed factories, custom semantics)
+- [x] `ComponentType`
+- [x] `AttributeFormat` (with optional `vertexInputFormat`, well-known statics, packed escape hatch)
+- [x] `PrimitiveTopology` (interned, open, optional vkTopology mapping)
+- [x] `InputRate`
+- [x] `IndexWidth`
+- [x] `DeviceRange`
+- [x] `ElementWindow`
+- [x] `MeshLayout` (builder, `planar`/`interleaved` factories, element addressing, `shaderDecodedSemantics`, `toVertexFormat`)
+- [x] `MeshLayout.transcodeOps`
+- [x] `StridedCopy`
+- [x] `AttributeStream` interface
+- [x] `IndexStream` interface
+- [x] `GeometrySource` interface
+- [x] `Residency` enum
+- [x] `SegmentAttributeStream`
+- [x] `SegmentIndexStream`
+- [x] `ArrayAttributeStream`
+- [x] `SegmentGeometrySource`
+- [x] `MutableGeometrySource`
+- [x] `MeshOutputSource` (helpers-core isosurface adapter)
+- [x] Procedural primitives: `BoxSource`, `SphereSource`, `PlaneSource`, `GridSource`
+- [ ] Procedural primitive: `TorusSource`
+- [ ] `DeviceAttributeStream` (already-GPU-resident, not host-readable)
+- [ ] `GeneratedAttributeStream` (procedural, writes into dst)
+- [x] Unit tests (MeshVocabularyTest, GeometrySourceTest -- 28+ passing)
+
+### Phase 3: Layer 3 upload, dedicated allocator only
+- [x] `GeometryAllocator` interface
+- [x] `GeometryAllocation` interface
+- [x] `IndexBaseMode`
+- [x] `DedicatedAllocator`
+- [x] `SlabAllocator`
+- [x] `UploadOp` (sealed hierarchy)
+- [x] `UploadPlan`
+- [x] `UploadPlanner`
+- [x] `UploadExecutor` interface
+- [x] `TransferBatchExecutor`
+- [x] `ResidencyTracker` / `DefaultResidencyTracker`
+- [x] `ResidencyListener`
+- [x] `EvictionPolicy` / `LruEvictionPolicy`
+- [x] `GeometryId`
+- [x] `PartitionRef`
+- [x] `QueueClass`
+- [x] `Priority`
+- [x] `PartitionLoader`
+- [x] `RetireQueue`
+- [x] `ResidencyView`
+- [x] `ExternalAllocation`
+- [x] `RingAllocator`
+- [x] Unit tests (UploadPlanningTest -- passing)
+
+### Phase 4: Layer 2 and Layer 4, first sample
+- [x] `GeometryPartition`
+- [x] `PartitionSet`
+- [x] `PartitionMetadata`
+- [x] `MetadataChannel`
+- [x] `PartitioningStrategy` interface
+- [x] `NativePartitioning`
+- [x] `SinglePartition`
+- [x] `GeometryBinding`
+- [x] `GeometryDrawRange`
+- [x] `IndirectDrawEncoder`
+- [x] `Mesh` (thin aggregate with builder)
+- [x] `MeshOps` (reallocation, swap-with-retire)
+- [x] `MeshDemoLayer` in `vulkan-ffm-sample-ui-layers` (vertex-input path sample)
+- [x] Unit tests (ConsumptionTest -- passing)
+- [ ] `TagPartitioning`
+- [ ] Second sample using vertex-pulling path with oct-encoded normal
+
+### Phase 5: Pool allocator, GeometryTable, GPU-driven sample
+- [x] `PoolAllocator`
+- [x] `GeometryTable` (GPU-resident SSBO with dirty tracking)
+- [x] Unit tests (PoolAllocatorTest -- falsification test passing)
+- [ ] `SparsePoolAllocator`
+- [ ] `ReferenceMeshletBuilder` (naive meshlet builder for tests)
+- [ ] `IndirectKind` enum (INDEXED, NON_INDEXED, MESH_TASKS)
+- [ ] `GeometryTableRecord` (fixed base record layout)
+- [ ] GPU-driven sample with compute culling + `vkCmdDrawIndexedIndirectCount`
+- [ ] Pooled sample with many meshes and one bind
+- [ ] CPU recording time flat at 100 / 10,000 / 100,000 partitions (Invariant 1 verified)
+
+### Phase 6: Processing and formats
+- [ ] `NormalGenerator`
+- [ ] `TangentGenerator`
+- [ ] `VertexWelder`
+- [ ] `BoundsCalculator`
+- [ ] `Simplifier` interface
+- [ ] `MeshletBuilder` interface
+- [ ] `vulkan-ffm-mesh-processing` sibling module
+- [ ] glTF format adapter (separate bindings module + `GeometrySource` adapter)
+
+### Phase 7: LOD (not scheduled)
+- [ ] Not started -- deferred until Phases 1-6 complete and stable
+
+---
+
 ## Phase 0: Write the plan
 
 Deliverable: this directory.
