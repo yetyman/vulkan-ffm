@@ -231,6 +231,17 @@ public class LodSceneApp extends VulkanApplication {
         sceneLayer.addModel("Far-Sphere",
                 new SphereSource(sourceArena, 2.0f, 48, 64),
                 sourceArena, Mat4.translation(0, 0, -20));
+
+        // LOD indicator: displays the digit of the active LOD level as the mesh shape.
+        // Makes LOD transitions immediately obvious when zooming in/out.
+        List<io.github.yetyman.vulkan.mesh.source.GeometrySource> numberLods = List.of(
+                NumberMeshSource.create(0, sourceArena),
+                NumberMeshSource.create(1, sourceArena),
+                NumberMeshSource.create(2, sourceArena),
+                NumberMeshSource.create(3, sourceArena)
+        );
+        sceneLayer.addCustomLodModel("LOD-Indicator",
+                numberLods, sourceArena, Mat4.translation(0, -3, 0));
     }
 
     @Override

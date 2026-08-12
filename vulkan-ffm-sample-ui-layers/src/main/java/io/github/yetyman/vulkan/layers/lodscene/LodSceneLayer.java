@@ -113,6 +113,7 @@ public class LodSceneLayer implements UILayer {
     // Scene objects
     private final List<SceneObject> objects = new ArrayList<>();
     private final List<PendingModel> pendingModels = new ArrayList<>();
+    private final List<PendingCustomModel> pendingCustomModels = new ArrayList<>();
 
     // LOD selection
     private LodSelector selector;
@@ -191,6 +192,28 @@ public class LodSceneLayer implements UILayer {
         }
     }
 
+    /**
+     * Adds a model with explicit pre-built LOD sources. No automatic decimation is performed.
+     * Each source becomes one LOD level (index 0 = finest). Error bounds are assigned
+     * automatically based on level index and the bounds of the first source.
+     *
+     * @param name      display name
+     * @param lodSources ordered list of geometry sources (finest first)
+     * @param arena     arena owning the source data
+     * @param transform world transform
+     */
+    public void addCustomLodModel(String name, List<GeometrySource> lodSources, Arena arena,
+                                  Mat4 transform) {
+        if (lodSources == null || lodSources.isEmpty()) {
+            throw new IllegalArgumentException("at least one LOD source required");
+        }
+        if (!initialized) {
+            pendingCustomModels.add(new PendingCustomModel(name, lodSources, arena, transform));
+        } else {
+            objects.add(buildCustomSceneObject(name, lodSources, arena, transform));
+        }
+    }
+
     /** @return unmodifiable view of current scene objects */
     public List<SceneObject> objects() { return List.copyOf(objects); }
 
@@ -228,6 +251,10 @@ public class LodSceneLayer implements UILayer {
             objects.add(buildSceneObject(pm.name, pm.source, pm.arena, pm.transform, pm.decimationRatios));
         }
         pendingModels.clear();
+        for (PendingCustomModel pm : pendingCustomModels) {
+            objects.add(buildCustomSceneObject(pm.name, pm.lodSources, pm.arena, pm.transform));
+        }
+        pendingCustomModels.clear();
         initialized = true;
     }
 
@@ -342,6 +369,38 @@ public class LodSceneLayer implements UILayer {
     private long estimateTriCount(Mesh mesh) {
         GeometryDrawRange range = mesh.fullDrawRange();
         return range.indexCount() / 3;
+    }
+
+    /**
+     * Builds a scene object from pre-built LOD sources (no decimation). Each source is uploaded
+     * as a separate LOD level. Error bounds are spaced evenly based on geometry extent.
+     */
+    private SceneObject buildCustomSceneObject(String name, List<GeometrySource> lodSources,
+                                               Arena arena, Mat4 transform) {
+        List<Mesh> lodMeshes = new ArrayList<>();
+        for (GeometrySource src : lodSources) {
+            lodMeshes.add(uploadWithNormals(src, arena));
+        }
+
+        int levels = lodMeshes.size();
+        RepresentationNode[] nodes = new RepresentationNode[levels];
+        AABB bounds = lodSources.get(0).bounds();
+        float extentSize = bounds.extents().length();
+
+        for (int i = 0; i < levels; i++) {
+            // Evenly spaced error bounds so each level gets a fair distance band
+            float errorBound = (i == 0) ? 0.0f : extentSize * 0.05f * i;
+            long triCount = estimateTriCount(lodMeshes.get(i));
+            nodes[i] = new RepresentationNode(
+                    new int[]{i},
+                    errorBound,
+                    triCount,
+                    bounds,
+                    0);
+        }
+
+        RepresentationStructure.Flat structure = new RepresentationStructure.Flat(nodes);
+        return new SceneObject(name, lodMeshes, structure, bounds, transform);
     }
 
     // -------------------------------------------------------------------------
@@ -507,4 +566,7 @@ public class LodSceneLayer implements UILayer {
 
     private record PendingModel(String name, GeometrySource source, Arena arena,
                                 Mat4 transform, float[] decimationRatios) {}
+
+    private record PendingCustomModel(String name, List<GeometrySource> lodSources, Arena arena,
+                                      Mat4 transform) {}
 }
