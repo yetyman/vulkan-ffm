@@ -27,6 +27,7 @@ public final class LodContext {
 
     private final Vec3 cameraPosition;
     private final Mat4 viewProjection;
+    private final Mat4 projectionMatrix;
     private final float screenHeight;
     private final float errorThreshold;
     private final Mat4 objectTransform;
@@ -50,6 +51,7 @@ public final class LodContext {
     private LodContext(Builder b) {
         this.cameraPosition = b.cameraPosition;
         this.viewProjection = b.viewProjection;
+        this.projectionMatrix = b.projectionMatrix;
         this.screenHeight = b.screenHeight;
         this.errorThreshold = b.errorThreshold;
         this.objectTransform = b.objectTransform;
@@ -166,6 +168,10 @@ public final class LodContext {
      * <p>Selectors may use this directly or implement their own projection. This convenience
      * avoids every selector reimplementing the same math.
      *
+     * <p>Uses the projection matrix's [1][1] element (cot(fovY/2)) when a separate projection
+     * matrix is supplied. Falls back to the viewProjection matrix otherwise (which is only
+     * correct for axis-aligned view matrices).
+     *
      * @param worldError the error in world-space units
      * @param objectDistance distance from camera to object center
      * @return projected error in pixels
@@ -174,7 +180,8 @@ public final class LodContext {
         if (objectDistance <= 0.0f) return Float.MAX_VALUE;
         // Extract vertical FOV from projection matrix: element [1][1] = 1/tan(fovY/2)
         // Mat4 uses column-major naming mColumnRow, so column 1 row 1 = m11
-        float cotHalfFov = viewProjection.m11;
+        float cotHalfFov = projectionMatrix != null ? projectionMatrix.m11 : viewProjection.m11;
+        if (cotHalfFov < 0) cotHalfFov = -cotHalfFov; // Vulkan projection may negate Y
         return (worldError / objectDistance) * (screenHeight * 0.5f * cotHalfFov);
     }
 
@@ -201,6 +208,7 @@ public final class LodContext {
     public static final class Builder {
         private Vec3 cameraPosition;
         private Mat4 viewProjection;
+        private Mat4 projectionMatrix;
         private float screenHeight = 1080.0f;
         private float errorThreshold = 1.0f;
         private Mat4 objectTransform;
@@ -217,6 +225,8 @@ public final class LodContext {
 
         public Builder cameraPosition(Vec3 pos) { this.cameraPosition = pos; return this; }
         public Builder viewProjection(Mat4 vp) { this.viewProjection = vp; return this; }
+        /** Sets the projection matrix separately for accurate FOV extraction in projectError(). */
+        public Builder projectionMatrix(Mat4 proj) { this.projectionMatrix = proj; return this; }
         public Builder screenHeight(float h) { this.screenHeight = h; return this; }
         public Builder errorThreshold(float t) { this.errorThreshold = t; return this; }
         public Builder objectTransform(Mat4 m) { this.objectTransform = m; return this; }
