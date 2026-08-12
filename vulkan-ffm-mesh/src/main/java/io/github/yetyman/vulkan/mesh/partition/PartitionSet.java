@@ -20,6 +20,7 @@ public final class PartitionSet {
     private final List<GeometryPartition> partitions;
     private final AABB bounds;
     private final SpatialStructure<GeometryPartition> hierarchy;
+    private PartitionMetadata metadata; // lazily initialized
 
     private PartitionSet(List<GeometryPartition> partitions, AABB bounds,
                          SpatialStructure<GeometryPartition> hierarchy) {
@@ -84,5 +85,23 @@ public final class PartitionSet {
      */
     public Optional<SpatialStructure<GeometryPartition>> hierarchy() {
         return Optional.ofNullable(hierarchy);
+    }
+
+    /**
+     * @return the per-partition metadata registry for this set. Lazily created on first access
+     * so partition sets that never use metadata channels pay no cost.
+     */
+    public PartitionMetadata metadata() {
+        if (metadata == null) {
+            metadata = new PartitionMetadata(partitions.size());
+        }
+        return metadata;
+    }
+
+    /**
+     * @return true if metadata has been accessed (and thus allocated) for this partition set
+     */
+    public boolean hasMetadata() {
+        return metadata != null;
     }
 }
