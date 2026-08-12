@@ -82,7 +82,7 @@ public final class TorusSource implements GeometrySource {
                 float y = minorRadius * sinPhi;
                 float z = (majorRadius + minorRadius * cosPhi) * sinTheta;
 
-                // Normal: direction from the ring center to the vertex
+                // Normal: direction from the ring center to the vertex (outward)
                 float nx = cosPhi * cosTheta;
                 float ny = sinPhi;
                 float nz = cosPhi * sinTheta;
@@ -100,7 +100,7 @@ public final class TorusSource implements GeometrySource {
             }
         }
 
-        // Generate indices
+        // Generate indices (winding flipped vs sphere to match torus surface orientation)
         int ii = 0;
         for (int r = 0; r < rings; r++) {
             for (int s = 0; s < sides; s++) {
@@ -109,11 +109,11 @@ public final class TorusSource implements GeometrySource {
                 int bl = tl + vertsPerRing;
                 int br = bl + 1;
                 idxs.set(JAVA_INT_UNALIGNED, (long) ii * 4, tl);
-                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 1) * 4, bl);
-                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 2) * 4, tr);
+                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 1) * 4, tr);
+                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 2) * 4, bl);
                 idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 3) * 4, tr);
-                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 4) * 4, bl);
-                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 5) * 4, br);
+                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 4) * 4, br);
+                idxs.set(JAVA_INT_UNALIGNED, (long) (ii + 5) * 4, bl);
                 ii += 6;
             }
         }

@@ -111,7 +111,9 @@ interface while it is still cheap to change.
 - [x] `BoundsCalculator` (AABB from position streams)
 - [x] `Simplifier` interface (target ratio / target count / error tracking)
 - [x] `MeshletBuilder` interface (extends PartitioningStrategy)
-- [ ] `vulkan-ffm-mesh-processing` sibling module (optimized implementations)
+- [x] `vulkan-ffm-mesh-processing` sibling module with:
+  - [x] `QemSimplifier` (Garland-Heckbert quadric error metric, pure Java)
+  - [x] `OptimizedMeshletBuilder` (greedy adjacency-based vertex reuse maximization)
 - [ ] glTF format adapter (separate bindings module + `GeometrySource` adapter)
 
 ### Phase 7: LOD (not scheduled)
