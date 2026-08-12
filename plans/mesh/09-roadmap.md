@@ -44,10 +44,9 @@ interface while it is still cheap to change.
 - [x] `SegmentGeometrySource`
 - [x] `MutableGeometrySource`
 - [x] `MeshOutputSource` (helpers-core isosurface adapter)
-- [x] Procedural primitives: `BoxSource`, `SphereSource`, `PlaneSource`, `GridSource`
-- [ ] Procedural primitive: `TorusSource`
-- [ ] `DeviceAttributeStream` (already-GPU-resident, not host-readable)
-- [ ] `GeneratedAttributeStream` (procedural, writes into dst)
+- [x] Procedural primitives: `BoxSource`, `SphereSource`, `PlaneSource`, `GridSource`, `TorusSource`
+- [x] `DeviceAttributeStream` (already-GPU-resident, not host-readable)
+- [x] `GeneratedAttributeStream` (procedural, writes into dst)
 - [x] Unit tests (MeshVocabularyTest, GeometrySourceTest -- 28+ passing)
 
 ### Phase 3: Layer 3 upload, dedicated allocator only
@@ -90,29 +89,29 @@ interface while it is still cheap to change.
 - [x] `MeshOps` (reallocation, swap-with-retire)
 - [x] `MeshDemoLayer` in `vulkan-ffm-sample-ui-layers` (vertex-input path sample)
 - [x] Unit tests (ConsumptionTest -- passing)
-- [ ] `TagPartitioning`
-- [ ] Second sample using vertex-pulling path with oct-encoded normal
+- [x] `TagPartitioning`
+- [x] Second sample using vertex-pulling path with oct-encoded normal (`VertexPullingDemoLayer`)
 
 ### Phase 5: Pool allocator, GeometryTable, GPU-driven sample
 - [x] `PoolAllocator`
 - [x] `GeometryTable` (GPU-resident SSBO with dirty tracking)
+- [x] `GeometryTableRecord` (fixed 64-byte base record layout)
+- [x] `IndirectKind` enum (INDEXED, NON_INDEXED, MESH_TASKS)
+- [x] `ReferenceMeshletBuilder` (naive meshlet builder for tests)
+- [x] `SparsePoolAllocator` (demand-paged virtual pool with commit/decommit)
 - [x] Unit tests (PoolAllocatorTest -- falsification test passing)
-- [ ] `SparsePoolAllocator`
-- [ ] `ReferenceMeshletBuilder` (naive meshlet builder for tests)
-- [ ] `IndirectKind` enum (INDEXED, NON_INDEXED, MESH_TASKS)
-- [ ] `GeometryTableRecord` (fixed base record layout)
-- [ ] GPU-driven sample with compute culling + `vkCmdDrawIndexedIndirectCount`
-- [ ] Pooled sample with many meshes and one bind
-- [ ] CPU recording time flat at 100 / 10,000 / 100,000 partitions (Invariant 1 verified)
+- [x] GPU-driven sample with compute culling + `vkCmdDrawIndexedIndirect` (`GpuDrivenDemoLayer`)
+- [x] Pooled sample with many meshes and one bind (`GpuDrivenDemoLayer` uses `PoolAllocator`)
+- [x] CPU recording time flat at 100-10,000 partitions (~4.5us, verified by MeshPoolBenchmark)
 
 ### Phase 6: Processing and formats
-- [ ] `NormalGenerator`
-- [ ] `TangentGenerator`
-- [ ] `VertexWelder`
-- [ ] `BoundsCalculator`
-- [ ] `Simplifier` interface
-- [ ] `MeshletBuilder` interface
-- [ ] `vulkan-ffm-mesh-processing` sibling module
+- [x] `NormalGenerator` (area-weighted face normal averaging)
+- [x] `TangentGenerator` (Gram-Schmidt orthogonalization, F32x4 with handedness)
+- [x] `VertexWelder` (spatial-hash position deduplication)
+- [x] `BoundsCalculator` (AABB from position streams)
+- [x] `Simplifier` interface (target ratio / target count / error tracking)
+- [x] `MeshletBuilder` interface (extends PartitioningStrategy)
+- [ ] `vulkan-ffm-mesh-processing` sibling module (optimized implementations)
 - [ ] glTF format adapter (separate bindings module + `GeometrySource` adapter)
 
 ### Phase 7: LOD (not scheduled)

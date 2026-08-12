@@ -17,6 +17,7 @@
         <module>vulkan-ffm-sample-ui-layers</module>
         <module>sample-app</module>
         <module>vulkan-ffm-mesh</module>
+        <module>vulkan-ffm-mesh-processing</module>
     </modules>
 
     <profiles>

@@ -44,6 +44,18 @@ public final class PartitionSet {
     }
 
     /**
+     * Creates a partition set with no spatial hierarchy, computing bounds from the partitions.
+     */
+    public static PartitionSet of(List<GeometryPartition> partitions) {
+        if (partitions.isEmpty()) throw new IllegalArgumentException("partitions must not be empty");
+        AABB combined = AABB.fromMinMax(partitions.getFirst().bounds().min, partitions.getFirst().bounds().max);
+        for (int i = 1; i < partitions.size(); i++) {
+            combined.merge(partitions.get(i).bounds());
+        }
+        return new PartitionSet(List.copyOf(partitions), combined, null);
+    }
+
+    /**
      * Creates a single-partition set covering the entire geometry.
      */
     public static PartitionSet single(GeometryPartition partition) {

@@ -1,0 +1,93 @@
+#version 450
+
+// GPU culling compute shader: reads the GeometryTable, performs frustum culling,
+// and writes VkDrawIndexedIndirectCommand for visible partitions.
+
+layout (local_size_x = 64) in;
+
+// GeometryTable record layout (64 bytes, matching GeometryTableRecord.java):
+// u32 vertexBase, indexBase, indexCount, vertexCount
+// vec3 boundsMin, u32 flags
+// vec3 boundsMax, u32 _pad
+// u64 tag, u64 sortKey
+struct TableRecord {
+    uint vertexBase;
+    uint indexBase;
+    uint indexCount;
+    uint vertexCount;
+    vec3 boundsMin;
+    uint flags;
+    vec3 boundsMax;
+    uint _pad;
+    uvec2 tag;       // u64 as uvec2
+    uvec2 sortKey;   // u64 as uvec2
+};
+
+layout (set = 0, binding = 0) readonly buffer GeometryTableBuf {
+    TableRecord records[];
+};
+
+// Output: VkDrawIndexedIndirectCommand (20 bytes = 5 uints)
+layout (set = 0, binding = 1) writeonly buffer DrawCommandBuf {
+    uint drawCommands[];
+};
+
+// Atomic draw count
+layout (set = 0, binding = 2) buffer DrawCountBuf {
+    uint drawCount;
+};
+
+layout (push_constant) uniform PushConstants {
+    mat4 viewProj;
+    uint partitionCount;
+} pc;
+
+// Flag bits
+const uint FLAG_RESIDENT = 1u;
+const uint FLAG_INDEXED = 2u;
+
+bool frustumCull(vec3 bmin, vec3 bmax, mat4 vp) {
+    // Test AABB against all 6 frustum planes extracted from the view-projection matrix.
+    // Returns true if the AABB is OUTSIDE (should be culled).
+    for (int i = 0; i < 6; i++) {
+        vec4 plane;
+        if (i == 0) plane = vp[3] + vp[0]; // left
+        else if (i == 1) plane = vp[3] - vp[0]; // right
+        else if (i == 2) plane = vp[3] + vp[1]; // bottom
+        else if (i == 3) plane = vp[3] - vp[1]; // top
+        else if (i == 4) plane = vp[3] + vp[2]; // near
+        else plane = vp[3] - vp[2]; // far
+
+        // Test positive vertex (the corner of the AABB furthest along the plane normal)
+        vec3 pv = vec3(
+            plane.x > 0.0 ? bmax.x : bmin.x,
+            plane.y > 0.0 ? bmax.y : bmin.y,
+            plane.z > 0.0 ? bmax.z : bmin.z
+        );
+        if (dot(plane.xyz, pv) + plane.w < 0.0) return true;
+    }
+    return false;
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= pc.partitionCount) return;
+
+    TableRecord rec = records[id];
+
+    // Skip non-resident partitions
+    if ((rec.flags & FLAG_RESIDENT) == 0u) return;
+
+    // Frustum cull
+    if (frustumCull(rec.boundsMin, rec.boundsMax, pc.viewProj)) return;
+
+    // Partition is visible: emit an indirect draw command
+    uint slot = atomicAdd(drawCount, 1u);
+    uint base = slot * 5u; // 5 uints per VkDrawIndexedIndirectCommand
+
+    drawCommands[base + 0] = rec.indexCount;     // indexCount
+    drawCommands[base + 1] = 1u;                 // instanceCount
+    drawCommands[base + 2] = rec.indexBase;      // firstIndex
+    drawCommands[base + 3] = int(rec.vertexBase);// vertexOffset (signed in Vulkan)
+    drawCommands[base + 4] = 0u;                 // firstInstance
+}
