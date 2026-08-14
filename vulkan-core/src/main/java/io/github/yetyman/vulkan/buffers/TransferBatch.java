@@ -5,7 +5,9 @@ import io.github.yetyman.vulkan.command.VkCopy;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
@@ -73,7 +75,7 @@ class TransferBatch {
 
     private final List<TimelineWait> pendingWaits = new ArrayList<>();
     private final List<TimelineWait> pendingSignals = new ArrayList<>();
-    private final List<BatchTransferCompletion> liveCompletions = new ArrayList<>();
+    private final Deque<BatchTransferCompletion> liveCompletions = new ArrayDeque<>();
 
     private Arena batchArena;
     private VkCommandBuffer commandBuffer;
@@ -145,8 +147,14 @@ class TransferBatch {
         slotGeneration[slot] = generation;
         slotCompletion[slot] = currentCompletion;
 
-        liveCompletions.removeIf(BatchTransferCompletion::isReleased);
-        liveCompletions.add(currentCompletion);
+        // Drain released completions from the front. Completions are enqueued in generation order
+        // and GPU work completes roughly FIFO, so released entries cluster at the head. This is O(k)
+        // where k is the number of newly-released entries rather than O(n) over the entire collection,
+        // which eliminates the scaling problem of the previous removeIf scan.
+        while (!liveCompletions.isEmpty() && liveCompletions.peekFirst().isReleased()) {
+            liveCompletions.pollFirst();
+        }
+        liveCompletions.addLast(currentCompletion);
         stagedBytes = 0;
         pendingCount = 0;
     }
