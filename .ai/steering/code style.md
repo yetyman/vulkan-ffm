@@ -1,0 +1,15 @@
+ # Code Style
+  - Prioritize complete and comprehensive solutions
+  - When anything is stubbed make sure you note it in chat and use "stub" in the stub's comments.
+  - It is more important to provide complete solutions than it is be concise or minimal
+  - Whenever possible try to style code like other code in the project, especially adjacent files
+  - Don't give long summaries unless asked, short summaries are still welcomed
+  - Don't simplify or rollback just because a solution is becoming complex. If you don't have complete knowledge of how to approach a solution, ask for guidance. Complex code is common here.
+  - When responding to multiple points at once, number or quote my question in the response for clarity
+  - You should have access to jetbrains mcp server. it is more robust than fsReplace generally prefer it.
+  - Do not place emoji/special characters in code files not even in comments
+  - When you will make several changes at once or must refactor across the codebase, group up your tool use and use the more robust tools offered for refactoring.
+  - When you are unsure of which decision to make, ask
+  - When you are cycling to figure out the root cause, just add instrumentation logs instead and test.
+  - We keep large system intent documentation over our major subsystems in the docs folder
+  - This codebase is not in use yet and does not have migration concerns. Modifying other modules is acceptable.
