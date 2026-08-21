@@ -3,6 +3,7 @@ package io.github.yetyman.vulkan.buffers;
 import io.github.yetyman.vulkan.VkBuffer;
 import io.github.yetyman.vulkan.VkDevice;
 import io.github.yetyman.vulkan.VkQueue;
+import io.github.yetyman.vulkan.command.VkCopy;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -28,18 +29,28 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
     private final BufferUsage usage;
     private final AllocationStrategy allocation;
     private final TransferStrategy transfer;
+    private final CpuObservability observability;
+    private final DirtyStrategy cpuDirty;
+    private final DirtyStrategy gpuDirty;
     private final VkBuffer vkBuffer;
     private final TransferContext context;
+    private volatile boolean deferred;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private ManagedBuffer(VkDevice device, long size, BufferUsage usage,
-                          AllocationStrategy allocation, TransferStrategy transfer) {
+                          AllocationStrategy allocation, TransferStrategy transfer,
+                          CpuObservability observability, DirtyStrategy cpuDirty,
+                          DirtyStrategy gpuDirty) {
         this.device = device;
         this.size = size;
         this.usage = usage;
         this.allocation = allocation;
         this.transfer = transfer;
+        this.observability = observability;
+        this.cpuDirty = cpuDirty;
+        this.gpuDirty = gpuDirty;
+        this.deferred = false;
         this.arena = Arena.ofShared();
 
         try {
@@ -47,6 +58,14 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
             MemorySegment mapped = allocation.persistentMap(device, vkBuffer, arena);
             SparsePageAllocator sparsePages = allocation instanceof SparseAllocationStrategy sparse ? sparse.pages() : null;
             this.context = new TransferContext(device, arena, vkBuffer, size, mapped, sparsePages);
+
+            // Initialize observability with the primary buffer's handle
+            observability.initialize(device, size, vkBuffer.handle(), arena);
+
+            // If observability is inherent (mapped memory), feed it the mapped segment
+            if (observability instanceof InherentObservability inherent && mapped != null) {
+                inherent.setMappedMemory(mapped);
+            }
         } catch (Exception e) {
             arena.close();
             throw e;
@@ -97,6 +116,150 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         return transfer;
     }
 
+    /**
+     * @return the CPU observability strategy for this buffer.
+     */
+    public CpuObservability observability() {
+        return observability;
+    }
+
+    /**
+     * @return the CPU->GPU dirty tracking strategy.
+     */
+    public DirtyStrategy cpuDirtyStrategy() {
+        return cpuDirty;
+    }
+
+    /**
+     * @return the GPU->CPU dirty tracking strategy.
+     */
+    public DirtyStrategy gpuDirtyStrategy() {
+        return gpuDirty;
+    }
+
+    // -------------------------------------------------------------------------
+    // Deferred mode and dirty flush
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sets whether writes accumulate (true) or immediately transfer (false).
+     * Setting to true triggers an async flush of any pending dirty state (typically a no-op
+     * since immediate mode clears dirty state on each write).
+     */
+    public void setDeferred(boolean deferred) {
+        if (this.deferred == deferred) return;
+        if (deferred && cpuDirty.isDirty()) {
+            // Flush any accumulated state before switching to deferred mode
+            flushDirtyAsync(null);
+        }
+        this.deferred = deferred;
+    }
+
+    /**
+     * @return true if writes accumulate without immediate GPU transfer
+     */
+    public boolean isDeferred() {
+        return deferred;
+    }
+
+    /**
+     * Flushes all CPU-dirty ranges to the GPU using multi-region copy.
+     * No-op if nothing is dirty or if observability is not mirrored.
+     * In immediate mode (deferred == false), always a no-op since writes already transferred.
+     *
+     * @param queue the queue to issue the copy on (uses transfer queue if null)
+     * @return a completion for the flush, or an already-complete token if nothing to flush
+     */
+    public GpuCompletion flushDirty(VkQueue queue) {
+        GpuCompletion completion = flushDirtyAsync(queue);
+        if (completion != GpuCompletion.completed()) {
+            TransferBatchManager.flush(device, queue);
+            completion.await();
+            completion.close();
+        }
+        return GpuCompletion.completed();
+    }
+
+    /**
+     * Async version of {@link #flushDirty(VkQueue)}: records dirty-range copies into the
+     * transfer batch, returns immediately. Caller must flush the batch and await.
+     *
+     * @param queue the queue to issue the copy on
+     * @return a completion for the flush, or an already-complete token if nothing to flush
+     */
+    public GpuCompletion flushDirtyAsync(VkQueue queue) {
+        if (!cpuDirty.isDirty()) return GpuCompletion.completed();
+        if (!(observability instanceof MirrorCapable mirror)) return GpuCompletion.completed();
+
+        int regionCount = cpuDirty.dirtyRegionCount();
+        if (regionCount == 0) return GpuCompletion.completed();
+
+        // Collect dirty regions
+        long[] offsets = new long[regionCount];
+        long[] sizes = new long[regionCount];
+        DirtyRegionIterator it = cpuDirty.dirtyRegions();
+        int i = 0;
+        while (it.hasNext() && i < regionCount) {
+            it.next();
+            offsets[i] = it.offset();
+            sizes[i] = it.size();
+            i++;
+        }
+        int actualCount = i;
+
+        // Record the multi-region copy from mirror -> primary
+        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+        GpuCompletion completion = batch.recordMultiRegion(
+                mirror.mirrorHandle(), vkBuffer.handle(), offsets, offsets, sizes, actualCount);
+
+        cpuDirty.clear();
+        return completion;
+    }
+
+    /**
+     * Marks a range as modified by the GPU (e.g. after a compute dispatch).
+     * Call this after GPU work that wrote to this buffer has completed.
+     */
+    public void markGpuDirty(long offset, long size) {
+        gpuDirty.markDirty(offset, size);
+    }
+
+    /**
+     * Reads back GPU-dirty ranges into the mirror. Multi-region copy from primary -> mirror.
+     * No-op if the GPU dirty strategy has no dirty ranges or observability is not mirrored.
+     *
+     * @param queue the queue to issue the copy on
+     * @return a completion for the readback
+     */
+    public GpuCompletion readDiff(VkQueue queue) {
+        if (!gpuDirty.isDirty()) return GpuCompletion.completed();
+        if (!(observability instanceof MirrorCapable mirror)) return GpuCompletion.completed();
+
+        int regionCount = gpuDirty.dirtyRegionCount();
+        if (regionCount == 0) return GpuCompletion.completed();
+
+        // Collect dirty regions
+        long[] offsets = new long[regionCount];
+        long[] sizes = new long[regionCount];
+        DirtyRegionIterator it = gpuDirty.dirtyRegions();
+        int i = 0;
+        while (it.hasNext() && i < regionCount) {
+            it.next();
+            offsets[i] = it.offset();
+            sizes[i] = it.size();
+            i++;
+        }
+        int actualCount = i;
+
+        // Record multi-region copy from primary -> mirror
+        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+        GpuCompletion completion = batch.recordMultiRegion(
+                vkBuffer.handle(), mirror.mirrorHandle(), offsets, offsets, sizes, actualCount);
+
+        gpuDirty.clear();
+        return completion;
+    }
+
     @Override
     public void write(ByteBuffer data, long offset, VkQueue queue) {
         GpuCompletion tc = writeAsync(data, offset, queue);
@@ -107,16 +270,40 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
 
     @Override
     public GpuCompletion writeAsync(ByteBuffer data, long offset, VkQueue queue) {
+        if (deferred && observability.isMirrored()) {
+            // In deferred mode with a mirror: write to the mirror, mark dirty, no GPU transfer
+            int length = data.remaining();
+            MemorySegment mirrorSlice = observability.acquireReadable(offset, length);
+            if (mirrorSlice != null) {
+                MemorySegment.copy(MemorySegment.ofBuffer(data), 0, mirrorSlice, 0, length);
+                cpuDirty.markDirty(offset, length);
+                return GpuCompletion.completed();
+            }
+        }
         return transfer.writeAsync(context, data, offset, queue);
     }
 
     @Override
     public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
+        if (deferred && observability instanceof MirrorCapable mirror) {
+            // In deferred mode: hand back the mirror's memory, mark dirty on close, no GPU copy
+            MemorySegment target = mirror.mirrorMemory().asSlice(offset, size);
+            return BufferWriteScope.of(target, offset, size,
+                    () -> {
+                        cpuDirty.markDirty(offset, size);
+                        return GpuCompletion.completed();
+                    });
+        }
         return transfer.acquireWrite(context, offset, size, queue);
     }
 
     @Override
     public BufferReadScope acquireRead(long offset, long size, VkQueue queue) {
+        // If observability provides readable memory, use it (zero-cost for mirrored/inherent)
+        MemorySegment readable = observability.acquireReadable(offset, size);
+        if (readable != null) {
+            return BufferReadScope.of(readable, offset, size, null);
+        }
         return transfer.acquireRead(context, offset, size, queue);
     }
 
@@ -142,36 +329,6 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
     public GpuCompletion copyToAsync(IBuffer dst, long srcOffset, long dstOffset, long length, VkQueue queue) {
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
         return batch.record(handle(), dst.handle(), srcOffset, dstOffset, length);
-    }
-
-    /**
-     * Issues a GPU copy from an externally-owned buffer handle directly into this buffer,
-     * without staging the data through this buffer's own {@link TransferStrategy}.
-     *
-     * <p>Narrow optimization entry point: for callers (e.g. {@link MirroredBuffer}) that already
-     * hold data in their own mapped, host-visible {@code VkBuffer} and only need the GPU-side
-     * copy — calling {@link #writeAsync} instead would redundantly re-stage the same bytes.
-     *
-     * @param srcHandle source VkBuffer handle — must be host-visible and TRANSFER_SRC capable
-     */
-    public GpuCompletion copyFromExternal(MemorySegment srcHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
-        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
-        return batch.record(srcHandle, handle(), srcOffset, dstOffset, length);
-    }
-
-    /**
-     * Issues a GPU copy from this buffer directly into an externally-owned buffer handle,
-     * without routing through the destination's own {@link TransferStrategy}.
-     *
-     * <p>Narrow optimization entry point: the counterpart to {@link #copyFromExternal} — used by
-     * {@link MirroredBuffer#refreshFromGpu} to read this buffer's current GPU-side contents
-     * straight into its own mapped mirror memory.
-     *
-     * @param dstHandle destination VkBuffer handle — must be host-visible and TRANSFER_DST capable
-     */
-    public GpuCompletion copyToExternal(MemorySegment dstHandle, long srcOffset, long dstOffset, long length, VkQueue queue) {
-        TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
-        return batch.record(handle(), dstHandle, srcOffset, dstOffset, length);
     }
 
     // -------------------------------------------------------------------------
@@ -214,6 +371,7 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         if (closed.compareAndSet(false, true)) {
             try {
                 transfer.close(context);
+                observability.close();
                 if (context.sparsePages != null) context.sparsePages.close();
                 if (vkBuffer != null) vkBuffer.close();
             } finally {
@@ -223,8 +381,9 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
     }
 
     /**
-     * Fluent builder for directly composing an {@link AllocationStrategy} and
-     * {@link TransferStrategy}. Prefer {@link BufferFactory} for the common cases —
+     * Fluent builder for directly composing an {@link AllocationStrategy},
+     * {@link TransferStrategy}, {@link CpuObservability}, and {@link DirtyStrategy}.
+     * Prefer {@link BufferFactory} for the common cases —
      * this builder is for callers that need explicit control over the composition.
      */
     public static class Builder {
@@ -233,6 +392,9 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         private BufferUsage usage;
         private AllocationStrategy allocation;
         private TransferStrategy transfer;
+        private CpuObservability observability;
+        private DirtyStrategy cpuDirty;
+        private DirtyStrategy gpuDirty;
 
         private Builder() {
         }
@@ -267,13 +429,45 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
             return this;
         }
 
+        /** Sets the CPU observability strategy — how the CPU reads buffer contents. */
+        public Builder observability(CpuObservability observability) {
+            this.observability = observability;
+            return this;
+        }
+
+        /** Sets the CPU->GPU dirty tracking strategy. */
+        public Builder dirtyStrategy(DirtyStrategy cpuDirty) {
+            this.cpuDirty = cpuDirty;
+            return this;
+        }
+
+        /** Sets the GPU->CPU dirty tracking strategy. */
+        public Builder gpuDirtyStrategy(DirtyStrategy gpuDirty) {
+            this.gpuDirty = gpuDirty;
+            return this;
+        }
+
         public ManagedBuffer build() {
             if (device == null) throw new IllegalStateException("device not set");
             if (size <= 0) throw new IllegalStateException("invalid size");
             if (usage == null) throw new IllegalStateException("usage not set");
             if (allocation == null) throw new IllegalStateException("allocation strategy not set");
             if (transfer == null) throw new IllegalStateException("transfer strategy not set");
-            return new ManagedBuffer(device, size, usage, allocation, transfer);
+
+            // Infer observability if not set
+            if (observability == null) {
+                observability = NoneObservability.INSTANCE;
+            }
+            // Infer dirty strategies if not set
+            if (cpuDirty == null) {
+                cpuDirty = DirtyStrategy.forSize(size);
+            }
+            if (gpuDirty == null) {
+                gpuDirty = DirtyStrategy.forSize(size);
+            }
+
+            return new ManagedBuffer(device, size, usage, allocation, transfer,
+                    observability, cpuDirty, gpuDirty);
         }
     }
 }

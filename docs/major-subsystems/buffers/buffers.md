@@ -3,16 +3,22 @@
 ## Overview
 
 The buffer system provides a composable, strategy-based abstraction over Vulkan buffer memory.
-Two orthogonal concerns — where memory lives and how data moves between CPU and GPU — are
-represented as separate, independently swappable strategy interfaces, composed inside a single
-concrete implementation (`ManagedBuffer`). This replaced an earlier inheritance-based design
-(`AbstractBuffer` with one subclass per memory type) that forced fixed combinations of allocation
-and transfer behavior and could not represent buffers with different needs on either axis without
-duplicating logic across subclasses.
+Four orthogonal concerns are represented as separate, independently swappable strategy interfaces,
+composed inside a single concrete implementation (`ManagedBuffer`):
+
+1. **AllocationStrategy** -- where memory lives (device-local, host-visible, ReBAR, sparse)
+2. **TransferStrategy** -- how data moves between CPU and GPU (mapped, staged, direct, sparse)
+3. **CpuObservability** -- how the CPU observes buffer contents (none, inherent, mirrored)
+4. **DirtyStrategy** -- which byte ranges have changed since last flush (always, range, bitset)
+
+This replaced an earlier inheritance-based design (`AbstractBuffer` with one subclass per memory
+type, plus a `MirroredBuffer` decorator) that forced fixed combinations of allocation and transfer
+behavior and could not represent buffers with different needs on any axis without duplicating logic
+across subclasses or wrapping with decorators.
 
 A generic `IBuffer` interface sits above `ManagedBuffer` so that custom buffer implementations
 (graph-transient resources, externally-owned handles, test doubles) can participate in the same
-APIs — descriptor binding, typed views, copy operations — without depending on the strategy
+APIs -- descriptor binding, typed views, copy operations -- without depending on the strategy
 composition machinery.
 
 ## Package Structure
@@ -20,7 +26,7 @@ composition machinery.
 ```
 io.github.yetyman.vulkan.buffers/
     IBuffer.java                    - generic contract: handle/size/usage/write/read/copy/scopes/close
-    ManagedBuffer.java               - primary IBuffer impl: composes AllocationStrategy + TransferStrategy
+    ManagedBuffer.java               - primary IBuffer impl: composes all four strategy axes
     AllocationStrategy.java          - interface: where memory lives, how it is mapped
     DirectAllocationStrategy.java    - one dedicated VkBuffer + VkDeviceMemory, fixed memory property flags
     ReBarAllocationStrategy.java     - DEVICE_LOCAL | HOST_VISIBLE | HOST_COHERENT, always persistently mapped
@@ -31,6 +37,16 @@ io.github.yetyman.vulkan.buffers/
     StagingTransferStrategy.java     - staging buffer + vkCmdCopyBuffer; persistent or transient staging
     SparseTransferStrategy.java      - page-commit-aware; host-visible per-page memcpy or staged device-local
     TransferContext.java             - per-buffer state bundle passed into stateless strategy instances
+    CpuObservability.java            - interface: how the CPU reads buffer contents
+    NoneObservability.java           - no CPU reads expected (device-local without mirroring)
+    InherentObservability.java       - allocation is already host-visible (MAPPED, REBAR)
+    MirroredObservability.java       - separate host-visible companion buffer for CPU reads + staging source
+    MirrorCapable.java               - capability interface for observability implementations with a mirror buffer
+    DirtyStrategy.java               - interface: which byte ranges changed since last flush
+    DirtyRegionIterator.java         - zero-allocation iterator over dirty regions
+    AlwaysDirtyStrategy.java         - whole buffer always dirty (< 4KB: tracking overhead exceeds savings)
+    RangeCoalescingDirtyStrategy.java - sorted interval list with merge (4KB - 1MB)
+    BitSetDirtyStrategy.java         - fixed-size page bitmap (>= 1MB)
     SparseCapable.java                - capability interface: pageSize/commitPages/decommitPages/isCommitted
     MemoryStrategy.java               - enum vocabulary for BufferFactory strategy selection
     BufferFactory.java                - primary construction entry point; builds strategy compositions
@@ -39,7 +55,6 @@ io.github.yetyman.vulkan.buffers/
     AccessFrequency.java, DataScale.java, BufferUsage.java - selector input vocabulary
     RingBuffer.java                   - N-buffered composite wrapping independent IBuffer instances
     SuballocatorBuffer.java           - fixed-slot slab allocator over one backing IBuffer
-    MirroredBuffer.java               - CPU-mirror decorator over any IBuffer
     SparsePageAllocator.java          - page bind/unbind/map/unmap lifecycle for sparse buffers
     GpuLayout.java                    - offset-explicit serialization strategy for a type
     HasGpuLayout.java                 - implemented by types declaring a canonical GpuLayout
@@ -63,81 +78,143 @@ io.github.yetyman.vulkan.buffers.typed/
 
 ```java
 public final class ManagedBuffer implements IBuffer, SparseCapable {
-    private final AllocationStrategy allocation; // where memory lives, how it is mapped
-    private final TransferStrategy transfer;     // how data moves CPU <-> GPU
+    private final AllocationStrategy allocation;    // where memory lives, how it is mapped
+    private final TransferStrategy transfer;        // how data moves CPU <-> GPU
+    private final CpuObservability observability;   // how the CPU observes buffer contents
+    private final DirtyStrategy cpuDirty;           // CPU->GPU dirty tracking
+    private final DirtyStrategy gpuDirty;           // GPU->CPU dirty tracking
+    private volatile boolean deferred;              // whether writes accumulate or transfer immediately
     private final VkBuffer vkBuffer;
 }
 ```
 
-`AllocationStrategy` and `TransferStrategy` are fully orthogonal — any allocation strategy can be
-paired with any transfer strategy its capabilities support. `TransferContext` bundles everything a
-transfer strategy needs to act on a specific `ManagedBuffer` (device, arena, mapped memory or null,
-sparse page allocator or null) so that strategy instances themselves are stateless with respect to
-any single buffer, and can be freely shared or reused where useful.
+All four strategy axes are fully orthogonal -- any allocation strategy can be paired with any
+transfer strategy its capabilities support, any observability, and any dirty strategy.
+`TransferContext` bundles everything a transfer strategy needs to act on a specific `ManagedBuffer`
+(device, arena, mapped memory or null, sparse page allocator or null) so that strategy instances
+themselves are stateless with respect to any single buffer.
 
 ### Strategy pairings behind each `MemoryStrategy`
 
-| MemoryStrategy          | AllocationStrategy         | TransferStrategy                  | CPU copies per write |
-|--------------------------|-----------------------------|-------------------------------------|:---:|
-| `MAPPED`                | Direct, HOST_VISIBLE\|COHERENT, persistent | Mapped(coherent=true)  | 1 |
-| `MAPPED_CACHED`          | Direct, HOST_VISIBLE\|CACHED, persistent   | Mapped(coherent=false) | 1 |
-| `DEVICE_LOCAL`           | Direct, DEVICE_LOCAL, not persistent       | Staging(transient)     | 1 (+1 GPU copy) |
-| `STAGING`                | Direct, DEVICE_LOCAL, not persistent       | Staging(persistent)    | 1 (+1 GPU copy) |
-| `DEVICE_LOCAL_MIRRORED`  | (same as DEVICE_LOCAL, wrapped) | (same as DEVICE_LOCAL, wrapped) | 1 (+1 GPU copy) |
-| `REBAR`                  | ReBar, always persistent   | Direct                              | 1 |
-| `SPARSE`                 | Sparse, owns page allocator | Sparse (host-visible memcpy or staged device-local) | 1 (host-visible) or 1+1GPU (device-local) |
+| MemoryStrategy          | AllocationStrategy         | TransferStrategy                  | CpuObservability | DirtyStrategy | CPU copies per write |
+|--------------------------|-----------------------------|-------------------------------------|---|---|:---:|
+| `MAPPED`                | Direct, HOST_VISIBLE\|COHERENT, persistent | Mapped(coherent=true)  | Inherent | forSize(n) | 1 |
+| `MAPPED_CACHED`          | Direct, HOST_VISIBLE\|CACHED, persistent   | Mapped(coherent=false) | Inherent | forSize(n) | 1 |
+| `DEVICE_LOCAL`           | Direct, DEVICE_LOCAL, not persistent       | Staging(transient)     | None | forSize(n) | 1 (+1 GPU copy) |
+| `DEVICE_LOCAL_MIRRORED`  | Direct, DEVICE_LOCAL, not persistent       | Staging(transient)     | Mirrored | forSize(n) | 1 (+1 GPU copy) |
+| `STAGING`                | Direct, DEVICE_LOCAL, not persistent       | Staging(persistent)    | None | forSize(n) | 1 (+1 GPU copy) |
+| `REBAR`                  | ReBar, always persistent   | Direct                              | Inherent | forSize(n) | 1 |
+| `SPARSE`                 | Sparse, owns page allocator | Sparse (host-visible memcpy or staged device-local) | None | forSize(n) | 1 (host-visible) or 1+1GPU (device-local) |
 
-`RING_BUFFER` and `SUBALLOCATOR` are not leaf strategy pairings — they are composite `IBuffer`
+`RING_BUFFER` and `SUBALLOCATOR` are not leaf strategy pairings -- they are composite `IBuffer`
 wrappers over N independent `ManagedBuffer`/`IBuffer` instances (`RingBuffer`) or slices of one
 (`SuballocatorBuffer`); see Composite Wrappers below.
 
+## CPU Observability
+
+`CpuObservability` is the third strategy axis, determining whether and how the CPU can read buffer
+contents without a GPU stall:
+
+### NoneObservability
+- CPU reads are not expected. `acquireReadable` returns null.
+- Used for `DEVICE_LOCAL` (without mirroring), `SPARSE`.
+- Reads through `IBuffer.acquireRead` fall through to the transfer strategy's stalling readback.
+
+### InherentObservability
+- The allocation is already host-visible (persistently mapped). `acquireReadable` returns the
+  mapped memory itself -- zero cost, zero copy.
+- Used for `MAPPED`, `MAPPED_CACHED`, `REBAR`.
+- No separate mirror needed: the CPU already has direct visibility.
+
+### MirroredObservability (implements MirrorCapable)
+- Allocates a separate host-visible, persistently-mapped `VkBuffer` companion at initialization.
+- `acquireReadable` returns a slice of the mirror's mapped memory.
+- The mirror serves dual purpose:
+  - CPU-readable surface: zero-cost random-access reads without GPU stalls
+  - Staging source: CPU->GPU copies issue directly from the mirror's memory, eliminating the
+    redundant second CPU copy into a throwaway staging buffer
+- Used for `DEVICE_LOCAL_MIRRORED`.
+- Check via `buffer.observability() instanceof MirrorCapable mirror`.
+
+### MirrorCapable interface
+
+```java
+public interface MirrorCapable {
+    MemorySegment mirrorMemory();   // direct CPU access to mirrored data
+    MemorySegment mirrorHandle();   // VkBuffer handle (source for CPU->GPU, dest for GPU->CPU)
+    long mirrorSize();              // mirror size in bytes (matches primary)
+}
+```
+
+## Dirty Tracking
+
+`DirtyStrategy` tracks which byte ranges of a buffer have been modified since last flush.
+`ManagedBuffer` holds two instances: one for CPU->GPU direction, one for GPU->CPU.
+
+### Implementations
+
+| Strategy | Buffer size | Behavior |
+|----------|-------------|----------|
+| `AlwaysDirtyStrategy` | < 4KB | Whole buffer always dirty; tracking overhead exceeds savings |
+| `RangeCoalescingDirtyStrategy` | 4KB - 1MB | Sorted interval list with configurable gap merge (default 256B) |
+| `BitSetDirtyStrategy` | >= 1MB | Fixed-size page bitmap; O(1) markDirty, bounded memory |
+
+Auto-selected by `DirtyStrategy.forSize(bufferSize)`. Explicit choice available via
+`ManagedBuffer.Builder.dirtyStrategy()`.
+
+### Thread safety
+
+`markDirty(offset, size)` is thread-safe and write-optimized (hot path). Region iteration
+(`dirtyRegions()`) happens only on the rare/scheduled flush path.
+
+## Deferred Mode
+
+`ManagedBuffer` supports a `deferred` mode that controls whether writes immediately transfer or
+accumulate for explicit flush:
+
+```java
+buffer.setDeferred(true);
+// ... writes accumulate in the mirror, dirty strategy tracks ranges ...
+buffer.flushDirty(queue);  // multi-region copy, all dirty ranges in one vkCmdCopyBuffer call
+```
+
+- **Immediate mode** (default, `deferred == false`): writes transfer immediately on scope close.
+  `flushDirty` is always a no-op since there is never un-transferred state.
+- **Deferred mode** (`deferred == true`): writes land in the mirror only, marking the dirty
+  strategy. GPU transfer happens only on explicit `flushDirty` or `flushDirtyAsync`.
+
+For observability types without a mirror (`InherentObservability`), deferred mode has no effect --
+writes land directly in GPU-visible memory with no copy needed.
+
+### GPU->CPU readback
+
+```java
+buffer.markGpuDirty(offset, length);  // after a compute dispatch writes this buffer
+buffer.readDiff(queue);                // multi-region copy from primary -> mirror
+```
+
+`markGpuDirty` uses the separate `gpuDirty` strategy instance. `readDiff` copies only the
+GPU-dirty ranges back into the mirror, then clears the GPU dirty state.
+
 ## Composite Wrappers
 
-`RingBuffer`, `SuballocatorBuffer`, and `MirroredBuffer` implement `IBuffer` directly and hold
-`IBuffer` reference(s) internally — no inheritance from `ManagedBuffer` or any shared base class.
-This is deliberate: these three represent orthogonal concerns from allocation/transfer (multiplicity,
-slicing, and CPU-visibility respectively) and none of them need their own allocation or transfer
-logic — they delegate to whatever `IBuffer`(s) they wrap.
+`RingBuffer` and `SuballocatorBuffer` implement `IBuffer` directly and hold `IBuffer` reference(s)
+internally -- no inheritance from `ManagedBuffer` or any shared base class. This is deliberate:
+these represent orthogonal concerns from allocation/transfer (multiplicity and slicing respectively)
+and neither needs its own allocation or transfer logic -- they delegate to whatever `IBuffer`(s)
+they wrap.
 
-- **`RingBuffer`** — N-buffered, one slot per frame in flight. Either N independent underlying
+- **`RingBuffer`** -- N-buffered, one slot per frame in flight. Either N independent underlying
   buffers (separate-buffers mode, rebind each frame) or one buffer sized `N * alignedFrameSize`
   bound with a dynamic offset (single-offset mode, bind once). Tracks in-flight `TransferCompletion`
   per slot and awaits it before slot reuse.
-- **`SuballocatorBuffer`** — fixed-slot slab allocator over one backing `IBuffer`. O(1) alloc/free
+- **`SuballocatorBuffer`** -- fixed-slot slab allocator over one backing `IBuffer`. O(1) alloc/free
   via a free-slot stack. Each `Suballocation` implements `IBuffer` itself, delegating reads/writes
   to the backing buffer at a fixed offset; `close()` returns the slot to the slab.
-- **`MirroredBuffer`** — gives the CPU immediate, random-access-readable visibility into data that
-  is present (or will be present) on the GPU side. See below.
 
-### MirroredBuffer and the staging-copy elimination
-
-`MirroredBuffer` wraps any `IBuffer` and maintains a CPU-side mirror of written data, so reads never
-touch the GPU. The mirror is backed by its own persistently-mapped, host-visible `VkBuffer` — not
-a plain heap `ByteBuffer` — specifically so that when the wrapped buffer requires staging
-(`DEVICE_LOCAL`), a write only copies the data once, into the mirror's own mapped memory, and the
-GPU-side copy is issued directly from that same memory. There is no second CPU copy into a separate
-throwaway staging buffer.
-
-This works via two narrow, explicit optimization methods on `ManagedBuffer` — `copyFromExternal`
-and `copyToExternal` — that issue a `vkCmdCopyBuffer` directly between two raw handles, bypassing
-the destination's own `TransferStrategy.writeAsync` (which would otherwise re-stage the same bytes):
-
-```java
-// MirroredBuffer.writeAsync, abbreviated
-mirrorWrite(data, offset);                     // one copy: user data -> mirror's mapped memory
-managed.copyFromExternal(mirrorBuffer.handle(), offset, offset, length, queue); // GPU copy, no restage
-```
-
-When the wrapped buffer is not a `ManagedBuffer` (e.g. a `RingBuffer` or a custom `IBuffer`
-implementation with no raw-handle copy entry point), `MirroredBuffer` falls back to the original
-copy-through-`write` path — one extra CPU copy is unavoidable there since there is no shared native
-memory to issue a direct GPU copy from.
-
-`MirroredBuffer` is CPU-write-oriented: it does not detect or reflect GPU-side writes to the wrapped
-buffer automatically. When the GPU writes the buffer directly (e.g. a compute pass), call
-`refreshFromGpu(offset, length, queue)` to pull the current GPU-side contents back into the mirror
-before reading. There is no concurrent-modification detection — callers sequence the refresh after
-the producing GPU work has completed (e.g. after awaiting a fence or semaphore).
+NOTE: Mirroring for Ring/Sparse/Suballocator composites requires per-composite implementations
+and is deferred to future work. The `CpuObservability` interface supports them; implementations
+will be added when those paths are exercised.
 
 ## Sparse Buffers
 
@@ -151,11 +228,11 @@ committed on demand:
   (device-local underlying memory).
 - `ManagedBuffer` implements `SparseCapable` when its allocation strategy is
   `SparseAllocationStrategy`, exposing `pageSize()`, `commitPages(offset, length)`,
-  `decommitPages(offset, length)`, and `isCommitted(offset, length)` for explicit control —
+  `decommitPages(offset, length)`, and `isCommitted(offset, length)` for explicit control --
   e.g. virtual texturing or streaming systems that need to evict pages, not just commit them.
   `decommitPages` only unbinds pages fully covered by the given range; a page partially covered at
   either boundary is left committed.
-- `SparseCapable` is not part of `IBuffer` — arbitrary custom buffer implementations have no
+- `SparseCapable` is not part of `IBuffer` -- arbitrary custom buffer implementations have no
   inherent page semantics. Check `instanceof SparseCapable` rather than assuming every `IBuffer`
   supports it.
 
@@ -171,23 +248,22 @@ ManagedBuffer sparse = BufferFactory.createSparse(size, usage, MemoryStrategy.DE
 IBuffer auto = BufferFactory.createAutomatic(cpuWrite, cpuRead, gpuRead, gpuWrite, size, usage, device, queue);
 ```
 
-`ManagedBuffer.builder()` also exists for callers who need to compose an `AllocationStrategy` and
-`TransferStrategy` directly rather than through the `MemoryStrategy` enum vocabulary — `BufferFactory`
-is preferred for the common cases.
+`ManagedBuffer.builder()` also exists for callers who need to compose strategies directly rather
+than through the `MemoryStrategy` enum vocabulary -- `BufferFactory` is preferred for common cases.
 
 ### Automatic strategy selection and the ReBAR upgrade
 
 `BufferStrategySelector.select(cpuWrite, cpuRead, gpuRead, gpuWrite, size)` runs a decision matrix
 (`BufferStrategyTable`) over access-frequency parameters to pick a `MemoryStrategy`. On ReBAR-capable
 hardware, the selector additionally upgrades `STAGING` and `DEVICE_LOCAL` selections to `REBAR` when
-`cpuWrite != NEVER` — same CPU-side write cost, no staging allocation, no GPU copy command. This
+`cpuWrite != NEVER` -- same CPU-side write cost, no staging allocation, no GPU copy command. This
 upgrade only applies to the automatic selector. Explicit `BufferFactory.create(MemoryStrategy, ...)`
-calls are always honored literally — an explicit request for `DEVICE_LOCAL` never gets silently
+calls are always honored literally -- an explicit request for `DEVICE_LOCAL` never gets silently
 redirected to `REBAR`, since "device local" carries real meaning for callers doing manual capacity
 or residency planning.
 
 The upgrade is guarded on `cpuWrite != NEVER` because `DEVICE_LOCAL` is also the selector's fallback
-for buffers the caller says the CPU never writes — allocating CPU-writable ReBAR memory for those
+for buffers the caller says the CPU never writes -- allocating CPU-writable ReBAR memory for those
 would be pure waste on hardware where the ReBAR-visible VRAM pool is limited.
 
 ## Write and Read Scopes
@@ -202,17 +278,18 @@ owns an intermediate buffer of its own:
 | `MAPPED_CACHED` | the mapped device memory | flushes the non-coherent range |
 | `REBAR` | the mapped device memory, which is VRAM | nothing |
 | `DEVICE_LOCAL` / `STAGING` | mapped staging memory | records the `vkCmdCopyBuffer` |
+| `DEVICE_LOCAL_MIRRORED` (immediate) | the mirror's mapped memory | records the GPU copy from mirror |
+| `DEVICE_LOCAL_MIRRORED` (deferred) | the mirror's mapped memory | marks dirty only, no GPU copy |
 | `SPARSE`, single page | the mapped page directly | flushes if non-coherent, unmaps |
 | `SPARSE`, multi-page | a temporary gather segment | scatters into the separately-mapped pages |
-| `MirroredBuffer` | the mirror's own mapped memory | issues the GPU copy from that same memory |
 
 The point is that which memory is "closest to final" is the buffer's business, not the producer's.
 This is what makes a bulk write one intrinsified `MemorySegment.copy` rather than an allocation plus
 two or three copies, and on ReBAR hardware it means the caller's write lands directly in VRAM with no
 GPU command at all.
 
-`acquireRead` is the counterpart: zero-copy for mapped and ReBAR, and a pipeline-stalling readback
-into temporary host memory for device-local buffers.
+`acquireRead` is the counterpart: zero-copy for mapped, ReBAR, and mirrored buffers, and a
+pipeline-stalling readback into temporary host memory for non-observable device-local buffers.
 
 The sparse multi-page case exists because sparse pages are mapped independently and therefore have no
 contiguous host address range. The single-page fast path is the common one for page-aligned streaming.
@@ -223,34 +300,47 @@ contiguous host address range. The single-page fast path is the common one for p
 and are agnostic to its underlying strategy. All of them write through `acquireWrite`.
 
 `TypedVkBuffer` requires a `GpuLayout<T>` rather than deriving serialization from the element type.
-There is no single correct serialization for a type — packed, padded, and quantized variants are all
-legitimate — so requiring the caller to name one keeps them equal citizens. `GpuLayout` is
+There is no single correct serialization for a type -- packed, padded, and quantized variants are all
+legitimate -- so requiring the caller to name one keeps them equal citizens. `GpuLayout` is
 offset-explicit and `MemorySegment`-based rather than cursor-based, which is what allows a large
 buffer to be filled in parallel across threads and a single element deep in an array to be patched
 with one call.
 
 `TypedVkBuffer` supports an optional CPU mirror (retained Java objects, zero-deserialization reads)
-independent of whether the underlying `IBuffer` is itself a `MirroredBuffer` — these are two
-different mirroring concerns: `TypedVkBuffer`'s mirror retains typed Java objects, `MirroredBuffer`'s
-retains raw bytes for zero-GPU-cost reads at the `IBuffer` level.
+independent of whether the underlying `IBuffer` has `MirrorCapable` observability -- these are two
+different mirroring concerns: `TypedVkBuffer`'s mirror retains typed Java objects,
+`MirroredObservability` retains raw bytes for zero-GPU-cost reads at the `IBuffer` level.
 
 The primitive views additionally expose `writeRange` (a sub-range of a source array), `writeStrided`
-(N contiguous components per element, advancing an arbitrary destination stride — the primitive for
+(N contiguous components per element, advancing an arbitrary destination stride -- the primitive for
 interleaving a planar attribute stream into a packed vertex buffer), and `MemorySegment` source
 overloads so a memory-mapped file can feed them with no Java array involved.
+
+Primitive typed buffers detect `MirrorCapable` observability on the backing buffer at construction
+and derive a typed buffer view from the mirror's memory for zero-cost reads:
+```java
+this.mirror = (buffer instanceof ManagedBuffer mb && mb.observability() instanceof MirrorCapable mc)
+        ? mc.mirrorMemory().asByteBuffer().asFloatBuffer() : null;
+```
 
 
 ## Transfer Batching
 
 Writes and copies are recorded into a per-thread, per-queue `TransferBatch` (managed by
 `TransferBatchManager`), which accumulates copy commands into one command buffer and auto-flushes at
-a 64MB threshold. `GpuCompletion` is the caller-facing handle for a batched operation — `await()`,
+a 64MB threshold. `GpuCompletion` is the caller-facing handle for a batched operation -- `await()`,
 `isComplete()`, `onComplete(callback)` (spawns a virtual thread), `toFuture()`, `flush()`. Synchronous
 `IBuffer.write`/`copyTo` call `writeAsync`/`copyToAsync` then immediately flush and await.
 
 Batching is the primary synchronization-reduction mechanism in the system: sync cost and
 `vkQueueSubmit` cost are per submission, not per copy, and a submission is a kernel transition that
 dominates the choice of sync primitive.
+
+### Multi-region copies for dirty flushes
+
+`flushDirty` and `readDiff` use `vkCmdCopyBuffer` with `regionCount > 1` when multiple dirty ranges
+exist, issuing all coalesced regions in a single command rather than N separate copy commands. This
+reduces command overhead proportionally to the number of scattered dirty regions.
 
 ### Completion is a timeline value, not a fence
 
@@ -288,7 +378,7 @@ explanatory error rather than letting semaphore creation fail at first write.
 
 ### Thread ownership
 
-A batch belongs to exactly one thread — the one that first requested it — because it records into a
+A batch belongs to exactly one thread -- the one that first requested it -- because it records into a
 single command buffer that no other thread may touch. `record`, `flush`, `waitUntil`, and `signalOn`
 assert this and throw an explanatory `IllegalStateException` otherwise. `destroy` deliberately does
 not, since it runs during device teardown after `vkDeviceWaitIdle`.
@@ -325,19 +415,18 @@ recycling a small ring of command buffers per batch.
 
 ## Design Principles
 
-- Allocation and transfer are always independently swappable; a strategy pairing that doesn't exist
-  yet is a missing `MemoryStrategy` case in `BufferFactory`, not a reason to add inheritance
+- Allocation, transfer, observability, and dirty tracking are always independently swappable; a
+  strategy pairing that doesn't exist yet is a missing `MemoryStrategy` case in `BufferFactory`,
+  not a reason to add inheritance
 - `IBuffer` stays minimal so arbitrary custom implementations (graph-transient resources, test
   doubles) can participate in descriptor binding, typed views, and copy operations without adopting
   the strategy composition machinery
-- Capabilities that don't apply to every buffer (sparse page control) are capability interfaces
-  (`SparseCapable`), not methods on `IBuffer` that throw for most implementations
-- Composite wrappers (`RingBuffer`, `SuballocatorBuffer`, `MirroredBuffer`) compose `IBuffer`
-  instances rather than extending a shared base — multiplicity, slicing, and CPU-visibility are
-  concerns orthogonal to allocation/transfer and to each other
-- Optimization-specific methods (`copyFromExternal`/`copyToExternal`) are acceptable narrow additions
-  to `ManagedBuffer` when they eliminate a real, provable redundant copy — they are not exposed on
-  `IBuffer` and are not meant to become a general-purpose API surface
+- Capabilities that don't apply to every buffer (sparse page control, mirror access) are capability
+  interfaces (`SparseCapable`, `MirrorCapable`), not methods on `IBuffer` that throw for most
+  implementations
+- Composite wrappers (`RingBuffer`, `SuballocatorBuffer`) compose `IBuffer` instances rather than
+  extending a shared base -- multiplicity and slicing are concerns orthogonal to
+  allocation/transfer/observability and to each other
 - The automatic strategy selector may make hardware-aware substitutions (ReBAR upgrade); explicit
   `BufferFactory.create` calls with a literal `MemoryStrategy` never do
 - Producers of bytes do not own intermediate memory. `acquireWrite` inverts that ownership so the
@@ -349,3 +438,6 @@ recycling a small ring of command buffers per batch.
   the only thing that made the previous fence-based design racy
 - Consumers depend on the `GpuCompletion` concept, not on whoever submitted the work, so an external
   scheduler can supply its own implementation
+- Mirroring is a first-class strategy axis, not a decorator; it provides both CPU-readable visibility
+  and staging-copy elimination in one allocation, and integrates with dirty tracking and deferred
+  mode for efficient batched transfers

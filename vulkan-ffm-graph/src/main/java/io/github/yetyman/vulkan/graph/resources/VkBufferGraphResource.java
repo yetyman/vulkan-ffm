@@ -14,6 +14,7 @@ public class VkBufferGraphResource implements GraphBufferResource {
     private final boolean transientResource;
     private final boolean imported;
     private final ResourceLifetime lifetime = new ResourceLifetime();
+    private boolean manualFlush;
 
     private volatile int lastAccessMask = 0;
     private volatile int lastStageMask;
@@ -24,6 +25,7 @@ public class VkBufferGraphResource implements GraphBufferResource {
         this.buffer = buffer;
         this.transientResource = transientResource;
         this.imported = imported;
+        this.manualFlush = false;
         this.lastStageMask = 0x00000001; // VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT
         this.owningQueueFamily = ~0; // VK_QUEUE_FAMILY_IGNORED
     }
@@ -74,4 +76,16 @@ public class VkBufferGraphResource implements GraphBufferResource {
     @Override public boolean isImported() { return imported; }
     @Override public ResourceLifetime lifetime() { return lifetime; }
     @Override public long size() { return buffer.size(); }
+
+    /**
+     * @return true if this buffer's dirty flush is managed manually by the user, and the graph
+     * should NOT auto-insert flush nodes for it.
+     */
+    public boolean isManualFlush() { return manualFlush; }
+
+    /**
+     * Sets whether this buffer's dirty flush is managed manually. When true, the graph will not
+     * auto-insert flush/readDiff nodes for this buffer even if it detects deferred mirrored state.
+     */
+    public void setManualFlush(boolean manualFlush) { this.manualFlush = manualFlush; }
 }

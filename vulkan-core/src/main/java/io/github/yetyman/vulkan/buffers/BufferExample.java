@@ -611,42 +611,54 @@ public class BufferExample {
                     System.out.println("REBAR flush: ok");
                 }
 
-                // MirroredBuffer now decorates any IBuffer strategy — verify it works over ReBAR,
-                // which the old MirroredBuffer (hardcoded to DeviceLocalBuffer) could never do.
-                section("MIRRORED(REBAR)");
-                try (MirroredBuffer buf = new MirroredBuffer(device,
-                        BufferFactory.create(MemoryStrategy.REBAR, null, SIZE, BufferUsage.STORAGE, device, queue))) {
+                // DEVICE_LOCAL_MIRRORED over ReBAR — verify that mirrored observability works and
+                // provides zero-cost CPU reads via MirrorCapable.
+                section("DEVICE_LOCAL_MIRRORED(REBAR)");
+                try (ManagedBuffer buf = (ManagedBuffer) BufferFactory.create(
+                        MemoryStrategy.DEVICE_LOCAL_MIRRORED, null, SIZE, BufferUsage.STORAGE, device, queue)) {
                     buf.write(data.rewind(), 0, queue);
-                    check("MIRRORED(REBAR) sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
+                    check("MIRRORED sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
 
                     buf.write(intBuf(MAGIC2), SIZE / 2, queue);
-                    check("MIRRORED(REBAR) offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
+                    check("MIRRORED offset write/read (mirror)", buf.read(SIZE / 2, 4).getInt(0), MAGIC2);
 
                     try (GpuCompletion tc = buf.writeAsync(data.rewind(), 0, queue)) {
                         tc.flush();
                         tc.await();
                     }
-                    check("MIRRORED(REBAR) writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
+                    check("MIRRORED writeAsync+await (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
                 }
 
-                // Mirrored buffer over DEVICE_LOCAL — verify the mirror-as-staging path (no
-                // redundant CPU copy) round-trips correctly, and refreshFromGpu pulls GPU-side
-                // writes back into the mirror.
-                section("MIRRORED(DEVICE_LOCAL) refreshFromGpu");
-                try (MirroredBuffer buf = new MirroredBuffer(device,
-                        BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue))) {
+                // Mirrored buffer with GPU->CPU readDiff — verify markGpuDirty + readDiff pulls
+                // GPU-side writes back into the mirror.
+                section("DEVICE_LOCAL_MIRRORED readDiff");
+                try (ManagedBuffer buf = (ManagedBuffer) BufferFactory.create(
+                        MemoryStrategy.DEVICE_LOCAL_MIRRORED, null, SIZE, BufferUsage.STORAGE, device, queue)) {
                     buf.write(data.rewind(), 0, queue);
-                    check("MIRRORED(DEVICE_LOCAL) sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
+                    check("MIRRORED sync write/read (mirror)", buf.read(0, SIZE).getInt(0), MAGIC);
 
-                    // Simulate an external GPU-side write to the wrapped buffer, bypassing the mirror
-                    buf.inner().write(data2.rewind(), 0, queue);
-                    check("MIRRORED(DEVICE_LOCAL) mirror stale after external write", buf.read(0, SIZE).getInt(0), MAGIC);
+                    // Simulate an external GPU-side write by copying directly to the primary
+                    // handle, bypassing the mirror
+                    TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
+                    IBuffer extBuf = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL, null, SIZE, BufferUsage.STORAGE, device, queue);
+                    extBuf.write(data2.rewind(), 0, queue);
+                    GpuCompletion copyTc = batch.record(extBuf.handle(), buf.handle(), 0, 0, SIZE);
+                    TransferBatchManager.flush(device, queue);
+                    copyTc.await();
+                    copyTc.close();
 
-                    try (GpuCompletion tc = buf.refreshFromGpu(0, SIZE, queue)) {
-                        tc.flush();
+                    // Mirror should still be stale
+                    check("MIRRORED mirror stale after external write", buf.read(0, SIZE).getInt(0), MAGIC);
+
+                    // readDiff should pull GPU-side data back into the mirror
+                    buf.markGpuDirty(0, SIZE);
+                    try (GpuCompletion tc = buf.readDiff(queue)) {
+                        TransferBatchManager.flush(device, queue);
                         tc.await();
                     }
-                    check("MIRRORED(DEVICE_LOCAL) mirror fresh after refreshFromGpu", buf.read(0, SIZE).getInt(0), MAGIC2);
+                    check("MIRRORED mirror fresh after readDiff", buf.read(0, SIZE).getInt(0), MAGIC2);
+
+                    extBuf.close();
                 }
             } else {
                 System.out.println("REBAR: skipped (device does not support ReBAR)");

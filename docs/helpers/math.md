@@ -245,13 +245,13 @@ These caches are active regardless of `eager()`/`lazy()` flag. They set the calc
 
 | Type | Element stride | Notes |
 |------|-----------------|-------|
-| FloatVkBuffer | 4 bytes | `float[]` direct transfer; optional live `FloatBuffer` mirror view when backed by a `MirroredBuffer`. |
+| FloatVkBuffer | 4 bytes | `float[]` direct transfer; optional live `FloatBuffer` mirror view when backed by a `ManagedBuffer` with `MirrorCapable` observability. |
 | IntVkBuffer | 4 bytes | `int[]` direct transfer; same mirror pattern. |
 | LongVkBuffer | 8 bytes | `long[]` direct transfer. |
 | ShortVkBuffer | 2 bytes | `short[]` direct transfer. |
 | DoubleVkBuffer | 8 bytes | `double[]` direct transfer (no native GLSL double storage class equivalent — used for CPU-side precision-sensitive data staged through the same buffer strategy machinery, not typically bound as shader input). |
 
-All five follow the same shape: constructor takes the backing `IBuffer` and element `count`, validates `count * STRIDE <= buffer.size()`, exposes `write`/`writeAsync` (going through the same `TransferBatch`/`TransferCompletion` path as every other buffer write) and `read` (zero-copy from the CPU mirror when the backing buffer is a `MirroredBuffer`, otherwise a blocking GPU readback), and `close()` delegates to the underlying `IBuffer`. `DirtyTracker.dirtyNodeIndices()` (an `IntStream`) from a spatial structure is a natural producer for `IntVkBuffer` writes when syncing only the changed node indices rather than re-uploading a whole structure.
+All five follow the same shape: constructor takes the backing `IBuffer` and element `count`, validates `count * STRIDE <= buffer.size()`, exposes `write`/`writeAsync` (going through the same `TransferBatch`/`TransferCompletion` path as every other buffer write) and `read` (zero-copy from the CPU mirror when the backing buffer is a `ManagedBuffer` with `MirrorCapable` observability, otherwise a blocking GPU readback), and `close()` delegates to the underlying `IBuffer`. `DirtyTracker.dirtyNodeIndices()` (an `IntStream`) from a spatial structure is a natural producer for `IntVkBuffer` writes when syncing only the changed node indices rather than re-uploading a whole structure.
 
 ---
 

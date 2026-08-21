@@ -59,6 +59,56 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
         copyBuffer(cmd, srcBuffer.handle(), dstBuffer.handle(), srcOffset, dstOffset, size);
     }
 
+    /**
+     * Issues a multi-region buffer copy in one {@code vkCmdCopyBuffer} call. Each region is
+     * an independent (srcOffset, dstOffset, size) triple — all regions share the same source
+     * and destination buffers.
+     *
+     * <p>This is the optimal primitive for flushing scattered dirty ranges: one Vulkan command
+     * instead of N separate {@code vkCmdCopyBuffer} calls.
+     *
+     * @param cmd        command buffer handle
+     * @param src        source buffer handle
+     * @param dst        destination buffer handle
+     * @param srcOffsets per-region source offsets
+     * @param dstOffsets per-region destination offsets
+     * @param sizes      per-region sizes in bytes
+     * @param count      number of regions (must be <= array lengths)
+     */
+    public static void copyBufferMultiRegion(MemorySegment cmd, MemorySegment src, MemorySegment dst,
+                                             long[] srcOffsets, long[] dstOffsets, long[] sizes, int count) {
+        if (count <= 0) return;
+        if (count == 1) {
+            // Fast path: avoid array allocation overhead for single region
+            copyBuffer(cmd, src, dst, srcOffsets[0], dstOffsets[0], sizes[0]);
+            return;
+        }
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            long regionSize = VkBufferCopy.sizeof();
+            MemorySegment regions = ba.alloc(regionSize * count);
+            for (int i = 0; i < count; i++) {
+                MemorySegment region = regions.asSlice(i * regionSize, regionSize);
+                VkBufferCopy.srcOffset(region, srcOffsets[i]);
+                VkBufferCopy.dstOffset(region, dstOffsets[i]);
+                VkBufferCopy.size(region, sizes[i]);
+            }
+            VulkanFFM.vkCmdCopyBuffer(cmd, src, dst, count, regions);
+        } finally {
+            ba.pop();
+        }
+    }
+
+    /**
+     * Issues a multi-region buffer copy where source and destination offsets are identical
+     * (mirror-to-primary copy pattern).
+     */
+    public static void copyBufferMultiRegion(MemorySegment cmd, MemorySegment src, MemorySegment dst,
+                                             long[] offsets, long[] sizes, int count) {
+        copyBufferMultiRegion(cmd, src, dst, offsets, offsets, sizes, count);
+    }
+
     // Static helpers for buffer-to-image copies
     public static void copyBufferToImage(VkCommandBuffer cmd, MemorySegment buffer, MemorySegment image, int imageLayout, int width, int height) {
         copyBufferToImage(cmd.handle(), buffer, image, imageLayout, width, height, 1);

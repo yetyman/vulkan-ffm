@@ -157,7 +157,7 @@ public class GpuDrivenDemoLayer implements UILayer {
                 IndexBaseMode.REWRITE_ABSOLUTE);
 
         // Geometry table (GPU-resident per-partition metadata)
-        geometryTable = new GeometryTable(device, queue, MAX_PARTITIONS, MemoryStrategy.DEVICE_LOCAL);
+        geometryTable = new GeometryTable(device, queue, MAX_PARTITIONS);
 
         // Indirect draw buffer: max partitions * 20 bytes (VkDrawIndexedIndirectCommand)
         long drawBufSize = (long) MAX_PARTITIONS * IndirectDrawEncoder.INDEXED_STRIDE;

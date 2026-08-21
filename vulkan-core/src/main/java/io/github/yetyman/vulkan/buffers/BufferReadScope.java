@@ -7,8 +7,8 @@ import java.lang.foreign.MemorySegment;
  *
  * <p>The counterpart to {@link BufferWriteScope}. Mapped and ReBAR buffers hand back the mapped
  * device memory itself, so reads are zero-copy. Device-local buffers perform a readback into
- * temporary host memory, which stalls the pipeline; prefer a {@link MirroredBuffer} for frequent
- * reads.
+ * temporary host memory, which stalls the pipeline; prefer a mirrored buffer
+ * ({@code BufferFactory.create(DEVICE_LOCAL_MIRRORED, ...)}) for frequent reads.
  *
  * <p>The segment is valid only until {@link #close()}. Do not retain it.
  */

@@ -5,7 +5,8 @@ import io.github.yetyman.vulkan.buffers.BufferReadScope;
 import io.github.yetyman.vulkan.buffers.BufferWriteScope;
 import io.github.yetyman.vulkan.buffers.GpuCompletion;
 import io.github.yetyman.vulkan.buffers.IBuffer;
-import io.github.yetyman.vulkan.buffers.MirroredBuffer;
+import io.github.yetyman.vulkan.buffers.ManagedBuffer;
+import io.github.yetyman.vulkan.buffers.MirrorCapable;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.IntBuffer;
@@ -31,7 +32,8 @@ public class IntVkBuffer implements AutoCloseable {
             throw new IllegalArgumentException("Buffer too small: need " + ((long) count * STRIDE) + ", have " + buffer.size());
         this.buffer = buffer;
         this.count = count;
-        this.mirror = (buffer instanceof MirroredBuffer m) ? m.mirror().asIntBuffer() : null;
+        this.mirror = (buffer instanceof ManagedBuffer mb && mb.observability() instanceof MirrorCapable mc)
+                ? mc.mirrorMemory().asByteBuffer().asIntBuffer() : null;
     }
 
     public int count() {
@@ -136,7 +138,7 @@ public class IntVkBuffer implements AutoCloseable {
 
     /**
      * Reads {@code length} values into {@code dst} at {@code dstOffset}. Zero-copy from the CPU
-     * mirror when the backing buffer is a {@link MirroredBuffer}.
+     * mirror when the backing buffer has {@link MirrorCapable} observability.
      */
     public void readRange(int startIndex, int length, int[] dst, int dstOffset) {
         checkRange(startIndex, length);

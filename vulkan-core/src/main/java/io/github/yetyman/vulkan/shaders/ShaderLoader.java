@@ -546,6 +546,9 @@ public class ShaderLoader {
                         int count = SpvReflectDescriptorBinding.count(bindingPtr);
                         MemorySegment namePtr = SpvReflectDescriptorBinding.name(bindingPtr);
                         String name = namePtr.equals(MemorySegment.NULL) ? null : namePtr.reinterpret(256, arena, null).getString(0);
+                        // Extract access qualifier from decoration flags
+                        int decorationFlags = SpvReflectDescriptorBinding.decoration_flags(bindingPtr);
+                        AccessQualifier accessQualifier = AccessQualifier.fromDecorationFlags(decorationFlags);
                         // Parse block members for UBO/SSBO bindings
                         List<StructMemberInfo> blockMembers = new ArrayList<>();
                         SpirvReflectDescriptorType descType = SpirvReflectDescriptorType.fromValue(descriptorTypeVal);
@@ -562,7 +565,7 @@ public class ShaderLoader {
                             }
                         }
                         DescriptorBindingInfo info = new DescriptorBindingInfo(
-                                bindingIndex, descType, count, 0, name, blockMembers);
+                                bindingIndex, descType, count, 0, name, blockMembers, accessQualifier);
                         setInfo.addBinding(bindingIndex, info);
                         if (name != null && !name.isEmpty()) byName.put(name, info);
                     }
@@ -772,39 +775,45 @@ public class ShaderLoader {
         private final int stageFlags;
         private final String name;
         private final List<StructMemberInfo> blockMembers;
+        private final AccessQualifier accessQualifier;
 
         /**
          * Constructor for reflection-parsed bindings (stage flags determined by shader stage).
          */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount) {
-            this(binding, descriptorType, descriptorCount, 0, null, List.of());
+            this(binding, descriptorType, descriptorCount, 0, null, List.of(), AccessQualifier.READ_WRITE);
         }
 
         /**
          * Constructor for reflection-parsed bindings with name.
          */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, String name) {
-            this(binding, descriptorType, descriptorCount, 0, name, List.of());
+            this(binding, descriptorType, descriptorCount, 0, name, List.of(), AccessQualifier.READ_WRITE);
         }
 
         /**
          * Constructor for manually-added bindings with explicit stage flags.
          */
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags) {
-            this(binding, descriptorType, descriptorCount, stageFlags, null, List.of());
+            this(binding, descriptorType, descriptorCount, stageFlags, null, List.of(), AccessQualifier.READ_WRITE);
         }
 
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name) {
-            this(binding, descriptorType, descriptorCount, stageFlags, name, List.of());
+            this(binding, descriptorType, descriptorCount, stageFlags, name, List.of(), AccessQualifier.READ_WRITE);
         }
 
         public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name, List<StructMemberInfo> blockMembers) {
+            this(binding, descriptorType, descriptorCount, stageFlags, name, blockMembers, AccessQualifier.READ_WRITE);
+        }
+
+        public DescriptorBindingInfo(int binding, SpirvReflectDescriptorType descriptorType, int descriptorCount, int stageFlags, String name, List<StructMemberInfo> blockMembers, AccessQualifier accessQualifier) {
             this.binding = binding;
             this.descriptorType = descriptorType;
             this.descriptorCount = descriptorCount;
             this.stageFlags = stageFlags;
             this.name = name;
             this.blockMembers = List.copyOf(blockMembers);
+            this.accessQualifier = accessQualifier;
         }
 
         public int getBinding() {
@@ -838,6 +847,14 @@ public class ShaderLoader {
          */
         public List<StructMemberInfo> getBlockMembers() {
             return blockMembers;
+        }
+
+        /**
+         * @return the access qualifier for this binding as declared in SPIR-V. Indicates whether
+         * the shader reads, writes, or both reads and writes this binding.
+         */
+        public AccessQualifier getAccessQualifier() {
+            return accessQualifier;
         }
     }
 

@@ -100,7 +100,7 @@ public class MeshPoolBenchmark {
                     IndexWidth.U32, IndexBaseMode.REWRITE_ABSOLUTE);
 
             GeometryTable table = new GeometryTable(ctx.device(), ctx.graphicsVkQueue(),
-                    partitionCount, MemoryStrategy.DEVICE_LOCAL);
+                    partitionCount);
 
             // Upload N boxes into the pool
             GeometrySource box = new BoxSource(benchArena);

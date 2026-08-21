@@ -42,23 +42,34 @@ public class BufferFactory {
         return switch (strategy) {
             case MAPPED -> managedBuffer(device, size, usage,
                     new DirectAllocationStrategy(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT.value(), true),
-                    new MappedTransferStrategy(true));
+                    new MappedTransferStrategy(true),
+                    new InherentObservability(),
+                    DirtyStrategy.forSize(size));
             case MAPPED_CACHED -> managedBuffer(device, size, usage,
                     new DirectAllocationStrategy(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT.value() | VK_MEMORY_PROPERTY_HOST_CACHED_BIT.value(), true),
-                    new MappedTransferStrategy(false));
+                    new MappedTransferStrategy(false),
+                    new InherentObservability(),
+                    DirtyStrategy.forSize(size));
             case DEVICE_LOCAL -> managedBuffer(device, size, usage,
                     new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
-                    new StagingTransferStrategy(false, transferQueue));
-            case DEVICE_LOCAL_MIRRORED -> new MirroredBuffer(device,
-                    managedBuffer(device, size, usage,
-                            new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
-                            new StagingTransferStrategy(false, transferQueue)));
+                    new StagingTransferStrategy(false, transferQueue),
+                    NoneObservability.INSTANCE,
+                    DirtyStrategy.forSize(size));
+            case DEVICE_LOCAL_MIRRORED -> managedBuffer(device, size, usage,
+                    new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
+                    new StagingTransferStrategy(false, transferQueue),
+                    new MirroredObservability(),
+                    DirtyStrategy.forSize(size));
             case STAGING -> managedBuffer(device, size, usage,
                     new DirectAllocationStrategy(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.value(), false),
-                    new StagingTransferStrategy(true, transferQueue));
+                    new StagingTransferStrategy(true, transferQueue),
+                    NoneObservability.INSTANCE,
+                    DirtyStrategy.forSize(size));
             case REBAR -> managedBuffer(device, size, usage,
                     new ReBarAllocationStrategy(),
-                    new DirectTransferStrategy());
+                    new DirectTransferStrategy(),
+                    new InherentObservability(),
+                    DirtyStrategy.forSize(size));
             case RING_BUFFER -> {
                 boolean singleOffset = switch (secondaryStrategy) {
                     case MAPPED, MAPPED_CACHED, REBAR -> true;
@@ -78,7 +89,9 @@ public class BufferFactory {
                 };
                 yield managedBuffer(device, size, usage,
                         new SparseAllocationStrategy(pageMemoryProperties, transferQueue),
-                        new SparseTransferStrategy(transferQueue));
+                        new SparseTransferStrategy(transferQueue),
+                        NoneObservability.INSTANCE,
+                        DirtyStrategy.forSize(size));
             }
             case SUBALLOCATOR ->
                     throw new IllegalArgumentException("Use BufferFactory.createSlab() for SUBALLOCATOR — slotSize is required");
@@ -86,11 +99,20 @@ public class BufferFactory {
     }
 
     private static ManagedBuffer managedBuffer(VkDevice device, long size, BufferUsage usage,
-                                               AllocationStrategy allocation, TransferStrategy transfer) {
+                                               AllocationStrategy allocation, TransferStrategy transfer,
+                                               CpuObservability observability, DirtyStrategy dirtyStrategy) {
         return ManagedBuffer.builder()
                 .device(device).size(size).usage(usage)
                 .allocation(allocation).transfer(transfer)
+                .observability(observability).dirtyStrategy(dirtyStrategy)
                 .build();
+    }
+
+    /** Kept for internal compatibility during migration. Prefer the 7-arg overload. */
+    private static ManagedBuffer managedBuffer(VkDevice device, long size, BufferUsage usage,
+                                               AllocationStrategy allocation, TransferStrategy transfer) {
+        return managedBuffer(device, size, usage, allocation, transfer,
+                NoneObservability.INSTANCE, DirtyStrategy.forSize(size));
     }
 
     /**

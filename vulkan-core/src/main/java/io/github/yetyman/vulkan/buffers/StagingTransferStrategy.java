@@ -24,8 +24,8 @@ import static io.github.yetyman.vulkan.generated.VulkanFFM.vkEndCommandBuffer;
  * buffer is allocated per write and owned by the {@link TransferBatch} until the copy completes.
  *
  * <p>Reads always stall the pipeline — a transient readback buffer is created, the copy is
- * submitted and waited on synchronously. Prefer a CPU mirror ({@link MirroredBuffer}) or async
- * writes for hot paths.
+ * submitted and waited on synchronously. Prefer a mirrored buffer
+ * ({@code BufferFactory.create(DEVICE_LOCAL_MIRRORED, ...)}) or async writes for hot paths.
  */
 public final class StagingTransferStrategy implements TransferStrategy {
     private final boolean persistent;

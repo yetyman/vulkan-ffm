@@ -181,7 +181,7 @@ public class GeometryTableCullingSampleLayer implements UILayer {
      * not in {@code vulkan-ffm-mesh}.
      */
     private void buildTable() {
-        table = new GeometryTable(device, queue, MESH_COUNT, MemoryStrategy.MAPPED);
+        table = new GeometryTable(device, queue, MESH_COUNT);
 
         for (int i = 0; i < meshes.size(); i++) {
             Mesh mesh = meshes.get(i);

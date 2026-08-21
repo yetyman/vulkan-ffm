@@ -6,9 +6,9 @@ import io.github.yetyman.vulkan.buffers.BufferUsage;
 import io.github.yetyman.vulkan.buffers.BufferWriteScope;
 import io.github.yetyman.vulkan.buffers.GpuCompletion;
 import io.github.yetyman.vulkan.buffers.IBuffer;
+import io.github.yetyman.vulkan.buffers.ManagedBuffer;
 import io.github.yetyman.vulkan.buffers.MemoryStrategy;
 import io.github.yetyman.vulkan.VkDevice;
-import io.github.yetyman.vulkan.mesh.DeviceRange;
 import io.github.yetyman.vulkan.mesh.partition.GeometryPartition;
 import io.github.yetyman.vulkan.mesh.residency.GeometryAllocation;
 
@@ -47,8 +47,9 @@ import static java.lang.foreign.ValueLayout.JAVA_LONG_UNALIGNED;
  * goes in attached metadata channels uploaded as parallel arrays, never in the base record.
  *
  * <h2>Dirty tracking</h2>
- * Registration and update mark dirty ranges; {@link #flush(VkQueue)} uploads only those, coalescing
- * adjacent dirty records into one write scope.
+ * Uses {@code DEVICE_LOCAL_MIRRORED} with deferred mode. Writes land in the CPU mirror
+ * immediately and are flushed to the GPU via {@link #flush(VkQueue)}, which delegates to the
+ * buffer's built-in dirty tracking and multi-region copy.
  */
 public final class GeometryTable implements AutoCloseable {
 
@@ -59,29 +60,28 @@ public final class GeometryTable implements AutoCloseable {
     public static final int FLAG_RESIDENT = 1;
     public static final int FLAG_INDEXED = 2;
 
-    private final IBuffer buffer;
+    private final ManagedBuffer buffer;
     private final int capacity;
-    private final MemorySegment cpuMirror;
     private final BitSet occupied;
-    private final BitSet dirty;
     private int count;
-    private int dirtyMin = Integer.MAX_VALUE;
-    private int dirtyMax = -1;
 
     /**
      * @param device   the device to allocate the backing SSBO on
      * @param queue    the transfer queue for uploads
      * @param capacity maximum number of partitions this table can hold
-     * @param strategy memory strategy for the SSBO
      */
-    public GeometryTable(VkDevice device, VkQueue queue, int capacity, MemoryStrategy strategy) {
+    public GeometryTable(VkDevice device, VkQueue queue, int capacity) {
         if (capacity <= 0) throw new IllegalArgumentException("capacity must be > 0");
         this.capacity = capacity;
-        this.buffer = BufferFactory.create(strategy, null, (long) capacity * RECORD_STRIDE,
-                BufferUsage.STORAGE, device, queue);
-        this.cpuMirror = MemorySegment.ofArray(new byte[capacity * RECORD_STRIDE]);
+        long totalSize = (long) capacity * RECORD_STRIDE;
+        IBuffer created = BufferFactory.create(MemoryStrategy.DEVICE_LOCAL_MIRRORED, null,
+                totalSize, BufferUsage.STORAGE, device, queue);
+        if (!(created instanceof ManagedBuffer managed)) {
+            throw new IllegalStateException("DEVICE_LOCAL_MIRRORED should produce a ManagedBuffer");
+        }
+        this.buffer = managed;
+        this.buffer.setDeferred(true);
         this.occupied = new BitSet(capacity);
-        this.dirty = new BitSet(capacity);
     }
 
     /**
@@ -94,7 +94,6 @@ public final class GeometryTable implements AutoCloseable {
         int slot = findFreeSlot();
         writeRecord(slot, allocation, partition);
         occupied.set(slot);
-        markDirty(slot);
         count++;
         return slot;
     }
@@ -106,8 +105,10 @@ public final class GeometryTable implements AutoCloseable {
         checkSlot(partitionIndex);
         occupied.clear(partitionIndex);
         // Zero the record so GPU reads see zeroed bounds/counts.
-        cpuMirror.asSlice((long) partitionIndex * RECORD_STRIDE, RECORD_STRIDE).fill((byte) 0);
-        markDirty(partitionIndex);
+        long offset = (long) partitionIndex * RECORD_STRIDE;
+        try (BufferWriteScope scope = buffer.acquireWrite(offset, RECORD_STRIDE, null)) {
+            scope.segment().fill((byte) 0);
+        }
         count--;
     }
 
@@ -117,31 +118,16 @@ public final class GeometryTable implements AutoCloseable {
     public void update(int partitionIndex, GeometryAllocation allocation, GeometryPartition partition) {
         checkSlot(partitionIndex);
         writeRecord(partitionIndex, allocation, partition);
-        markDirty(partitionIndex);
     }
 
     /**
-     * Uploads dirty records to the GPU. Only the contiguous dirty range is written, so a single
-     * partition update costs one record's worth of transfer rather than the whole table.
+     * Uploads dirty records to the GPU. Only the dirty ranges are transferred, coalesced by
+     * the buffer's built-in dirty tracking strategy.
      *
      * @return a completion for the upload, or an already-complete token if nothing was dirty
      */
     public GpuCompletion flush(VkQueue queue) {
-        if (dirtyMin > dirtyMax) return GpuCompletion.completed();
-
-        long offset = (long) dirtyMin * RECORD_STRIDE;
-        long size = (long) (dirtyMax - dirtyMin + 1) * RECORD_STRIDE;
-
-        try (BufferWriteScope scope = buffer.acquireWrite(offset, size, queue)) {
-            MemorySegment.copy(cpuMirror, offset, scope.segment(), 0, size);
-        }
-
-        dirty.clear();
-        dirtyMin = Integer.MAX_VALUE;
-        dirtyMax = -1;
-
-        // The write scope's close recorded the copy into the batch; flush the batch.
-        return io.github.yetyman.vulkan.buffers.TransferBatchManager.flush(queue.device(), queue);
+        return buffer.flushDirty(queue);
     }
 
     /**
@@ -189,33 +175,30 @@ public final class GeometryTable implements AutoCloseable {
     // -------------------------------------------------------------------------
 
     private void writeRecord(int slot, GeometryAllocation allocation, GeometryPartition partition) {
-        long o = (long) slot * RECORD_STRIDE;
-        cpuMirror.set(JAVA_INT_UNALIGNED, o, (int) allocation.vertexBase());
-        cpuMirror.set(JAVA_INT_UNALIGNED, o + 4, (int) allocation.indexBase());
-        cpuMirror.set(JAVA_INT_UNALIGNED, o + 8, (int) partition.indexCount());
-        cpuMirror.set(JAVA_INT_UNALIGNED, o + 12, (int) partition.vertexCount());
-        // boundsMin
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 16, partition.bounds().min.x);
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 20, partition.bounds().min.y);
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 24, partition.bounds().min.z);
-        // flags
-        int flags = FLAG_RESIDENT | (partition.isIndexed() ? FLAG_INDEXED : 0);
-        cpuMirror.set(JAVA_INT_UNALIGNED, o + 28, flags);
-        // boundsMax
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 32, partition.bounds().max.x);
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 36, partition.bounds().max.y);
-        cpuMirror.set(JAVA_FLOAT_UNALIGNED, o + 40, partition.bounds().max.z);
-        // pad
-        cpuMirror.set(JAVA_INT_UNALIGNED, o + 44, 0);
-        // tag, sortKey
-        cpuMirror.set(JAVA_LONG_UNALIGNED, o + 48, partition.tag());
-        cpuMirror.set(JAVA_LONG_UNALIGNED, o + 56, partition.sortKey());
-    }
-
-    private void markDirty(int slot) {
-        dirty.set(slot);
-        if (slot < dirtyMin) dirtyMin = slot;
-        if (slot > dirtyMax) dirtyMax = slot;
+        long offset = (long) slot * RECORD_STRIDE;
+        try (BufferWriteScope scope = buffer.acquireWrite(offset, RECORD_STRIDE, null)) {
+            MemorySegment seg = scope.segment();
+            seg.set(JAVA_INT_UNALIGNED, 0, (int) allocation.vertexBase());
+            seg.set(JAVA_INT_UNALIGNED, 4, (int) allocation.indexBase());
+            seg.set(JAVA_INT_UNALIGNED, 8, (int) partition.indexCount());
+            seg.set(JAVA_INT_UNALIGNED, 12, (int) partition.vertexCount());
+            // boundsMin
+            seg.set(JAVA_FLOAT_UNALIGNED, 16, partition.bounds().min.x);
+            seg.set(JAVA_FLOAT_UNALIGNED, 20, partition.bounds().min.y);
+            seg.set(JAVA_FLOAT_UNALIGNED, 24, partition.bounds().min.z);
+            // flags
+            int flags = FLAG_RESIDENT | (partition.isIndexed() ? FLAG_INDEXED : 0);
+            seg.set(JAVA_INT_UNALIGNED, 28, flags);
+            // boundsMax
+            seg.set(JAVA_FLOAT_UNALIGNED, 32, partition.bounds().max.x);
+            seg.set(JAVA_FLOAT_UNALIGNED, 36, partition.bounds().max.y);
+            seg.set(JAVA_FLOAT_UNALIGNED, 40, partition.bounds().max.z);
+            // pad
+            seg.set(JAVA_INT_UNALIGNED, 44, 0);
+            // tag, sortKey
+            seg.set(JAVA_LONG_UNALIGNED, 48, partition.tag());
+            seg.set(JAVA_LONG_UNALIGNED, 56, partition.sortKey());
+        }
     }
 
     private int findFreeSlot() {

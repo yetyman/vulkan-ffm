@@ -175,6 +175,27 @@ class TransferBatch {
         return view;
     }
 
+    /**
+     * Records a multi-region buffer copy in one {@code vkCmdCopyBuffer} call.
+     * Used by deferred flush to copy scattered dirty ranges efficiently.
+     */
+    GpuCompletion recordMultiRegion(MemorySegment srcHandle, MemorySegment dstHandle,
+                                    long[] srcOffsets, long[] dstOffsets, long[] sizes, int count) {
+        checkOwner("record into");
+        VkCopy.copyBufferMultiRegion(commandBuffer.handle(), srcHandle, dstHandle,
+                srcOffsets, dstOffsets, sizes, count);
+
+        long totalBytes = 0;
+        for (int i = 0; i < count; i++) totalBytes += sizes[i];
+        stagedBytes += totalBytes;
+        pendingCount++;
+        currentCompletion.retain();
+        GpuCompletion view = new TransferCompletion(currentCompletion, this);
+
+        if (stagedBytes >= AUTO_FLUSH_THRESHOLD) flush();
+        return view;
+    }
+
     GpuCompletion flush() {
         checkOwner("flush");
         return flushUnchecked();

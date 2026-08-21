@@ -165,6 +165,7 @@ public class ShaderGenerator {
             sb.append("    // Set ").append(entry.getKey()).append("\n");
             for (ShaderLoader.DescriptorBindingInfo binding : entry.getValue()) {
                 String name = binding.getName() != null ? binding.getName() : "binding" + binding.getBinding();
+                sb.append("    /** Access: ").append(binding.getAccessQualifier().name()).append(" */\n");
                 sb.append("    public final ").append(slotType(binding.getDescriptorType())).append(" ").append(name).append(";\n");
             }
             sb.append("\n");
