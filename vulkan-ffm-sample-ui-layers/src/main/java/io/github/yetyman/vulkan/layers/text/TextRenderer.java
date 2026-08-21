@@ -27,7 +27,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
 
 /**
  * Vulkan rendering backend for GPUDrivenTextLayer.
@@ -65,6 +64,7 @@ public class TextRenderer implements AutoCloseable {
 
     private IBuffer instanceBuffer;
     private int instanceCapacity;
+    private ByteBuffer instanceUploadBuf; // reusable upload buffer
 
     // Per-font-atlas descriptor group, rebuilt whenever the bound atlas or instance buffer
     // handle changes (atlas image is created lazily by FontAtlas.flush(), and the instance
@@ -111,17 +111,14 @@ public class TextRenderer implements AutoCloseable {
 
     /**
      * Renders the accumulated glyph instances from the batch against the given font's atlas.
-     * Must be called once per font per frame that has glyphs to draw (the descriptor set binds
-     * a single atlas at a time; mixing multiple fonts in one batch would need per-font sub-batches
-     * or a texture array, both out of scope for this minimal layer).
      */
     public void render(VkCommandBuffer cmd, Arena frameArena, TextBatch batch, FontRegistry.FontAtlas atlas) {
-        List<GlyphInstance> instances = batch.instances();
-        if (instances.isEmpty()) return;
+        int count = batch.glyphCount();
+        if (count == 0) return;
 
         atlas.flush();
-        ensureInstanceCapacity(instances.size());
-        uploadInstances(instances);
+        ensureInstanceCapacity(count);
+        uploadInstancesFromArray(batch.data(), count);
         ensureDescriptorGroup(atlas);
 
         VkBind.bindPipeline(cmd.handle(), VkPipelineBindPoint.VK_PIPELINE_BIND_POINT_GRAPHICS.value(), pipeline.handle());
@@ -134,7 +131,7 @@ public class TextRenderer implements AutoCloseable {
         VkPushConstantsCmd.pushConstants(cmd.handle(), pipeline.layout(),
             VkShaderStageFlagBits.VK_SHADER_STAGE_VERTEX_BIT.value(), 0, screenSize, 8);
 
-        VkDraw.draw(cmd.handle(), 4, instances.size());
+        VkDraw.draw(cmd.handle(), 4, count);
     }
 
     @Override
@@ -205,16 +202,17 @@ public class TextRenderer implements AutoCloseable {
         allocateInstanceBuffer(newCapacity);
     }
 
-    private void uploadInstances(List<GlyphInstance> instances) {
-        ByteBuffer buf = ByteBuffer.allocate(instances.size() * GlyphInstance.SIZE_BYTES).order(ByteOrder.LITTLE_ENDIAN);
-        for (GlyphInstance g : instances) {
-            buf.putFloat(g.posMinX()).putFloat(g.posMinY());
-            buf.putFloat(g.posMaxX()).putFloat(g.posMaxY());
-            buf.putFloat(g.uvMinX()).putFloat(g.uvMinY());
-            buf.putFloat(g.uvMaxX()).putFloat(g.uvMaxY());
-            buf.putFloat(g.r()).putFloat(g.g()).putFloat(g.b()).putFloat(g.a());
+    private void uploadInstancesFromArray(float[] data, int count) {
+        int byteSize = count * GlyphInstance.SIZE_BYTES;
+        if (instanceUploadBuf == null || instanceUploadBuf.capacity() < byteSize) {
+            instanceUploadBuf = ByteBuffer.allocateDirect(Math.max(byteSize, INITIAL_INSTANCE_CAPACITY * GlyphInstance.SIZE_BYTES))
+                    .order(ByteOrder.LITTLE_ENDIAN);
         }
-        buf.flip();
-        instanceBuffer.write(buf, 0, ctx.vulkan().graphicsVkQueue());
+        instanceUploadBuf.clear().limit(byteSize);
+        // Bulk write via FloatBuffer view
+        java.nio.FloatBuffer fb = instanceUploadBuf.asFloatBuffer();
+        fb.put(data, 0, count * 12);
+        instanceUploadBuf.position(0).limit(byteSize);
+        instanceBuffer.write(instanceUploadBuf, 0, ctx.vulkan().graphicsVkQueue());
     }
 }

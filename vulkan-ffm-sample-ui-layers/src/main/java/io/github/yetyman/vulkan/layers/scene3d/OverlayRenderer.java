@@ -24,7 +24,6 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
 
 /**
  * Vulkan rendering backend for 3D overlay primitives (debug lines, gizmos, annotations).
@@ -72,6 +71,7 @@ public class OverlayRenderer implements AutoCloseable {
     private IBuffer triVertexBuffer;
     private int lineVertexCapacity;
     private int triVertexCapacity;
+    private ByteBuffer uploadBuf; // reusable upload buffer
 
     public OverlayRenderer(UIContext ctx) {
         this.ctx = ctx;
@@ -132,35 +132,42 @@ public class OverlayRenderer implements AutoCloseable {
     public void render(VkCommandBuffer cmd, Arena frameArena, OverlayDrawList drawList, float[] viewProjection) {
         if (drawList.isEmpty()) return;
 
-        List<OverlayVertex> depthTestedLines = drawList.depthTestedLines();
-        List<OverlayVertex> onTopLines = drawList.onTopLines();
-        List<OverlayVertex> depthTestedTris = drawList.depthTestedTris();
-        List<OverlayVertex> onTopTris = drawList.onTopTris();
+        int dtLineVerts = drawList.depthTestedLineVertexCount();
+        int otLineVerts = drawList.onTopLineVertexCount();
+        int dtTriVerts = drawList.depthTestedTriVertexCount();
+        int otTriVerts = drawList.onTopTriVertexCount();
 
-        int totalLineVerts = depthTestedLines.size() + onTopLines.size();
-        int totalTriVerts = depthTestedTris.size() + onTopTris.size();
+        int totalLineVerts = dtLineVerts + otLineVerts;
+        int totalTriVerts = dtTriVerts + otTriVerts;
         ensureLineCapacity(totalLineVerts);
         ensureTriCapacity(totalTriVerts);
 
-        uploadCombined(lineVertexBuffer, depthTestedLines, onTopLines);
-        uploadCombined(triVertexBuffer, depthTestedTris, onTopTris);
+        // Upload line vertex data directly from flat float arrays
+        if (totalLineVerts > 0) {
+            uploadFromFloatArrays(lineVertexBuffer, drawList.depthTestedLineData(), dtLineVerts,
+                    drawList.onTopLineData(), otLineVerts);
+        }
+        if (totalTriVerts > 0) {
+            uploadFromFloatArrays(triVertexBuffer, drawList.depthTestedTriData(), dtTriVerts,
+                    drawList.onTopTriData(), otTriVerts);
+        }
 
         MemorySegment vp = frameArena.allocate(64);
         for (int i = 0; i < 16; i++) {
             vp.set(java.lang.foreign.ValueLayout.JAVA_FLOAT, i * 4L, viewProjection[i]);
         }
 
-        if (!depthTestedLines.isEmpty()) {
-            drawSegment(cmd, frameArena, lineDepthTestedPipeline, lineVertexBuffer, vp, 0, depthTestedLines.size());
+        if (dtLineVerts > 0) {
+            drawSegment(cmd, frameArena, lineDepthTestedPipeline, lineVertexBuffer, vp, 0, dtLineVerts);
         }
-        if (!depthTestedTris.isEmpty()) {
-            drawSegment(cmd, frameArena, triDepthTestedPipeline, triVertexBuffer, vp, 0, depthTestedTris.size());
+        if (dtTriVerts > 0) {
+            drawSegment(cmd, frameArena, triDepthTestedPipeline, triVertexBuffer, vp, 0, dtTriVerts);
         }
-        if (!onTopLines.isEmpty()) {
-            drawSegment(cmd, frameArena, lineOnTopPipeline, lineVertexBuffer, vp, depthTestedLines.size(), onTopLines.size());
+        if (otLineVerts > 0) {
+            drawSegment(cmd, frameArena, lineOnTopPipeline, lineVertexBuffer, vp, dtLineVerts, otLineVerts);
         }
-        if (!onTopTris.isEmpty()) {
-            drawSegment(cmd, frameArena, triOnTopPipeline, triVertexBuffer, vp, depthTestedTris.size(), onTopTris.size());
+        if (otTriVerts > 0) {
+            drawSegment(cmd, frameArena, triOnTopPipeline, triVertexBuffer, vp, dtTriVerts, otTriVerts);
         }
     }
 
@@ -215,20 +222,29 @@ public class OverlayRenderer implements AutoCloseable {
         allocateTriBuffer(newCapacity);
     }
 
-    private void uploadCombined(IBuffer buffer, List<OverlayVertex> first, List<OverlayVertex> second) {
-        int total = first.size() + second.size();
+    private void uploadFromFloatArrays(IBuffer buffer, float[] firstData, int firstVerts,
+                                       float[] secondData, int secondVerts) {
+        int total = firstVerts + secondVerts;
         if (total == 0) return;
-        ByteBuffer buf = ByteBuffer.allocate(total * OverlayVertex.SIZE_BYTES).order(ByteOrder.LITTLE_ENDIAN);
-        writeVertices(buf, first);
-        writeVertices(buf, second);
-        buf.flip();
-        buffer.write(buf, 0, ctx.vulkan().graphicsVkQueue());
-    }
+        int byteSize = total * OverlayVertex.SIZE_BYTES;
 
-    private void writeVertices(ByteBuffer buf, List<OverlayVertex> vertices) {
-        for (OverlayVertex v : vertices) {
-            buf.putFloat(v.x()).putFloat(v.y()).putFloat(v.z());
-            buf.putFloat(v.r()).putFloat(v.g()).putFloat(v.b()).putFloat(v.a());
+        // Reuse or grow the upload buffer
+        if (uploadBuf == null || uploadBuf.capacity() < byteSize) {
+            uploadBuf = ByteBuffer.allocateDirect(Math.max(byteSize, 4096 * OverlayVertex.SIZE_BYTES))
+                    .order(ByteOrder.LITTLE_ENDIAN);
         }
+        uploadBuf.clear().limit(byteSize);
+
+        // Bulk write via FloatBuffer view (avoids per-float bounds check)
+        java.nio.FloatBuffer fb = uploadBuf.asFloatBuffer();
+        if (firstVerts > 0) {
+            fb.put(firstData, 0, firstVerts * 7);
+        }
+        if (secondVerts > 0) {
+            fb.put(secondData, 0, secondVerts * 7);
+        }
+
+        uploadBuf.position(0).limit(byteSize);
+        buffer.write(uploadBuf, 0, ctx.vulkan().graphicsVkQueue());
     }
 }

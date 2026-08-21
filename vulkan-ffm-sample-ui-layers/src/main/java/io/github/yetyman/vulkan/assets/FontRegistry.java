@@ -225,6 +225,37 @@ public class FontRegistry implements AutoCloseable {
         return StbTrueTypeFFM.stbtt_GetCodepointKernAdvance(face.fontInfo, codepointA, codepointB) * scale;
     }
 
+    /**
+     * Returns a reusable kerning context that avoids repeated HashMap lookup and scale
+     * computation when querying multiple kerning pairs for the same font+size combination.
+     * The returned context is NOT thread-safe and must not be retained across frames.
+     */
+    public KerningContext kerningContext(String fontId, float pixelSize) {
+        FontFace face = facesByFont.get(fontId);
+        if (face == null) throw new IllegalStateException("No font loaded for fontId: " + fontId);
+        float scale = StbTrueTypeFFM.stbtt_ScaleForPixelHeight(face.fontInfo, pixelSize);
+        return new KerningContext(face.fontInfo, scale);
+    }
+
+    /**
+     * Pre-resolved kerning context for a font+size pair. Avoids per-character HashMap and
+     * scale computation overhead during text layout.
+     */
+    public static class KerningContext {
+        private final MemorySegment fontInfo;
+        private final float scale;
+
+        KerningContext(MemorySegment fontInfo, float scale) {
+            this.fontInfo = fontInfo;
+            this.scale = scale;
+        }
+
+        /** @return kerning advance in pixels between codepoint A and B. */
+        public float advance(int codepointA, int codepointB) {
+            return StbTrueTypeFFM.stbtt_GetCodepointKernAdvance(fontInfo, codepointA, codepointB) * scale;
+        }
+    }
+
     @Override
     public void close() {
         for (FontAtlas atlas : atlasesByFont.values()) {
@@ -280,7 +311,7 @@ public class FontRegistry implements AutoCloseable {
         private final String fontId;
         private final int width;
         private final int height;
-        private final Map<Long, GlyphInfo> glyphs = new HashMap<>();
+        private final LongKeyedGlyphMap glyphs = new LongKeyedGlyphMap();
 
         // CPU-side staging bitmap mirroring the full atlas - single-channel alpha coverage.
         private final byte[] cpuPixels;
@@ -497,6 +528,85 @@ public class FontRegistry implements AutoCloseable {
                 this.y = y;
                 this.height = height;
                 this.cursorX = 0;
+            }
+        }
+    }
+
+    /**
+     * Minimal open-addressing hash map with primitive long keys to avoid auto-boxing.
+     * Linear probing, power-of-two capacity, 0.75 load factor.
+     */
+    private static final class LongKeyedGlyphMap {
+        private static final long EMPTY_KEY = Long.MIN_VALUE;
+        private long[] keys;
+        private GlyphInfo[] values;
+        private int size;
+        private int threshold;
+
+        LongKeyedGlyphMap() {
+            int capacity = 256;
+            keys = new long[capacity];
+            values = new GlyphInfo[capacity];
+            threshold = (int) (capacity * 0.75f);
+            java.util.Arrays.fill(keys, EMPTY_KEY);
+        }
+
+        void clear() {
+            java.util.Arrays.fill(keys, EMPTY_KEY);
+            java.util.Arrays.fill(values, null);
+            size = 0;
+        }
+
+        GlyphInfo get(long key) {
+            int mask = keys.length - 1;
+            int idx = (int) (key ^ (key >>> 32)) & mask;
+            while (true) {
+                long k = keys[idx];
+                if (k == key) return values[idx];
+                if (k == EMPTY_KEY) return null;
+                idx = (idx + 1) & mask;
+            }
+        }
+
+        void put(long key, GlyphInfo value) {
+            if (size >= threshold) resize();
+            int mask = keys.length - 1;
+            int idx = (int) (key ^ (key >>> 32)) & mask;
+            while (true) {
+                long k = keys[idx];
+                if (k == EMPTY_KEY) {
+                    keys[idx] = key;
+                    values[idx] = value;
+                    size++;
+                    return;
+                }
+                if (k == key) {
+                    values[idx] = value;
+                    return;
+                }
+                idx = (idx + 1) & mask;
+            }
+        }
+
+        private void resize() {
+            int newCap = keys.length * 2;
+            long[] oldKeys = keys;
+            GlyphInfo[] oldValues = values;
+            keys = new long[newCap];
+            values = new GlyphInfo[newCap];
+            java.util.Arrays.fill(keys, EMPTY_KEY);
+            threshold = (int) (newCap * 0.75f);
+            size = 0;
+            int mask = newCap - 1;
+            for (int i = 0; i < oldKeys.length; i++) {
+                if (oldKeys[i] != EMPTY_KEY) {
+                    long key = oldKeys[i];
+                    int idx = (int) (key ^ (key >>> 32)) & mask;
+                    while (keys[idx] != EMPTY_KEY) idx = (idx + 1) & mask;
+                    keys[idx] = key;
+                    values[idx] = oldValues[i];
+                    size++;
+                }
             }
         }
     }
