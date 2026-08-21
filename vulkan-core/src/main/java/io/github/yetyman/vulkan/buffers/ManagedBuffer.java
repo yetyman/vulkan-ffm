@@ -286,13 +286,8 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
     @Override
     public BufferWriteScope acquireWrite(long offset, long size, VkQueue queue) {
         if (deferred && observability instanceof MirrorCapable mirror) {
-            // In deferred mode: hand back the mirror's memory, mark dirty on close, no GPU copy
             MemorySegment target = mirror.mirrorMemory().asSlice(offset, size);
-            return BufferWriteScope.of(target, offset, size,
-                    () -> {
-                        cpuDirty.markDirty(offset, size);
-                        return GpuCompletion.completed();
-                    });
+            return DeferredMirrorWriteScope.acquire(target, offset, size, cpuDirty);
         }
         return transfer.acquireWrite(context, offset, size, queue);
     }
@@ -302,7 +297,7 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         // If observability provides readable memory, use it (zero-cost for mirrored/inherent)
         MemorySegment readable = observability.acquireReadable(offset, size);
         if (readable != null) {
-            return BufferReadScope.of(readable, offset, size, null);
+            return ObservableReadScope.acquire(readable, offset, size);
         }
         return transfer.acquireRead(context, offset, size, queue);
     }
