@@ -194,23 +194,9 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         int regionCount = cpuDirty.dirtyRegionCount();
         if (regionCount == 0) return GpuCompletion.completed();
 
-        // Collect dirty regions
-        long[] offsets = new long[regionCount];
-        long[] sizes = new long[regionCount];
-        DirtyRegionIterator it = cpuDirty.dirtyRegions();
-        int i = 0;
-        while (it.hasNext() && i < regionCount) {
-            it.next();
-            offsets[i] = it.offset();
-            sizes[i] = it.size();
-            i++;
-        }
-        int actualCount = i;
-
-        // Record the multi-region copy from mirror -> primary
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
-        GpuCompletion completion = batch.recordMultiRegion(
-                mirror.mirrorHandle(), vkBuffer.handle(), offsets, offsets, sizes, actualCount);
+        GpuCompletion completion = batch.recordMultiRegionFromIterator(
+                mirror.mirrorHandle(), vkBuffer.handle(), cpuDirty.dirtyRegions(), regionCount);
 
         cpuDirty.clear();
         return completion;
@@ -238,23 +224,9 @@ public final class ManagedBuffer implements IBuffer, SparseCapable {
         int regionCount = gpuDirty.dirtyRegionCount();
         if (regionCount == 0) return GpuCompletion.completed();
 
-        // Collect dirty regions
-        long[] offsets = new long[regionCount];
-        long[] sizes = new long[regionCount];
-        DirtyRegionIterator it = gpuDirty.dirtyRegions();
-        int i = 0;
-        while (it.hasNext() && i < regionCount) {
-            it.next();
-            offsets[i] = it.offset();
-            sizes[i] = it.size();
-            i++;
-        }
-        int actualCount = i;
-
-        // Record multi-region copy from primary -> mirror
         TransferBatch batch = TransferBatchManager.getOrCreate(device, queue);
-        GpuCompletion completion = batch.recordMultiRegion(
-                vkBuffer.handle(), mirror.mirrorHandle(), offsets, offsets, sizes, actualCount);
+        GpuCompletion completion = batch.recordMultiRegionFromIterator(
+                vkBuffer.handle(), mirror.mirrorHandle(), gpuDirty.dirtyRegions(), regionCount);
 
         gpuDirty.clear();
         return completion;

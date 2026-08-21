@@ -2,6 +2,7 @@ package io.github.yetyman.vulkan.buffers;
 
 import io.github.yetyman.vulkan.*;
 import io.github.yetyman.vulkan.command.VkCopy;
+import io.github.yetyman.vulkan.util.BumpAllocator;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -196,6 +197,25 @@ class TransferBatch {
         return view;
     }
 
+    /**
+     * Records a multi-region buffer copy directly from a {@link DirtyRegionIterator},
+     * with no intermediate arrays. Source and destination offsets are identical (mirror pattern).
+     */
+    GpuCompletion recordMultiRegionFromIterator(MemorySegment srcHandle, MemorySegment dstHandle,
+                                                DirtyRegionIterator it, int count) {
+        checkOwner("record into");
+        long totalBytes = VkCopy.copyBufferMultiRegionFromIterator(
+                commandBuffer.handle(), srcHandle, dstHandle, it, count);
+
+        stagedBytes += totalBytes;
+        pendingCount++;
+        currentCompletion.retain();
+        GpuCompletion view = new TransferCompletion(currentCompletion, this);
+
+        if (stagedBytes >= AUTO_FLUSH_THRESHOLD) flush();
+        return view;
+    }
+
     GpuCompletion flush() {
         checkOwner("flush");
         return flushUnchecked();
@@ -281,7 +301,9 @@ class TransferBatch {
      * any thread.
      */
     private void submit(long signalValue) {
-        try (Arena tmp = Arena.ofConfined()) {
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
             VkSubmitBuilder builder = new VkSubmitBuilder().commandBuffer(commandBuffer);
 
             for (TimelineWait wait : pendingWaits) {
@@ -292,7 +314,7 @@ class TransferBatch {
                 signal.semaphore.addSignalTo(builder, signal.value);
             }
 
-            MemorySegment submitInfo = builder.build(tmp);
+            MemorySegment submitInfo = builder.build(ba);
             VkResult.fromInt(vkQueueSubmit(queue.handle(), 1, submitInfo, MemorySegment.NULL)).check();
             timeline.recordSignal(signalValue);
             for (TimelineWait signal : pendingSignals) {
@@ -300,6 +322,8 @@ class TransferBatch {
             }
             pendingWaits.clear();
             pendingSignals.clear();
+        } finally {
+            ba.pop();
         }
     }
 

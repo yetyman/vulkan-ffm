@@ -109,6 +109,45 @@ public record VkCopy(MemorySegment src, MemorySegment dst, long srcOffset, long 
         copyBufferMultiRegion(cmd, src, dst, offsets, offsets, sizes, count);
     }
 
+    /**
+     * Issues a multi-region buffer copy directly from a {@link DirtyRegionIterator},
+     * writing straight into bump-allocated VkBufferCopy structs with no intermediate arrays.
+     * Source and destination offsets are identical (mirror copy pattern).
+     *
+     * @param it         iterator over dirty regions (consumed by this call)
+     * @param count      number of regions to consume from the iterator
+     * @return total bytes across all regions (for staged-bytes tracking)
+     */
+    public static long copyBufferMultiRegionFromIterator(MemorySegment cmd, MemorySegment src, MemorySegment dst,
+                                                         io.github.yetyman.vulkan.buffers.DirtyRegionIterator it, int count) {
+        if (count <= 0) return 0;
+        BumpAllocator ba = BumpAllocator.get();
+        ba.push();
+        try {
+            long regionSize = VkBufferCopy.sizeof();
+            MemorySegment regions = ba.alloc(regionSize * count);
+            long totalBytes = 0;
+            int i = 0;
+            while (it.hasNext() && i < count) {
+                it.next();
+                MemorySegment region = regions.asSlice(i * regionSize, regionSize);
+                long offset = it.offset();
+                long size = it.size();
+                VkBufferCopy.srcOffset(region, offset);
+                VkBufferCopy.dstOffset(region, offset);
+                VkBufferCopy.size(region, size);
+                totalBytes += size;
+                i++;
+            }
+            if (i > 0) {
+                VulkanFFM.vkCmdCopyBuffer(cmd, src, dst, i, regions);
+            }
+            return totalBytes;
+        } finally {
+            ba.pop();
+        }
+    }
+
     // Static helpers for buffer-to-image copies
     public static void copyBufferToImage(VkCommandBuffer cmd, MemorySegment buffer, MemorySegment image, int imageLayout, int width, int height) {
         copyBufferToImage(cmd.handle(), buffer, image, imageLayout, width, height, 1);

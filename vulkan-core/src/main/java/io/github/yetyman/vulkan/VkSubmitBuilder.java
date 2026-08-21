@@ -6,6 +6,7 @@ import io.github.yetyman.vulkan.generated.VkTimelineSemaphoreSubmitInfo;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +37,7 @@ public class VkSubmitBuilder {
         return this;
     }
 
-    public MemorySegment build(Arena arena) {
+    public MemorySegment build(SegmentAllocator arena) {
         MemorySegment submitInfo = VkSubmitInfo.allocate(arena);
         VkSubmitInfo.sType(submitInfo, VkStructureType.VK_STRUCTURE_TYPE_SUBMIT_INFO.value());
 
